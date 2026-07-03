@@ -1,0 +1,3 @@
+Put all past proposal files here.
+Supported formats: PDF, DOCX, TXT
+Include winning AND losing proposals.
