@@ -1,0 +1,206 @@
+2026-06-30 13:03:10.638 | DEBUG    | __main__:read_pdf:170 - PDF: 250708_Charles Gikanga Kamau.pdf → 75747 chars
+2026-06-30 13:03:20.146 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. Charles Gikanga Kamau
+2026-06-30 13:03:44.793 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Eng. Charles Gikanga Kamau: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:03:45.179 | DEBUG    | __main__:read_docx:201 - DOCX: ABDI.docx → 7990 chars
+2026-06-30 13:03:52.157 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 13:04:21.740 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Salahweli Harun Abdi: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:04:22.708 | DEBUG    | __main__:read_pdf:170 - PDF: AHMED HASSAN CV 2022 sept-2.pdf → 13530 chars
+2026-06-30 13:04:31.275 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ahmed Adan Hassan
+2026-06-30 13:04:37.564 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Ahmed Adan Hassan: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:04:37.928 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifatah Hussein Aden-cv IOM.docx → 14690 chars
+2026-06-30 13:04:46.486 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 13:04:56.227 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Aden Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:04:56.624 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifitah hussein aden- enviromental health.docx → 11104 chars
+2026-06-30 13:05:04.766 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 13:05:12.672 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Aden Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:05:13.046 | DEBUG    | __main__:read_docx:201 - DOCX: Abdikadir CV IOM.......docx → 19763 chars
+2026-06-30 13:05:22.958 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdikadir Adan Hussein
+2026-06-30 13:05:25.906 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdikadir Adan Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:05:26.312 | DEBUG    | __main__:read_docx:201 - DOCX: Abdiladif Ahmed_climate change.docx → 12206 chars
+2026-06-30 13:05:34.060 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdiladif Ahmed Haret
+2026-06-30 13:05:36.925 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdiladif Ahmed Haret: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:05:37.307 | DEBUG    | __main__:read_docx:201 - DOCX: Akama Maiko Erick.docx → 8812 chars
+2026-06-30 13:05:44.521 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Akama Maiko Erick
+2026-06-30 13:05:48.515 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Akama Maiko Erick: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:05:49.362 | DEBUG    | __main__:read_pdf:170 - PDF: Amina CV 2025 -FINAL .pdf → 7819 chars
+2026-06-30 13:05:55.652 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Aden Maalim
+2026-06-30 13:06:04.698 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Amina Aden Maalim: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:06:05.079 | DEBUG    | __main__:read_docx:201 - DOCX: Amina aden_climate change.docx → 6141 chars
+2026-06-30 13:06:11.944 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Aden Maalim
+2026-06-30 13:06:46.550 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Amina Aden Maalim: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:06:47.855 | DEBUG    | __main__:read_pdf:170 - PDF: CV Updated -Dr Mohamed Muhumed Yussuf.pdf → 21833 chars
+2026-06-30 13:06:56.588 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Mohamed Muhumed Yussuf
+2026-06-30 13:07:02.033 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Dr Mohamed Muhumed Yussuf: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:07:02.424 | DEBUG    | __main__:read_docx:201 - DOCX: CV- Kogo_Apr 25.docx → 12438 chars
+2026-06-30 13:07:13.151 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Paul Kogo
+2026-06-30 13:07:27.684 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Paul Kogo: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:07:28.072 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Dr Catherine  _ Gender inclussion specilist.docx → 21787 chars
+2026-06-30 13:07:37.744 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Catherine Minayo Chegero
+2026-06-30 13:07:40.293 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Dr Catherine Minayo Chegero: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:07:40.688 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Prof JOSEPH KAMUZHANJE.docx → 26583 chars
+2026-06-30 13:07:50.079 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Professor Joseph Kamuzhanje
+2026-06-30 13:07:50.992 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Professor Joseph Kamuzhanje: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:07:51.588 | DEBUG    | __main__:read_docx:201 - DOCX: Charles Gikanga Kamau- civil engineer.docx → 36355 chars
+2026-06-30 13:08:02.477 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Charles Gikanga Kamau
+2026-06-30 13:08:25.478 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Charles Gikanga Kamau: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:08:27.060 | DEBUG    | __main__:read_pdf:170 - PDF: Dr Chris_Evaluation Specialist (Quantitative & Qualitative Methods).pdf → 17322 chars
+2026-06-30 13:08:34.618 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Christopher Njuguna Kamau
+2026-06-30 13:09:43.109 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Christopher Njuguna Kamau: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:09:43.513 | DEBUG    | __main__:read_docx:201 - DOCX: ISMAIL ARALE CURRENT RESUME.docx → 11841 chars
+2026-06-30 13:09:51.102 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ismail Arale Ali
+2026-06-30 13:09:55.398 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Ismail Arale Ali: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:09:55.775 | DEBUG    | __main__:read_docx:201 - DOCX: Mugove_ Resume.docx → 5326 chars
+2026-06-30 13:10:01.878 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Mugove Kwashirai Chakurira
+2026-06-30 13:10:09.529 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Mugove Kwashirai Chakurira: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:10:09.845 | ERROR    | __main__:read_docx:204 - DOCX read failed for data/cvs/Nyasha Gender and SGBV Program Specialist-CV EU format .doc: File is not a zip file
+2026-06-30 13:10:09.952 | DEBUG    | __main__:read_docx:201 - DOCX: PUE Expert.docx → 10763 chars
+2026-06-30 13:10:19.161 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. George Otula PE
+2026-06-30 13:10:33.011 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Eng. George Otula PE: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:10:33.466 | DEBUG    | __main__:read_docx:201 - DOCX: Salahweli Harun-cv IOM.docx → 18922 chars
+2026-06-30 13:10:42.436 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 13:10:44.934 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Salahweli Harun Abdi: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:10:45.310 | DEBUG    | __main__:read_docx:201 - DOCX: Shafat A . CV...docx → 10982 chars
+2026-06-30 13:10:52.993 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Diis Shafat
+2026-06-30 13:11:03.097 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Diis Shafat: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:11:03.473 | DEBUG    | __main__:read_docx:201 - DOCX: Shafat A . CV.._1.docx → 10982 chars
+2026-06-30 13:11:11.269 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Diis Shafat
+2026-06-30 13:11:14.130 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Diis Shafat: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:11:14.519 | DEBUG    | __main__:read_docx:201 - DOCX: Suleiman Ahmed Cortech CV.docx → 14100 chars
+2026-06-30 13:11:23.097 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Suleiman Ahmed Osman
+2026-06-30 13:11:25.224 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Suleiman Ahmed Osman: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:11:25.911 | DEBUG    | __main__:read_pdf:170 - PDF: amina -updated CV-2024.pdf → 5401 chars
+2026-06-30 13:11:32.169 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Mohamed Ibrahim
+2026-06-30 13:11:42.187 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Amina Mohamed Ibrahim: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:11:42.584 | DEBUG    | __main__:read_docx:201 - DOCX: mike.docx → 21940 chars
+2026-06-30 13:11:49.897 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Erick Maiko Akama
+2026-06-30 13:11:52.161 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Erick Maiko Akama: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "based_in"\'}')
+2026-06-30 13:11:52.633 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-06-30 13:12:00.417 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge)
+2026-06-30 13:12:30.491 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge): ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:12:31.223 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to C40 Ethiopia.docx → 104074 chars
+2026-06-30 13:12:40.533 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa
+2026-06-30 13:12:50.654 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-06-30 13:12:59.095 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Refugee Labour Market Study and Strategic Advocacy Support
+2026-06-30 13:13:05.027 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Refugee Labour Market Study and Strategic Advocacy Support: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:13:05.554 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-06-30 13:13:13.409 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-06-30 13:13:27.133 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:13:27.717 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IGAD.docx → 117302 chars
+2026-06-30 13:13:37.724 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II)
+2026-06-30 13:13:44.335 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II): ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:13:44.850 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IOM 18 Nov 2025.docx → 78269 chars
+2026-06-30 13:13:54.514 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Clan Dynamics in Baidoa Research Study
+2026-06-30 13:13:59.858 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Clan Dynamics in Baidoa Research Study: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:14:00.270 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal, CORTEC.docx → 15294 chars
+2026-06-30 13:14:07.220 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Survey of applicable expert remuneration fees in comparable organizations in Somalia
+2026-06-30 13:14:28.273 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Survey of applicable expert remuneration fees in comparable organizations in Somalia: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:14:28.740 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal.docx → 82976 chars
+2026-06-30 13:14:37.237 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy – FY26
+2026-06-30 13:14:58.738 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy – FY26: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:15:03.160 | DEBUG    | __main__:read_pdf:170 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
+2026-06-30 13:15:11.826 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya
+2026-06-30 13:15:22.491 | ERROR    | __main__:add_proposal_to_airtable:581 - Failed to add proposal Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_VALUE_FOR_COLUMN\', \'message\': \'Field "year" cannot accept the provided value\'}')
+2026-06-30 13:56:37.328 | DEBUG    | __main__:read_pdf:170 - PDF: 250708_Charles Gikanga Kamau.pdf → 75747 chars
+2026-06-30 13:56:47.177 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. Charles Gikanga Kamau
+2026-06-30 13:56:52.272 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Eng. Charles Gikanga Kamau: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:56:52.648 | DEBUG    | __main__:read_docx:201 - DOCX: ABDI.docx → 7990 chars
+2026-06-30 13:57:00.160 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 13:57:25.733 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Salahweli Harun Abdi: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:57:26.707 | DEBUG    | __main__:read_pdf:170 - PDF: AHMED HASSAN CV 2022 sept-2.pdf → 13530 chars
+2026-06-30 13:57:35.972 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ahmed Adan Hassan
+2026-06-30 13:57:38.114 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Ahmed Adan Hassan: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:57:38.485 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifatah Hussein Aden-cv IOM.docx → 14690 chars
+2026-06-30 13:57:47.019 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 13:58:01.982 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Aden Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:58:02.362 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifitah hussein aden- enviromental health.docx → 11104 chars
+2026-06-30 13:58:10.205 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 13:59:02.229 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdifatah Aden Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:59:02.598 | DEBUG    | __main__:read_docx:201 - DOCX: Abdikadir CV IOM.......docx → 19763 chars
+2026-06-30 13:59:12.031 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdikadir Adan Hussein
+2026-06-30 13:59:20.408 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdikadir Adan Hussein: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:59:20.817 | DEBUG    | __main__:read_docx:201 - DOCX: Abdiladif Ahmed_climate change.docx → 12206 chars
+2026-06-30 13:59:28.199 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdiladif Ahmed Haret
+2026-06-30 13:59:30.293 | ERROR    | __main__:add_consultant_to_airtable:526 - Failed to add consultant Abdiladif Ahmed Haret: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 13:59:30.668 | DEBUG    | __main__:read_docx:201 - DOCX: Akama Maiko Erick.docx → 8812 chars
+2026-06-30 13:59:37.796 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Akama Maiko Erick
+2026-06-30 14:05:40.719 | DEBUG    | __main__:read_pdf:170 - PDF: 250708_Charles Gikanga Kamau.pdf → 75747 chars
+2026-06-30 14:05:50.618 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Charles Gikanga Kamau
+2026-06-30 14:05:53.798 | ERROR    | __main__:add_consultant_to_airtable:527 - Failed to add consultant Charles Gikanga Kamau: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/CONSULTANTS', '{\'type\': \'UNKNOWN_FIELD_NAME\', \'message\': \'Unknown field name: "day_rate_usd"\'}')
+2026-06-30 14:05:54.170 | DEBUG    | __main__:read_docx:201 - DOCX: ABDI.docx → 7990 chars
+2026-06-30 14:06:02.217 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 14:25:16.820 | DEBUG    | __main__:read_pdf:170 - PDF: 250708_Charles Gikanga Kamau.pdf → 75747 chars
+2026-06-30 14:25:26.973 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. Charles Gikanga Kamau
+2026-06-30 14:25:30.221 | DEBUG    | __main__:read_docx:201 - DOCX: ABDI.docx → 7990 chars
+2026-06-30 14:25:37.868 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 14:25:41.267 | DEBUG    | __main__:read_pdf:170 - PDF: AHMED HASSAN CV 2022 sept-2.pdf → 13530 chars
+2026-06-30 14:25:49.131 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ahmed Adan Hassan
+2026-06-30 14:25:59.216 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifatah Hussein Aden-cv IOM.docx → 14690 chars
+2026-06-30 14:26:08.639 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 14:26:15.826 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifitah hussein aden- enviromental health.docx → 11104 chars
+2026-06-30 14:26:26.612 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-06-30 14:26:32.226 | DEBUG    | __main__:read_docx:201 - DOCX: Abdikadir CV IOM.......docx → 19763 chars
+2026-06-30 14:26:44.886 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdikadir Adan Hussein
+2026-06-30 14:26:47.995 | DEBUG    | __main__:read_docx:201 - DOCX: Abdiladif Ahmed_climate change.docx → 12206 chars
+2026-06-30 14:26:55.227 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdiladif Ahmed Haret
+2026-06-30 14:26:57.935 | DEBUG    | __main__:read_docx:201 - DOCX: Akama Maiko Erick.docx → 8812 chars
+2026-06-30 14:27:05.249 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Akama Maiko Erick
+2026-06-30 14:27:08.693 | DEBUG    | __main__:read_pdf:170 - PDF: Amina CV 2025 -FINAL .pdf → 7819 chars
+2026-06-30 14:27:16.208 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Aden Maalim
+2026-06-30 14:27:19.824 | DEBUG    | __main__:read_docx:201 - DOCX: Amina aden_climate change.docx → 6141 chars
+2026-06-30 14:27:26.770 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Aden Maalim
+2026-06-30 14:27:34.758 | DEBUG    | __main__:read_pdf:170 - PDF: CV Updated -Dr Mohamed Muhumed Yussuf.pdf → 21833 chars
+2026-06-30 14:27:44.130 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Mohamed Muhumed Yussuf
+2026-06-30 14:27:47.190 | DEBUG    | __main__:read_docx:201 - DOCX: CV- Kogo_Apr 25.docx → 12438 chars
+2026-06-30 14:27:58.401 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Paul Kogo
+2026-06-30 14:28:02.567 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Dr Catherine  _ Gender inclussion specilist.docx → 21787 chars
+2026-06-30 14:28:11.660 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Catherine Minayo Chegero
+2026-06-30 14:28:19.939 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Prof JOSEPH KAMUZHANJE.docx → 26583 chars
+2026-06-30 14:28:29.634 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Professor Joseph Kamuzhanje
+2026-06-30 14:28:35.102 | DEBUG    | __main__:read_docx:201 - DOCX: Charles Gikanga Kamau- civil engineer.docx → 36355 chars
+2026-06-30 14:28:45.423 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Charles Gikanga Kamau
+2026-06-30 14:28:49.423 | DEBUG    | __main__:read_pdf:170 - PDF: Dr Chris_Evaluation Specialist (Quantitative & Qualitative Methods).pdf → 17322 chars
+2026-06-30 14:28:58.101 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Christopher Njuguna Kamau
+2026-06-30 14:29:00.666 | DEBUG    | __main__:read_docx:201 - DOCX: ISMAIL ARALE CURRENT RESUME.docx → 11841 chars
+2026-06-30 14:29:07.908 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ismail Arale Ali
+2026-06-30 14:29:10.476 | DEBUG    | __main__:read_docx:201 - DOCX: Mugove_ Resume.docx → 5326 chars
+2026-06-30 14:29:17.097 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Mugove Kwashirai Chakurira
+2026-06-30 14:29:20.776 | ERROR    | __main__:read_docx:204 - DOCX read failed for data/cvs/Nyasha Gender and SGBV Program Specialist-CV EU format .doc: File is not a zip file
+2026-06-30 14:29:20.819 | DEBUG    | __main__:read_docx:201 - DOCX: PUE Expert.docx → 10763 chars
+2026-06-30 14:29:28.780 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. George Otula PE
+2026-06-30 14:29:33.060 | DEBUG    | __main__:read_docx:201 - DOCX: Salahweli Harun-cv IOM.docx → 18922 chars
+2026-06-30 14:29:41.813 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-06-30 14:29:46.063 | DEBUG    | __main__:read_docx:201 - DOCX: Shafat A . CV...docx → 10982 chars
+2026-06-30 14:29:54.406 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Diis Shafat
+2026-06-30 14:30:00.444 | DEBUG    | __main__:read_docx:201 - DOCX: Shafat A . CV.._1.docx → 10982 chars
+2026-06-30 14:30:08.255 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Diis Shafat
+2026-06-30 14:30:11.745 | DEBUG    | __main__:read_docx:201 - DOCX: Suleiman Ahmed Cortech CV.docx → 14100 chars
+2026-06-30 14:30:19.901 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Suleiman Ahmed Osman
+2026-06-30 14:30:24.197 | DEBUG    | __main__:read_pdf:170 - PDF: amina -updated CV-2024.pdf → 5401 chars
+2026-06-30 14:30:30.757 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Mohamed Ibrahim
+2026-06-30 14:30:33.717 | DEBUG    | __main__:read_docx:201 - DOCX: mike.docx → 21940 chars
+2026-06-30 14:30:41.090 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Erick Maiko Akama
+2026-06-30 14:30:47.799 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-06-30 14:30:56.258 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge)
+2026-06-30 14:31:06.874 | ERROR    | __main__:add_proposal_to_airtable:582 - Failed to add proposal Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge): ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_MULTIPLE_CHOICE_OPTIONS\', \'message\': \'Insufficient permissions to create new select option ""Research""\'}')
+2026-06-30 14:31:08.016 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to C40 Ethiopia.docx → 104074 chars
+2026-06-30 14:31:16.839 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa
+2026-06-30 14:31:42.573 | ERROR    | __main__:add_proposal_to_airtable:582 - Failed to add proposal Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa: ('422 Client Error: Unprocessable Entity for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS', '{\'type\': \'INVALID_MULTIPLE_CHOICE_OPTIONS\', \'message\': \'Insufficient permissions to create new select option ""Capacity Building""\'}')
+2026-06-30 14:31:43.419 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-06-30 14:41:21.354 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-06-30 14:41:30.335 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge)
+2026-06-30 14:41:43.086 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to C40 Ethiopia.docx → 104074 chars
+2026-06-30 14:41:52.540 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa
+2026-06-30 14:42:05.922 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-06-30 14:42:15.083 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Refugee Labour Market Study and Strategic Advocacy Support
+2026-06-30 14:42:26.208 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-06-30 14:42:36.177 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-06-30 14:42:41.747 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IGAD.docx → 117302 chars
+2026-06-30 14:42:51.845 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II)
+2026-06-30 14:42:58.824 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IOM 18 Nov 2025.docx → 78269 chars
+2026-06-30 14:43:08.027 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Clan Dynamics in Baidoa Research Study
+2026-06-30 14:43:15.807 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal, CORTEC.docx → 15294 chars
+2026-06-30 14:43:28.812 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Survey of applicable expert remuneration fees in comparable organizations in Somalia
+2026-06-30 14:43:43.838 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal.docx → 82976 chars
+2026-06-30 14:43:53.203 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy – FY26
+2026-06-30 14:44:11.564 | DEBUG    | __main__:read_pdf:170 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
+2026-06-30 14:44:19.502 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya

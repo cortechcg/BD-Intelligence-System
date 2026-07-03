@@ -1,0 +1,287 @@
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-02 12:00:05         │
+╰─────────────────────────────╯
+2026-07-02 12:00:05.339 | INFO     | __main__:run_pipeline:185 - Collecting from tender sources...
+2026-07-02 12:00:05.339 | INFO     | monitors.rss_monitor:monitor_rss_feeds:76 - Checking RSS: ReliefWeb Jobs & Tenders
+2026-07-02 12:00:07.710 | INFO     | monitors.rss_monitor:monitor_rss_feeds:80 -   Found 20 entries
+2026-07-02 12:00:10.015 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: 21528 Project Support Unit (PSU) Coordinator (P3)...
+2026-07-02 12:00:10.358 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: Solar Energy Consultant...
+2026-07-02 12:00:11.548 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: Operations Senior Officer (Ukrainian Operations Medical Spec...
+2026-07-02 12:00:11.955 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: 21609 Deputy Regional Health Assessment Programme Coordinato...
+2026-07-02 12:00:12.367 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: 21527 Resources Management Officer (P)...
+2026-07-02 12:00:12.696 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: 21526 Programme Officer (Immigration and Border Governance) ...
+2026-07-02 12:00:13.185 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: LEBANON - FINANCE MANAGER (M/F) - BEIRUT...
+2026-07-02 12:00:14.413 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:106 -   NEW: Operations Senior Officer (Ukrainian Operations Medical Spec...
+2026-07-02 12:00:17.506 | INFO     | monitors.rss_monitor:monitor_rss_feeds:76 - Checking RSS: World Bank Procurement
+2026-07-02 12:00:18.847 | INFO     | monitors.rss_monitor:monitor_rss_feeds:80 -   Found 0 entries
+2026-07-02 12:00:18.848 | INFO     | monitors.rss_monitor:monitor_rss_feeds:76 - Checking RSS: UNGM Notices
+2026-07-02 12:00:19.848 | INFO     | monitors.rss_monitor:monitor_rss_feeds:80 -   Found 0 entries
+2026-07-02 12:00:19.848 | INFO     | monitors.rss_monitor:monitor_rss_feeds:117 - Total new opportunities from RSS: 8
+
+Found 8 new opportunities
+
+Processing: 21528 Project Support Unit (PSU) Coordinator (P3)
+2026-07-02 12:00:19.876 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:00:21.908 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 9628 chars from html: https://reliefweb.int/job/4219186/21528-project-support-unit...
+2026-07-02 12:00:22.307 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:00:22.308 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: 21528 Project Support Unit (PSU) Coordinator (P3)...
+2026-07-02 12:00:40.693 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 12:00:41.554 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Project Support Unit (PSU) Coordinator (P3)
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: Solar Energy Consultant
+2026-07-02 12:00:41.558 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:00:43.081 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 13124 chars from html: https://reliefweb.int/job/4219183/solar-energy-consultant...
+2026-07-02 12:00:43.910 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:00:43.910 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Solar Energy Consultant...
+2026-07-02 12:01:03.778 | ERROR    | intelligence.analyzer:analyze_rfp:182 - RFP analysis failed: 'ThinkingBlock' object has no attribute 'text'
+2026-07-02 12:01:04.392 | ERROR    | __main__:process_opportunity:62 -   Analysis failed. Skipping.
+
+Processing: Operations Senior Officer (Ukrainian Operations Medical Spec
+2026-07-02 12:01:04.394 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:01:06.134 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 3568 chars from html: https://reliefweb.int/job/4219176/operations-senior-officer-...
+2026-07-02 12:01:06.959 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:01:06.959 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Operations Senior Officer (Ukrainian Operations Medical Spec...
+2026-07-02 12:01:16.618 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 2
+  Score: 2/100 | Recommendation: NO-BID
+2026-07-02 12:01:17.342 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Operations Senior Officer (Ukrainian Operations Medical Specialist)
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: 21609 Deputy Regional Health Assessment Programme Coordinato
+2026-07-02 12:01:17.346 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:01:18.933 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 9969 chars from html: https://reliefweb.int/job/4219173/21609-deputy-regional-heal...
+2026-07-02 12:01:19.343 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:01:19.344 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: 21609 Deputy Regional Health Assessment Programme Coordinato...
+2026-07-02 12:01:29.686 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 12:01:30.292 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Deputy Regional Health Assessment Programme Coordinator (P4)
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: 21527 Resources Management Officer (P)
+2026-07-02 12:01:30.296 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:01:31.824 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6914 chars from html: https://reliefweb.int/job/4219169/21527-resources-management...
+2026-07-02 12:01:32.162 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:01:32.162 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: 21527 Resources Management Officer (P)...
+2026-07-02 12:01:39.215 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 12:01:39.896 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Resources Management Officer (P) - Mozambique
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: 21526 Programme Officer (Immigration and Border Governance) 
+2026-07-02 12:01:39.902 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:01:41.565 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7816 chars from html: https://reliefweb.int/job/4219168/21526-programme-officer-im...
+2026-07-02 12:01:42.079 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:01:42.079 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: 21526 Programme Officer (Immigration and Border Governance) ...
+2026-07-02 12:01:51.405 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 2
+  Score: 2/100 | Recommendation: NO-BID
+2026-07-02 12:01:52.130 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Programme Officer (Immigration and Border Governance) (P2)
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: LEBANON - FINANCE MANAGER (M/F) - BEIRUT
+2026-07-02 12:01:52.135 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:01:54.062 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6927 chars from html: https://reliefweb.int/job/4218964/lebanon-finance-manager-mf...
+2026-07-02 12:01:54.470 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:01:54.470 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: LEBANON - FINANCE MANAGER (M/F) - BEIRUT...
+2026-07-02 12:02:04.814 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 2
+  Score: 2/100 | Recommendation: NO-BID
+2026-07-02 12:02:05.398 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Lebanon - Finance Manager (M/F) - Beirut
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: Operations Senior Officer (Ukrainian Operations Medical Spec
+2026-07-02 12:02:05.403 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 12:02:06.667 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 3591 chars from html: https://reliefweb.int/job/4218951/operations-senior-officer-...
+2026-07-02 12:02:07.408 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 12:02:07.409 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Operations Senior Officer (Ukrainian Operations Medical Spec...
+2026-07-02 12:02:17.923 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 12:02:18.536 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Operations Senior Officer (Ukrainian Operations Medical Specialist)
+  Scored below BID threshold. Saved to watchlist.
+Processing opportunities... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:01:58
+2026-07-02 12:02:18.545 | INFO     | __main__:run_pipeline:215 - Sending BD intelligence report...
+2026-07-02 12:02:23.779 | SUCCESS  | reporting.email_report:send_report:233 - BD report email sent!
+╭────────────────────────────╮
+│ ✅ Pipeline Complete       │
+│ Processed: 7 opportunities │
+│ BID: 0 | WATCH: 0          │
+│ Email report sent.         │
+╰────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-02 18:00:08         │
+╰─────────────────────────────╯
+2026-07-02 18:00:08.140 | INFO     | __main__:run_pipeline:185 - Collecting from tender sources...
+2026-07-02 18:00:08.140 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: ReliefWeb Jobs & Tenders
+2026-07-02 18:00:12.577 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 20 entries
+2026-07-02 18:00:13.922 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Logistics Coordinator (100%)
+2026-07-02 18:00:14.230 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Deputy Logistics Coordinator (100%)
+2026-07-02 18:00:14.535 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Mission France - Superviseur.seuse Travail Social - Aller Ve
+2026-07-02 18:00:14.749 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Mission France - Médiateur.rice Interculturel.le arabophone 
+2026-07-02 18:00:14.964 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Information Management Intern
+2026-07-02 18:00:15.190 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   PASSED filter: Field Officer
+2026-07-02 18:00:15.190 | INFO     | monitors.rss_monitor:monitor_rss_feeds:184 -   1 passed, 5 filtered out
+2026-07-02 18:00:15.428 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): PROJECT MANAGER – DRC
+2026-07-02 18:00:15.644 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Consultant to Design and Deliver a Training on AI-Assisted I
+2026-07-02 18:00:15.865 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Consultant to Design and Deliver a Training on Project and S
+2026-07-02 18:00:16.182 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Safety & Security Manager
+2026-07-02 18:00:16.398 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   PASSED filter: Terms of reference for production of short video documentary
+2026-07-02 18:00:16.399 | INFO     | monitors.rss_monitor:monitor_rss_feeds:184 -   2 passed, 9 filtered out
+2026-07-02 18:00:16.694 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   PASSED filter: REQUEST FOR PROPOSAL EXECUTIVE SEARCH & RECRUITMENT SERVICES
+2026-07-02 18:00:16.694 | INFO     | monitors.rss_monitor:monitor_rss_feeds:184 -   3 passed, 9 filtered out
+2026-07-02 18:00:16.918 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Mobile Clinic Doctor "General, Pediatrician, Gynecologist" -
+2026-07-02 18:00:17.207 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Programme Manager
+2026-07-02 18:00:17.434 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   PASSED filter: Field Accountant
+2026-07-02 18:00:17.434 | INFO     | monitors.rss_monitor:monitor_rss_feeds:184 -   4 passed, 11 filtered out
+2026-07-02 18:00:17.708 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Fundraising Manager
+2026-07-02 18:00:17.917 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Mobile Clinics Midwife (Syria - Hama )
+2026-07-02 18:00:18.130 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Driver - Mykolaiv (Ukrainian Nationals Only)
+2026-07-02 18:00:18.503 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Mobile Clinics Nurse (Syria - Hama )
+2026-07-02 18:00:18.713 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Fundraising & Spenderbeziehungen Senior Officer
+2026-07-02 18:00:18.713 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: World Bank Procurement
+2026-07-02 18:00:20.349 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-02 18:00:20.350 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: UNGM Notices
+2026-07-02 18:00:21.334 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-02 18:00:21.335 | INFO     | monitors.rss_monitor:monitor_rss_feeds:195 - Total new opportunities from RSS: 4
+
+Found 4 new opportunities
+
+Processing: Field Officer
+2026-07-02 18:00:21.358 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 18:00:23.089 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4268 chars from html: https://reliefweb.int/job/4219261/field-officer...
+2026-07-02 18:00:23.449 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 18:00:23.449 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Field Officer...
+2026-07-02 18:00:34.924 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 18:00:35.730 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Field Officer - South Sudan
+  Scored below BID threshold. Saved to watchlist.
+
+Processing: Terms of reference for production of short video documentary
+2026-07-02 18:00:35.736 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 18:00:37.347 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 8501 chars from html: https://reliefweb.int/job/4219210/terms-reference-production...
+2026-07-02 18:00:37.661 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 18:00:37.661 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Terms of reference for production of short video documentary...
+2026-07-02 18:01:11.575 | ERROR    | intelligence.analyzer:analyze_rfp:182 - RFP analysis failed: 'ThinkingBlock' object has no attribute 'text'
+2026-07-02 18:01:12.285 | ERROR    | __main__:process_opportunity:62 -   Analysis failed. Skipping.
+
+Processing: REQUEST FOR PROPOSAL EXECUTIVE SEARCH & RECRUITMENT SERVICES
+2026-07-02 18:01:12.288 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 18:01:13.685 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5479 chars from html: https://reliefweb.int/job/4219211/request-proposal-executive...
+2026-07-02 18:01:14.130 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 18:01:14.130 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: REQUEST FOR PROPOSAL EXECUTIVE SEARCH & RECRUITMENT SERVICES...
+2026-07-02 18:01:38.807 | ERROR    | intelligence.analyzer:analyze_rfp:182 - RFP analysis failed: 'ThinkingBlock' object has no attribute 'text'
+2026-07-02 18:01:39.522 | ERROR    | __main__:process_opportunity:62 -   Analysis failed. Skipping.
+
+Processing: Field Accountant
+2026-07-02 18:01:39.528 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-02 18:01:41.283 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6703 chars from html: https://reliefweb.int/job/4219258/field-accountant...
+2026-07-02 18:01:41.611 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-02 18:01:41.612 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: Field Accountant...
+2026-07-02 18:01:50.272 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 0
+  Score: 0/100 | Recommendation: NO-BID
+2026-07-02 18:01:50.911 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: Field Accountant - South Sudan
+  Scored below BID threshold. Saved to watchlist.
+Processing opportunities... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:01:29
+2026-07-02 18:01:50.921 | INFO     | __main__:run_pipeline:215 - Sending BD intelligence report...
+2026-07-02 18:02:02.249 | SUCCESS  | reporting.email_report:send_report:233 - BD report email sent!
+╭────────────────────────────╮
+│ ✅ Pipeline Complete       │
+│ Processed: 2 opportunities │
+│ BID: 0 | WATCH: 0          │
+│ Email report sent.         │
+╰────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-03 12:00:03         │
+╰─────────────────────────────╯
+2026-07-03 12:00:03.204 | INFO     | __main__:run_pipeline:185 - Collecting from tender sources...
+2026-07-03 12:00:03.205 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: ReliefWeb Jobs & Tenders
+2026-07-03 12:00:06.029 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 20 entries
+2026-07-03 12:00:07.585 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Training Manager- Digital Learning (national position)
+2026-07-03 12:00:07.896 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Consultant for Development of Collapsed Structure Search and
+2026-07-03 12:00:08.085 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Multi Country Representative for MENA, based in Amman
+2026-07-03 12:00:08.301 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Finance and Support Services Intern
+2026-07-03 12:00:08.506 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Anticipatory Action Coordinator - Nigeria
+2026-07-03 12:00:08.817 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Senior Data Officer for oPt, based in Amman
+2026-07-03 12:00:09.013 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Project Manager
+2026-07-03 12:00:09.222 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): VENEZUELA - GRANT MANAGER (M/F) - CARACAS
+2026-07-03 12:00:09.531 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Gerente de Protección Nacional - Venezuela
+2026-07-03 12:00:09.735 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   PASSED filter: MEAL Officer
+2026-07-03 12:00:09.735 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:183 -   NEW: MEAL Officer...
+2026-07-03 12:00:09.943 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Senior Assessment Officer for OPT, based in Amman
+2026-07-03 12:00:10.249 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Human Resources Intern
+2026-07-03 12:00:10.557 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Administrative Assistant
+2026-07-03 12:00:10.760 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): OFICIAL FINANZAS VENEZUELA
+2026-07-03 12:00:10.963 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): ASISTENTE MEAL
+2026-07-03 12:00:11.275 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Gerente de Proyecto Venezuela
+2026-07-03 12:00:11.578 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): OFICIAL DE ALOJAMIENTO
+2026-07-03 12:00:11.772 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): OFICIAL DE DISTRIBUCION VENEZUELA
+2026-07-03 12:00:11.976 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): OFICIAL ASH
+2026-07-03 12:00:12.300 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): OFICIAL DE DATOS – REACH VENEZUELA
+2026-07-03 12:00:12.300 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   1 passed, 19 filtered out
+2026-07-03 12:00:12.300 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: World Bank Procurement
+2026-07-03 12:00:13.325 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-03 12:00:13.325 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   0 passed, 0 filtered out
+2026-07-03 12:00:13.325 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: UNGM Notices
+2026-07-03 12:00:14.143 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-03 12:00:14.143 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   0 passed, 0 filtered out
+2026-07-03 12:00:14.143 | INFO     | monitors.rss_monitor:monitor_rss_feeds:196 - Total new opportunities from RSS: 1
+
+Found 1 new opportunities
+
+Processing: MEAL Officer
+2026-07-03 12:00:14.149 | INFO     | __main__:process_opportunity:45 -   Step 1: Fetching full document...
+2026-07-03 12:00:15.414 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5881 chars from html: https://reliefweb.int/job/4219400/meal-officer...
+2026-07-03 12:00:15.665 | INFO     | __main__:process_opportunity:58 -   Step 2: Analyzing with Claude...
+2026-07-03 12:00:15.666 | INFO     | intelligence.analyzer:analyze_rfp:90 - Analyzing RFP: MEAL Officer...
+2026-07-03 12:00:33.393 | SUCCESS  | intelligence.analyzer:analyze_rfp:166 - Analysis complete. Fit score: 2
+  Score: 2/100 | Recommendation: NO-BID
+2026-07-03 12:00:34.212 | SUCCESS  | database.airtable_client:create_opportunity:28 - Created opportunity: MEAL Officer - South Sudan
+  Scored below BID threshold. Saved to watchlist.
+Processing opportunities... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:20
+2026-07-03 12:00:34.213 | INFO     | __main__:run_pipeline:215 - Sending BD intelligence report...
+2026-07-03 12:00:42.036 | SUCCESS  | reporting.email_report:send_report:233 - BD report email sent!
+╭────────────────────────────╮
+│ ✅ Pipeline Complete       │
+│ Processed: 1 opportunities │
+│ BID: 0 | WATCH: 0          │
+│ Email report sent.         │
+╰────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-03 18:00:08         │
+╰─────────────────────────────╯
+2026-07-03 18:00:08.034 | INFO     | __main__:run_pipeline:243 - Collecting from tender sources...
+2026-07-03 18:00:08.035 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: ReliefWeb Jobs & Tenders
+2026-07-03 18:00:15.513 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 20 entries
+2026-07-03 18:00:16.423 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Alternance - Assistant·e GRH Terrain F/H
+2026-07-03 18:00:16.643 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): COL_RFP_LAC_Entrenamiento de Entrenadores ProLAC_20260702
+2026-07-03 18:00:16.837 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Delegado/a de Ayuda Humanitaria en Venezuela
+2026-07-03 18:00:17.070 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Monitoring, Evaluation, Research and Learning (MERL) Manager
+2026-07-03 18:00:17.613 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Team Leader - Mykolaiv
+2026-07-03 18:00:17.850 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Laboratory Technician/Part time (Rapid Recruitment)
+2026-07-03 18:00:18.111 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Safeguarding officer
+2026-07-03 18:00:18.360 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Responsable adjoint.e de programme (ARP) cellule 3 OCG - F/H
+2026-07-03 18:00:18.568 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): LOG Manager Cellule 3 Médecins Sans Frontières France à Daka
+2026-07-03 18:00:18.863 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): South-East Europe & Black Sea Region Programme Director
+2026-07-03 18:00:19.178 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Indo-Pacific Programme Director
+2026-07-03 18:00:19.498 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): West Bank - Area Manager
+2026-07-03 18:00:19.698 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Referral Mapping Consultant
+2026-07-03 18:00:19.925 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Monitoring Evaluation Accountability and Learning (MEAL) Coo
+2026-07-03 18:00:20.157 | DEBUG    | monitors.rss_monitor:quick_relevance_check:108 -   FILTERED (wrong geography): Diversity, Equity and Inclusion (DEI) Assessment
+2026-07-03 18:00:20.463 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Responsable de Delegacion en Venezuela
+2026-07-03 18:00:20.651 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Area Manager - North Darfur
+2026-07-03 18:00:20.875 | DEBUG    | monitors.rss_monitor:quick_relevance_check:93 -   FILTERED (staff role): Human Resources and Administration Intern
+2026-07-03 18:00:21.066 | DEBUG    | monitors.rss_monitor:quick_relevance_check:112 -   FILTERED (no target geography): Insecticidal Treated Net Consultant
+2026-07-03 18:00:21.067 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   0 passed, 19 filtered out
+2026-07-03 18:00:21.067 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: World Bank Procurement
+2026-07-03 18:00:22.116 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-03 18:00:22.116 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   0 passed, 0 filtered out
+2026-07-03 18:00:22.116 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 - Checking RSS: UNGM Notices
+2026-07-03 18:00:22.820 | INFO     | monitors.rss_monitor:monitor_rss_feeds:153 -   Found 0 entries
+2026-07-03 18:00:22.820 | INFO     | monitors.rss_monitor:monitor_rss_feeds:185 -   0 passed, 0 filtered out
+2026-07-03 18:00:22.821 | INFO     | monitors.rss_monitor:monitor_rss_feeds:196 - Total new opportunities from RSS: 0
+
+Found 0 new opportunities after filtering
+No new opportunities. Sending status report.
+2026-07-03 18:00:28.503 | SUCCESS  | reporting.email_report:send_report:517 - BD report email sent!
