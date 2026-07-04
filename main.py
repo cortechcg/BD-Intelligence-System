@@ -31,6 +31,7 @@ from rich.panel import Panel
 from rich.progress import track
 
 from config import SCORE_THRESHOLDS, CORTECH_PROFILE
+from monitors.rss_monitor import monitor_rss_feeds, scrape_non_rss_sources
 from monitors.rss_monitor import monitor_rss_feeds
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
@@ -97,6 +98,44 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
     fit_score      = bid_analysis.get("cortech_fit_score", 0)
     win_prob       = bid_analysis.get("win_probability", 0)
     recommendation = bid_analysis.get("bid_recommendation", "WATCH")
+
+    # Claude has read the full document and made a definitive judgment.
+    # If it is not a firm-level consultancy contract, stop here.
+    # Save the record to Airtable for the audit log, then exit.
+    # This prevents burning tokens on CV matching, budget calculation,
+    # compliance matrix, and proposal writing for staff vacancies.
+    is_consultancy = bid_analysis.get("is_consultancy_contract", True)
+
+    if not is_consultancy:
+        rationale = bid_analysis.get("rationale", "Staff vacancy — not a firm consultancy contract")
+        console.print(
+            f"  [red]⛔ NOT A CONSULTANCY CONTRACT — stopping pipeline[/red]\n"
+            f"  [dim]{rationale}[/dim]"
+        )
+        log_agent_action(
+            action_type="Discovery",
+            description=f"Rejected (staff vacancy): {title[:60]}",
+            opportunity_id=opp_id,
+            tokens_used=0,
+            status="Success",
+        )
+        # Save to Airtable as NO-BID so it's recorded and won't be
+        # re-fetched next run (it's already in opportunities_cache)
+        create_opportunity({
+            "title":              opportunity.get("title") or title,
+            "client":             opportunity.get("client", ""),
+            "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
+            "source_url":         source_url,
+            "relevance_score":    0,
+            "bid_recommendation": "NO-BID",
+            "claude_analysis":    rationale,
+            "key_gaps":           "Staff vacancy — not a firm consultancy contract",
+            "status":             "No-bid",
+        })
+        return None  # ← exits process_opportunity, nothing else runs
+
+    # ── FROM HERE: confirmed consultancy contract, run full pipeline ───────
+    console.print(f"  [green]✅ Confirmed consultancy contract — proceeding[/green]")
 
     console.print(
         f"  [green]Score: {fit_score}/100 | "
@@ -253,6 +292,19 @@ def run_pipeline() -> None:
             status="Error",
             error_message=str(e),
         )
+    # ── RSS FEEDS ──────────────────────────────────────────────────────────
+    try:
+        rss_opportunities = monitor_rss_feeds()
+        all_new.extend(rss_opportunities)
+    except Exception as e:
+        logger.error(f"RSS monitor failed: {e}")
+
+    # ── NON-RSS SCRAPERS (Somalia Jobs, DRC, CARE, FCDO, etc.) ────────────
+    try:
+        scraped_opportunities = scrape_non_rss_sources()
+        all_new.extend(scraped_opportunities)
+    except Exception as e:
+        logger.error(f"Non-RSS scrapers failed: {e}")    
 
     console.print(
         f"\n[bold]Found {len(all_new)} new opportunit"
