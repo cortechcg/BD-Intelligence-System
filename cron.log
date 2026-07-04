@@ -285,3 +285,196 @@ Processing opportunities... ━━━━━━━━━━━━━━━━━�
 Found 0 new opportunities after filtering
 No new opportunities. Sending status report.
 2026-07-03 18:00:28.503 | SUCCESS  | reporting.email_report:send_report:517 - BD report email sent!
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-04 18:00:04         │
+╰─────────────────────────────╯
+2026-07-04 18:00:04.432 | INFO     | __main__:run_pipeline:282 - Collecting from tender sources...
+2026-07-04 18:00:04.432 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: ReliefWeb Consultancies
+2026-07-04 18:00:07.802 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 20 entries
+2026-07-04 18:00:09.334 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): Consultant for Concept Design and Technical Advisory on Spec
+2026-07-04 18:00:09.644 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): ASISTENTE DE ADMINISTRACIÓN Y RRHH
+2026-07-04 18:00:09.947 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): ASSISTANTE OU ASSISTANT APPRENTISSAGE ET DÉVELOPPEMENT DES C
+2026-07-04 18:00:10.252 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): ASISTENTE INTEGRAL
+2026-07-04 18:00:10.559 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): WASH Project Manager DR Congo Bunia
+2026-07-04 18:00:10.868 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Tchad : Chargé.e CATALYST – N’Djaména
+2026-07-04 18:00:11.097 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Alternance - Assistant·e GRH Terrain F/H
+2026-07-04 18:00:11.379 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): COL_RFP_LAC_Entrenamiento de Entrenadores ProLAC_20260702
+2026-07-04 18:00:11.687 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Delegado/a de Ayuda Humanitaria en Venezuela
+2026-07-04 18:00:11.993 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): Monitoring, Evaluation, Research and Learning (MERL) Manager
+2026-07-04 18:00:12.451 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Team Leader - Mykolaiv
+2026-07-04 18:00:12.711 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Laboratory Technician/Part time (Rapid Recruitment)
+2026-07-04 18:00:13.021 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Safeguarding officer
+2026-07-04 18:00:13.331 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Responsable adjoint.e de programme (ARP) cellule 3 OCG - F/H
+2026-07-04 18:00:13.630 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): LOG Manager Cellule 3 Médecins Sans Frontières France à Daka
+2026-07-04 18:00:13.858 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): South-East Europe & Black Sea Region Programme Director
+2026-07-04 18:00:14.083 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Indo-Pacific Programme Director
+2026-07-04 18:00:14.350 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): West Bank - Area Manager
+2026-07-04 18:00:14.580 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Referral Mapping Consultant
+2026-07-04 18:00:14.580 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 19 filtered out
+2026-07-04 18:00:14.580 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: World Bank Procurement
+2026-07-04 18:00:15.606 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:15.606 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:15.606 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: UNGM Notices
+2026-07-04 18:00:16.401 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:16.401 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:16.401 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: UNDP Procurement
+2026-07-04 18:00:22.765 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:22.765 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:22.766 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: AfDB Procurement
+2026-07-04 18:00:24.530 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:24.530 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:24.531 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: EU TED Procurement (East Africa)
+2026-07-04 18:00:26.257 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:26.257 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:26.257 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: IOM Procurement
+2026-07-04 18:00:28.575 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:28.575 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:28.575 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: DevelopmentAid Tenders
+2026-07-04 18:00:30.785 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:30.786 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:30.786 | INFO     | monitors.rss_monitor:monitor_rss_feeds:235 - Total new opportunities from RSS: 0
+2026-07-04 18:00:30.786 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: ReliefWeb Consultancies
+2026-07-04 18:00:33.945 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 20 entries
+2026-07-04 18:00:34.235 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): Consultant for Concept Design and Technical Advisory on Spec
+2026-07-04 18:00:34.466 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): ASISTENTE DE ADMINISTRACIÓN Y RRHH
+2026-07-04 18:00:34.727 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): ASSISTANTE OU ASSISTANT APPRENTISSAGE ET DÉVELOPPEMENT DES C
+2026-07-04 18:00:35.035 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): ASISTENTE INTEGRAL
+2026-07-04 18:00:35.345 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): WASH Project Manager DR Congo Bunia
+2026-07-04 18:00:35.760 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Tchad : Chargé.e CATALYST – N’Djaména
+2026-07-04 18:00:36.025 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Alternance - Assistant·e GRH Terrain F/H
+2026-07-04 18:00:36.378 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): COL_RFP_LAC_Entrenamiento de Entrenadores ProLAC_20260702
+2026-07-04 18:00:36.677 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Delegado/a de Ayuda Humanitaria en Venezuela
+2026-07-04 18:00:36.980 | DEBUG    | monitors.rss_monitor:quick_relevance_check:127 -   FILTERED (staff role title): Monitoring, Evaluation, Research and Learning (MERL) Manager
+2026-07-04 18:00:37.679 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Team Leader - Mykolaiv
+2026-07-04 18:00:37.908 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Laboratory Technician/Part time (Rapid Recruitment)
+2026-07-04 18:00:38.137 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Safeguarding officer
+2026-07-04 18:00:38.378 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): Responsable adjoint.e de programme (ARP) cellule 3 OCG - F/H
+2026-07-04 18:00:38.621 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): LOG Manager Cellule 3 Médecins Sans Frontières France à Daka
+2026-07-04 18:00:38.849 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): South-East Europe & Black Sea Region Programme Director
+2026-07-04 18:00:39.143 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Indo-Pacific Programme Director
+2026-07-04 18:00:39.441 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): West Bank - Area Manager
+2026-07-04 18:00:39.671 | DEBUG    | monitors.rss_monitor:quick_relevance_check:151 -   FILTERED (wrong geography): Referral Mapping Consultant
+2026-07-04 18:00:39.672 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 19 filtered out
+2026-07-04 18:00:39.672 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: World Bank Procurement
+2026-07-04 18:00:39.997 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:39.997 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:39.998 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: UNGM Notices
+2026-07-04 18:00:42.405 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:42.405 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:42.406 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: UNDP Procurement
+2026-07-04 18:00:49.721 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:49.721 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:49.727 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: AfDB Procurement
+2026-07-04 18:00:51.500 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:51.500 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:51.500 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: EU TED Procurement (East Africa)
+2026-07-04 18:00:53.453 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:53.453 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:53.454 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: IOM Procurement
+2026-07-04 18:00:56.051 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:56.051 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:56.051 | INFO     | monitors.rss_monitor:monitor_rss_feeds:188 - Checking RSS: DevelopmentAid Tenders
+2026-07-04 18:00:58.450 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 -   Found 0 entries
+2026-07-04 18:00:58.450 | INFO     | monitors.rss_monitor:monitor_rss_feeds:224 -   0 passed, 0 filtered out
+2026-07-04 18:00:58.451 | INFO     | monitors.rss_monitor:monitor_rss_feeds:235 - Total new opportunities from RSS: 0
+2026-07-04 18:00:58.451 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: Somalia Jobs Tenders
+2026-07-04 18:01:19.021 | ERROR    | monitors.rss_monitor:scrape_somaliajobs:289 - Somalia Jobs scrape failed: timed out
+2026-07-04 18:01:19.022 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from Somalia Jobs Tenders
+2026-07-04 18:01:19.022 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: DRC Procurement
+2026-07-04 18:01:21.731 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for DRC Procurement: Client error '404 Not Found' for url 'https://drc.ngo/en/suppliers/open-procurements/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:21.731 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from DRC Procurement
+2026-07-04 18:01:21.731 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: Save the Children Procurement
+2026-07-04 18:01:22.801 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for Save the Children Procurement: Client error '404 Not Found' for url 'https://www.savethechildren.net/about-us/jobs/procurement'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:22.801 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from Save the Children Procurement
+2026-07-04 18:01:22.802 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: CARE International Tenders
+2026-07-04 18:01:25.071 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Learn what we do
+2026-07-04 18:01:25.295 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Education and skills
+2026-07-04 18:01:25.624 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Economic growth
+2026-07-04 18:01:25.930 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Women and girls
+2026-07-04 18:01:26.211 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Evidence and impact
+2026-07-04 18:01:26.494 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Reports library
+2026-07-04 18:01:26.715 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Join our latest campaign:Who Cares? You Do.
+2026-07-04 18:01:26.956 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): News and stories
+2026-07-04 18:01:27.262 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): See all news and stories
+2026-07-04 18:01:27.491 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Thought leadership
+2026-07-04 18:01:27.723 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Press resources
+2026-07-04 18:01:27.971 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Learn how to get involved
+2026-07-04 18:01:28.633 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Attend an event
+2026-07-04 18:01:28.900 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Join a committee
+2026-07-04 18:01:29.207 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Learn what we do
+2026-07-04 18:01:29.438 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Education and skills
+2026-07-04 18:01:29.665 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Economic growth
+2026-07-04 18:01:29.908 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Women and girls
+2026-07-04 18:01:30.152 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Evidence and impact
+2026-07-04 18:01:30.388 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Reports library
+2026-07-04 18:01:30.655 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Join our latest campaign:Who Cares? You Do.
+2026-07-04 18:01:31.057 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): News and stories
+2026-07-04 18:01:31.770 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): See all news and stories
+2026-07-04 18:01:32.074 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Thought leadership
+2026-07-04 18:01:32.331 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Press resources
+2026-07-04 18:01:32.632 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Learn how to get involved
+2026-07-04 18:01:32.854 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Attend an event
+2026-07-04 18:01:33.077 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Join a committee
+2026-07-04 18:01:33.314 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Accountability & Transparency
+2026-07-04 18:01:33.583 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Financial Responsibility
+2026-07-04 18:01:33.583 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from CARE International Tenders
+2026-07-04 18:01:33.583 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: Welthungerhilfe Tenders
+2026-07-04 18:01:35.570 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for Welthungerhilfe Tenders: Client error '404 Not Found' for url 'https://www.welthungerhilfe.org/our-work/procurement/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:35.571 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from Welthungerhilfe Tenders
+2026-07-04 18:01:35.572 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: LWF Tenders
+2026-07-04 18:01:37.061 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for LWF Tenders: Client error '404 Not Found' for url 'https://lutheranworld.org/procurement'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:37.062 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from LWF Tenders
+2026-07-04 18:01:37.062 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: NRC Tenders
+2026-07-04 18:01:38.954 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for NRC Tenders: Client error '404 Not Found' for url 'https://www.nrc.no/about-nrc/procurements/'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:38.955 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from NRC Tenders
+2026-07-04 18:01:38.955 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: Kenya Government PPIP
+2026-07-04 18:01:39.864 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from Kenya Government PPIP
+2026-07-04 18:01:39.865 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: Ethiopia PPPA
+2026-07-04 18:01:41.609 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for Ethiopia PPPA: [Errno -2] Name or service not known
+2026-07-04 18:01:41.610 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from Ethiopia PPPA
+2026-07-04 18:01:41.610 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: FCDO Commercial
+2026-07-04 18:01:47.028 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Contracts Finder
+2026-07-04 18:01:47.334 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Download as XML
+2026-07-04 18:01:47.641 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Download as CSV
+2026-07-04 18:01:47.866 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Opportunity to Tender - Track / Access Matting - Regional Fr
+2026-07-04 18:01:48.152 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-04 18:01:48.376 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-04 18:01:48.665 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-04 18:01:48.973 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): CA18087 - Provision of Grounds Maintenance Services
+2026-07-04 18:01:49.226 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): CA18174 - RFQ 2026/22 - NMANDD PEACEPLUS Thriving Together P
+2026-07-04 18:01:49.484 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): ​​Carbon Market Opportunity Assessment​
+2026-07-04 18:01:49.715 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): CA18171 - Yeovil College ITT for Yeovil College Rebrand
+2026-07-04 18:01:49.996 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): CA18168 - Yeovil College ITT for Waste Management Services
+2026-07-04 18:01:50.303 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-04 18:01:50.610 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-04 18:01:50.920 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Taxi and MPV (1-8 seats) - Taxi and MPV (1-8 seats)
+2026-07-04 18:01:51.224 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): RA327931 - Individual Coaching
+2026-07-04 18:01:51.532 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Lift Off - Q3 - Quieter Neighbourhood Support
+2026-07-04 18:01:51.758 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Procurement of traffic signal equipment, telecommunications 
+2026-07-04 18:01:52.044 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Distribution of Teacher Learning Materials in Malawi
+2026-07-04 18:01:52.351 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): LRF Security CCTV Maintenance Support
+2026-07-04 18:01:52.658 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): CA18165 - ITT The Bishops Thetford - Retaining wall Replacem
+2026-07-04 18:01:52.967 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Rydal Mount - Brief for a Feasibility Study
+2026-07-04 18:01:53.272 | DEBUG    | monitors.rss_monitor:quick_relevance_check:155 -   FILTERED (no target geography): CA18163 - RFQ 2026/19 - Virtual fence technology cattle coll
+2026-07-04 18:01:53.499 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): Open Government Licence v3.0
+2026-07-04 18:01:53.785 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): © Crown copyright
+2026-07-04 18:01:54.018 | DEBUG    | monitors.rss_monitor:quick_relevance_check:138 -   FILTERED (no consultancy contract signal): saved searches list
+2026-07-04 18:01:54.019 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from FCDO Commercial
+2026-07-04 18:01:54.019 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: USAID Business Forecast
+2026-07-04 18:01:57.112 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for USAID Business Forecast: Client error '404 Not Found' for url 'https://www.usaid.gov/rss/business-forecast'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:57.112 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from USAID Business Forecast
+2026-07-04 18:01:57.113 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:368 - Scraping: GIZ Procurement
+2026-07-04 18:01:58.672 | ERROR    | monitors.rss_monitor:scrape_generic_list:355 - Scrape failed for GIZ Procurement: Client error '404 Not Found' for url 'https://www.giz.de/en/html/tenders.html'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404
+2026-07-04 18:01:58.672 | INFO     | monitors.rss_monitor:scrape_non_rss_sources:375 -   0 passed filter from GIZ Procurement
+
+Found 0 new opportunities after filtering
+No new opportunities. Sending status report.
+2026-07-04 18:02:08.986 | SUCCESS  | reporting.email_report:send_report:517 - BD report email sent!

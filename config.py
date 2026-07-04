@@ -90,40 +90,111 @@ COMPETITIVE STRENGTHS:
 6. Rapid mobilization capacity
 """
 
-# ── TENDER SOURCES ────────────────────────────────────────────
 RSS_FEEDS = [
     {
-        "name": "ReliefWeb Jobs & Tenders",
-        "url": "https://reliefweb.int/jobs/rss.xml?source=reliefweb",
-        "filter_keywords": ["consultant", "evaluation", "assessment", "research", "MEL"],
+        "name": "ReliefWeb Consultancies",
+        "url": "https://reliefweb.int/jobs/rss.xml?type=consultancy",
+        "filter_keywords": [],  # three-gate filter handles this
     },
     {
         "name": "World Bank Procurement",
         "url": "https://www.worldbank.org/en/projects-operations/products-and-services/brief/consulting-services-rss",
-        "filter_keywords": ["east africa", "somalia", "kenya", "ethiopia"],
+        "filter_keywords": [],
     },
     {
         "name": "UNGM Notices",
         "url": "https://www.ungm.org/Public/Notice/rss",
-        "filter_keywords": ["consultant", "research", "evaluation"],
+        "filter_keywords": [],
+    },
+    {
+        "name": "UNDP Procurement",
+        "url": "https://procurement-notices.undp.org/index.cfm?event=RSS.showRSS",
+        "filter_keywords": [],
+    },
+    {
+        "name": "AfDB Procurement",
+        "url": "https://www.afdb.org/en/rss/procurement",
+        "filter_keywords": [],
+    },
+    {
+        "name": "EU TED Procurement (East Africa)",
+        "url": "https://ted.europa.eu/api/v1/notices/search/rss?q=east+africa+consultancy&fields=title,publicationDate,tenderType",
+        "filter_keywords": [],
+    },
+    {
+        "name": "IOM Procurement",
+        "url": "https://www.iom.int/iom-procurement-rss",
+        "filter_keywords": [],
+    },
+    {
+        "name": "DevelopmentAid Tenders",
+        "url": "https://www.developmentaid.org/rss/tenders",
+        "filter_keywords": [],
     },
 ]
 
+# Sources with no RSS feed — scraped directly
+# Handled in monitors/rss_monitor.py → scrape_non_rss_sources()
 SCRAPE_SOURCES = [
     {
-        "name": "ReliefWeb Consultancies",
-        "base_url": "https://reliefweb.int/jobs?type=consultancy&source=reliefweb",
-        "type": "reliefweb",
+        "name": "Somalia Jobs Tenders",
+        "url": "https://www.somaliajobs.com/tenders",
+        "type": "somaliajobs",
     },
     {
         "name": "DRC Procurement",
-        "base_url": "https://pro.drc.ngo/suppliers/open-procurements/",
-        "type": "drc",
+        "url": "https://pro.drc.ngo/suppliers/open-procurements/",
+        "type": "generic_list",
     },
     {
-        "name": "SomaliJobs Tenders",
-        "base_url": "https://somalijobs.com/tenders",
-        "type": "somalijobs",
+        "name": "Save the Children Procurement",
+        "url": "https://www.savethechildren.net/about-us/jobs/procurement",
+        "type": "generic_list",
+    },
+    {
+        "name": "CARE International Tenders",
+        "url": "https://www.care.org/about-us/procurement/",
+        "type": "generic_list",
+    },
+    {
+        "name": "Welthungerhilfe Tenders",
+        "url": "https://www.welthungerhilfe.org/our-work/procurement/",
+        "type": "generic_list",
+    },
+    {
+        "name": "LWF Tenders",
+        "url": "https://www.lutheranworld.org/procurement",
+        "type": "generic_list",
+    },
+    {
+        "name": "NRC Tenders",
+        "url": "https://www.nrc.no/about-nrc/procurements/",
+        "type": "generic_list",
+    },
+    {
+        "name": "Kenya Government PPIP",
+        "url": "https://tenders.go.ke/website/tenders/index",
+        "type": "generic_list",
+    },
+    {
+        "name": "Ethiopia PPPA",
+        "url": "https://www.pppa.gov.et/procurement-notices",
+        "type": "generic_list",
+    },
+    {
+        "name": "FCDO Commercial",
+        "url": "https://www.contractsfinder.service.gov.uk/Search/Results?&KeywordsAndFilters=east+africa+consultancy",
+        "type": "generic_list",
+    },
+    {
+        "name": "USAID Business Forecast",
+        "url": "https://www.usaid.gov/rss/business-forecast",
+        "type": "generic_list",
+    },
+    {
+        "name": "GIZ Procurement",
+        "url": "https://www.giz.de/en/html/tenders.html",
+        "type": "generic_list",
     },
 ]
 

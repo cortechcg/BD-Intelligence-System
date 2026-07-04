@@ -64,6 +64,7 @@ ANALYSIS_SCHEMA = """
     "financial_proposal_required": "boolean"
   },
   "bid_analysis": {
+    "is_consultancy_contract": "boolean — TRUE only if this is a firm-level consultancy contract, RFP, ToR, or EOI. FALSE if this is a staff vacancy, individual employment, salaried role, or individual advisor placement. This is the most important field — get it right.",
     "cortech_fit_score": "number 0-100",
     "win_probability": "number 0-100",
     "bid_recommendation": "BID/WATCH/NO-BID",
@@ -106,18 +107,36 @@ Return ONLY a valid JSON object matching this exact schema (no other text):
 SCHEMA:
 {ANALYSIS_SCHEMA}
 
-CRITICAL FILTER — READ FIRST:
-Cortech Consulting Group is a FIRM that bids on CONSULTANCY ENGAGEMENTS
-— time-bound contracts for research, evaluation, MEL, or technical
-assistance delivered by a team. Cortech does NOT recruit for staff
-positions, employee vacancies, or individual salaried roles (Country
-Director, Head of Grants, Finance Officer, Programme Manager, etc.).
+CRITICAL FILTER — THIS IS YOUR MOST IMPORTANT TASK:
+Cortech Consulting Group is a FIRM. It bids on firm-level CONSULTANCY
+CONTRACTS — time-bound engagements where a company is hired to deliver
+research, evaluation, MEL, surveys, or technical assistance.
 
-If this posting is a staff/employee vacancy rather than a firm-level
-consultancy contract, set cortech_fit_score to 0-5 regardless of
-thematic overlap, and set bid_recommendation to "NO-BID" with
-rationale explicitly stating this is a staff position, not a
-consultancy opportunity.
+Cortech does NOT apply for:
+- Staff/employee positions (any salaried, permanent, or fixed-term role)
+- Individual advisor or specialist placements
+- Individual consultant positions where ONE person is being hired
+- Any role where the output is "an employee" rather than "a deliverable"
+
+BEFORE ANYTHING ELSE: Set is_consultancy_contract to:
+- TRUE: if the document is an RFP, ToR, EOI, Call for Proposals, or
+  procurement notice where a COMPANY/FIRM is being hired to deliver
+  a product or service
+- FALSE: if the document is a job posting, vacancy announcement, or
+  individual recruitment — regardless of thematic relevance
+
+If is_consultancy_contract is FALSE:
+  - Set cortech_fit_score to 0
+  - Set bid_recommendation to "NO-BID"
+  - State clearly in rationale: "STAFF VACANCY — not a consultancy contract"
+
+Keywords that confirm TRUE: Terms of Reference, Request for Proposal,
+Expression of Interest, Call for Proposals, procurement notice, RFP,
+ToR, EOI, consulting firm, service provider, supplier
+
+Keywords that confirm FALSE: vacancy, position, job opening, we are
+hiring, employment, salaried, full-time, part-time, advisor position,
+senior advisor, specialist position, officer position
 
 SCORING GUIDANCE:
 - cortech_fit_score 0-100:
