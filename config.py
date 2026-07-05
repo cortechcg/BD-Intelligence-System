@@ -137,9 +137,9 @@ RSS_FEEDS = [
 # Handled in monitors/rss_monitor.py → scrape_non_rss_sources()
 SCRAPE_SOURCES = [
     {
-        "name": "Somalia Jobs Tenders",
-        "url": "https://www.somaliajobs.com/tenders",
-        "type": "somaliajobs",
+        "name": "Somali Jobs Tenders",
+        "url": "https://www.somalijobs.com/tenders",
+        "type": "somalijobs",
     },
     {
         "name": "DRC Procurement",
@@ -159,11 +159,6 @@ SCRAPE_SOURCES = [
     {
         "name": "Welthungerhilfe Tenders",
         "url": "https://www.welthungerhilfe.org/our-work/procurement/",
-        "type": "generic_list",
-    },
-    {
-        "name": "LWF Tenders",
-        "url": "https://www.lutheranworld.org/procurement",
         "type": "generic_list",
     },
     {
