@@ -31,7 +31,7 @@ from rich.panel import Panel
 from rich.progress import track
 
 from config import SCORE_THRESHOLDS, CORTECH_PROFILE
-from monitors.rss_monitor import monitor_rss_feeds, scrape_non_rss_sources
+from monitors.scraper import scrape_non_rss_sources
 from monitors.rss_monitor import monitor_rss_feeds
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
