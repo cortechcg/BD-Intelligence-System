@@ -13,158 +13,112 @@ import json
 client = anthropic.Anthropic()
 # ── FILTER CONSTANTS ──────────────────────────────────────────────────────────
 
-# Hard staff-role signals — reject immediately if title contains any of these
-STAFF_ROLE_SIGNALS = [
-    "chief of", "head of", "director of", "director -", "director,",
-    "manager -", "manager,", "officer -", "officer,", "officer (",
-    "coordinator -", "coordinator,", "coordinator (",
-    "team leader (tl)", "consortium manager", "country director",
-    "programme coordinator", "programme manager", "project manager",
-    "project coordinator", "hr &", "human resources", "finance officer",
-    "finance manager", "operations manager", "safety & wellness",
-    "security officer", "security manager", "account administrator",
-    "account manager", "talent director", "people and talent",
-    "case management specialist", "education manager",
-    "protection specialist", "nutrition officer", "health officer",
-    "wash officer", "stagiaire", "asistente", "recursos humanos",
-    "accountability assistant", "ingo forum", "programme funding",
-    "grants manager", "grants officer", "mine action", "demining",
-    "senior advisor", "technical advisor", "policy advisor",
-    "legal advisor", "advocacy advisor", "communications officer",
-    "information officer", "logistics officer", "procurement officer",
-    "supply chain", "driver", "intern ", "volunteer ", "fellow ",
-    "is looking for", "we are looking for", "we are hiring",
-    "vacancy announcement", "job opening", "position announcement",
-    "individual consultant",   # ← one person being hired, not a firm
-    "national consultant",     # ← individual hire
-    "international consultant",# ← individual hire
-    "individual professional",
+# ONLY reject titles that are unambiguously staff vacancies.
+# Keep this list SHORT. Claude catches everything else via
+# is_consultancy_contract. Over-blocking here kills real proposals.
+DEFINITE_STAFF_SIGNALS = [
+    "we are hiring",
+    "we are looking for a ",
+    "vacancy announcement",
+    "job opening",
+    "is seeking a ",
+    "is recruiting a ",
+    "employment opportunity",
+    "individual consultant is sought",
+    "individual professional is sought",
+    "stagiaire",
+    "recursos humanos",
+    "driver wanted",
+    "intern wanted",
 ]
 
-# Cortech's geographic focus — must appear somewhere in the posting
+# Cortech's geographic focus — presence of ANY of these is enough
 CORTECH_GEOGRAPHIES = [
-    "somalia", "kenya", "ethiopia", "sudan", "south sudan",
-    "djibouti", "eritrea", "uganda", "tanzania", "rwanda",
-    "east africa", "horn of africa", "sub-saharan africa",
-    "eastern africa", "igad", "nairobi", "mogadishu", "addis",
-    "kampala", "dar es salaam", "kigali",
+    "somalia", "somali", "kenya", "kenyan", "ethiopia", "ethiopian",
+    "sudan", "south sudan", "djibouti", "eritrea", "uganda", "tanzania",
+    "rwanda", "east africa", "horn of africa", "sub-saharan africa",
+    "eastern africa", "igad", "nairobi", "mogadishu", "addis ababa",
+    "kampala", "dar es salaam", "kigali", "africa",
 ]
 
-# Wrong geographies — reject if posting is ONLY about these
-WRONG_GEOGRAPHIES = [
-    "ukraine", "syria", "colombia", "dominican republic", "india",
-    "afghanistan", "nigeria", "paris", "france", "middle east",
-    "latin america", "central america", "south asia", "southeast asia",
-    "central african republic", "myanmar", "bangladesh", "pakistan",
-    "iraq", "jordan", "lebanon", "yemen", "libya", "mali", "niger",
-    "burkina faso", "chad", "cameroon", "drc",
-    "democratic republic of the congo", "mozambique", "zimbabwe",
-    "zambia", "malawi",
-]
-
-# Anything not in this list at text level never reaches Claude.
-# Only genuine procurement/contract language passes.
-CONSULTANCY_MUST_HAVE = [
-    "consultancy",
-    "consulting firm",
-    "consulting company",
-    "terms of reference",
-    "request for proposal",
-    "request for quotation",
-    "expression of interest",
-    "call for proposals",
-    "call for tenders",
-    "invitation to bid",
-    "competitive bidding",
-    "framework contract",
-    "service contract",
-    "technical assistance contract",
-    "procurement notice",
-    "supplier",
-    "service provider",
-    "rfp",
-    "tor",
-    "eoi",
-    "rfq",
-    "itb",
-    "open tender",
-    "restricted tender",
-]
-
-# Thematic signals — must appear alongside the consultancy signal
+# Topics Cortech works on — presence of ANY is enough
 THEMATIC_SIGNALS = [
-    "evaluation", "assessment", "research", "monitoring",
-    "mel", "meal", "survey design", "baseline", "endline",
-    "mid-term review", "impact assessment", "capacity building",
-    "data collection", "humanitarian", "refugee", "displacement",
-    "livelihoods", "wash", "food security", "health system",
-    "documentation", "knowledge management", "policy analysis",
-    "rapid assessment", "needs assessment", "feasibility study",
-    "situation analysis", "mapping study",
+    "evaluation", "assessment", "research", "baseline", "endline",
+    "mid-term", "impact", "survey", "data collection", "mapping",
+    "feasibility", "needs assessment", "situation analysis",
+    "capacity building", "training", "documentation", "mel",
+    "meal", "monitoring", "livelihoods", "humanitarian", "refugee",
+    "displacement", "wash", "water", "sanitation", "food security",
+    "health", "protection", "resilience", "climate", "governance",
+    "consultanc", "procurement", "tender", "rfp", "tor", "eoi",
+    "proposal", "bid", "contract", "service", "evaluation",
+    "study", "review", "analysis", "framework", "strategy",
+]
+
+# Only reject if posting is EXCLUSIVELY about these wrong geographies
+# with zero mention of any Cortech geography
+WRONG_GEOGRAPHIES_ONLY = [
+    "ukraine", "syria", "colombia", "dominican republic",
+    "afghanistan", "myanmar", "bangladesh", "pakistan",
+    "iraq", "jordan", "lebanon", "yemen", "libya",
+    "latin america", "central america", "south asia",
+    "southeast asia", "paris", "france",
 ]
 
 
 def quick_relevance_check(title: str, summary: str) -> bool:
     """
-    Three-gate filter — all three must pass before an opportunity
-    reaches Claude. Runs in microseconds at zero API cost.
+    Lightweight pre-filter. Zero token cost.
 
-    Gate 1: Explicit consultancy-contract signal required.
-            No signal = rejected, regardless of anything else.
-            This is what stops staff vacancies, advisor roles,
-            and individual placements from burning Opus tokens.
+    PHILOSOPHY: This filter's job is to block OBVIOUS noise only.
+    It is intentionally permissive. Claude's is_consultancy_contract
+    boolean is the real quality gate — it reads the full document.
 
-    Gate 2: Must mention at least one Cortech geography.
-            Must NOT be exclusively about a wrong geography.
+    Pass everything that could plausibly be a consultancy contract
+    in Cortech's focus areas. Reject only what is definitively wrong.
 
-    Gate 3: Must contain a relevant thematic signal.
+    Gate 1: Hard reject unambiguous staff vacancy language in title
+    Gate 2: Reject if exclusively about wrong geographies
+    Gate 3: Pass if geography match OR thematic match OR either
+            — just needs ONE signal anywhere in title+summary
+
+    When in doubt: PASS IT THROUGH. Claude will handle it.
     """
     title_lower = title.lower()
     text_lower  = (title + " " + summary).lower()
 
-    # ── PRE-CHECK: Hard staff role rejection ──────────────────────────────
-    if any(signal in title_lower for signal in STAFF_ROLE_SIGNALS):
-        logger.debug(f"  FILTERED (staff role title): {title[:60]}")
+    # ── GATE 1: Unambiguous staff vacancy language ────────────────────────
+    # ONLY the phrases that NEVER appear in a genuine ToR or RFP.
+    # Do not add role titles here — "Senior Advisor" could be a ToR
+    # requirement, not a job title.
+    if any(s in title_lower for s in DEFINITE_STAFF_SIGNALS):
+        logger.debug(f"  FILTERED (definite staff signal): {title[:60]}")
         return False
 
-    # ── GATE 1: Must be a consultancy contract ────────────────────────────
-    # This is the primary gate. An opportunity that doesn't explicitly
-    # use consultancy-contract language is not a firm-level bid opportunity
-    # for Cortech, regardless of how thematically relevant it looks.
-    has_consultancy_signal = any(
-        s in text_lower for s in CONSULTANCY_MUST_HAVE
+    # ── GATE 2: Exclusively wrong geography ──────────────────────────────
+    has_cortech_geo = any(g in text_lower for g in CORTECH_GEOGRAPHIES)
+    is_wrong_geo_only = (
+        any(g in text_lower for g in WRONG_GEOGRAPHIES_ONLY)
+        and not has_cortech_geo
     )
-    if not has_consultancy_signal:
-        logger.debug(f"  FILTERED (no consultancy contract signal): {title[:60]}")
+    if is_wrong_geo_only:
+        logger.debug(f"  FILTERED (wrong geography, no Africa): {title[:60]}")
         return False
 
-    # ── GATE 2: Geography check ───────────────────────────────────────────
-    has_right_geography = any(
-        geo in text_lower for geo in CORTECH_GEOGRAPHIES
-    )
-    is_wrong_geography = (
-        any(geo in text_lower for geo in WRONG_GEOGRAPHIES)
-        and not has_right_geography
-    )
+    # ── GATE 3: At least ONE signal — geography OR thematic ───────────────
+    # This is the permissive gate. ONE signal anywhere passes.
+    # "Endline evaluation Somalia" → passes on both geography + thematic
+    # "Procurement notice Kenya" → passes on geography alone
+    # "Call for proposals Africa" → passes on geography + thematic
+    has_thematic = any(s in text_lower for s in THEMATIC_SIGNALS)
 
-    if is_wrong_geography:
-        logger.debug(f"  FILTERED (wrong geography): {title[:60]}")
-        return False
+    if has_cortech_geo or has_thematic:
+        logger.debug(f"  PASSED: {title[:60]}")
+        return True
 
-    if not has_right_geography:
-        logger.debug(f"  FILTERED (no target geography): {title[:60]}")
-        return False
-
-    # ── GATE 3: Thematic relevance ────────────────────────────────────────
-    has_thematic_signal = any(
-        s in text_lower for s in THEMATIC_SIGNALS
-    )
-    if not has_thematic_signal:
-        logger.debug(f"  FILTERED (no thematic match): {title[:60]}")
-        return False
-
-    logger.debug(f"  PASSED all gates: {title[:60]}")
-    return True
+    # Nothing relevant found at all
+    logger.debug(f"  FILTERED (no relevant signal): {title[:60]}")
+    return False
 
 def extract_deadline_from_text(text: str) -> str:
     """Use Claude to extract deadline if not in RSS metadata."""

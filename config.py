@@ -201,5 +201,5 @@ SCORE_THRESHOLDS = {
 }
 
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
-SOON_DEADLINE_DAYS = 7      # Flag as soon if deadline in N days
+SOON_DEADLINE_DAYS = 7     # Flag as soon if deadline in N days
 CHECK_INTERVAL_HOURS = 6  # polling interval for continuous (non --once) mode

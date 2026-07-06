@@ -2,23 +2,28 @@
 """
 CORTECH BD INTELLIGENCE AGENT — MAIN ORCHESTRATOR
 ==================================================
-Entry points:
-  python main.py --once     → single run, for manual testing and cron
-  python main.py            → continuous scheduler, runs every CHECK_INTERVAL_HOURS
 
-Pipeline per opportunity (all opportunities that pass the RSS filter):
-  1. RSS feed monitoring + three-gate keyword filter
-  2. Document download + text extraction
-  3. Claude RFP analysis → structured JSON
-  4. Airtable opportunity record creation
-  5. CV semantic matching (Supabase pgvector)
-  6. Budget calculation (rate card × effort estimate)
-  7. Compliance matrix generation (Claude)
-  8. Full technical proposal draft (Claude, section-by-section)
-  9. Individual proposal email to full team (with TOR link + budget)
- 10. Pipeline summary email at end of each run
+Entry points:
+  python main.py --once   → single run (used by crontab + manual testing)
+  python main.py          → continuous scheduler every CHECK_INTERVAL_HOURS
+
+Pipeline (runs for EVERY opportunity passing the RSS filter):
+  1.  RSS feed monitoring + three-gate keyword filter
+  2.  Document download and text extraction
+  3.  Claude analysis → structured JSON + is_consultancy_contract gate
+  4.  Airtable opportunity record creation
+  5.  CV semantic matching via Supabase pgvector
+  6.  Budget calculation (rate card × effort estimate)
+  7.  Compliance matrix generation
+  8.  Full technical proposal draft (section-by-section)
+  9.  Individual proposal email to full team (TOR link + budget + draft)
+  10. Pipeline summary email at end of each run
+
+No score threshold gates — every confirmed consultancy contract gets a
+full proposal drafted. The human reviewer decides what to submit.
 """
 
+import os
 import sys
 import uuid
 import schedule
@@ -30,15 +35,18 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
-from config import SCORE_THRESHOLDS, CORTECH_PROFILE
-from monitors.scraper import scrape_non_rss_sources
+from config import CORTECH_PROFILE
 from monitors.rss_monitor import monitor_rss_feeds
+from monitors.scraper import scrape_non_rss_sources
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal
-from database.supabase_client import check_opportunity_exists, store_opportunity
+from database.supabase_client import (
+    check_opportunity_exists,
+    store_opportunity,
+)
 from database.airtable_client import (
     create_opportunity,
     update_opportunity,
@@ -50,47 +58,54 @@ console = Console()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CORE PIPELINE — process one opportunity end-to-end
+# SINGLE OPPORTUNITY PIPELINE
 # ══════════════════════════════════════════════════════════════════════════════
 
 def process_opportunity(raw_opportunity: dict) -> dict | None:
     """
-    Full pipeline for a single opportunity.
-    Returns a result dict on success, None on failure.
-    Every opportunity that reaches this function gets the full treatment —
-    no score threshold gates. The score is informational only.
+    Runs the full pipeline for one opportunity.
+
+    Returns a result dict on success.
+    Returns None if the opportunity should be skipped — either because
+    text extraction failed, Claude confirmed it's a staff vacancy, or
+    a critical error occurred.
+
+    Every confirmed consultancy contract runs all the way through to
+    a drafted proposal and team email. No score thresholds block this.
+    The human reviewer makes the final call on what to submit.
     """
     title      = raw_opportunity.get("title", "Unknown")
     source_url = raw_opportunity.get("source_url", "")
+    opp_id     = str(uuid.uuid4())
 
     console.print(f"\n[bold blue]Processing:[/bold blue] {title[:70]}")
 
-    # ── STEP 1: FETCH FULL DOCUMENT ────────────────────────────────────────
-    logger.info("  Step 1: Fetching full document...")
-    opp_id = str(uuid.uuid4())
-
+    # ── STEP 1: FETCH AND EXTRACT DOCUMENT TEXT ────────────────────────────
+    logger.info("  Step 1: Fetching document...")
     full_text = fetch_and_extract(source_url, opportunity_id=opp_id)
 
     if not full_text or len(full_text) < 200:
         logger.warning(
-            f"  Insufficient text extracted ({len(full_text)} chars). Skipping."
+            f"  Insufficient text ({len(full_text)} chars) — skipping"
         )
         return None
 
-    console.print(f"  Extracted [green]{len(full_text):,}[/green] characters")
+    console.print(
+        f"  Extracted [green]{len(full_text):,}[/green] characters"
+    )
 
-    # ── STEP 2: STORE IN SUPABASE CACHE ───────────────────────────────────
+    # ── STEP 2: CACHE IN SUPABASE ──────────────────────────────────────────
     try:
         store_opportunity(source_url, title, full_text)
     except Exception as e:
         logger.warning(f"  Supabase cache write failed (non-fatal): {e}")
 
-    # ── STEP 3: ANALYZE WITH CLAUDE ───────────────────────────────────────
+    # ── STEP 3: CLAUDE ANALYSIS ────────────────────────────────────────────
     logger.info("  Step 2: Analyzing with Claude...")
     analysis = analyze_rfp(full_text, opportunity_id=opp_id, title=title)
 
     if not analysis:
-        logger.error("  Analysis returned empty. Skipping.")
+        logger.error("  Analysis returned empty — skipping")
         return None
 
     opportunity    = analysis.get("opportunity", {})
@@ -99,86 +114,86 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
     win_prob       = bid_analysis.get("win_probability", 0)
     recommendation = bid_analysis.get("bid_recommendation", "WATCH")
 
-    # Claude has read the full document and made a definitive judgment.
-    # If it is not a firm-level consultancy contract, stop here.
-    # Save the record to Airtable for the audit log, then exit.
-    # This prevents burning tokens on CV matching, budget calculation,
-    # compliance matrix, and proposal writing for staff vacancies.
+    console.print(
+        f"  Score: [green]{fit_score}/100[/green] | "
+        f"Recommendation: [green]{recommendation}[/green]"
+    )
+
+    # ── CONSULTANCY CONTRACT GATE ──────────────────────────────────────────
+    # Claude has read the full document. If it is definitively a staff
+    # vacancy, stop here — save it as NO-BID for audit trail and return.
+    # Default is TRUE — fail open, not closed. Never miss a real opportunity
+    # because of a missing field.
     is_consultancy = bid_analysis.get("is_consultancy_contract", True)
 
     if not is_consultancy:
-        rationale = bid_analysis.get("rationale", "Staff vacancy — not a firm consultancy contract")
+        rationale = bid_analysis.get(
+            "rationale",
+            "Staff vacancy — not a firm-level consultancy contract",
+        )
         console.print(
-            f"  [red]⛔ NOT A CONSULTANCY CONTRACT — stopping pipeline[/red]\n"
-            f"  [dim]{rationale}[/dim]"
+            f"  [red]⛔ Staff vacancy — stopping pipeline[/red]\n"
+            f"  [dim]{rationale[:100]}[/dim]"
         )
-        log_agent_action(
-            action_type="Discovery",
-            description=f"Rejected (staff vacancy): {title[:60]}",
-            opportunity_id=opp_id,
-            tokens_used=0,
-            status="Success",
-        )
-        # Save to Airtable as NO-BID so it's recorded and won't be
-        # re-fetched next run (it's already in opportunities_cache)
-        create_opportunity({
-            "title":              opportunity.get("title") or title,
-            "client":             opportunity.get("client", ""),
-            "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
-            "source_url":         source_url,
-            "relevance_score":    0,
-            "bid_recommendation": "NO-BID",
-            "claude_analysis":    rationale,
-            "key_gaps":           "Staff vacancy — not a firm consultancy contract",
-            "status":             "No-bid",
-        })
-        return None  # ← exits process_opportunity, nothing else runs
-
-    # ── FROM HERE: confirmed consultancy contract, run full pipeline ───────
-    console.print(f"  [green]✅ Confirmed consultancy contract — proceeding[/green]")
+        # Save to Airtable as NO-BID for audit trail and dedup
+        try:
+            create_opportunity({
+                "title":              opportunity.get("title") or title,
+                "client":             opportunity.get("client", ""),
+                "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
+                "source_url":         source_url,
+                "relevance_score":    0,
+                "bid_recommendation": "NO-BID",
+                "key_gaps": (
+                    "Staff vacancy — not a firm-level consultancy contract"
+                ),
+                "status": "No-bid",
+            })
+        except Exception:
+            pass  # Audit save failure must not crash the pipeline
+        return None
 
     console.print(
-        f"  [green]Score: {fit_score}/100 | "
-        f"Recommendation: {recommendation}[/green]"
+        "  [green]✅ Confirmed consultancy contract — running full pipeline[/green]"
     )
 
-    # ── STEP 4: CREATE AIRTABLE RECORD ────────────────────────────────────
+    # ── STEP 4: CREATE AIRTABLE OPPORTUNITY RECORD ─────────────────────────
     airtable_record_id = create_opportunity({
-        "title":                opportunity.get("title") or title,
-        "client":               opportunity.get("client", ""),
-        "donor":                opportunity.get("donor", ""),
-        "source_portal":        raw_opportunity.get("source_portal", "Unknown"),
-        "source_url":           source_url,
-        "submission_deadline":  opportunity.get("submission_deadline", ""),
+        "title": opportunity.get("title") or title,
+        "client": opportunity.get("client", ""),
+        "donor": opportunity.get("donor", ""),
+        "source_portal": raw_opportunity.get("source_portal", "Unknown"),
+        "source_url": source_url,
+        "submission_deadline": opportunity.get("submission_deadline", ""),
         "estimated_budget_usd": opportunity.get("estimated_budget_usd", 0),
-        "location":             opportunity.get("project_location", []),
-        "thematic_areas":       analysis.get("requirements", {}).get(
-                                    "thematic_areas", []
-                                ),
-        "relevance_score":      fit_score,
-        "win_probability":      win_prob,
-        "bid_recommendation":   recommendation,
-        "claude_analysis":      str(analysis),
-        "key_strengths":        "\n".join(
-                                    bid_analysis.get("key_strengths", [])
-                                ),
-        "key_gaps":             "\n".join(
-                                    bid_analysis.get("key_gaps", [])
-                                ),
-        "status":               "New",
+        "location": opportunity.get("project_location", []),
+        "thematic_areas": (
+            analysis.get("requirements", {}).get("thematic_areas", [])
+        ),
+        "relevance_score": fit_score,
+        "win_probability": win_prob,
+        "bid_recommendation": recommendation,
+        "claude_analysis": str(analysis)[:50000],  # Airtable long-text limit
+        "key_strengths": "\n".join(
+            bid_analysis.get("key_strengths", [])
+        ),
+        "key_gaps": "\n".join(
+            bid_analysis.get("key_gaps", [])
+        ),
+        "status": "New",
     })
 
     if airtable_record_id is None:
         console.print(
-            "  [red]Skipping — could not save opportunity to Airtable[/red]"
+            "  [red]Could not save to Airtable — skipping[/red]"
         )
         return None
 
-    # ── STEP 5: MATCH TEAM (semantic CV search) ────────────────────────────
+    # ── STEP 5: CV MATCHING ────────────────────────────────────────────────
     logger.info("  Step 3: Matching team from CV database...")
     matched_team_result = {
         "matched_team": {},
-        "gaps": [],
+        "gaps":         [],
         "coverage_percent": 0,
     }
     team_requirements = analysis.get("team_requirements", [])
@@ -194,15 +209,13 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
                 "matched_team": str(matched_team_result),
             })
         except Exception as e:
-            logger.warning(f"  Airtable matched_team update failed (non-fatal): {e}")
+            logger.warning(f"  Airtable matched_team update failed: {e}")
 
-    # ── STEP 6: CALCULATE BUDGET ───────────────────────────────────────────
+    # ── STEP 6: BUDGET CALCULATION ─────────────────────────────────────────
     logger.info("  Step 4: Calculating budget...")
-    primary_location = (
-        opportunity.get("project_location", ["Nairobi"])[0]
-        if opportunity.get("project_location")
-        else "Nairobi"
-    )
+    project_locations = opportunity.get("project_location", [])
+    primary_location  = project_locations[0] if project_locations else "Nairobi"
+
     budget = calculate_budget(
         analysis,
         matched_team_result.get("matched_team", {}),
@@ -217,7 +230,7 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
     )
 
     # ── STEP 8: WRITE FULL PROPOSAL DRAFT ─────────────────────────────────
-    logger.info("  Step 6: Writing proposal draft (section-by-section)...")
+    logger.info("  Step 6: Writing proposal draft...")
     proposal_sections = generate_proposal(
         analysis,
         matched_team_result,
@@ -236,36 +249,37 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         logger.warning(f"  Airtable status update failed (non-fatal): {e}")
 
     console.print(
-        f"  [bold green]✅ Proposal draft ready — "
-        f"flagged for team review[/bold green]"
+        "  [bold green]✅ Proposal draft complete — ready for team review[/bold green]"
     )
 
     return {
-        "airtable_id":      airtable_record_id,
-        "title":            title,
-        "score":            fit_score,
-        "recommendation":   recommendation,
-        "source_url":       source_url,
-        "deadline":         opportunity.get("submission_deadline", "TBD"),
-        "client":           opportunity.get("client", ""),
-        "budget_cap":       opportunity.get("estimated_budget_usd", 0),
-        "analysis":         analysis,
-        "matched_team":     matched_team_result,
-        "budget":           budget,
+        "airtable_id":       airtable_record_id,
+        "title":             title,
+        "score":             fit_score,
+        "recommendation":    recommendation,
+        "source_url":        source_url,
+        "deadline":          opportunity.get("submission_deadline", "TBD"),
+        "client":            opportunity.get("client", ""),
+        "budget_cap":        opportunity.get("estimated_budget_usd", 0),
+        "analysis":          analysis,
+        "matched_team":      matched_team_result,
+        "budget":            budget,
         "proposal_sections": proposal_sections,
         "compliance_matrix": compliance_matrix,
     }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PIPELINE RUNNER — called by scheduler and --once flag
+# PIPELINE RUNNER
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run_pipeline() -> None:
     """
-    Main pipeline execution.
-    Discovers new opportunities, processes each one fully,
-    sends individual proposal emails, then sends a summary report.
+    Main pipeline execution — called by scheduler and --once flag.
+
+    Discovers new opportunities from all sources, runs each through
+    the full pipeline, sends individual proposal emails per opportunity,
+    and sends a summary report at the end of each run.
     """
     console.print(Panel.fit(
         f"[bold blue]🤖 Cortech BD Agent Running[/bold blue]\n"
@@ -273,59 +287,86 @@ def run_pipeline() -> None:
         border_style="blue",
     ))
 
-    all_new: list[dict] = []
+    all_new: list[dict]              = []
     processed_opportunities: list[dict] = []
 
-    # ── COLLECT FROM RSS FEEDS ─────────────────────────────────────────────
-    # ReliefWeb Playwright scraper has been removed — the RSS feed covers
-    # ReliefWeb reliably without fragile browser-based DOM selectors.
-    logger.info("Collecting from tender sources...")
-
+    # ── SOURCE 1: RSS FEEDS ────────────────────────────────────────────────
+    logger.info("Checking RSS feeds...")
     try:
-        rss_opportunities = monitor_rss_feeds()
-        all_new.extend(rss_opportunities)
+        rss_results = monitor_rss_feeds()
+        all_new.extend(rss_results)
+        logger.info(f"  RSS total: {len(rss_results)} passed filter")
     except Exception as e:
         logger.error(f"RSS monitor failed: {e}")
-        log_agent_action(
-            action_type="Error",
-            description=f"RSS monitor failed: {e}",
-            status="Error",
-            error_message=str(e),
-        )
-    # ── RSS FEEDS ──────────────────────────────────────────────────────────
-    try:
-        rss_opportunities = monitor_rss_feeds()
-        all_new.extend(rss_opportunities)
-    except Exception as e:
-        logger.error(f"RSS monitor failed: {e}")
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=f"RSS monitor failed: {e}",
+                status="Error",
+                error_message=str(e),
+            )
+        except Exception:
+            pass
 
-    # ── NON-RSS SCRAPERS (Somalia Jobs, DRC, CARE, FCDO, etc.) ────────────
+    # ── SOURCE 2: NON-RSS SCRAPERS ─────────────────────────────────────────
+    # Somalia Jobs, DRC, Save the Children, CARE, GIZ, USAID, FCDO, etc.
+    # Uses Playwright browser to handle JavaScript-rendered pages.
+    logger.info("Running web scrapers...")
     try:
-        scraped_opportunities = scrape_non_rss_sources()
-        all_new.extend(scraped_opportunities)
+        scraped_results = scrape_non_rss_sources()
+        all_new.extend(scraped_results)
+        logger.info(f"  Scrapers total: {len(scraped_results)} passed filter")
     except Exception as e:
-        logger.error(f"Non-RSS scrapers failed: {e}")    
+        logger.error(f"Non-RSS scrapers failed: {e}")
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=f"Scrapers failed: {e}",
+                status="Error",
+                error_message=str(e),
+            )
+        except Exception:
+            pass
 
+    # ── DEDUP: REMOVE ANYTHING ALREADY IN THIS RUN ─────────────────────────
+    seen_urls: set[str] = set()
+    unique_new: list[dict] = []
+    for opp in all_new:
+        url = opp.get("source_url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            unique_new.append(opp)
+    all_new = unique_new
+
+    total = len(all_new)
     console.print(
-        f"\n[bold]Found {len(all_new)} new opportunit"
-        f"{'y' if len(all_new) == 1 else 'ies'} after filtering[/bold]"
+        f"\n[bold]Found {total} new opportunit"
+        f"{'y' if total == 1 else 'ies'} after filtering[/bold]"
     )
 
-    # ── PROCESS EACH OPPORTUNITY ───────────────────────────────────────────
+    # ── SEND STATUS REPORT IF NOTHING FOUND ───────────────────────────────
     if not all_new:
         console.print(
-            "[yellow]No new opportunities. Sending status report.[/yellow]"
+            "[yellow]No new opportunities this run. "
+            "Sending status report.[/yellow]"
         )
-        send_report(new_opportunities=[])
+        try:
+            send_report(new_opportunities=[])
+        except Exception as e:
+            logger.error(f"Status report email failed: {e}")
         return
 
+    # ── PROCESS EACH OPPORTUNITY ───────────────────────────────────────────
     for opp in track(all_new, description="Processing opportunities..."):
         try:
             result = process_opportunity(opp)
+
             if result:
                 processed_opportunities.append(result)
-                # Send individual proposal email immediately —
-                # one email per opportunity so each review is self-contained
+
+                # Send individual proposal email immediately after each
+                # successful pipeline run — one email per opportunity so
+                # each review is self-contained and actionable
                 try:
                     send_proposal_email(result)
                 except Exception as email_err:
@@ -333,73 +374,78 @@ def run_pipeline() -> None:
                         f"Proposal email failed for "
                         f"'{result.get('title', 'Unknown')[:50]}': {email_err}"
                     )
+
         except Exception as e:
             logger.error(
-                f"Failed to process "
+                f"Pipeline error for "
                 f"'{opp.get('title', 'Unknown')[:60]}': {e}"
             )
-            log_agent_action(
-                action_type="Error",
-                description=(
-                    f"Pipeline failed for: "
-                    f"{opp.get('title', 'Unknown')[:50]}"
-                ),
-                status="Error",
-                error_message=str(e),
-            )
+            try:
+                log_agent_action(
+                    action_type="Error",
+                    description=(
+                        f"Pipeline exception: "
+                        f"{opp.get('title', 'Unknown')[:50]}"
+                    ),
+                    status="Error",
+                    error_message=str(e),
+                )
+            except Exception:
+                pass
 
-    # ── SEND PIPELINE SUMMARY REPORT ───────────────────────────────────────
-    # This is a lightweight summary — the real value is the per-proposal
-    # emails sent above during processing.
+    # ── SEND PIPELINE SUMMARY EMAIL ────────────────────────────────────────
+    # Lightweight summary of the full run — the detailed value is in
+    # the individual per-proposal emails sent above
     logger.info("Sending pipeline summary report...")
-
-    summary_opportunities = [
+    summary_list = [
         {
-            "title":              r.get("title", ""),
-            "client":             r.get("client", ""),
-            "relevance_score":    r.get("score", 0),
-            "bid_recommendation": r.get("recommendation", "WATCH"),
+            "title":               r.get("title", ""),
+            "client":              r.get("client", ""),
+            "relevance_score":     r.get("score", 0),
+            "bid_recommendation":  r.get("recommendation", "WATCH"),
             "submission_deadline": r.get("deadline", ""),
         }
         for r in processed_opportunities
     ]
 
     try:
-        send_report(new_opportunities=summary_opportunities)
+        send_report(new_opportunities=summary_list)
     except Exception as e:
         logger.error(f"Summary report email failed: {e}")
 
-    # ── FINAL SUMMARY ──────────────────────────────────────────────────────
+    # ── RUN SUMMARY ────────────────────────────────────────────────────────
+    n = len(processed_opportunities)
     console.print(Panel.fit(
         f"[bold green]✅ Pipeline Complete[/bold green]\n"
-        f"Processed: {len(processed_opportunities)} opportunit"
-        f"{'y' if len(processed_opportunities) == 1 else 'ies'}\n"
-        f"Proposal emails sent: {len(processed_opportunities)}\n"
-        f"Summary report sent.",
+        f"Discovered:       {total} opportunities\n"
+        f"Proposals drafted: {n}\n"
+        f"Emails sent:      {n} individual + 1 summary",
         border_style="green",
     ))
 
-    log_agent_action(
-        action_type="Discovery",
-        description=(
-            f"Pipeline run complete: "
-            f"{len(processed_opportunities)} opportunities processed, "
-            f"{len(processed_opportunities)} proposal drafts emailed"
-        ),
-        tokens_used=0,
-        status="Success",
-    )
+    try:
+        log_agent_action(
+            action_type="Discovery",
+            description=(
+                f"Run complete: {total} discovered, "
+                f"{n} proposals drafted"
+            ),
+            tokens_used=0,
+            status="Success",
+        )
+    except Exception:
+        pass
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# SCHEDULER — continuous mode (python main.py, no flags)
+# CONTINUOUS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
 
 def start_scheduler() -> None:
     """
-    Runs the pipeline on a fixed interval defined by CHECK_INTERVAL_HOURS
-    in .env (default 6). Also fires once immediately on startup so you
-    don't have to wait up to 6 hours for the first run after deployment.
+    Runs the pipeline on a fixed interval (CHECK_INTERVAL_HOURS in .env,
+    default 6). Fires once immediately on startup so you don't wait up to
+    6 hours for the first run after deployment or restart.
     """
     from config import CHECK_INTERVAL_HOURS
 
@@ -412,12 +458,20 @@ def start_scheduler() -> None:
     # Fire immediately on startup
     run_pipeline()
 
-    # Then schedule subsequent runs
+    # Schedule subsequent runs
     schedule.every(CHECK_INTERVAL_HOURS).hours.do(run_pipeline)
+
+    # Also fire at 07:00 EAT daily so the team has a morning report
+    schedule.every().day.at("07:00").do(run_pipeline)
+
+    logger.info(
+        f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours "
+        f"and daily at 07:00"
+    )
 
     while True:
         schedule.run_pending()
-        time.sleep(60)  # Poll every minute — negligible CPU cost
+        time.sleep(60)  # Check every minute — negligible CPU cost
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -429,5 +483,5 @@ if __name__ == "__main__":
         # Single run — used by crontab and manual testing
         run_pipeline()
     else:
-        # Continuous scheduler — used when running on a VPS foreground process
+        # Continuous scheduler — used on VPS foreground process
         start_scheduler()
