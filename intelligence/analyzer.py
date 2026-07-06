@@ -1,12 +1,27 @@
 # intelligence/analyzer.py
-import anthropic
+"""
+RFP/ToR analysis via Claude.
+Two public functions:
+  analyze_rfp()              → structured JSON from full document text
+  generate_compliance_matrix() → scored matrix against evaluation criteria
+"""
+
+import os
 import json
 from loguru import logger
+
+import anthropic
+
 from config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE
 from database.airtable_client import log_agent_action
 
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
+
+# ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
+# Claude must return a JSON object matching this structure exactly.
+# is_consultancy_contract is the most critical field — it gates the
+# entire downstream pipeline before any expensive work begins.
 
 ANALYSIS_SCHEMA = """
 {
@@ -16,11 +31,12 @@ ANALYSIS_SCHEMA = """
     "donor": "string or null",
     "reference_number": "string or null",
     "submission_deadline": "YYYY-MM-DD or null",
-    "project_location": ["list of countries/cities"],
-    "project_duration": "string e.g. '3 months'",
+    "project_location": ["list of countries or cities"],
+    "project_duration": "string e.g. 3 months",
     "estimated_budget_usd": "number or null",
     "currency": "string"
   },
+
   "requirements": {
     "technical": ["list of technical requirements"],
     "thematic_areas": ["list of thematic areas"],
@@ -29,9 +45,10 @@ ANALYSIS_SCHEMA = """
     "certifications": ["list of required certifications or policies"],
     "methodology_requirements": ["list of required methodologies"]
   },
+
   "team_requirements": [
     {
-      "role": "string - job title",
+      "role": "string — job title",
       "level": "Senior/Mid/Junior",
       "years_experience_minimum": "number",
       "required_skills": ["list of skills"],
@@ -42,6 +59,7 @@ ANALYSIS_SCHEMA = """
       "local_country": "string or null"
     }
   ],
+
   "deliverables": [
     {
       "name": "string",
@@ -49,6 +67,7 @@ ANALYSIS_SCHEMA = """
       "timeline": "string"
     }
   ],
+
   "evaluation_criteria": [
     {
       "criterion": "string",
@@ -56,6 +75,7 @@ ANALYSIS_SCHEMA = """
       "description": "string"
     }
   ],
+
   "submission_requirements": {
     "technical_proposal_page_limit": "number or null",
     "cvs_required": "boolean",
@@ -63,99 +83,100 @@ ANALYSIS_SCHEMA = """
     "references_required": "number",
     "financial_proposal_required": "boolean"
   },
+
   "bid_analysis": {
-    "is_consultancy_contract": "boolean — TRUE only if this is a firm-level consultancy contract, RFP, ToR, or EOI. FALSE if this is a staff vacancy, individual employment, salaried role, or individual advisor placement. This is the most important field — get it right.",
+    "is_consultancy_contract": "boolean — TRUE if a company/firm is being hired to deliver a product, study, evaluation, assessment, or service with defined deliverables and a scope of work. FALSE only if this is a pure individual staff vacancy with no deliverables (salaried employment). DEFAULT TO TRUE when in doubt.",
     "cortech_fit_score": "number 0-100",
     "win_probability": "number 0-100",
     "bid_recommendation": "BID/WATCH/NO-BID",
     "effort_required": "Low/Medium/High",
-    "key_strengths": ["list of Cortech advantages"],
-    "key_gaps": ["list of weaknesses or missing requirements"],
-    "recommended_external_partners": ["list of suggested partner types if needed"],
-    "rationale": "2-3 sentence explanation",
+    "key_strengths": ["list of Cortech advantages for this opportunity"],
+    "key_gaps": ["list of gaps or weaknesses"],
+    "recommended_external_partners": ["list of partner types if needed"],
+    "rationale": "2-3 sentence explanation of score and recommendation",
     "priority": "HIGH/MEDIUM/LOW"
   }
 }
 """
 
 
+# ── MAIN ANALYSIS FUNCTION ────────────────────────────────────────────────────
+
 def analyze_rfp(
     tor_text: str,
     opportunity_id: str = None,
-    title: str = "Unknown"
+    title: str = "Unknown",
 ) -> dict:
     """
-    Core function: Claude reads the entire ToR/RFP and extracts
-    structured intelligence. This is the main intelligence call.
+    Reads a full ToR/RFP document and extracts structured intelligence.
+
+    Returns a dict matching ANALYSIS_SCHEMA, or empty dict on failure.
+    The is_consultancy_contract field in bid_analysis is the critical
+    gate read by main.py before any further pipeline work begins.
     """
-    logger.info(f"Analyzing RFP: {title[:60]}...")
+    logger.info(f"  Analyzing: {title[:60]}...")
 
-    # Chunk if too long (Claude can handle 200k tokens but we manage costs)
-    max_chars = 100_000  # ~25k tokens
+    # Truncate if too long — keep within safe token budget
+    max_chars = 80000  # ~20k tokens at average compression
     if len(tor_text) > max_chars:
-        tor_text = tor_text[:max_chars] + "\n\n[DOCUMENT TRUNCATED FOR ANALYSIS]"
+        # Keep beginning and end — both contain critical information
+        half = max_chars // 2
+        tor_text = (
+            tor_text[:half]
+            + "\n\n[... MIDDLE SECTION TRUNCATED FOR TOKEN MANAGEMENT ...]\n\n"
+            + tor_text[-half:]
+        )
 
-    prompt = f"""You are an expert development sector business analyst for Cortech Consulting Group.
+    prompt = f"""You are an expert development-sector business analyst for
+Cortech Consulting Group. Analyze the document below and return a
+single valid JSON object. No preamble, no markdown, no explanation —
+only the JSON object.
 
-CORTECH PROFILE:
+CORTECH PROFILE (use this to score fit):
 {CORTECH_PROFILE}
 
-TASK:
-Analyze the following ToR/RFP document and extract comprehensive intelligence.
-Return ONLY a valid JSON object matching this exact schema (no other text):
+CRITICAL FILTER — READ THIS BEFORE ANYTHING ELSE:
+Determine whether this document is a FIRM-LEVEL CONSULTANCY CONTRACT
+or a STAFF VACANCY.
 
-SCHEMA:
-{ANALYSIS_SCHEMA}
+Set is_consultancy_contract = TRUE for:
+- RFPs, ToRs, EOIs, Call for Proposals, procurement notices
+- Documents where a COMPANY or TEAM is being hired to deliver
+  a product, study, evaluation, assessment, or service
+- Any document with deliverables, timelines, and payment milestones
+  for an organization rather than an individual employee
+- Even if the document says "individual consultant" in places,
+  if it has a scope of work and deliverables it is TRUE
 
-CRITICAL FILTER — THIS IS YOUR MOST IMPORTANT TASK:
-Cortech Consulting Group is a FIRM. It bids on firm-level CONSULTANCY
-CONTRACTS — time-bound engagements where a company is hired to deliver
-research, evaluation, MEL, surveys, or technical assistance.
+Set is_consultancy_contract = FALSE ONLY for:
+- Pure job postings where ONE PERSON is being recruited as an employee
+- Salaried positions with HR language (benefits, leave entitlement)
+- Vacancy announcements with no scope of work or deliverables
 
-Cortech does NOT apply for:
-- Staff/employee positions (any salaried, permanent, or fixed-term role)
-- Individual advisor or specialist placements
-- Individual consultant positions where ONE person is being hired
-- Any role where the output is "an employee" rather than "a deliverable"
-
-BEFORE ANYTHING ELSE: Set is_consultancy_contract to:
-- TRUE: if the document is an RFP, ToR, EOI, Call for Proposals, or
-  procurement notice where a COMPANY/FIRM is being hired to deliver
-  a product or service
-- FALSE: if the document is a job posting, vacancy announcement, or
-  individual recruitment — regardless of thematic relevance
+IF IN DOUBT: set is_consultancy_contract = TRUE.
+It is better to draft a proposal for a borderline case than to miss
+a real opportunity. The human reviewer makes the final submission call.
 
 If is_consultancy_contract is FALSE:
   - Set cortech_fit_score to 0
   - Set bid_recommendation to "NO-BID"
   - State clearly in rationale: "STAFF VACANCY — not a consultancy contract"
 
-Keywords that confirm TRUE: Terms of Reference, Request for Proposal,
-Expression of Interest, Call for Proposals, procurement notice, RFP,
-ToR, EOI, consulting firm, service provider, supplier
+SCORING GUIDANCE for cortech_fit_score (0-100):
+- 85-100: Perfect match — all requirements met, strong track record,
+          ideal geography, high win probability
+- 70-84:  Strong match — most requirements met, minor gaps fillable
+- 50-69:  Moderate match — some gaps but manageable with the right team
+- 30-49:  Weak match — significant gaps, high effort for uncertain win
+- 0-29:   Poor match — fundamental misalignment with Cortech's profile
 
-Keywords that confirm FALSE: vacancy, position, job opening, we are
-hiring, employment, salaried, full-time, part-time, advisor position,
-senior advisor, specialist position, officer position
+SCHEMA — return a JSON object matching this exactly:
+{ANALYSIS_SCHEMA}
 
-SCORING GUIDANCE:
-- cortech_fit_score 0-100:
-  * 90-100: Perfect match - all requirements met, strong track record, ideal geography
-  * 70-89: Strong match - most requirements met, minor gaps
-  * 50-69: Moderate match - some gaps but manageable
-  * 30-49: Weak match - significant gaps
-  * 0-29: Poor match - fundamental misalignment
+DOCUMENT TO ANALYZE:
+{tor_text}"""
 
-- win_probability considers:
-  * Cortech's past performance in similar work
-  * Competition level in this space
-  * Relationship with client/donor
-  * Realistic assessment of team capability
-
-ToR/RFP DOCUMENT:
-{tor_text}
-
-Return only the JSON object. No preamble, no explanation, no markdown formatting."""
+    tokens_used = 0
 
     try:
         response = client.messages.create(
@@ -164,93 +185,165 @@ Return only the JSON object. No preamble, no explanation, no markdown formatting
             messages=[{"role": "user", "content": prompt}]
         )
 
-        response_text = response.content[0].text.strip()
-        tokens_used = response.usage.input_tokens + response.usage.output_tokens
-
-        # Log to Airtable
-        log_agent_action(
-            action_type="Analysis",
-            description=f"Analyzed RFP: {title[:60]}",
-            opportunity_id=opportunity_id,
-            tokens_used=tokens_used,
-            status="Success"
+        tokens_used = (
+            response.usage.input_tokens + response.usage.output_tokens
         )
+        response_text = response.content[0].text.strip()
 
-        # Parse JSON
-        # Remove any markdown formatting if Claude added it
-        if response_text.startswith("```"):
-            response_text = response_text.split("```json")[-1].split("```")[0]
+        # Strip markdown code fences if Claude added them
+        if "```" in response_text:
+            parts = response_text.split("```")
+            for part in parts:
+                part = part.strip()
+                if part.startswith("json"):
+                    part = part[4:].strip()
+                if part.startswith("{"):
+                    response_text = part
+                    break
 
         analysis = json.loads(response_text)
-        logger.success(f"Analysis complete. Fit score: {analysis['bid_analysis']['cortech_fit_score']}")
+
+        score = (
+            analysis
+            .get("bid_analysis", {})
+            .get("cortech_fit_score", 0)
+        )
+        is_contract = (
+            analysis
+            .get("bid_analysis", {})
+            .get("is_consultancy_contract", True)
+        )
+
+        logger.success(
+            f"  Analysis complete — score: {score}/100 | "
+            f"consultancy: {is_contract}"
+        )
+
+        try:
+            log_agent_action(
+                action_type="Analysis",
+                description=f"Analyzed: {title[:60]}",
+                opportunity_id=opportunity_id,
+                tokens_used=tokens_used,
+                status="Success",
+            )
+        except Exception:
+            pass  # Logging must never crash the pipeline
+
         return analysis
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON parse error in RFP analysis: {e}")
-        logger.debug(f"Raw response: {response_text[:500]}")
-        log_agent_action(
-            action_type="Error",
-            description=f"JSON parse failed for: {title}",
-            opportunity_id=opportunity_id,
-            status="Error",
-            error_message=str(e)
-        )
+        logger.error(f"  JSON parse failed for '{title[:60]}': {e}")
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=f"JSON parse failed: {title[:60]}",
+                opportunity_id=opportunity_id,
+                tokens_used=tokens_used,
+                status="Error",
+                error_message=str(e),
+            )
+        except Exception:
+            pass
+        return {}
+
+    except anthropic.RateLimitError:
+        logger.error("  Anthropic rate limit hit — waiting 60s")
+        import time
+        time.sleep(60)
         return {}
 
     except Exception as e:
-        logger.error(f"RFP analysis failed: {e}")
-        log_agent_action(
-            action_type="Error",
-            description=f"Analysis failed for: {title}",
-            opportunity_id=opportunity_id,
-            status="Error",
-            error_message=str(e)
-        )
+        logger.error(f"  Analysis failed for '{title[:60]}': {e}")
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=f"Analysis exception: {title[:60]}",
+                opportunity_id=opportunity_id,
+                tokens_used=tokens_used,
+                status="Error",
+                error_message=str(e),
+            )
+        except Exception:
+            pass
         return {}
 
 
+# ── COMPLIANCE MATRIX ─────────────────────────────────────────────────────────
+
 def generate_compliance_matrix(
     analysis: dict,
-    matched_team: list[dict]
+    matched_team: list[dict],
 ) -> str:
-    """Generate a compliance matrix as formatted text."""
+    """
+    Generates a compliance matrix mapping evaluation criteria from the
+    ToR against Cortech's matched capabilities and team.
 
+    Returns formatted text suitable for inclusion in proposal emails
+    and Airtable records.
+    """
     evaluation_criteria = analysis.get("evaluation_criteria", [])
-    key_strengths = analysis.get("bid_analysis", {}).get("key_strengths", [])
-    key_gaps = analysis.get("bid_analysis", {}).get("key_gaps", [])
+    bid_analysis        = analysis.get("bid_analysis", {})
+    key_strengths       = bid_analysis.get("key_strengths", [])
+    key_gaps            = bid_analysis.get("key_gaps", [])
+    opportunity         = analysis.get("opportunity", {})
 
-    prompt = f"""Generate a compliance matrix for Cortech Consulting Group's bid response.
+    team_summary = [
+        {
+            "required_role": role,
+            "assigned":      match.get("consultant_name", "TBD"),
+            "match_score":   match.get("similarity_score", 0),
+        }
+        for role, match in
+        {r: m for r, m in
+         [(r, m) for m in matched_team
+          for r in [m.get("role", "Unknown")]
+          if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"]
+        }.items()
+    ] if matched_team else []
+
+    prompt = f"""Generate a compliance matrix for a Cortech Consulting Group
+proposal bid response. Format as a structured text table followed by
+a brief summary.
+
+OPPORTUNITY: {opportunity.get("title", "Unknown")}
+CLIENT: {opportunity.get("client", "Unknown")}
 
 EVALUATION CRITERIA FROM ToR:
 {json.dumps(evaluation_criteria, indent=2)}
 
-CORTECH STRENGTHS FOR THIS BID:
+CORTECH KEY STRENGTHS FOR THIS BID:
 {json.dumps(key_strengths, indent=2)}
 
 GAPS TO ADDRESS:
 {json.dumps(key_gaps, indent=2)}
 
 MATCHED TEAM:
-{json.dumps([{"name": m.get("consultant_name"), "role": m.get("role_title"), "match_score": m.get("similarity")} for m in matched_team], indent=2)}
+{json.dumps(team_summary, indent=2)}
 
 CORTECH PROFILE:
 {CORTECH_PROFILE}
 
-Generate a compliance matrix in this format:
-CRITERION | WEIGHT | STATUS | CORTECH EVIDENCE | SCORE/WEIGHT
-For each criterion show: ✅ STRONG, ⚠️ PARTIAL, ❌ GAP
+Format the matrix as:
+CRITERION | WEIGHT | STATUS | CORTECH EVIDENCE | ESTIMATED SCORE
 
-Then add:
+Use: ✅ STRONG | ⚠️ PARTIAL | ❌ GAP for status column.
+
+End with:
 - ESTIMATED TOTAL SCORE: X/100
-- WIN PROBABILITY: X%  
-- KEY MITIGATION STRATEGIES for any gaps
+- WIN PROBABILITY: X%
+- TOP 3 MITIGATION STRATEGIES for any gaps
 
-Keep it concise but comprehensive. Maximum 600 words."""
+Maximum 600 words. Be specific — reference actual Cortech experience."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
-    )
+    try:
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=1500,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text
 
-    return response.content[0].text
+    except Exception as e:
+        logger.error(f"Compliance matrix generation failed: {e}")
+        return "Compliance matrix generation failed — see analysis JSON for manual assessment."
