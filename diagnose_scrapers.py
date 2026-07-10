@@ -50,10 +50,6 @@ SOURCES_TO_CHECK = [
         "url":  "https://www.usaid.gov/business-forecast",
     },
     {
-        "name": "FCDO Contracts Finder",
-        "url":  "https://www.contractsfinder.service.gov.uk/Search/Results?&KeywordsAndFilters=east+africa+consultancy",
-    },
-    {
         "name": "IGAD Procurement",
         "url":  "https://igad.int/procurements/",
     },

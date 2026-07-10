@@ -30,6 +30,9 @@ DEFINITE_STAFF_SIGNALS = [
     "recursos humanos",
     "driver wanted",
     "intern wanted",
+    "taxi",
+    "mpv (",
+    "passenger assistant",
 ]
 
 # Cortech's geographic focus — presence of ANY of these is enough
