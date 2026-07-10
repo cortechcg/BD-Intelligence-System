@@ -177,11 +177,6 @@ SCRAPE_SOURCES = [
         "type": "generic_list",
     },
     {
-        "name": "FCDO Commercial",
-        "url": "https://www.contractsfinder.service.gov.uk/Search/Results?&KeywordsAndFilters=east+africa+consultancy",
-        "type": "generic_list",
-    },
-    {
         "name": "USAID Business Forecast",
         "url": "https://www.usaid.gov/rss/business-forecast",
         "type": "generic_list",

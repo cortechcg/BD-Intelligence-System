@@ -102,16 +102,6 @@ SCRAPE_SOURCES = [
         "timeout":        20000,
     },
     {
-        "name":           "FCDO Contracts Finder",
-        "url":            "https://www.contractsfinder.service.gov.uk/Search/Results?&KeywordsAndFilters=east+africa+consultancy",
-        "selector":       "div.search-result, article, div.opportunity",
-        "link_selector":  "a[href]",
-        "title_selector": "h2, h3, h4, .title, a",
-        "base_url":       "https://www.contractsfinder.service.gov.uk",
-        "wait_for":       "div.search-result, body",
-        "timeout":        20000,
-    },
-    {
         "name":           "Kenya Government PPIP",
         "url":            "https://tenders.go.ke/website/tenders/index",
         "selector":       "tr, div.tender-item, div.listing",

@@ -309,7 +309,7 @@ def run_pipeline() -> None:
             pass
 
     # ── SOURCE 2: NON-RSS SCRAPERS ─────────────────────────────────────────
-    # Somalia Jobs, DRC, Save the Children, CARE, GIZ, USAID, FCDO, etc.
+    # Somalia Jobs, DRC, Save the Children, CARE, GIZ, USAID, etc.
     # Uses Playwright browser to handle JavaScript-rendered pages.
     logger.info("Running web scrapers...")
     try:

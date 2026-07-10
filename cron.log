@@ -1302,3 +1302,1113 @@ Processing opportunities... ━━━━━━━━━━━━━━━━━�
 │ Proposals drafted: 0                       │
 │ Emails sent:      0 individual + 1 summary │
 ╰────────────────────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-07 12:00:03         │
+╰─────────────────────────────╯
+2026-07-07 12:00:03.832 | INFO     | __main__:run_pipeline:294 - Checking RSS feeds...
+2026-07-07 12:00:03.832 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: ReliefWeb Consultancies
+2026-07-07 12:00:05.955 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 20 entries
+2026-07-07 12:00:07.582 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): HEAD OF OPERATIONS AND FINANCE
+2026-07-07 12:00:07.804 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Protection Coordinator - Sudan
+2026-07-07 12:00:07.804 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Protection Coordinator - Sudan...
+2026-07-07 12:00:08.034 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Coordinateur/trice technique du projet
+2026-07-07 12:00:08.034 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Coordinateur/trice technique du projet...
+2026-07-07 12:00:08.245 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Senior Machine Learning Specialist
+2026-07-07 12:00:08.458 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: BRMM YBI Enumerator
+2026-07-07 12:00:08.458 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: BRMM YBI Enumerator...
+2026-07-07 12:00:08.678 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Spécialiste en Inclusion, Bruxelles (f/h/x)
+2026-07-07 12:00:08.679 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Spécialiste en Inclusion, Bruxelles (f/h/x)...
+2026-07-07 12:00:08.895 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Senior Technical Adviser – Food Assistance and UN Grants Ope
+2026-07-07 12:00:09.103 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Supply Chain Manager- Procurement (Whole of Syria)
+2026-07-07 12:00:09.307 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Senior Scientist – model validation
+2026-07-07 12:00:09.536 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: TERMS OF REFERENCE (TOR) TENDER NO. 23/06/FY26 CONSULTANCY S
+2026-07-07 12:00:09.536 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: TERMS OF REFERENCE (TOR) TENDER NO. 23/06/FY26 CONSULTANCY S...
+2026-07-07 12:00:09.772 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: TERMS OF REFERENCE (TOR) TENDER NO. 24/06/FY26 CONSULTANCY S
+2026-07-07 12:00:09.772 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: TERMS OF REFERENCE (TOR) TENDER NO. 24/06/FY26 CONSULTANCY S...
+2026-07-07 12:00:09.996 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Cluster Director Central America, Mexico and Dominican Repub
+2026-07-07 12:00:10.213 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: National Project Officer, NOA (Solomon Islands Nationals Onl
+2026-07-07 12:00:10.213 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: National Project Officer, NOA (Solomon Islands Nationals Onl...
+2026-07-07 12:00:10.417 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Project Coordinator (National Consultant)
+2026-07-07 12:00:10.417 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Project Coordinator (National Consultant)...
+2026-07-07 12:00:10.624 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Project Assistant
+2026-07-07 12:00:10.625 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Project Assistant...
+2026-07-07 12:00:10.845 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Project Director - Tanzania (GBV Prevention Program)
+2026-07-07 12:00:10.846 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Project Director - Tanzania (GBV Prevention Program)...
+2026-07-07 12:00:11.055 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Monitoring, Evaluation, and Learning (MEL) Lead - Tanzania
+2026-07-07 12:00:11.056 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Monitoring, Evaluation, and Learning (MEL) Lead - Tanzania...
+2026-07-07 12:00:11.266 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): RESPONSABLE DE DEPARTEMENT LOGISTIQUE- TCHAD
+2026-07-07 12:00:11.473 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Regional Leader, East Asia (EAS)
+2026-07-07 12:00:11.688 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Operations Officer – Cameroon (national applicants only)
+2026-07-07 12:00:11.688 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Operations Officer – Cameroon (national applicants only)...
+2026-07-07 12:00:11.688 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   12 passed, 8 filtered out
+2026-07-07 12:00:11.689 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: World Bank Procurement
+2026-07-07 12:00:12.689 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:12.690 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:12.690 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: UNGM Notices
+2026-07-07 12:00:13.717 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:13.718 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:13.718 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: UNDP Procurement
+2026-07-07 12:00:18.846 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:18.846 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:18.846 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: AfDB Procurement
+2026-07-07 12:00:19.502 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:19.503 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:19.503 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: EU TED Procurement (East Africa)
+2026-07-07 12:00:20.204 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:20.204 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:20.204 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: IOM Procurement
+2026-07-07 12:00:22.727 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:22.727 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:22.727 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: DevelopmentAid Tenders
+2026-07-07 12:00:23.535 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-07 12:00:23.535 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-07 12:00:23.535 | INFO     | monitors.rss_monitor:monitor_rss_feeds:189 - Total new opportunities from RSS: 12
+2026-07-07 12:00:23.535 | INFO     | __main__:run_pipeline:298 -   RSS total: 12 passed filter
+2026-07-07 12:00:23.535 | INFO     | __main__:run_pipeline:314 - Running web scrapers...
+2026-07-07 12:00:24.295 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Somali Jobs Tenders
+2026-07-07 12:00:28.240 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for Somali Jobs Tenders — using anchor fallback
+2026-07-07 12:00:28.244 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   16 raw items extracted from Somali Jobs Tenders
+2026-07-07 12:00:29.043 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sign in person
+2026-07-07 12:00:29.254 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Opportunities
+2026-07-07 12:00:29.474 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Marketplace
+2026-07-07 12:00:29.679 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Opportunities
+2026-07-07 12:00:29.885 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Marketplace
+2026-07-07 12:00:30.091 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: tender notice for supply, installation, commissioning and in
+2026-07-07 12:00:30.298 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: tender notice for consultancy service to conduct assessment 
+2026-07-07 12:00:31.930 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +252 63 4002525
+2026-07-07 12:00:32.135 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Tiriig Technology
+2026-07-07 12:00:32.135 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Somali Jobs Tenders: 2 passed filter | 7 rejected
+2026-07-07 12:00:32.135 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: DRC Procurement
+2026-07-07 12:00:36.814 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   102 raw items extracted from DRC Procurement
+2026-07-07 12:00:37.020 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Work with us
+2026-07-07 12:00:37.424 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-07 12:00:37.823 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Press Release - One hidden threat at a time: life resumes as
+2026-07-07 12:00:38.023 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Story from the field: Navigating ceasefire and crisis in Leb
+2026-07-07 12:00:38.219 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): A safer future for Al Shami through EU-funded mine clearance
+2026-07-07 12:00:38.617 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Yassin’s photo story: From collecting scrap metal to raising
+2026-07-07 12:00:39.423 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From teacher to business owner: How beekeeping helped Latifa
+2026-07-07 12:00:40.029 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Annual Report 2025
+2026-07-07 12:00:40.417 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: "We had lost hope" — rebuilding a family home in Kh
+2026-07-07 12:00:41.018 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: A new agricultural market opens in Rakove village t
+2026-07-07 12:00:42.022 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Major renovation of the Mykolaiv Lyceum — one build
+2026-07-07 12:00:42.426 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): New EU agreement on return:  A punitive approach to return w
+2026-07-07 12:00:43.017 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine:  Staying warm through winter in Kharkiv Oblast
+2026-07-07 12:00:43.213 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): EU-funded humanitarian action by DRC and partners supports o
+2026-07-07 12:00:43.815 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): DRC statement: Lebanon ceasefire in pieces as hostilities su
+2026-07-07 12:00:44.010 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Lebanon: as families return, hidden dangers await them
+2026-07-07 12:00:44.409 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: “We’re not just clearing away metal, we’re clearing
+2026-07-07 12:00:44.806 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Joint INGO Statement: Killing of Wesam Qaid, SFD
+2026-07-07 12:00:45.208 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Access to medical care for earthquake survivors in Kunar
+2026-07-07 12:00:45.605 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): No place like home? Multisectoral support for forced returne
+2026-07-07 12:00:45.812 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Keeping the lights on where the frontline is near
+2026-07-07 12:00:46.222 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: EU-funded project reaches thousands with protection
+2026-07-07 12:00:46.636 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): PRESS RELEASE: Wars targeting civilians and rising insecurit
+2026-07-07 12:00:47.459 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): From two days to one hour: The hope Aslı rebuilt
+2026-07-07 12:00:47.865 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Annual collection reports
+2026-07-07 12:00:48.062 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): DRC Standby Roster Annual Reports
+2026-07-07 12:00:48.263 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Factsheet: DRCʼs Humanitarian Mine Action (HMA) Intervention
+2026-07-07 12:00:48.861 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Información Financiera de Colombia
+2026-07-07 12:00:49.880 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: DRC's achievements in 2025
+2026-07-07 12:00:50.087 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From ruins to rebuilding inclusive economic recovery in Alep
+2026-07-07 12:00:50.298 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Farming Under Pressure. Challenges Facing Farmers in Syria
+2026-07-07 12:00:50.517 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Forced back and left behind: Conditions for urban returnees 
+2026-07-07 12:00:51.378 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Quarterly protection monitoring reports
+2026-07-07 12:00:51.811 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Youth Employment and Inclusive Growth in Tunisia
+2026-07-07 12:00:52.017 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Diaspora Led Protection Information
+2026-07-07 12:00:52.237 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Diaspora Capacity Statements
+2026-07-07 12:00:52.434 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Conflict Sensitivity Report — Kharkiv Oblast
+2026-07-07 12:00:52.840 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Capacity Development of Diaspora Organisations
+2026-07-07 12:00:53.041 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Pathways to Protection: Project Brief in ENG and FR
+2026-07-07 12:00:53.244 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From Contamination to Recovery: The Critical Role of Humanit
+2026-07-07 12:00:53.443 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Protection reports: Colombia
+2026-07-07 12:00:53.640 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Protection needs overview and GBV safety audit find
+2026-07-07 12:00:54.030 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Overview of the legal updates
+2026-07-07 12:00:54.228 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Principled compromises or compromised principles? A
+2026-07-07 12:00:54.430 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: DRC’s legal analysis of veterans’ status, social su
+2026-07-07 12:00:55.453 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Stigma toward persons with disabilities and survivo
+2026-07-07 12:00:55.663 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): DiPS projects granted funding
+2026-07-07 12:00:56.675 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): The Role of the Afghan Diaspora in Emergency and Recovery Ef
+2026-07-07 12:00:56.877 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): DEMAC Resources on Afghanistan
+2026-07-07 12:00:57.497 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): The socials
+2026-07-07 12:00:57.497 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   DRC Procurement: 0 passed filter | 50 rejected
+2026-07-07 12:00:57.497 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Save the Children Procurement
+2026-07-07 12:01:02.847 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from Save the Children Procurement
+2026-07-07 12:01:02.847 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Save the Children Procurement: 0 passed filter | 0 rejected
+2026-07-07 12:01:02.847 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: CARE International Tenders
+2026-07-07 12:01:08.408 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from CARE International Tenders
+2026-07-07 12:01:08.408 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   CARE International Tenders: 0 passed filter | 0 rejected
+2026-07-07 12:01:08.408 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Welthungerhilfe Tenders
+2026-07-07 12:01:12.557 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for Welthungerhilfe Tenders — using anchor fallback
+2026-07-07 12:01:12.571 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   58 raw items extracted from Welthungerhilfe Tenders
+2026-07-07 12:01:12.893 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Reports & Resources
+2026-07-07 12:01:13.095 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): What we do
+2026-07-07 12:01:13.291 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index 2025
+2026-07-07 12:01:13.498 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): About Hunger
+2026-07-07 12:01:13.698 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hunger: Causes & Consequences
+2026-07-07 12:01:13.895 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food systems
+2026-07-07 12:01:14.093 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hidden Hunger
+2026-07-07 12:01:14.299 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food Price Increase
+2026-07-07 12:01:14.499 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index
+2026-07-07 12:01:14.900 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): How we work
+2026-07-07 12:01:15.897 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Agriculture & Natural Resource Management
+2026-07-07 12:01:16.100 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Advancing Gender Equality & Transformative Change
+2026-07-07 12:01:16.311 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): All Focus Areas
+2026-07-07 12:01:16.503 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food systems
+2026-07-07 12:01:16.708 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Innovating for a hunger-free future
+2026-07-07 12:01:16.907 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-07 12:01:17.108 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Democratic Republic of Congo
+2026-07-07 12:01:17.310 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Syria / Türkiye
+2026-07-07 12:01:17.512 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): All Countries & Regions
+2026-07-07 12:01:17.713 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): International Youth Day 2026
+2026-07-07 12:01:17.929 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Take action
+2026-07-07 12:01:18.126 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Become a Foundation Partner
+2026-07-07 12:01:18.334 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Partner With Us
+2026-07-07 12:01:18.531 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Corporate Partnerships
+2026-07-07 12:01:18.728 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Foundation Partnerships
+2026-07-07 12:01:18.932 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Ways to give
+2026-07-07 12:01:19.130 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Give a Gift
+2026-07-07 12:01:19.334 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Leave a Legacy
+2026-07-07 12:01:19.540 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Endowments for a good cause
+2026-07-07 12:01:19.736 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Make a Donation
+2026-07-07 12:01:19.939 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Give monthly
+2026-07-07 12:01:20.140 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Private Donor Help Desk
+2026-07-07 12:01:20.353 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): News & Reports
+2026-07-07 12:01:20.551 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index 2025
+2026-07-07 12:01:20.774 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Press Releases
+2026-07-07 12:01:20.975 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Reports & Resources
+2026-07-07 12:01:21.175 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Welternährung (Journal)
+2026-07-07 12:01:21.373 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Organizational Chart
+2026-07-07 12:01:21.571 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Advisory Committee
+2026-07-07 12:01:21.766 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Regular donation
+2026-07-07 12:01:21.962 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Donate now
+2026-07-07 12:01:22.159 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Welthungerhilfe (WHH)
+2026-07-07 12:01:22.349 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): browse from the homepage
+2026-07-07 12:01:22.543 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Go to home
+2026-07-07 12:01:22.736 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Share on Facebook
+2026-07-07 12:01:22.945 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Share on LinkedIn
+2026-07-07 12:01:23.148 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Get Involved
+2026-07-07 12:01:23.346 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hunger: Facts & Figures
+2026-07-07 12:01:23.542 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Focus Areas
+2026-07-07 12:01:23.738 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Latest Articles
+2026-07-07 12:01:23.942 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Press Releases
+2026-07-07 12:01:24.135 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Publications
+2026-07-07 12:01:24.338 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Legal Notice
+2026-07-07 12:01:24.339 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Welthungerhilfe Tenders: 0 passed filter | 53 rejected
+2026-07-07 12:01:24.339 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: NRC Tenders
+2026-07-07 12:01:28.760 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for NRC Tenders — using anchor fallback
+2026-07-07 12:01:28.764 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   2 raw items extracted from NRC Tenders
+2026-07-07 12:01:28.962 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Working at NRC
+2026-07-07 12:01:29.153 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Media centre
+2026-07-07 12:01:29.153 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   NRC Tenders: 0 passed filter | 2 rejected
+2026-07-07 12:01:29.153 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: GIZ Tenders
+2026-07-07 12:01:33.615 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for GIZ Tenders — using anchor fallback
+2026-07-07 12:01:33.622 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   49 raw items extracted from GIZ Tenders
+2026-07-07 12:01:33.814 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): GIZ – Deutsche Gesellschaft für Internationale Zusammenarbei
+2026-07-07 12:01:34.217 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Democracy and the rule of law
+2026-07-07 12:01:34.414 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Digital transformation
+2026-07-07 12:01:34.604 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Peace and security
+2026-07-07 12:01:34.994 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Agriculture and food
+2026-07-07 12:01:35.191 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sustainable infrastructure
+2026-07-07 12:01:35.398 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Social development
+2026-07-07 12:01:35.600 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Economy and employment
+2026-07-07 12:01:35.813 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): 2030 Agenda
+2026-07-07 12:01:36.025 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-07 12:01:36.282 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global programmes
+2026-07-07 12:01:36.484 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Latin America and the Caribbean
+2026-07-07 12:01:36.701 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Commissioning us
+2026-07-07 12:01:36.905 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): German Government
+2026-07-07 12:01:37.103 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): European Union
+2026-07-07 12:01:37.307 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Partner with us
+2026-07-07 12:01:37.524 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Collaborate with us
+2026-07-07 12:01:37.937 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Foundations
+2026-07-07 12:01:38.180 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): International partners
+2026-07-07 12:01:38.372 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Development partnerships
+2026-07-07 12:01:38.956 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Materials and equipment
+2026-07-07 12:01:39.164 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Receive funding
+2026-07-07 12:01:39.373 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sustainable action
+2026-07-07 12:01:39.759 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Environmental aspects
+2026-07-07 12:01:39.947 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Social aspects
+2026-07-07 12:01:40.138 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Economic aspects
+2026-07-07 12:01:40.334 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Integrated Company Report 2024
+2026-07-07 12:01:40.528 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Join our team
+2026-07-07 12:01:40.724 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Career opportunities
+2026-07-07 12:01:40.920 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Application process
+2026-07-07 12:01:41.311 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Newsletter
+2026-07-07 12:01:41.507 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Download centre
+2026-07-07 12:01:41.711 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): publication library
+2026-07-07 12:01:41.905 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +49 228 44 60-0
+2026-07-07 12:01:42.103 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +49 6196 79-0
+2026-07-07 12:01:42.301 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Registration information
+2026-07-07 12:01:42.687 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Legal Information
+2026-07-07 12:01:42.881 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Whistleblower Portal
+2026-07-07 12:01:43.077 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Newsletter
+2026-07-07 12:01:43.271 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Accessibility statement
+2026-07-07 12:01:43.467 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Academy for International Cooperation
+2026-07-07 12:01:43.467 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   GIZ Tenders: 0 passed filter | 41 rejected
+2026-07-07 12:01:43.468 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: USAID Business Forecast
+2026-07-07 12:01:47.574 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for USAID Business Forecast — using anchor fallback
+2026-07-07 12:01:47.574 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from USAID Business Forecast
+2026-07-07 12:01:47.574 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   USAID Business Forecast: 0 passed filter | 0 rejected
+2026-07-07 12:01:47.574 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: FCDO Contracts Finder
+2026-07-07 12:02:03.024 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   20 raw items extracted from FCDO Contracts Finder
+2026-07-07 12:02:03.331 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Creative Sector Services CIC (t/a Creative United) Take it a
+2026-07-07 12:02:03.529 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:03.728 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:03.928 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:04.122 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Project CALLISTO
+2026-07-07 12:02:04.317 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): CA18175 - Kirklees College - Lift Maintenance
+2026-07-07 12:02:04.513 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: CA18185 - Twyford CofE Academies Trust - staffing panel V2
+2026-07-07 12:02:04.710 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Supply Of Mobilisation Packages, Furniture & White Goods
+2026-07-07 12:02:04.907 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: CA18170 - LEAD Academy - Minor Works Tender
+2026-07-07 12:02:05.104 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: ​​Carbon Market Opportunity Assessment​
+2026-07-07 12:02:05.300 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Rydal Mount - Brief for a Feasibility Study
+2026-07-07 12:02:05.502 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Procurement of Network equipment
+2026-07-07 12:02:05.699 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) - Taxi and MPV (1-8 seats)
+2026-07-07 12:02:05.896 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:06.096 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:06.298 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:06.497 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:06.690 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:06.887 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:07.082 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV 
+2026-07-07 12:02:07.082 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   FCDO Contracts Finder: 17 passed filter | 3 rejected
+2026-07-07 12:02:07.082 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Kenya Government PPIP
+2026-07-07 12:02:10.642 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for Kenya Government PPIP — using anchor fallback
+2026-07-07 12:02:10.645 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   7 raw items extracted from Kenya Government PPIP
+2026-07-07 12:02:10.847 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Procuring Entities
+2026-07-07 12:02:11.043 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: PE to PE Contracts
+2026-07-07 12:02:11.240 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Procuring Entities
+2026-07-07 12:02:12.044 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Kenya Government PPIP: 1 passed filter | 2 rejected
+2026-07-07 12:02:12.044 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: IGAD Procurement
+2026-07-07 12:02:23.044 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from IGAD Procurement
+2026-07-07 12:02:23.044 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   IGAD Procurement: 0 passed filter | 0 rejected
+2026-07-07 12:02:23.077 | INFO     | __main__:run_pipeline:318 -   Scrapers total: 20 passed filter
+
+Found 32 new opportunities after filtering
+
+Processing: Protection Coordinator - Sudan
+2026-07-07 12:02:23.083 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:24.254 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 12401 chars from html: https://reliefweb.int/job/4220272/protection-coordinator-sud...
+  Extracted 12,401 characters
+2026-07-07 12:02:24.653 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:24.653 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Protection Coordinator - Sudan...
+2026-07-07 12:02:25.425 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Protection Coordinator - Sudan': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRgQsD8qfAgpNx5y3WM'}
+2026-07-07 12:02:33.835 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Coordinateur/trice technique du projet
+2026-07-07 12:02:33.836 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:34.785 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6191 chars from html: https://reliefweb.int/job/4220265/coordinateurtrice-techniqu...
+  Extracted 6,191 characters
+2026-07-07 12:02:35.102 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:35.102 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Coordinateur/trice technique du projet...
+2026-07-07 12:02:35.445 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Coordinateur/trice technique du projet': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRhAt7Bf1roUZSVJQGN'}
+2026-07-07 12:02:35.886 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: BRMM YBI Enumerator
+2026-07-07 12:02:35.888 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:37.034 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6511 chars from html: https://reliefweb.int/job/4220258/brmm-ybi-enumerator...
+  Extracted 6,511 characters
+2026-07-07 12:02:37.242 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:37.242 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: BRMM YBI Enumerator...
+2026-07-07 12:02:37.556 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'BRMM YBI Enumerator': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRhKtqiVvsGrZ8LFzUC'}
+2026-07-07 12:02:38.035 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Spécialiste en Inclusion, Bruxelles (f/h/x)
+2026-07-07 12:02:38.036 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:39.158 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7964 chars from html: https://reliefweb.int/job/4220257/specialiste-en-inclusion-b...
+  Extracted 7,964 characters
+2026-07-07 12:02:39.366 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:39.367 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Spécialiste en Inclusion, Bruxelles (f/h/x)...
+2026-07-07 12:02:39.696 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Spécialiste en Inclusion, Bruxelles (f/h/x)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRhUz2uLzUpLmTqfwJr'}
+2026-07-07 12:02:40.127 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: TERMS OF REFERENCE (TOR) TENDER NO. 23/06/FY26 CONSULTANCY SERVICES 
+FO
+2026-07-07 12:02:40.130 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:41.391 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 18508 chars from html: https://reliefweb.int/job/4220237/terms-reference-tor-tender...
+  Extracted 18,508 characters
+2026-07-07 12:02:41.629 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:41.629 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: TERMS OF REFERENCE (TOR) TENDER NO. 23/06/FY26 CONSULTANCY S...
+2026-07-07 12:02:41.937 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'TERMS OF REFERENCE (TOR) TENDER NO. 23/06/FY26 CONSULTANCY S': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRheeDP53gK4gTaT1vw'}
+2026-07-07 12:02:42.429 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: TERMS OF REFERENCE (TOR) TENDER NO. 24/06/FY26 CONSULTANCY SERVICES 
+FO
+2026-07-07 12:02:42.430 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:43.565 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 31821 chars from html: https://reliefweb.int/job/4220231/terms-reference-tor-tender...
+  Extracted 31,821 characters
+2026-07-07 12:02:43.816 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:43.816 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: TERMS OF REFERENCE (TOR) TENDER NO. 24/06/FY26 CONSULTANCY S...
+2026-07-07 12:02:44.128 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'TERMS OF REFERENCE (TOR) TENDER NO. 24/06/FY26 CONSULTANCY S': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRhp1mcpCeTrqhHgAa2'}
+2026-07-07 12:02:44.589 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: National Project Officer, NOA (Solomon Islands Nationals Only)
+2026-07-07 12:02:44.592 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:45.750 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7724 chars from html: https://reliefweb.int/job/4220219/national-project-officer-n...
+  Extracted 7,724 characters
+2026-07-07 12:02:45.974 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:45.974 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: National Project Officer, NOA (Solomon Islands Nationals Onl...
+2026-07-07 12:02:46.293 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'National Project Officer, NOA (Solomon Islands Nationals Onl': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRhyDfGG7FcpF3XUMpk'}
+2026-07-07 12:02:46.802 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Project Coordinator (National Consultant)
+2026-07-07 12:02:46.804 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:47.936 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 13552 chars from html: https://reliefweb.int/job/4220217/project-coordinator-nation...
+  Extracted 13,552 characters
+2026-07-07 12:02:48.156 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:48.157 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Project Coordinator (National Consultant)...
+2026-07-07 12:02:48.468 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Project Coordinator (National Consultant)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRi8XWNtCFf1qFLaTxP'}
+2026-07-07 12:02:48.887 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Project Assistant
+2026-07-07 12:02:48.889 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:49.999 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5968 chars from html: https://reliefweb.int/job/4220216/project-assistant...
+  Extracted 5,968 characters
+2026-07-07 12:02:50.209 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:50.209 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Project Assistant...
+2026-07-07 12:02:50.507 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Project Assistant': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRiHJMHFn1CbK2rDvMT'}
+2026-07-07 12:02:50.931 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Project Director - Tanzania (GBV Prevention Program)
+2026-07-07 12:02:50.934 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:52.094 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 9824 chars from html: https://reliefweb.int/job/4219817/project-director-tanzania-...
+  Extracted 9,824 characters
+2026-07-07 12:02:52.308 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:52.309 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Project Director - Tanzania (GBV Prevention Program)...
+2026-07-07 12:02:52.666 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Project Director - Tanzania (GBV Prevention Program)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRiSHqkdubTwRJ7vihY'}
+2026-07-07 12:02:53.108 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Monitoring, Evaluation, and Learning (MEL) Lead - Tanzania
+2026-07-07 12:02:53.110 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:54.050 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6076 chars from html: https://reliefweb.int/job/4219816/monitoring-evaluation-and-...
+  Extracted 6,076 characters
+2026-07-07 12:02:54.397 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:54.397 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Monitoring, Evaluation, and Learning (MEL) Lead - Tanzania...
+2026-07-07 12:02:54.744 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Monitoring, Evaluation, and Learning (MEL) Lead - Tanzania': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRibBd9rN6vj419J5gq'}
+2026-07-07 12:02:55.196 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Operations Officer – Cameroon (national applicants only)
+2026-07-07 12:02:55.199 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:56.217 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6163 chars from html: https://reliefweb.int/job/4219792/operations-officer-cameroo...
+  Extracted 6,163 characters
+2026-07-07 12:02:56.519 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:56.520 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Operations Officer – Cameroon (national applicants only)...
+2026-07-07 12:02:56.919 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Operations Officer – Cameroon (national applicants only)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRikGphEJffAiX6r4iZ'}
+2026-07-07 12:02:57.302 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: tender notice for supply, installation, commissioning and initial 
+cons
+2026-07-07 12:02:57.304 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:02:58.905 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 3782 chars from html: https://www.somalijobs.com/tenders/somaliland/14748700781895...
+  Extracted 3,782 characters
+2026-07-07 12:02:59.136 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:02:59.136 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: tender notice for supply, installation, commissioning and in...
+2026-07-07 12:02:59.483 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'tender notice for supply, installation, commissioning and in': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRiwWznQPPY9tL7VUuv'}
+2026-07-07 12:02:59.913 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: tender notice for consultancy service to conduct assessment of the 
+eff
+2026-07-07 12:02:59.917 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:01.022 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 3168 chars from html: https://www.somalijobs.com/tenders/hargeisa/1055149618152859...
+  Extracted 3,168 characters
+2026-07-07 12:03:01.229 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:01.229 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: tender notice for consultancy service to conduct assessment ...
+2026-07-07 12:03:01.561 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'tender notice for consultancy service to conduct assessment ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRj6TWa7B3523X1As7W'}
+2026-07-07 12:03:02.009 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Creative Sector Services CIC (t/a Creative United) Take it away 
+Scheme
+2026-07-07 12:03:02.011 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:03.317 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7735 chars from html: https://www.contractsfinder.service.gov.uk/notice/e60b6125-f...
+  Extracted 7,735 characters
+2026-07-07 12:03:03.522 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:03.523 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Creative Sector Services CIC (t/a Creative United) Take it a...
+2026-07-07 12:03:03.886 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Creative Sector Services CIC (t/a Creative United) Take it a': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRjGEdTRJyufYjW1U3z'}
+2026-07-07 12:03:04.333 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:04.336 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:05.267 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4232 chars from html: https://www.contractsfinder.service.gov.uk/notice/c91aed08-6...
+  Extracted 4,232 characters
+2026-07-07 12:03:05.481 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:05.482 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:05.781 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRjQag7otyxAp1FfSgR'}
+2026-07-07 12:03:06.195 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:06.198 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:07.204 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4253 chars from html: https://www.contractsfinder.service.gov.uk/notice/177df29a-3...
+  Extracted 4,253 characters
+2026-07-07 12:03:07.441 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:07.441 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:07.746 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRjYxxEnvqNEZZpaHc9'}
+2026-07-07 12:03:08.157 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:08.161 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:09.175 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4302 chars from html: https://www.contractsfinder.service.gov.uk/notice/22130844-e...
+  Extracted 4,302 characters
+2026-07-07 12:03:09.387 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:09.387 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:09.787 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRjhiZHtuQbMsZSBuRT'}
+2026-07-07 12:03:10.243 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: CA18185 - Twyford CofE Academies Trust - staffing panel V2
+2026-07-07 12:03:10.245 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:11.310 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4328 chars from html: https://www.contractsfinder.service.gov.uk/notice/ea2b3189-8...
+  Extracted 4,328 characters
+2026-07-07 12:03:11.520 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:11.520 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: CA18185 - Twyford CofE Academies Trust - staffing panel V2...
+2026-07-07 12:03:11.829 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'CA18185 - Twyford CofE Academies Trust - staffing panel V2': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRjrQCe8aQsecBCDPt7'}
+2026-07-07 12:03:12.309 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Supply Of Mobilisation Packages, Furniture & White Goods
+2026-07-07 12:03:12.311 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:13.333 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4450 chars from html: https://www.contractsfinder.service.gov.uk/notice/9d850c50-9...
+  Extracted 4,450 characters
+2026-07-07 12:03:13.559 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:13.559 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Supply Of Mobilisation Packages, Furniture & White Goods...
+2026-07-07 12:03:13.863 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Supply Of Mobilisation Packages, Furniture & White Goods': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRk19oUmiWXdfLrm6GB'}
+2026-07-07 12:03:14.325 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: CA18170 - LEAD Academy - Minor Works Tender
+2026-07-07 12:03:14.328 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:15.355 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4166 chars from html: https://www.contractsfinder.service.gov.uk/notice/792fcc46-6...
+  Extracted 4,166 characters
+2026-07-07 12:03:15.554 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:15.554 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: CA18170 - LEAD Academy - Minor Works Tender...
+2026-07-07 12:03:15.850 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'CA18170 - LEAD Academy - Minor Works Tender': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRk9eHFFDe7qmXyQrsY'}
+2026-07-07 12:03:16.282 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: ​​Carbon Market Opportunity Assessment​
+2026-07-07 12:03:16.282 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:17.404 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6411 chars from html: https://www.contractsfinder.service.gov.uk/notice/f2258fd3-f...
+  Extracted 6,411 characters
+2026-07-07 12:03:17.610 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:17.610 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: ​​Carbon Market Opportunity Assessment​...
+2026-07-07 12:03:18.335 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for '​​Carbon Market Opportunity Assessment​': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRkLGVwJRt5HqRXpnM2'}
+2026-07-07 12:03:18.717 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Rydal Mount - Brief for a Feasibility Study
+2026-07-07 12:03:18.719 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:19.827 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5827 chars from html: https://www.contractsfinder.service.gov.uk/notice/9ac26b36-4...
+  Extracted 5,827 characters
+2026-07-07 12:03:20.045 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:20.045 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Rydal Mount - Brief for a Feasibility Study...
+2026-07-07 12:03:20.337 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Rydal Mount - Brief for a Feasibility Study': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRkUpwuQee4dcTTN6Ja'}
+2026-07-07 12:03:20.808 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) - Taxi and MPV (1-8 seats)
+2026-07-07 12:03:20.809 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:21.999 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 3991 chars from html: https://www.contractsfinder.service.gov.uk/notice/22d47421-7...
+  Extracted 3,991 characters
+2026-07-07 12:03:22.202 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:22.202 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) - Taxi and MPV (1-8 seats)...
+2026-07-07 12:03:22.498 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) - Taxi and MPV (1-8 seats)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRke45C29T687bHKYLF'}
+2026-07-07 12:03:22.961 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:22.964 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:23.993 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4479 chars from html: https://www.contractsfinder.service.gov.uk/notice/e2322b3a-a...
+  Extracted 4,479 characters
+2026-07-07 12:03:24.195 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:24.195 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:24.485 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRknZ3fBEcwaCb8ZNJe'}
+2026-07-07 12:03:24.931 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:24.934 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:26.074 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4200 chars from html: https://www.contractsfinder.service.gov.uk/notice/36841d20-7...
+  Extracted 4,200 characters
+2026-07-07 12:03:26.305 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:26.306 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:26.633 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRkwejjeoDemrm123pK'}
+2026-07-07 12:03:27.083 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:27.084 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:28.105 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4118 chars from html: https://www.contractsfinder.service.gov.uk/notice/aec50eac-1...
+  Extracted 4,118 characters
+2026-07-07 12:03:28.316 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:28.316 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:28.671 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRm6RLEf3VxEccwxj2E'}
+2026-07-07 12:03:29.090 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:29.093 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:30.099 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4326 chars from html: https://www.contractsfinder.service.gov.uk/notice/0f369a4a-9...
+  Extracted 4,326 characters
+2026-07-07 12:03:30.305 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:30.306 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:30.696 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRmEjto1MbNAr66io1B'}
+2026-07-07 12:03:31.085 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:31.088 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:32.161 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4161 chars from html: https://www.contractsfinder.service.gov.uk/notice/e1e7e652-a...
+  Extracted 4,161 characters
+2026-07-07 12:03:32.370 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:32.370 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:32.705 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRmPYE823wxVo2aWNFN'}
+2026-07-07 12:03:33.161 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:33.164 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:34.385 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4108 chars from html: https://www.contractsfinder.service.gov.uk/notice/a5b52993-c...
+  Extracted 4,108 characters
+2026-07-07 12:03:34.580 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:34.581 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:34.957 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRmYzVn59gSbaT8e9wL'}
+2026-07-07 12:03:35.368 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV (1-8 
+seats
+2026-07-07 12:03:35.371 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:36.573 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4195 chars from html: https://www.contractsfinder.service.gov.uk/notice/4383c02c-6...
+  Extracted 4,195 characters
+2026-07-07 12:03:36.777 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-07 12:03:36.777 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ...
+2026-07-07 12:03:37.088 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Taxi and MPV (1-8 seats) Passenger Assistant - Taxi and MPV ': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcnRmiP4BqYMzbau1QUgz'}
+2026-07-07 12:03:37.480 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: PE to PE Contracts
+2026-07-07 12:03:37.482 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-07 12:03:37.904 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4 chars from html: https://tenders.go.ke/petopecontracts...
+2026-07-07 12:03:37.905 | WARNING  | __main__:process_opportunity:88 -   Insufficient text (4 chars) — skipping
+Processing opportunities... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:01:14
+2026-07-07 12:03:37.912 | INFO     | __main__:run_pipeline:399 - Sending pipeline summary report...
+2026-07-07 12:03:43.032 | SUCCESS  | reporting.email_report:send_report:517 - BD report email sent!
+╭────────────────────────────────────────────╮
+│ ✅ Pipeline Complete                       │
+│ Discovered:       32 opportunities         │
+│ Proposals drafted: 0                       │
+│ Emails sent:      0 individual + 1 summary │
+╰────────────────────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-08 12:00:09         │
+╰─────────────────────────────╯
+2026-07-08 12:00:09.512 | INFO     | __main__:run_pipeline:294 - Checking RSS feeds...
+2026-07-08 12:00:09.512 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: ReliefWeb Consultancies
+2026-07-08 12:00:11.735 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 20 entries
+2026-07-08 12:00:13.107 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Asia Displacement Solutions Platform (ADSP) Specialist
+2026-07-08 12:00:13.316 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Country Director, RECOFTC Indonesia
+2026-07-08 12:00:13.521 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Senior Officer, HR & Administration, Pan-Africa
+2026-07-08 12:00:13.522 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Senior Officer, HR & Administration, Pan-Africa...
+2026-07-08 12:00:13.721 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: MEAL Manager
+2026-07-08 12:00:13.722 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: MEAL Manager...
+2026-07-08 12:00:13.936 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Legal Director
+2026-07-08 12:00:13.937 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Legal Director...
+2026-07-08 12:00:14.153 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Strategic Partnerships & Private Sector Engagement Senior Ma
+2026-07-08 12:00:14.154 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Strategic Partnerships & Private Sector Engagement Senior Ma...
+2026-07-08 12:00:14.355 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Enumerators for the transforming lives with nutrition action
+2026-07-08 12:00:14.355 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Enumerators for the transforming lives with nutrition action...
+2026-07-08 12:00:14.557 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: G2G Co-Design Advisor (Consultant)
+2026-07-08 12:00:14.557 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: G2G Co-Design Advisor (Consultant)...
+2026-07-08 12:00:14.755 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Request for Proposals: Penetration Testing Consultancy for t
+2026-07-08 12:00:14.755 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Request for Proposals: Penetration Testing Consultancy for t...
+2026-07-08 12:00:14.968 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Project Development Officer
+2026-07-08 12:00:14.968 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Project Development Officer...
+2026-07-08 12:00:15.168 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): MEL and TPM: Junior and Senior Analyst Pool
+2026-07-08 12:00:15.366 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Country Director - Yemen
+2026-07-08 12:00:15.367 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Country Director - Yemen...
+2026-07-08 12:00:15.567 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Deputy Country Director
+2026-07-08 12:00:15.568 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: Deputy Country Director...
+2026-07-08 12:00:15.768 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Delegado/a de Desarrollo Comunitario
+2026-07-08 12:00:15.968 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: External Evaluation Consultant - Project OPPORTUNITY ESF+
+2026-07-08 12:00:15.968 | SUCCESS  | monitors.rss_monitor:monitor_rss_feeds:176 -   NEW: External Evaluation Consultant - Project OPPORTUNITY ESF+...
+2026-07-08 12:00:16.174 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Knowledge Systems Architect
+2026-07-08 12:00:17.073 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   11 passed, 5 filtered out
+2026-07-08 12:00:17.074 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: World Bank Procurement
+2026-07-08 12:00:18.041 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:18.042 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:18.048 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: UNGM Notices
+2026-07-08 12:00:20.130 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:20.130 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:20.131 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: UNDP Procurement
+2026-07-08 12:00:25.894 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:25.894 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:25.894 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: AfDB Procurement
+2026-07-08 12:00:27.265 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:27.266 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:27.266 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: EU TED Procurement (East Africa)
+2026-07-08 12:00:27.954 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:27.954 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:27.954 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: IOM Procurement
+2026-07-08 12:00:31.782 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:31.782 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:31.782 | INFO     | monitors.rss_monitor:monitor_rss_feeds:142 - Checking RSS: DevelopmentAid Tenders
+2026-07-08 12:00:32.604 | INFO     | monitors.rss_monitor:monitor_rss_feeds:146 -   Found 0 entries
+2026-07-08 12:00:32.605 | INFO     | monitors.rss_monitor:monitor_rss_feeds:178 -   0 passed, 0 filtered out
+2026-07-08 12:00:32.605 | INFO     | monitors.rss_monitor:monitor_rss_feeds:189 - Total new opportunities from RSS: 11
+2026-07-08 12:00:32.605 | INFO     | __main__:run_pipeline:298 -   RSS total: 11 passed filter
+2026-07-08 12:00:32.606 | INFO     | __main__:run_pipeline:314 - Running web scrapers...
+2026-07-08 12:00:34.813 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Somali Jobs Tenders
+2026-07-08 12:00:39.577 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for Somali Jobs Tenders — using anchor fallback
+2026-07-08 12:00:39.617 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   17 raw items extracted from Somali Jobs Tenders
+2026-07-08 12:00:40.894 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sign in person
+2026-07-08 12:00:41.632 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Opportunities
+2026-07-08 12:00:41.968 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Marketplace
+2026-07-08 12:00:42.296 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Opportunities
+2026-07-08 12:00:42.632 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Marketplace
+2026-07-08 12:00:46.333 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +252 63 4002525
+2026-07-08 12:00:46.673 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Tiriig Technology
+2026-07-08 12:00:46.673 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Somali Jobs Tenders: 0 passed filter | 7 rejected
+2026-07-08 12:00:46.674 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: DRC Procurement
+2026-07-08 12:00:51.481 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   102 raw items extracted from DRC Procurement
+2026-07-08 12:00:51.813 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Work with us
+2026-07-08 12:00:52.491 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-08 12:00:53.147 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Press Release - One hidden threat at a time: life resumes as
+2026-07-08 12:00:53.476 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Story from the field: Navigating ceasefire and crisis in Leb
+2026-07-08 12:00:53.803 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): A safer future for Al Shami through EU-funded mine clearance
+2026-07-08 12:00:54.453 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Yassin’s photo story: From collecting scrap metal to raising
+2026-07-08 12:00:55.788 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From teacher to business owner: How beekeeping helped Latifa
+2026-07-08 12:00:56.776 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Annual Report 2025
+2026-07-08 12:00:57.433 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: "We had lost hope" — rebuilding a family home in Kh
+2026-07-08 12:00:58.421 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: A new agricultural market opens in Rakove village t
+2026-07-08 12:01:00.057 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Major renovation of the Mykolaiv Lyceum — one build
+2026-07-08 12:01:00.712 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): New EU agreement on return:  A punitive approach to return w
+2026-07-08 12:01:01.696 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine:  Staying warm through winter in Kharkiv Oblast
+2026-07-08 12:01:02.023 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): EU-funded humanitarian action by DRC and partners supports o
+2026-07-08 12:01:03.029 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): DRC statement: Lebanon ceasefire in pieces as hostilities su
+2026-07-08 12:01:03.362 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Lebanon: as families return, hidden dangers await them
+2026-07-08 12:01:04.035 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: “We’re not just clearing away metal, we’re clearing
+2026-07-08 12:01:04.692 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Joint INGO Statement: Killing of Wesam Qaid, SFD
+2026-07-08 12:01:05.346 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Access to medical care for earthquake survivors in Kunar
+2026-07-08 12:01:05.999 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): No place like home? Multisectoral support for forced returne
+2026-07-08 12:01:06.331 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Keeping the lights on where the frontline is near
+2026-07-08 12:01:06.985 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: EU-funded project reaches thousands with protection
+2026-07-08 12:01:07.656 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): PRESS RELEASE: Wars targeting civilians and rising insecurit
+2026-07-08 12:01:08.977 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): From two days to one hour: The hope Aslı rebuilt
+2026-07-08 12:01:09.633 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Annual collection reports
+2026-07-08 12:01:09.966 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): DRC Standby Roster Annual Reports
+2026-07-08 12:01:10.298 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Factsheet: DRCʼs Humanitarian Mine Action (HMA) Intervention
+2026-07-08 12:01:11.296 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Información Financiera de Colombia
+2026-07-08 12:01:12.944 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: DRC's achievements in 2025
+2026-07-08 12:01:13.270 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From ruins to rebuilding inclusive economic recovery in Alep
+2026-07-08 12:01:13.598 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Farming Under Pressure. Challenges Facing Farmers in Syria
+2026-07-08 12:01:13.926 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Forced back and left behind: Conditions for urban returnees 
+2026-07-08 12:01:15.226 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Quarterly protection monitoring reports
+2026-07-08 12:01:15.888 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Youth Employment and Inclusive Growth in Tunisia
+2026-07-08 12:01:16.219 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Diaspora Led Protection Information
+2026-07-08 12:01:16.553 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Diaspora Capacity Statements
+2026-07-08 12:01:16.879 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Conflict Sensitivity Report — Kharkiv Oblast
+2026-07-08 12:01:17.533 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Capacity Development of Diaspora Organisations
+2026-07-08 12:01:17.858 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Pathways to Protection: Project Brief in ENG and FR
+2026-07-08 12:01:18.194 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): From Contamination to Recovery: The Critical Role of Humanit
+2026-07-08 12:01:18.528 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Protection reports: Colombia
+2026-07-08 12:01:18.856 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Protection needs overview and GBV safety audit find
+2026-07-08 12:01:19.511 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Overview of the legal updates
+2026-07-08 12:01:19.838 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Principled compromises or compromised principles? A
+2026-07-08 12:01:20.165 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: DRC’s legal analysis of veterans’ status, social su
+2026-07-08 12:01:21.819 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Ukraine: Stigma toward persons with disabilities and survivo
+2026-07-08 12:01:22.150 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): DiPS projects granted funding
+2026-07-08 12:01:23.769 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): The Role of the Afghan Diaspora in Emergency and Recovery Ef
+2026-07-08 12:01:24.097 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): DEMAC Resources on Afghanistan
+2026-07-08 12:01:25.080 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): The socials
+2026-07-08 12:01:25.080 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   DRC Procurement: 0 passed filter | 50 rejected
+2026-07-08 12:01:25.081 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Save the Children Procurement
+2026-07-08 12:01:31.973 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from Save the Children Procurement
+2026-07-08 12:01:31.974 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Save the Children Procurement: 0 passed filter | 0 rejected
+2026-07-08 12:01:31.974 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: CARE International Tenders
+2026-07-08 12:01:38.648 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from CARE International Tenders
+2026-07-08 12:01:38.648 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   CARE International Tenders: 0 passed filter | 0 rejected
+2026-07-08 12:01:38.649 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Welthungerhilfe Tenders
+2026-07-08 12:01:43.740 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for Welthungerhilfe Tenders — using anchor fallback
+2026-07-08 12:01:43.870 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   58 raw items extracted from Welthungerhilfe Tenders
+2026-07-08 12:01:44.738 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Reports & Resources
+2026-07-08 12:01:45.146 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): What we do
+2026-07-08 12:01:45.556 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index 2025
+2026-07-08 12:01:45.966 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): About Hunger
+2026-07-08 12:01:46.376 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hunger: Causes & Consequences
+2026-07-08 12:01:46.785 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food systems
+2026-07-08 12:01:47.195 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hidden Hunger
+2026-07-08 12:01:47.579 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food Price Increase
+2026-07-08 12:01:47.989 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index
+2026-07-08 12:01:48.723 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): How we work
+2026-07-08 12:01:50.679 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Agriculture & Natural Resource Management
+2026-07-08 12:01:51.028 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Advancing Gender Equality & Transformative Change
+2026-07-08 12:01:51.352 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): All Focus Areas
+2026-07-08 12:01:51.672 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Food systems
+2026-07-08 12:01:52.085 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Innovating for a hunger-free future
+2026-07-08 12:01:52.409 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-08 12:01:52.729 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Democratic Republic of Congo
+2026-07-08 12:01:53.056 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Syria / Türkiye
+2026-07-08 12:01:53.376 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): All Countries & Regions
+2026-07-08 12:01:53.701 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): International Youth Day 2026
+2026-07-08 12:01:54.025 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Take action
+2026-07-08 12:01:54.350 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Become a Foundation Partner
+2026-07-08 12:01:54.674 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Partner With Us
+2026-07-08 12:01:54.996 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Corporate Partnerships
+2026-07-08 12:01:55.318 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Foundation Partnerships
+2026-07-08 12:01:55.640 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Ways to give
+2026-07-08 12:01:55.969 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Give a Gift
+2026-07-08 12:01:56.292 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Leave a Legacy
+2026-07-08 12:01:56.615 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Endowments for a good cause
+2026-07-08 12:01:56.947 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Make a Donation
+2026-07-08 12:01:57.271 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Give monthly
+2026-07-08 12:01:57.603 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Private Donor Help Desk
+2026-07-08 12:01:57.928 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): News & Reports
+2026-07-08 12:01:58.263 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global Hunger Index 2025
+2026-07-08 12:01:58.592 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Press Releases
+2026-07-08 12:01:58.921 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Reports & Resources
+2026-07-08 12:01:59.246 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Welternährung (Journal)
+2026-07-08 12:01:59.568 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Organizational Chart
+2026-07-08 12:01:59.890 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Advisory Committee
+2026-07-08 12:02:00.217 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Regular donation
+2026-07-08 12:02:00.544 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Donate now
+2026-07-08 12:02:00.869 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Welthungerhilfe (WHH)
+2026-07-08 12:02:01.193 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): browse from the homepage
+2026-07-08 12:02:01.518 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Go to home
+2026-07-08 12:02:01.840 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Share on Facebook
+2026-07-08 12:02:02.171 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Share on LinkedIn
+2026-07-08 12:02:02.495 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Get Involved
+2026-07-08 12:02:02.822 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Hunger: Facts & Figures
+2026-07-08 12:02:03.155 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Focus Areas
+2026-07-08 12:02:03.487 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Latest Articles
+2026-07-08 12:02:03.816 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Press Releases
+2026-07-08 12:02:04.147 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Publications
+2026-07-08 12:02:04.483 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Legal Notice
+2026-07-08 12:02:04.483 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   Welthungerhilfe Tenders: 0 passed filter | 53 rejected
+2026-07-08 12:02:04.484 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: NRC Tenders
+2026-07-08 12:02:09.280 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for NRC Tenders — using anchor fallback
+2026-07-08 12:02:09.298 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   18 raw items extracted from NRC Tenders
+2026-07-08 12:02:09.624 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:09.957 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:10.288 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:10.627 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:10.950 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:11.280 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:11.600 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:11.927 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:12.242 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:12.567 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Learn more about this provider
+2026-07-08 12:02:12.883 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): flyktninghjelpen.no
+2026-07-08 12:02:13.209 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): nrc-hilft.de
+2026-07-08 12:02:13.524 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): spenden.nrc-hilft.de
+2026-07-08 12:02:13.850 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): stod.nrc.se
+2026-07-08 12:02:14.166 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): stott.flyktninghjelpen.no
+2026-07-08 12:02:14.497 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): support.nrc.no
+2026-07-08 12:02:14.814 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Working at NRC
+2026-07-08 12:02:15.146 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Media centre
+2026-07-08 12:02:15.147 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   NRC Tenders: 0 passed filter | 18 rejected
+2026-07-08 12:02:15.147 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: GIZ Tenders
+2026-07-08 12:02:20.100 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for GIZ Tenders — using anchor fallback
+2026-07-08 12:02:20.141 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   48 raw items extracted from GIZ Tenders
+2026-07-08 12:02:20.470 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): GIZ – Deutsche Gesellschaft für Internationale Zusammenarbei
+2026-07-08 12:02:21.122 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Democracy and the rule of law
+2026-07-08 12:02:21.451 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Digital transformation
+2026-07-08 12:02:21.778 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Peace and security
+2026-07-08 12:02:22.435 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Agriculture and food
+2026-07-08 12:02:22.771 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sustainable infrastructure
+2026-07-08 12:02:23.179 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Social development
+2026-07-08 12:02:23.509 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Economy and employment
+2026-07-08 12:02:23.835 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): 2030 Agenda
+2026-07-08 12:02:24.165 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Where we work
+2026-07-08 12:02:24.489 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Global programmes
+2026-07-08 12:02:24.813 | DEBUG    | monitors.rss_monitor:quick_relevance_check:105 -   FILTERED (wrong geography, no Africa): Latin America and the Caribbean
+2026-07-08 12:02:25.136 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Commissioning us
+2026-07-08 12:02:25.462 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): German Government
+2026-07-08 12:02:25.789 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): European Union
+2026-07-08 12:02:26.119 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Partner with us
+2026-07-08 12:02:26.463 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Collaborate with us
+2026-07-08 12:02:27.126 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Foundations
+2026-07-08 12:02:27.458 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): International partners
+2026-07-08 12:02:27.780 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Development partnerships
+2026-07-08 12:02:28.764 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Materials and equipment
+2026-07-08 12:02:29.095 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Receive funding
+2026-07-08 12:02:29.419 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Sustainable action
+2026-07-08 12:02:30.091 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Environmental aspects
+2026-07-08 12:02:30.486 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Social aspects
+2026-07-08 12:02:30.829 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Economic aspects
+2026-07-08 12:02:31.161 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Integrated Company Report 2024
+2026-07-08 12:02:31.487 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Join our team
+2026-07-08 12:02:31.816 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Career opportunities
+2026-07-08 12:02:32.154 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Application process
+2026-07-08 12:02:32.822 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Newsletter
+2026-07-08 12:02:33.149 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Download centre
+2026-07-08 12:02:33.492 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): publication library
+2026-07-08 12:02:33.821 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +49 228 44 60-0
+2026-07-08 12:02:34.144 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): +49 6196 79-0
+2026-07-08 12:02:34.472 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Registration information
+2026-07-08 12:02:35.126 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Legal Information
+2026-07-08 12:02:35.458 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Newsletter
+2026-07-08 12:02:35.784 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Accessibility statement
+2026-07-08 12:02:36.115 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): Academy for International Cooperation
+2026-07-08 12:02:36.116 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   GIZ Tenders: 0 passed filter | 40 rejected
+2026-07-08 12:02:36.116 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: USAID Business Forecast
+2026-07-08 12:02:40.470 | DEBUG    | monitors.scraper:parse_tenders_from_html:208 -   No structured items found for USAID Business Forecast — using anchor fallback
+2026-07-08 12:02:40.471 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from USAID Business Forecast
+2026-07-08 12:02:40.472 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   USAID Business Forecast: 0 passed filter | 0 rejected
+2026-07-08 12:02:40.472 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: FCDO Contracts Finder
+2026-07-08 12:02:56.875 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   20 raw items extracted from FCDO Contracts Finder
+2026-07-08 12:02:57.371 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Supply of Bodyworn Energy Data Logger
+2026-07-08 12:02:57.568 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Supply of Silent Phone Booths
+2026-07-08 12:02:57.761 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: Supply of Ancillaries including cables, leads, cutters and c
+2026-07-08 12:02:57.956 | DEBUG    | monitors.rss_monitor:quick_relevance_check:116 -   PASSED: GB-Bath: H&S Advisor for UoBath R7 Student Accommodation con
+2026-07-08 12:02:58.785 | DEBUG    | monitors.rss_monitor:quick_relevance_check:120 -   FILTERED (no relevant signal): CA17655 - Walsall College lighting upgrade
+2026-07-08 12:03:01.178 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   FCDO Contracts Finder: 4 passed filter | 1 rejected
+2026-07-08 12:03:01.179 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: Kenya Government PPIP
+2026-07-08 12:03:21.326 | WARNING  | monitors.scraper:fetch_page_content:168 -   Timeout loading: https://tenders.go.ke/website/tenders/index
+2026-07-08 12:03:21.366 | WARNING  | monitors.scraper:run_all_scrapers_async:296 -   No HTML returned for Kenya Government PPIP — skipping
+2026-07-08 12:03:21.367 | INFO     | monitors.scraper:run_all_scrapers_async:286 -   Scraping: IGAD Procurement
+2026-07-08 12:03:34.913 | DEBUG    | monitors.scraper:run_all_scrapers_async:300 -   0 raw items extracted from IGAD Procurement
+2026-07-08 12:03:34.913 | INFO     | monitors.scraper:run_all_scrapers_async:315 -   IGAD Procurement: 0 passed filter | 0 rejected
+2026-07-08 12:03:34.969 | INFO     | __main__:run_pipeline:318 -   Scrapers total: 4 passed filter
+
+Found 15 new opportunities after filtering
+
+Processing: Senior Officer, HR & Administration, Pan-Africa
+2026-07-08 12:03:34.979 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:36.376 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 9708 chars from html: https://reliefweb.int/job/4220433/senior-officer-hr-administ...
+  Extracted 9,708 characters
+2026-07-08 12:03:37.329 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:37.329 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Senior Officer, HR & Administration, Pan-Africa...
+2026-07-08 12:03:37.919 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Senior Officer, HR & Administration, Pan-Africa': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKagJ3WqCV7MRCPtrjd'}
+2026-07-08 12:03:41.577 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: MEAL Manager
+2026-07-08 12:03:41.581 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:42.885 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 9911 chars from html: https://reliefweb.int/job/4220431/meal-manager...
+  Extracted 9,911 characters
+2026-07-08 12:03:43.215 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:43.215 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: MEAL Manager...
+2026-07-08 12:03:43.576 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'MEAL Manager': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKb79mSL1KptxM5zybL'}
+2026-07-08 12:03:43.980 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Legal Director
+2026-07-08 12:03:43.982 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:45.299 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7264 chars from html: https://reliefweb.int/job/4220409/legal-director...
+  Extracted 7,264 characters
+2026-07-08 12:03:45.519 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:45.520 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Legal Director...
+2026-07-08 12:03:45.847 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Legal Director': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKbGqgH5QQ2THfjwXsy'}
+2026-07-08 12:03:46.255 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Strategic Partnerships & Private Sector Engagement Senior Manager
+2026-07-08 12:03:46.259 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:47.930 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 14852 chars from html: https://reliefweb.int/job/4220410/strategic-partnerships-pri...
+  Extracted 14,852 characters
+2026-07-08 12:03:48.162 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:48.162 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Strategic Partnerships & Private Sector Engagement Senior Ma...
+2026-07-08 12:03:48.502 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Strategic Partnerships & Private Sector Engagement Senior Ma': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKbU8aZWjcW7GyRmQ8P'}
+2026-07-08 12:03:49.029 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Enumerators for the transforming lives with nutrition actions 
+program 
+2026-07-08 12:03:49.033 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:50.199 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4684 chars from html: https://reliefweb.int/job/4220414/enumerators-transforming-l...
+  Extracted 4,684 characters
+2026-07-08 12:03:50.422 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:50.423 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Enumerators for the transforming lives with nutrition action...
+2026-07-08 12:03:50.799 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Enumerators for the transforming lives with nutrition action': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKbdqEfWEMis6kKogNE'}
+2026-07-08 12:03:51.200 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: G2G Co-Design Advisor (Consultant)
+2026-07-08 12:03:51.205 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:52.543 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 7651 chars from html: https://reliefweb.int/job/4220421/g2g-co-design-advisor-cons...
+  Extracted 7,651 characters
+2026-07-08 12:03:52.747 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:52.748 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: G2G Co-Design Advisor (Consultant)...
+2026-07-08 12:03:53.120 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'G2G Co-Design Advisor (Consultant)': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKboq16HDAFy3899R94'}
+2026-07-08 12:03:53.534 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Request for Proposals: Penetration Testing Consultancy for the Tiko 
+Pl
+2026-07-08 12:03:53.537 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:54.711 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6724 chars from html: https://reliefweb.int/job/4220426/request-proposals-penetrat...
+  Extracted 6,724 characters
+2026-07-08 12:03:54.924 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:54.925 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Request for Proposals: Penetration Testing Consultancy for t...
+2026-07-08 12:03:55.281 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Request for Proposals: Penetration Testing Consultancy for t': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKby7c4S2hGPSmTwou6'}
+2026-07-08 12:03:55.809 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Project Development Officer
+2026-07-08 12:03:55.812 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:56.877 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6086 chars from html: https://reliefweb.int/job/4220430/project-development-office...
+  Extracted 6,086 characters
+2026-07-08 12:03:57.086 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:57.086 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Project Development Officer...
+2026-07-08 12:03:57.435 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Project Development Officer': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKc8FXVJNPRw2Vdm6RC'}
+2026-07-08 12:03:57.873 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Country Director - Yemen
+2026-07-08 12:03:57.880 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:03:59.019 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5404 chars from html: https://reliefweb.int/job/4220390/country-director-yemen...
+  Extracted 5,404 characters
+2026-07-08 12:03:59.226 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:03:59.227 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Country Director - Yemen...
+2026-07-08 12:03:59.542 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Country Director - Yemen': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKcHRBmYz7e6MLnaxf8'}
+2026-07-08 12:03:59.984 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Deputy Country Director
+2026-07-08 12:03:59.987 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:01.071 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5121 chars from html: https://reliefweb.int/job/4220393/deputy-country-director...
+  Extracted 5,121 characters
+2026-07-08 12:04:01.276 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:01.277 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Deputy Country Director...
+2026-07-08 12:04:01.604 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Deputy Country Director': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKcSAY9ziaqg2U7vdev'}
+2026-07-08 12:04:02.053 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: External Evaluation Consultant - Project OPPORTUNITY ESF+
+2026-07-08 12:04:02.057 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:03.212 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 2244 chars from html: https://reliefweb.int/job/4220479/external-evaluation-consul...
+  Extracted 2,244 characters
+2026-07-08 12:04:03.419 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:03.420 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: External Evaluation Consultant - Project OPPORTUNITY ESF+...
+2026-07-08 12:04:03.744 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'External Evaluation Consultant - Project OPPORTUNITY ESF+': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKcbPAvbtfe7baCsQBk'}
+2026-07-08 12:04:04.225 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Supply of Bodyworn Energy Data Logger
+2026-07-08 12:04:04.227 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:05.884 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6376 chars from html: https://www.contractsfinder.service.gov.uk/notice/a7f6811e-5...
+  Extracted 6,376 characters
+2026-07-08 12:04:06.131 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:06.131 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Supply of Bodyworn Energy Data Logger...
+2026-07-08 12:04:06.451 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Supply of Bodyworn Energy Data Logger': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKcnxSfWeRJXikk9ANi'}
+2026-07-08 12:04:06.868 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Supply of Silent Phone Booths
+2026-07-08 12:04:06.871 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:08.247 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 6328 chars from html: https://www.contractsfinder.service.gov.uk/notice/a77c394e-6...
+  Extracted 6,328 characters
+2026-07-08 12:04:08.461 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:08.461 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Supply of Silent Phone Booths...
+2026-07-08 12:04:09.013 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Supply of Silent Phone Booths': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKcxujKtScBdymNLDXf'}
+2026-07-08 12:04:09.463 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: Supply of Ancillaries including cables, leads, cutters and 
+connectors
+2026-07-08 12:04:09.466 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:10.727 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 5749 chars from html: https://www.contractsfinder.service.gov.uk/notice/68b46c70-3...
+  Extracted 5,749 characters
+2026-07-08 12:04:10.931 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:10.932 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: Supply of Ancillaries including cables, leads, cutters and c...
+2026-07-08 12:04:11.249 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'Supply of Ancillaries including cables, leads, cutters and c': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKd9TEWskFXX9enjdJR'}
+2026-07-08 12:04:11.641 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+
+Processing: GB-Bath: H&S Advisor for UoBath R7 Student Accommodation 
+construction 
+2026-07-08 12:04:11.648 | INFO     | __main__:process_opportunity:84 -   Step 1: Fetching document...
+2026-07-08 12:04:12.809 | SUCCESS  | processors.downloader:fetch_and_extract:103 - Extracted 4190 chars from html: https://www.contractsfinder.service.gov.uk/notice/aa736ae4-d...
+  Extracted 4,190 characters
+2026-07-08 12:04:13.015 | INFO     | __main__:process_opportunity:104 -   Step 2: Analyzing with Claude...
+2026-07-08 12:04:13.016 | INFO     | intelligence.analyzer:analyze_rfp:117 -   Analyzing: GB-Bath: H&S Advisor for UoBath R7 Student Accommodation con...
+2026-07-08 12:04:13.360 | ERROR    | intelligence.analyzer:analyze_rfp:257 -   Analysis failed for 'GB-Bath: H&S Advisor for UoBath R7 Student Accommodation con': Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CcpKdJNWPPNvUgnj7NJYE'}
+2026-07-08 12:04:13.747 | ERROR    | __main__:process_opportunity:108 -   Analysis returned empty — skipping
+Processing opportunities... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:38
+2026-07-08 12:04:13.758 | INFO     | __main__:run_pipeline:399 - Sending pipeline summary report...
+2026-07-08 12:04:18.927 | SUCCESS  | reporting.email_report:send_report:517 - BD report email sent!
+╭────────────────────────────────────────────╮
+│ ✅ Pipeline Complete                       │
+│ Discovered:       15 opportunities         │
+│ Proposals drafted: 0                       │
+│ Emails sent:      0 individual + 1 summary │
+╰────────────────────────────────────────────╯
+╭─────────────────────────────╮
+│ 🤖 Cortech BD Agent Running │
+│ 2026-07-09 12:00:05         │
+╰─────────────────────────────╯
+2026-07-09 12:00:05.553 | INFO     | __main__:run_pipeline:294 - Checking RSS feeds...
+2026-07-09 12:00:05.553 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: ReliefWeb Consultancies
+2026-07-09 12:00:05.594 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.594 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.594 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: World Bank Procurement
+2026-07-09 12:00:05.634 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.634 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.634 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: UNGM Notices
+2026-07-09 12:00:05.673 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.674 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.674 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: UNDP Procurement
+2026-07-09 12:00:05.713 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.713 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.713 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: AfDB Procurement
+2026-07-09 12:00:05.752 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.752 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.752 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: EU TED Procurement (East Africa)
+2026-07-09 12:00:05.790 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.791 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.791 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: IOM Procurement
+2026-07-09 12:00:05.829 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.829 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.829 | INFO     | monitors.rss_monitor:monitor_rss_feeds:145 - Checking RSS: DevelopmentAid Tenders
+2026-07-09 12:00:05.872 | INFO     | monitors.rss_monitor:monitor_rss_feeds:149 -   Found 0 entries
+2026-07-09 12:00:05.872 | INFO     | monitors.rss_monitor:monitor_rss_feeds:181 -   0 passed, 0 filtered out
+2026-07-09 12:00:05.872 | INFO     | monitors.rss_monitor:monitor_rss_feeds:192 - Total new opportunities from RSS: 0
+2026-07-09 12:00:05.872 | INFO     | __main__:run_pipeline:298 -   RSS total: 0 passed filter
+2026-07-09 12:00:05.872 | INFO     | __main__:run_pipeline:314 - Running web scrapers...
+2026-07-09 12:00:07.162 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: Somali Jobs Tenders
+2026-07-09 12:00:07.447 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.somalijobs.com/tenders: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.somalijobs.com/tenders
+Call log:
+  - navigating to "https://www.somalijobs.com/tenders", waiting until "domcontentloaded"
+
+2026-07-09 12:00:07.490 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for Somali Jobs Tenders — skipping
+2026-07-09 12:00:07.491 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: DRC Procurement
+2026-07-09 12:00:07.620 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://pro.drc.ngo/suppliers/open-procurements/: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://pro.drc.ngo/suppliers/open-procurements/
+Call log:
+  - navigating to "https://pro.drc.ngo/suppliers/open-procurements/", waiting until "domcontentloaded"
+
+2026-07-09 12:00:07.666 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for DRC Procurement — skipping
+2026-07-09 12:00:07.666 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: Save the Children Procurement
+2026-07-09 12:00:07.791 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.savethechildren.net/procurement: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.savethechildren.net/procurement
+Call log:
+  - navigating to "https://www.savethechildren.net/procurement", waiting until "domcontentloaded"
+
+2026-07-09 12:00:07.862 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for Save the Children Procurement — skipping
+2026-07-09 12:00:07.862 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: CARE International Tenders
+2026-07-09 12:00:08.002 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.care.org/about-us/procurement/: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.care.org/about-us/procurement/
+Call log:
+  - navigating to "https://www.care.org/about-us/procurement/", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.034 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for CARE International Tenders — skipping
+2026-07-09 12:00:08.035 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: Welthungerhilfe Tenders
+2026-07-09 12:00:08.160 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.welthungerhilfe.org/our-work/procurement/: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.welthungerhilfe.org/our-work/procurement/
+Call log:
+  - navigating to "https://www.welthungerhilfe.org/our-work/procurement/", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.189 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for Welthungerhilfe Tenders — skipping
+2026-07-09 12:00:08.190 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: NRC Tenders
+2026-07-09 12:00:08.309 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.nrc.no/about-nrc/procurements/: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.nrc.no/about-nrc/procurements/
+Call log:
+  - navigating to "https://www.nrc.no/about-nrc/procurements/", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.335 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for NRC Tenders — skipping
+2026-07-09 12:00:08.336 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: GIZ Tenders
+2026-07-09 12:00:08.456 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.giz.de/en/html/tenders.html: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.giz.de/en/html/tenders.html
+Call log:
+  - navigating to "https://www.giz.de/en/html/tenders.html", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.486 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for GIZ Tenders — skipping
+2026-07-09 12:00:08.486 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: USAID Business Forecast
+2026-07-09 12:00:08.612 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://www.usaid.gov/business-forecast: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://www.usaid.gov/business-forecast
+Call log:
+  - navigating to "https://www.usaid.gov/business-forecast", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.647 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for USAID Business Forecast — skipping
+2026-07-09 12:00:08.647 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: Kenya Government PPIP
+2026-07-09 12:00:08.767 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://tenders.go.ke/website/tenders/index: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://tenders.go.ke/website/tenders/index
+Call log:
+  - navigating to "https://tenders.go.ke/website/tenders/index", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.793 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for Kenya Government PPIP — skipping
+2026-07-09 12:00:08.793 | INFO     | monitors.scraper:run_all_scrapers_async:276 -   Scraping: IGAD Procurement
+2026-07-09 12:00:08.909 | ERROR    | monitors.scraper:fetch_page_content:161 -   Browser fetch error for https://igad.int/procurements/: Page.goto: net::ERR_INTERNET_DISCONNECTED at https://igad.int/procurements/
+Call log:
+  - navigating to "https://igad.int/procurements/", waiting until "domcontentloaded"
+
+2026-07-09 12:00:08.943 | WARNING  | monitors.scraper:run_all_scrapers_async:286 -   No HTML returned for IGAD Procurement — skipping
+2026-07-09 12:00:09.058 | INFO     | __main__:run_pipeline:318 -   Scrapers total: 0 passed filter
+
+Found 0 new opportunities after filtering
+No new opportunities this run. Sending status report.
+2026-07-09 12:00:12.091 | ERROR    | __main__:run_pipeline:356 - Status report email failed: HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES (Caused by NameResolutionError("HTTPSConnection(host='api.airtable.com', port=443): Failed to resolve 'api.airtable.com' ([Errno -3] Temporary failure in name resolution)"))
