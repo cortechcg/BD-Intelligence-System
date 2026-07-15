@@ -68,8 +68,27 @@ KEY TOOLS & METHODOLOGIES:
 KEY CLIENTS (past and current):
 World Bank, IOM, African Union, IGAD, Save the Children,
 Danish Refugee Council (DRC), GIZ, CARE International,
-Welthungerhilfe, DANIDA, Arche Nova, Welthungerhilfe,
-UNHCR, UN Women, UNICEF, C40 Cities
+Welthungerhilfe, DANIDA, Arche Nova, UNHCR, UN Women,
+UNICEF, C40 Cities, Pastoralist Girls Initiative (PGI),
+Government of Kenya, Federal Government of Somalia,
+PACIDA, Plan International, Alight Somalia,
+Heifer International, Heifer International Kenya,
+Action Medeor, Qatar Red Crescent (QRC),
+Global Alliance for Improved Nutrition (GAIN),
+County Government of Kenya, Kenya Red Cross Society,
+Save the Children Somalia Country Office, CEWARN,
+Government of Ireland,
+Rural Livelihoods Resilience Programme (RLRP),
+Kenya Urban Support Program (KUSP),
+African Enterprise Challenge Fund (AECF),
+Danish Red Cross, Zizi Afrique Foundation,
+European Union, Concern Worldwide,
+Norwegian Refugee Council,
+Ministry of Foreign Affairs of Denmark,
+Grundfos Foundation, Dan Church Aid (DCA),
+Turkana Pastoralists Development Organization (TUPADO),
+Rural Agency for Community Development Assistance (RACIDA),
+UNDP
 
 REGISTRATIONS:
 - Kenya: Registered company
