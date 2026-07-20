@@ -6,11 +6,22 @@ All results pass through the same three-gate filter as RSS entries.
 """
 
 import asyncio
+
+import httpx
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
 from monitors.rss_monitor import quick_relevance_check
+
+HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+MIN_USEFUL_HTML_CHARS = 5000
+DEFAULT_TIMEOUT_MS = 45000
 
 
 # ── SOURCE DEFINITIONS ────────────────────────────────────────────────────────
@@ -22,14 +33,17 @@ from monitors.rss_monitor import quick_relevance_check
 
 SCRAPE_SOURCES = [
     {
-        "name":           "Somali Jobs Tenders",
-        "url":            "https://www.somalijobs.com/tenders",
-        "selector":       "div.job-item, article.tender, div.listing-item, tr.tender",
-        "link_selector":  "a[href]",
-        "title_selector": "h2, h3, h4, .title, a",
-        "base_url":       "https://www.somalijobs.com",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "name":              "Somali Jobs Tenders",
+        "url":               "https://www.somalijobs.com/tenders",
+        "selector":          "a[href*='/tenders/']",
+        "link_selector":     "a[href]",
+        "title_selector":    "a",
+        "base_url":          "https://www.somalijobs.com",
+        "needs_browser":     True,
+        "wait_for":          'a[href*="/tenders/"]',
+        "href_must_contain": "/tenders/",
+        "post_load_wait_ms": 8000,
+        "timeout":           DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "DRC Procurement",
@@ -38,8 +52,7 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://pro.drc.ngo",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "Save the Children Procurement",
@@ -48,8 +61,8 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://www.savethechildren.net",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "CARE International Tenders",
@@ -58,8 +71,7 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://www.care.org",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "Welthungerhilfe Tenders",
@@ -68,8 +80,8 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://www.welthungerhilfe.org",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "NRC Tenders",
@@ -78,8 +90,8 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://www.nrc.no",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "GIZ Tenders",
@@ -88,18 +100,8 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .title, a",
         "base_url":       "https://www.giz.de",
-        "wait_for":       "body",
-        "timeout":        15000,
-    },
-    {
-        "name":           "USAID Business Forecast",
-        "url":            "https://www.usaid.gov/business-forecast",
-        "selector":       "div.view-row, tr.views-row, div.opportunity, article",
-        "link_selector":  "a[href]",
-        "title_selector": "h2, h3, h4, .views-field-title, a",
-        "base_url":       "https://www.usaid.gov",
-        "wait_for":       "body",
-        "timeout":        20000,
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "Kenya Government PPIP",
@@ -108,8 +110,9 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "td, h3, h4, a",
         "base_url":       "https://tenders.go.ke",
-        "wait_for":       "body",
-        "timeout":        20000,
+        "needs_browser":  True,
+        "wait_for":       "table, .tender, a[href*='tender']",
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
     {
         "name":           "IGAD Procurement",
@@ -118,42 +121,66 @@ SCRAPE_SOURCES = [
         "link_selector":  "a[href]",
         "title_selector": "h2, h3, h4, .entry-title, a",
         "base_url":       "https://igad.int",
-        "wait_for":       "body",
-        "timeout":        15000,
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
     },
 ]
 
 
-# ── CORE BROWSER FETCHER ──────────────────────────────────────────────────────
+# ── PAGE FETCHERS ─────────────────────────────────────────────────────────────
 
-async def fetch_page_content(
+async def fetch_with_httpx(url: str, timeout_ms: int) -> str | None:
+    """Fast static fetch — sufficient for most procurement list pages."""
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=timeout_ms / 1000,
+            headers=HTTP_HEADERS,
+        ) as client:
+            response = await client.get(url)
+            # Many NGO portals return 404 for legacy URLs but still serve HTML
+            if len(response.text) >= MIN_USEFUL_HTML_CHARS:
+                return response.text
+            logger.debug(
+                f"  httpx returned thin page ({response.status_code}, "
+                f"{len(response.text)} chars): {url}"
+            )
+    except Exception as e:
+        logger.debug(f"  httpx fetch failed for {url}: {e}")
+    return None
+
+
+async def fetch_with_browser(
     browser,
     url: str,
-    wait_for: str,
-    timeout: int
+    wait_for: str | None,
+    timeout_ms: int,
+    post_load_wait_ms: int = 2000,
 ) -> str | None:
     """
-    Opens a page in a real browser, waits for content to render,
-    returns the full rendered HTML. Returns None on any failure.
+    Playwright fetch using wait_until='commit' — many NGO sites never fire
+    domcontentloaded within a reasonable window but commit immediately.
     """
     page = await browser.new_page()
     try:
-        await page.set_extra_http_headers({
-            "User-Agent": (
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-            )
-        })
-        await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
-        # Wait for the specific element that confirms content has loaded
-        try:
-            await page.wait_for_selector(wait_for, timeout=8000)
-        except PlaywrightTimeout:
-            # Selector didn't appear but page loaded — proceed anyway
-            pass
-        # Extra buffer for JS-rendered content to finish painting
-        await page.wait_for_timeout(2000)
-        return await page.content()
+        await page.set_extra_http_headers(HTTP_HEADERS)
+        await page.goto(url, wait_until="commit", timeout=timeout_ms)
+        if wait_for:
+            try:
+                await page.wait_for_selector(
+                    wait_for,
+                    timeout=min(timeout_ms, 20000),
+                )
+            except PlaywrightTimeout:
+                pass
+        await page.wait_for_timeout(post_load_wait_ms)
+        html = await page.content()
+        if len(html) >= MIN_USEFUL_HTML_CHARS:
+            return html
+        logger.debug(
+            f"  browser returned thin page ({len(html)} chars): {url}"
+        )
+        return html or None
     except PlaywrightTimeout:
         logger.warning(f"  Timeout loading: {url}")
         return None
@@ -162,6 +189,41 @@ async def fetch_page_content(
         return None
     finally:
         await page.close()
+
+
+async def fetch_page_content(
+    browser,
+    url: str,
+    wait_for: str | None,
+    timeout_ms: int,
+    needs_browser: bool = False,
+    post_load_wait_ms: int = 2000,
+) -> str | None:
+    """
+    httpx first for speed; Playwright when the page is JS-rendered or thin.
+    """
+    if not needs_browser:
+        html = await fetch_with_httpx(url, timeout_ms)
+        if html:
+            logger.debug(f"  Loaded via httpx ({len(html):,} chars): {url}")
+            return html
+
+    html = await fetch_with_browser(
+        browser, url, wait_for, timeout_ms, post_load_wait_ms
+    )
+    if html:
+        logger.debug(f"  Loaded via browser ({len(html):,} chars): {url}")
+        return html
+
+    if not needs_browser:
+        html = await fetch_with_browser(
+            browser, url, wait_for, timeout_ms, post_load_wait_ms
+        )
+        if html:
+            logger.debug(
+                f"  Loaded via browser fallback ({len(html):,} chars): {url}"
+            )
+    return html
 
 
 # ── PER-SOURCE PARSER ─────────────────────────────────────────────────────────
@@ -217,6 +279,10 @@ def parse_tenders_from_html(
         if not href or any(f in href.lower() for f in skip_fragments):
             continue
 
+        href_filter = source.get("href_must_contain")
+        if href_filter and href_filter not in href:
+            continue
+
         # Build absolute URL
         if href.startswith("http"):
             full_url = href
@@ -254,13 +320,46 @@ def parse_tenders_from_html(
 
 # ── MAIN ASYNC RUNNER ─────────────────────────────────────────────────────────
 
+async def scrape_one_source(browser, source: dict) -> list[dict]:
+    """Fetch, parse, dedupe, and filter a single scrape source."""
+    name = source["name"]
+    logger.info(f"  Scraping: {name}")
+
+    html = await fetch_page_content(
+        browser,
+        source["url"],
+        source.get("wait_for"),
+        source.get("timeout", DEFAULT_TIMEOUT_MS),
+        needs_browser=source.get("needs_browser", False),
+        post_load_wait_ms=source.get("post_load_wait_ms", 2000),
+    )
+
+    if not html:
+        logger.warning(f"  No HTML returned for {name} — skipping")
+        return []
+
+    raw_items = parse_tenders_from_html(html, source)
+    logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
+
+    passed: list[dict] = []
+    filtered = 0
+    for item in raw_items:
+        if check_opportunity_exists(item["source_url"]):
+            continue
+        if not quick_relevance_check(item["title"], item["summary"]):
+            filtered += 1
+            continue
+        passed.append(item)
+
+    logger.info(f"  {name}: {len(passed)} passed filter | {filtered} rejected")
+    return passed
+
+
 async def run_all_scrapers_async() -> list[dict]:
     """
     Runs all scrapers concurrently inside a single browser session.
     Each source gets its own tab — parallel, efficient, one browser launch.
     """
-    all_passed: list[dict] = []
-
     async with async_playwright() as p:
         browser = await p.chromium.launch(
             headless=True,
@@ -271,43 +370,17 @@ async def run_all_scrapers_async() -> list[dict]:
             ],
         )
 
-        for source in SCRAPE_SOURCES:
-            name = source["name"]
-            logger.info(f"  Scraping: {name}")
-
-            html = await fetch_page_content(
-                browser,
-                source["url"],
-                source["wait_for"],
-                source["timeout"],
-            )
-
-            if not html:
-                logger.warning(f"  No HTML returned for {name} — skipping")
-                continue
-
-            raw_items = parse_tenders_from_html(html, source)
-            logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
-
-            passed   = 0
-            filtered = 0
-            for item in raw_items:
-                # Dedup check
-                if check_opportunity_exists(item["source_url"]):
-                    continue
-                # Three-gate relevance filter
-                if not quick_relevance_check(item["title"], item["summary"]):
-                    filtered += 1
-                    continue
-                passed += 1
-                all_passed.append(item)
-
-            logger.info(
-                f"  {name}: {passed} passed filter | {filtered} rejected"
-            )
-
+        results = await asyncio.gather(
+            *[
+                scrape_one_source(browser, source)
+                for source in SCRAPE_SOURCES
+            ],
+        )
         await browser.close()
 
+    all_passed: list[dict] = []
+    for batch in results:
+        all_passed.extend(batch)
     return all_passed
 
 
