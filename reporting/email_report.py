@@ -1,11 +1,56 @@
 # reporting/email_report.py
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 import os
+import httpx
 from loguru import logger
 from database.airtable_client import get_table
+
+
+def _send_email(subject: str, html_content: str) -> bool:
+    """
+    Send an HTML email via the Resend HTTP API.
+
+    Railway blocks outbound SMTP (ports 25/465/587), so raw smtplib fails with
+    'Network is unreachable'. Resend uses plain HTTPS, which Railway allows.
+
+    Requires env vars:
+      RESEND_API_KEY    — Resend API key
+      EMAIL_SENDER      — verified "from" address (e.g. bd@yourdomain.com)
+      EMAIL_RECIPIENTS  — comma-separated recipient list
+    """
+    api_key = os.getenv("RESEND_API_KEY")
+    sender = os.getenv("EMAIL_SENDER")
+    recipients = [r.strip() for r in (os.getenv("EMAIL_RECIPIENTS") or "").split(",") if r.strip()]
+
+    if not api_key or not sender or not recipients:
+        logger.error(
+            "Email not sent: missing RESEND_API_KEY, EMAIL_SENDER, or EMAIL_RECIPIENTS"
+        )
+        return False
+
+    try:
+        resp = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": sender,
+                "to": recipients,
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return True
+    except Exception as e:
+        detail = ""
+        if isinstance(e, httpx.HTTPStatusError):
+            detail = f" | response: {e.response.text}"
+        logger.error(f"Email failed: {e}{detail}")
+        return False
 
 
 def get_pipeline_summary() -> dict:
@@ -459,26 +504,10 @@ def send_proposal_email(opportunity_result: dict) -> None:
         f"Score: {score}/100 | REVIEW REQUIRED"
     )
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"]    = os.getenv("EMAIL_SENDER")
-    msg["To"]      = os.getenv("EMAIL_RECIPIENTS")
-    msg.attach(MIMEText(html, "html"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(
-                os.getenv("EMAIL_SENDER"),
-                os.getenv("EMAIL_PASSWORD")
-            )
-            server.sendmail(
-                os.getenv("EMAIL_SENDER"),
-                os.getenv("EMAIL_RECIPIENTS").split(","),
-                msg.as_string()
-            )
+    if _send_email(subject, html):
         logger.success(f"Proposal email sent: {title[:50]}")
-    except Exception as e:
-        logger.error(f"Proposal email failed for {title[:50]}: {e}")
+    else:
+        logger.error(f"Proposal email failed for {title[:50]}")
 
 
 def send_report(new_opportunities: list[dict] = None) -> None:
@@ -495,26 +524,6 @@ def send_report(new_opportunities: list[dict] = None) -> None:
     else:
         subject = f"📊 Cortech BD Report | {new_count} New Opportunities"
 
-    # Send email
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = os.getenv("EMAIL_SENDER")
-    msg["To"] = os.getenv("EMAIL_RECIPIENTS")
-
-    msg.attach(MIMEText(html_content, "html"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(
-                os.getenv("EMAIL_SENDER"),
-                os.getenv("EMAIL_PASSWORD")
-            )
-            server.sendmail(
-                os.getenv("EMAIL_SENDER"),
-                os.getenv("EMAIL_RECIPIENTS").split(","),
-                msg.as_string()
-            )
+    # Send email via Resend HTTP API (Railway blocks SMTP)
+    if _send_email(subject, html_content):
         logger.success("BD report email sent!")
-
-    except Exception as e:
-        logger.error(f"Email failed: {e}")
