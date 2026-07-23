@@ -1,17 +1,65 @@
 # reporting/email_report.py
 from datetime import datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import os
+import smtplib
+import ssl
 import httpx
 from loguru import logger
 from database.airtable_client import get_table
 
 
-def _send_email(subject: str, html_content: str) -> bool:
+def _get_recipients() -> list[str]:
+    return [r.strip() for r in (os.getenv("EMAIL_RECIPIENTS") or "").split(",") if r.strip()]
+
+
+def _send_via_gmail(subject: str, html_content: str) -> bool:
+    """
+    Send an HTML email through Gmail's SMTP server.
+
+    Free and needs no third-party service, but only works from networks that
+    allow outbound SMTP (e.g. your own computer). Railway blocks SMTP ports —
+    there, _send_via_resend() is used instead.
+
+    Requires env vars:
+      GMAIL_ADDRESS       — your Gmail address (also used as the "from")
+      GMAIL_APP_PASSWORD  — 16-char Google App Password (NOT your login password)
+      EMAIL_RECIPIENTS    — comma-separated recipient list
+    """
+    gmail_user = os.getenv("GMAIL_ADDRESS")
+    gmail_pass = os.getenv("GMAIL_APP_PASSWORD")
+    recipients = _get_recipients()
+
+    if not gmail_user or not gmail_pass or not recipients:
+        return False
+
+    # strip spaces Google shows in the app password (e.g. "abcd efgh ijkl mnop")
+    gmail_pass = gmail_pass.replace(" ", "")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = gmail_user
+    msg["To"] = ", ".join(recipients)
+    msg.attach(MIMEText(html_content, "html"))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.starttls(context=context)
+            server.login(gmail_user, gmail_pass)
+            server.sendmail(gmail_user, recipients, msg.as_string())
+        return True
+    except Exception as e:
+        logger.error(f"Gmail send failed: {e}")
+        return False
+
+
+def _send_via_resend(subject: str, html_content: str) -> bool:
     """
     Send an HTML email via the Resend HTTP API.
 
-    Railway blocks outbound SMTP (ports 25/465/587), so raw smtplib fails with
-    'Network is unreachable'. Resend uses plain HTTPS, which Railway allows.
+    Uses plain HTTPS, so it works even where SMTP is blocked (e.g. Railway).
 
     Requires env vars:
       RESEND_API_KEY    — Resend API key
@@ -20,12 +68,9 @@ def _send_email(subject: str, html_content: str) -> bool:
     """
     api_key = os.getenv("RESEND_API_KEY")
     sender = os.getenv("EMAIL_SENDER")
-    recipients = [r.strip() for r in (os.getenv("EMAIL_RECIPIENTS") or "").split(",") if r.strip()]
+    recipients = _get_recipients()
 
     if not api_key or not sender or not recipients:
-        logger.error(
-            "Email not sent: missing RESEND_API_KEY, EMAIL_SENDER, or EMAIL_RECIPIENTS"
-        )
         return False
 
     try:
@@ -49,8 +94,27 @@ def _send_email(subject: str, html_content: str) -> bool:
         detail = ""
         if isinstance(e, httpx.HTTPStatusError):
             detail = f" | response: {e.response.text}"
-        logger.error(f"Email failed: {e}{detail}")
+        logger.error(f"Resend send failed: {e}{detail}")
         return False
+
+
+def _send_email(subject: str, html_content: str) -> bool:
+    """
+    Send an HTML email, preferring Gmail SMTP and falling back to Resend.
+
+    Gmail is tried first (free, no verified domain). If Gmail isn't configured
+    or fails (e.g. SMTP blocked on Railway), Resend is used instead.
+    """
+    if _send_via_gmail(subject, html_content):
+        return True
+    if _send_via_resend(subject, html_content):
+        return True
+
+    logger.error(
+        "Email not sent: configure GMAIL_ADDRESS + GMAIL_APP_PASSWORD "
+        "(and EMAIL_RECIPIENTS), or RESEND_API_KEY + EMAIL_SENDER"
+    )
+    return False
 
 
 def get_pipeline_summary() -> dict:
