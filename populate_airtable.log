@@ -204,3 +204,196 @@
 2026-06-30 14:43:53.203 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy – FY26
 2026-06-30 14:44:11.564 | DEBUG    | __main__:read_pdf:170 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
 2026-06-30 14:44:19.502 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya
+2026-07-22 12:04:44.156 | DEBUG    | __main__:read_docx:201 - DOCX: ABDI.docx → 7990 chars
+2026-07-22 12:04:52.085 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-07-22 12:05:00.241 | DEBUG    | __main__:read_docx:201 - DOCX: ABDULLAHI I. MOHAMED- Executive Director.docx → 9361 chars
+2026-07-22 12:05:08.920 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdullahi I. Mohamed
+2026-07-22 12:05:12.896 | DEBUG    | __main__:read_pdf:170 - PDF: AHMED HASSAN CV 2022 sept-2.pdf → 13530 chars
+2026-07-22 12:05:21.671 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ahmed Adan Hassan
+2026-07-22 12:05:27.144 | DEBUG    | __main__:read_docx:201 - DOCX: Abdifatah Hussein Aden-cv IOM.docx → 14690 chars
+2026-07-22 12:05:35.958 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Aden Hussein
+2026-07-22 12:05:40.244 | DEBUG    | __main__:read_docx:201 - DOCX: Abdikadir CV IOM.......docx → 19763 chars
+2026-07-22 12:05:50.666 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdikadir Adan Hussein
+2026-07-22 12:06:03.276 | DEBUG    | __main__:read_docx:201 - DOCX: Abdiladif Ahmed_climate change.docx → 12206 chars
+2026-07-22 12:06:10.674 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdiladif Ahmed Haret
+2026-07-22 12:06:15.255 | DEBUG    | __main__:read_docx:201 - DOCX: Aden Diis - law, legal and policy.docx → 9816 chars
+2026-07-22 12:06:23.839 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Aden Diis
+2026-07-22 12:06:35.949 | DEBUG    | __main__:read_docx:201 - DOCX: Ahmed Hassan Feer- water enginner.docx → 9541 chars
+2026-07-22 12:06:44.221 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ahmed Hassan Feer
+2026-07-22 12:06:59.628 | DEBUG    | __main__:read_docx:201 - DOCX: Akama Maiko Erick.docx → 8812 chars
+2026-07-22 12:07:08.080 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Akama Maiko Erick
+2026-07-22 12:07:21.590 | DEBUG    | __main__:read_docx:201 - DOCX: Amina aden_climate change.docx → 6141 chars
+2026-07-22 12:07:28.564 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Amina Aden Maalim
+2026-07-22 12:07:45.907 | DEBUG    | __main__:read_pdf:170 - PDF: CV Updated -Dr Mohamed Muhumed Yussuf.pdf → 21833 chars
+2026-07-22 12:07:54.918 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Mohamed Muhumed Yussuf
+2026-07-22 12:07:58.571 | DEBUG    | __main__:read_docx:201 - DOCX: CV- Kogo_Apr 25.docx → 12438 chars
+2026-07-22 12:08:08.659 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Paul Kogo
+2026-07-22 12:08:16.225 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Dr Catherine  _ Gender inclussion specilist.docx → 21787 chars
+2026-07-22 12:08:25.191 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Catherine Minayo Chegero
+2026-07-22 12:08:35.806 | DEBUG    | __main__:read_docx:201 - DOCX: CV_Prof JOSEPH KAMUZHANJE.docx → 26583 chars
+2026-07-22 12:08:45.365 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Professor Joseph Kamuzhanje
+2026-07-22 12:08:51.404 | DEBUG    | __main__:read_docx:201 - DOCX: Charles Gikanga Kamau- civil engineer.docx → 36355 chars
+2026-07-22 12:09:02.569 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Charles Gikanga Kamau
+2026-07-22 12:09:08.383 | DEBUG    | __main__:read_pdf:170 - PDF: Dr Chris_Evaluation Specialist (Quantitative & Qualitative Methods).pdf → 17322 chars
+2026-07-22 12:09:15.574 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Christopher Njuguna Kamau
+2026-07-22 12:09:25.407 | DEBUG    | __main__:read_docx:201 - DOCX: Dr Christopher Njuguna Kamau-- Researher.docx → 11506 chars
+2026-07-22 12:09:34.724 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr Christopher Njuguna Kamau
+2026-07-22 12:09:50.264 | DEBUG    | __main__:read_docx:201 - DOCX: Dr. Hudson Aluvanze CV - Team Leader^J Management information.docx → 11248 chars
+2026-07-22 12:09:58.676 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Dr. Hudson Arcoustav Aluvanze
+2026-07-22 12:10:04.042 | DEBUG    | __main__:read_docx:201 - DOCX: Elizabeth CV Malawi, Agriculture Economics World Bank Format.docx → 38939 chars
+2026-07-22 12:10:11.794 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Elizabeth MANDA
+2026-07-22 12:10:26.609 | DEBUG    | __main__:read_docx:201 - DOCX: Eng. George, PE Otula- electrical eng.docx → 9235 chars
+2026-07-22 12:10:34.618 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. George, PE Otula
+2026-07-22 12:10:53.738 | DEBUG    | __main__:read_docx:201 - DOCX: ISMAIL  ARALE  ALI - law.docx → 7276 chars
+2026-07-22 12:11:01.923 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ismail Arale Ali
+2026-07-22 12:11:11.578 | DEBUG    | __main__:read_docx:201 - DOCX: ISMAIL ARALE CURRENT RESUME.docx → 11841 chars
+2026-07-22 12:11:18.447 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ismail Arale Ali
+2026-07-22 12:11:27.883 | DEBUG    | __main__:read_docx:201 - DOCX: Ibrahim_Cortech_social impact and enviromental..docx → 13741 chars
+2026-07-22 12:11:36.770 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Ibrahim Muhumed
+2026-07-22 12:12:00.476 | DEBUG    | __main__:read_docx:201 - DOCX: LAWRENCE KIMATHI KAARIA- ICT Specialist.docx → 14587 chars
+2026-07-22 12:12:10.250 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Lawrence Kimathi Kaaria
+2026-07-22 12:12:16.924 | DEBUG    | __main__:read_docx:201 - DOCX: MOHAMED HASSAN BOYA- geophysicist.docx → 6757 chars
+2026-07-22 12:12:24.154 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Mohamed Hassan Boya
+2026-07-22 12:12:27.222 | DEBUG    | __main__:read_docx:201 - DOCX: Mr. Mishael M. Wambua- law, legal.docx → 6578 chars
+2026-07-22 12:12:36.043 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Mr. Mishael M. Wambua
+2026-07-22 12:13:02.836 | DEBUG    | __main__:read_docx:201 - DOCX: Mugove_ Resume.docx → 5326 chars
+2026-07-22 12:13:09.422 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Mugove Kwashirai Chakurira
+2026-07-22 12:13:12.134 | ERROR    | __main__:read_docx:204 - DOCX read failed for data/cvs/Nyasha Gender and SGBV Program Specialist-CV EU format .doc: File is not a zip file
+2026-07-22 12:13:12.357 | DEBUG    | __main__:read_docx:201 - DOCX: Nyasha Memory Chidau- gender equality.docx → 11004 chars
+2026-07-22 12:13:21.300 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Nyasha Memory Chidau
+2026-07-22 12:13:36.843 | DEBUG    | __main__:read_docx:201 - DOCX: PAUL GITONGA - COMMUNICATION.docx → 7774 chars
+2026-07-22 12:13:43.565 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Paul Gitobu Gitonga
+2026-07-22 12:13:57.035 | DEBUG    | __main__:read_docx:201 - DOCX: PAUL KOGO- WATER eng.docx → 13544 chars
+2026-07-22 12:14:07.681 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Paul Kogo
+2026-07-22 12:14:10.813 | DEBUG    | __main__:read_docx:201 - DOCX: PUE Expert.docx → 10763 chars
+2026-07-22 12:14:19.766 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Eng. George Otula PE
+2026-07-22 12:14:26.780 | DEBUG    | __main__:read_docx:201 - DOCX: RITTAH_ marketing and communications .docx → 8934 chars
+2026-07-22 12:14:34.405 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Rittah Vickie Okello
+2026-07-22 12:14:54.413 | DEBUG    | __main__:read_docx:201 - DOCX: Salahweli Harun-cv IOM.docx → 18922 chars
+2026-07-22 12:15:06.151 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Salahweli Harun Abdi
+2026-07-22 12:15:12.470 | DEBUG    | __main__:read_docx:201 - DOCX: Shafat A . CV.._1.docx → 10982 chars
+2026-07-22 12:15:24.373 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Abdifatah Diis Shafat
+2026-07-22 12:15:30.840 | DEBUG    | __main__:read_docx:201 - DOCX: Suleiman Ahmed Cortech CV.docx → 14100 chars
+2026-07-22 12:15:40.144 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Suleiman Ahmed Osman
+2026-07-22 12:15:44.673 | DEBUG    | __main__:read_docx:201 - DOCX: mike.docx → 21940 chars
+2026-07-22 12:15:51.932 | DEBUG    | __main__:extract_cv_info:336 - Extracted CV: Erick Maiko Akama
+2026-07-22 15:19:16.863 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL CEF-RFP-01.docx → 77485 chars
+2026-07-22 15:19:27.392 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility
+2026-07-22 15:19:52.093 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-07-22 15:20:00.422 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya / AYuTe Africa Challenge (Agriculture, Youth, and Technology)
+2026-07-22 15:20:39.940 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL_PROPOSAL_CEF-RFP-01_Monitoring_Evaluation_and_Learning_Partner_for_the_Somali_Civic_Engagement_Facility_FINAL.docx → 130285 chars
+2026-07-22 15:20:49.929 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility
+2026-07-22 15:20:58.096 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - Internal Audit.docx → 40258 chars
+2026-07-22 15:21:06.110 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Internal Audit of Qatar Red Crescent Society Somalia Office
+2026-07-22 15:21:24.288 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - PRF 29110 18 Nov 2025.docx → 37199 chars
+2026-07-22 15:21:34.266 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Endline Evaluation of Continuity in Crisis Project
+2026-07-22 15:21:47.322 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - PRF29115 18 Nov 2025.docx → 33712 chars
+2026-07-22 15:21:56.184 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-Term Evaluation of the Resilience, Health and Rights Project
+2026-07-22 15:22:13.253 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal CARE.docx → 89725 chars
+2026-07-22 15:22:22.946 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Third Party Monitoring Consultancy for the Girls' Education Accelerator (GEA) Program
+2026-07-22 15:22:35.026 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to C40 Ethiopia.docx → 104074 chars
+2026-07-22 15:22:44.006 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa
+2026-07-22 15:22:47.165 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to GIZ.docx → 106296 chars
+2026-07-22 15:22:56.294 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Climate-Resilient and Competitive Agricultural Development through Policy Support and Quality Assurance in Somalia (SPQA-II Project)
+2026-07-22 15:23:23.367 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-07-22 15:23:31.701 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Refugee Labour Market Study and Strategic Advocacy Support
+2026-07-22 15:23:44.125 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Forms 27 Jan 2026.docx → 328236 chars
+2026-07-22 15:23:53.229 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Community Early Warning and Disaster Risk Reduction (DRR) Training Support
+2026-07-22 15:24:02.190 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GAIN.docx → 35298 chars
+2026-07-22 15:24:11.251 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Data Collection on Child and Adolescent Centred Nutrition Indicators (CAN-I) in Kenya
+2026-07-22 15:24:25.265 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-07-22 15:30:44.788 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-07-23 08:08:20.132 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL CEF-RFP-01.docx → 77485 chars
+2026-07-23 08:08:30.935 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility
+2026-07-23 08:08:35.097 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-07-23 08:08:43.554 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya (AYuTe Africa Challenge)
+2026-07-23 08:08:46.970 | DEBUG    | __main__:read_docx:201 - DOCX: TECHNICAL_PROPOSAL_CEF-RFP-01_Monitoring_Evaluation_and_Learning_Partner_for_the_Somali_Civic_Engagement_Facility_FINAL.docx → 130285 chars
+2026-07-23 08:08:59.169 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility
+2026-07-23 08:09:03.180 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - Internal Audit.docx → 40258 chars
+2026-07-23 08:09:12.295 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Internal Audit of Qatar Red Crescent Society Somalia Office
+2026-07-23 08:09:57.877 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - PRF 29110 18 Nov 2025.docx → 37199 chars
+2026-07-23 08:10:06.388 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Endline Evaluation of the Continuity in Crisis Project
+2026-07-23 08:10:10.086 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal - PRF29115 18 Nov 2025.docx → 33712 chars
+2026-07-23 08:10:20.785 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-Term Evaluation of the Resilience, Health and Rights Project
+2026-07-23 08:10:29.147 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal CARE.docx → 89725 chars
+2026-07-23 08:10:37.804 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Third Party Monitoring Consultancy for the Girls' Education Accelerator (GEA) Program
+2026-07-23 08:10:44.143 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to C40 Ethiopia.docx → 104074 chars
+2026-07-23 08:10:52.298 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Urban Climate Resilience through Climate Risk Assessment and Community Action in Addis Ababa
+2026-07-23 08:10:58.365 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to GIZ.docx → 106296 chars
+2026-07-23 08:11:09.559 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Strengthening Climate-Resilient and Competitive Agricultural Development through Policy Support and Quality Assurance in Somalia (SPQA-II Project)
+2026-07-23 08:11:52.688 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-07-23 08:12:01.740 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Refugee Labour Market Study and Strategic Advocacy Support
+2026-07-23 08:12:19.571 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal Forms 27 Jan 2026.docx → 328236 chars
+2026-07-23 08:12:28.765 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Community Early Warning and Disaster Risk Reduction (DRR) Training Support
+2026-07-23 08:12:36.780 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GAIN.docx → 35298 chars
+2026-07-23 08:12:45.590 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Data Collection on Child and Adolescent Centred Nutrition Indicators (CAN-I) in Kenya
+2026-07-23 08:12:50.448 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-07-23 08:12:59.475 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-07-23 08:13:04.268 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IGAD.docx → 117302 chars
+2026-07-23 08:13:13.727 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II)
+2026-07-23 08:13:19.624 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IOM 18 Nov 2025.docx → 78269 chars
+2026-07-23 08:13:30.299 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Clan Dynamics in Baidoa Research Study
+2026-07-23 08:13:37.803 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal IOM.docx → 78269 chars
+2026-07-23 08:13:47.681 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Clan Dynamics in Baidoa Research Study
+2026-07-23 08:13:52.212 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal KENHA.docx → 53120 chars
+2026-07-23 08:14:02.979 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Consultancy Services for Awareness, Prevention and Training on HIV/AIDS, Drug Abuse and Gender Mainstreaming (Kobo-Elwak Road Project)
+2026-07-23 08:14:13.167 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal SCI.docx → 81483 chars
+2026-07-23 08:14:25.450 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Endline Evaluation of the SOM_DANIDA SPA 2022–2025 Programme (Lot HUM and Lot CIV)
+2026-07-23 08:14:31.767 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal ZIZI Afrique.docx → 71728 chars
+2026-07-23 08:14:43.137 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Consultancy Services to Develop a Comprehensive M&E Framework and Document Key Achievements and Impact Stories under the Unlocking Data Initiative
+2026-07-23 08:14:47.944 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal _Cortech_9_April.docx → 62781 chars
+2026-07-23 08:14:55.241 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Consultancy for Development of a Comprehensive Digital Governance Policy & SOP Framework
+2026-07-23 08:14:58.982 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal for LLINs.docx → 56884 chars
+2026-07-23 08:15:10.379 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: LLINs Ownership and Use Assessment in Somalia and Somaliland
+2026-07-23 08:15:17.381 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal to PACIDA.docx → 45640 chars
+2026-07-23 08:15:27.113 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services for Final Evaluation - Emergency Relief and Anticipatory Humanitarian Action for Victims of Climate-Related Disasters in Somalia, Northern Kenya, and Southern Ethiopia
+2026-07-23 08:15:33.271 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal to WHH 2.docx → 66528 chars
+2026-07-23 08:15:44.129 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project (SIAGER) in Kenya's Arid Marsabit County
+2026-07-23 08:15:47.247 | ERROR    | __main__:run_proposal_population:967 - Proposal processing error for Technical Proposal to WHH 2.docx
+Traceback (most recent call last):
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 1095, in <module>
+    main()
+    └ <function main at 0x7ded85578540>
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 1088, in main
+    prop_results = run_proposal_population(tables, claude, interactive)
+                   │                       │       │       └ True
+                   │                       │       └ <anthropic.Anthropic object at 0x7ded85209250>
+                   │                       └ {'consultants': <Table base='app2zoGNoagY5eLht' name='CONSULTANTS'>, 'past_proposals': <Table base='app2zoGNoagY5eLht' name='...
+                   └ <function run_proposal_population at 0x7ded85578400>
+
+> File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 946, in run_proposal_population
+    record_id = add_proposal_to_airtable(
+                └ <function add_proposal_to_airtable at 0x7ded8556bec0>
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 569, in add_proposal_to_airtable
+    "year": int(proposal_info.get("year", datetime.now().year)),
+                │             │           │        └ <method 'now' of 'datetime.datetime' objects>
+                │             │           └ <class 'datetime.datetime'>
+                │             └ <method 'get' of 'dict' objects>
+                └ {'project_title': "Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project (SIAGER) in Kenya's Arid M...
+
+TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'
+2026-07-23 08:15:47.355 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal, CORTEC.docx → 15294 chars
+2026-07-23 08:15:56.063 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Survey of applicable expert remuneration fees in comparable organizations in Somalia
+2026-07-23 08:16:00.066 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal-Kenya Survey CORTEC.docx → 12158 chars
+2026-07-23 08:16:07.246 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Survey of applicable expert remuneration fees in comparable organizations in Kenya
+2026-07-23 08:16:11.293 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal.docx → 82976 chars
+2026-07-23 08:16:19.996 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy – FY26
+2026-07-23 08:16:33.635 | DEBUG    | __main__:read_pdf:170 - PDF: Technical Proposal_ Research and Learning for Pathway to Prosperity Project (8).pdf → 223122 chars
+2026-07-23 08:16:45.657 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Research and Learning for the Pathway to Prosperity Project
+2026-07-23 08:16:54.477 | DEBUG    | __main__:read_pdf:170 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
+2026-07-23 08:17:03.565 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Endline Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya
+2026-07-23 08:17:13.844 | DEBUG    | __main__:read_docx:201 - DOCX: Technical Proposal_Somalia EIE Consultancy (3).docx → 104394 chars
+2026-07-23 08:17:21.722 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Somalia Education In Emergencies Anticipatory Action Consultancy – Education Cannot Wait Pilot Programme
+2026-07-23 08:17:25.126 | DEBUG    | __main__:read_docx:201 - DOCX: Technicap Proposal Concern WorldWide 6 November 2025.docx → 73335 chars
+2026-07-23 08:17:35.615 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Endline Evaluation of the EU–NEGAAD Project: Supporting Climate Adaptation and Durable Solutions for Displacement-Affected Communities in the Shabelle River Basin, Afgoye District
+2026-07-23 08:17:39.925 | DEBUG    | __main__:read_docx:201 - DOCX: Tehnical Proposal KRCS2.docx → 58491 chars
+2026-07-23 08:17:49.053 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: End-Term Evaluation for Prevention and Awareness-Raising on Gender-Based Violence (GBV) in Samburu, Bungoma and Kilifi Counties, Kenya
+2026-07-23 08:18:04.813 | DEBUG    | __main__:read_docx:201 - DOCX: UK PACT Project Technical Proposal Template.docx → 51438 chars
+2026-07-23 08:18:17.046 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Scaling Up Smallholder Agroforestry Production and Nature-Based Enterprises in Kenya
+2026-07-23 08:18:21.036 | DEBUG    | __main__:read_docx:201 - DOCX: UNICEF CONCEPT NOTE BY CORTECH.docx → 69049 chars
+2026-07-23 08:18:30.318 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Enhancing Integrated Health, Nutrition, and WASH Services for Child Survival in Bu'aale District, Middle Juba Region
+2026-07-23 08:18:33.340 | DEBUG    | __main__:read_docx:201 - DOCX: WHH TECHNICAL PROPOSAL.docx → 42649 chars
+2026-07-23 08:18:41.873 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services for Midline Evaluation in Kilifi and Tana River Counties
