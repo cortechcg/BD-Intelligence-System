@@ -43,6 +43,7 @@ SCRAPE_SOURCES = [
         "wait_for":          'a[href*="/tenders/"]',
         "href_must_contain": "/tenders/",
         "post_load_wait_ms": 8000,
+        "scroll_selector":   'a[href*="/tenders/"]',
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
     {
@@ -150,16 +151,57 @@ async def fetch_with_httpx(url: str, timeout_ms: int) -> str | None:
     return None
 
 
+async def _scroll_to_load_all(
+    page,
+    item_selector: str,
+    max_scrolls: int = 40,
+    settle_ms: int = 2500,
+) -> None:
+    """
+    Repeatedly scroll to the bottom to trigger lazy-loaded / infinite-scroll
+    content. Stops when the number of matching items stops growing for two
+    consecutive scrolls, or when max_scrolls is reached.
+
+    Many tender portals (e.g. somalijobs.com) render only ~20 items initially
+    and append more as the user scrolls — without this we'd only ever see the
+    first page's worth.
+    """
+    previous_count = -1
+    stable_rounds = 0
+    for _ in range(max_scrolls):
+        try:
+            count = await page.eval_on_selector_all(
+                item_selector, "els => els.length"
+            )
+        except Exception:
+            count = 0
+
+        if count <= previous_count:
+            stable_rounds += 1
+            if stable_rounds >= 2:
+                break
+        else:
+            stable_rounds = 0
+        previous_count = count
+
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        await page.wait_for_timeout(settle_ms)
+
+
 async def fetch_with_browser(
     browser,
     url: str,
     wait_for: str | None,
     timeout_ms: int,
     post_load_wait_ms: int = 2000,
+    scroll_selector: str | None = None,
 ) -> str | None:
     """
     Playwright fetch using wait_until='commit' — many NGO sites never fire
     domcontentloaded within a reasonable window but commit immediately.
+
+    When scroll_selector is provided, the page is scrolled repeatedly to
+    exhaust lazy-loaded / infinite-scroll listings before the HTML is captured.
     """
     page = await browser.new_page()
     try:
@@ -174,6 +216,8 @@ async def fetch_with_browser(
             except PlaywrightTimeout:
                 pass
         await page.wait_for_timeout(post_load_wait_ms)
+        if scroll_selector:
+            await _scroll_to_load_all(page, scroll_selector)
         html = await page.content()
         if len(html) >= MIN_USEFUL_HTML_CHARS:
             return html
@@ -198,18 +242,22 @@ async def fetch_page_content(
     timeout_ms: int,
     needs_browser: bool = False,
     post_load_wait_ms: int = 2000,
+    scroll_selector: str | None = None,
 ) -> str | None:
     """
     httpx first for speed; Playwright when the page is JS-rendered or thin.
+
+    A scroll_selector forces the browser path (httpx can't scroll) so that
+    lazy-loaded listings are fully exhausted.
     """
-    if not needs_browser:
+    if not needs_browser and not scroll_selector:
         html = await fetch_with_httpx(url, timeout_ms)
         if html:
             logger.debug(f"  Loaded via httpx ({len(html):,} chars): {url}")
             return html
 
     html = await fetch_with_browser(
-        browser, url, wait_for, timeout_ms, post_load_wait_ms
+        browser, url, wait_for, timeout_ms, post_load_wait_ms, scroll_selector
     )
     if html:
         logger.debug(f"  Loaded via browser ({len(html):,} chars): {url}")
@@ -217,7 +265,7 @@ async def fetch_page_content(
 
     if not needs_browser:
         html = await fetch_with_browser(
-            browser, url, wait_for, timeout_ms, post_load_wait_ms
+            browser, url, wait_for, timeout_ms, post_load_wait_ms, scroll_selector
         )
         if html:
             logger.debug(
@@ -332,6 +380,7 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
         source.get("timeout", DEFAULT_TIMEOUT_MS),
         needs_browser=source.get("needs_browser", False),
         post_load_wait_ms=source.get("post_load_wait_ms", 2000),
+        scroll_selector=source.get("scroll_selector"),
     )
 
     if not html:
