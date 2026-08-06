@@ -1,14 +1,13 @@
 # monitors/rss_monitor.py
 import feedparser
-import httpx
 from datetime import datetime
 from loguru import logger
-from bs4 import BeautifulSoup
 from database.supabase_client import check_opportunity_exists, store_opportunity
 from database.airtable_client import create_opportunity, log_agent_action
-from config import RSS_FEEDS, CORTECH_PROFILE, SCRAPE_SOURCES
+from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL
 import anthropic
 import json
+from utils.claude_helpers import get_text
 
 client = anthropic.Anthropic()
 # ── FILTER CONSTANTS ──────────────────────────────────────────────────────────
@@ -59,13 +58,51 @@ THEMATIC_SIGNALS = [
 ]
 
 # Only reject if posting is EXCLUSIVELY about these wrong geographies
-# with zero mention of any Cortech geography
+# with zero mention of any Cortech geography.
+# Organized by region — if a new leak turns up, add it to the region
+# it belongs to rather than guessing. "oman" is deliberately excluded:
+# it's a substring of "woman", which would false-reject any posting
+# about women's empowerment/economic inclusion that doesn't also name
+# a Cortech country in the same title+summary. "drc" (abbreviation) is
+# also excluded — it collides with Danish Refugee Council, one of
+# Cortech's own monitored sources; "democratic republic of congo" is
+# used instead.
 WRONG_GEOGRAPHIES_ONLY = [
-    "ukraine", "syria", "colombia", "dominican republic",
-    "afghanistan", "myanmar", "bangladesh", "pakistan",
-    "iraq", "jordan", "lebanon", "yemen", "libya",
-    "latin america", "central america", "south asia",
-    "southeast asia", "paris", "france",
+    # Europe — common on EU TED and general UN staff-vacancy feeds
+    "ukraine", "cyprus", "greece", "albania", "serbia", "bosnia",
+    "kosovo", "montenegro", "north macedonia", "moldova", "georgia",
+    "armenia", "azerbaijan", "turkey", "italy", "spain", "portugal",
+    "germany", "belgium", "netherlands", "switzerland", "austria",
+    "poland", "romania", "bulgaria", "hungary", "united kingdom",
+    "ireland", "denmark", "sweden", "norway", "finland", "paris",
+    "france", "russia",
+
+    # Middle East — outside Cortech's Horn of Africa focus
+    "iraq", "syria", "yemen", "lebanon", "jordan", "palestine",
+    "gaza", "west bank", "saudi arabia", "qatar",
+    "united arab emirates", "kuwait", "bahrain", "iran",
+
+    # South / Southeast / Central Asia
+    "afghanistan", "pakistan", "bangladesh", "india", "nepal",
+    "sri lanka", "myanmar", "cambodia", "laos", "vietnam",
+    "thailand", "philippines", "indonesia", "malaysia", "mongolia",
+    "kazakhstan", "uzbekistan", "kyrgyzstan", "tajikistan",
+    "south asia", "southeast asia",
+
+    # Americas / Caribbean / Pacific
+    "colombia", "venezuela", "haiti", "dominican republic",
+    "guatemala", "honduras", "el salvador", "nicaragua", "ecuador",
+    "peru", "bolivia", "brazil", "mexico", "fiji",
+    "papua new guinea", "latin america", "central america",
+
+    # West / Central / Southern Africa — outside East Africa/Horn focus
+    "nigeria", "ghana", "senegal", "mali", "niger", "chad",
+    "cameroon", "democratic republic of congo",
+    "central african republic", "ivory coast", "cote d'ivoire",
+    "burkina faso", "sierra leone", "liberia", "guinea", "benin",
+    "togo", "gambia", "mauritania", "south africa", "zimbabwe",
+    "zambia", "malawi", "mozambique", "botswana", "namibia",
+    "angola", "madagascar",
 ]
 
 
@@ -126,14 +163,14 @@ def quick_relevance_check(title: str, summary: str) -> bool:
 def extract_deadline_from_text(text: str) -> str:
     """Use Claude to extract deadline if not in RSS metadata."""
     response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=CLAUDE_MODEL,
         max_tokens=100,
         messages=[{
             "role": "user",
             "content": f"Extract the submission deadline date from this text. Return ONLY the date in ISO format (YYYY-MM-DD) or 'unknown' if not found:\n\n{text[:1000]}"
         }]
     )
-    date_str = response.content[0].text.strip()
+    date_str = get_text(response).strip()
     return date_str if len(date_str) <= 20 else "unknown"
 
 
@@ -193,143 +230,3 @@ def monitor_rss_feeds() -> list[dict]:
     return new_opportunities
 
 
-
-def scrape_somaliajobs(url: str) -> list[dict]:
-    """
-    Scrapes Somalia Jobs tender board.
-    Page structure: list of tender cards with title, client, deadline.
-    """
-    opportunities = []
-    try:
-        response = httpx.get(url, timeout=20, follow_redirects=True,
-                             headers={"User-Agent": "Mozilla/5.0"})
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "lxml")
-
-        # Somalia Jobs uses <div class="job-listing"> or similar cards
-        # Adjust selector if site structure changes
-        cards = (
-            soup.select("div.tender-item")
-            or soup.select("div.job-listing")
-            or soup.select("article")
-            or soup.select("tr.tender-row")
-        )
-
-        for card in cards:
-            # Try multiple common link patterns
-            link_el = card.select_one("a[href]")
-            title_el = card.select_one("h2, h3, h4, .title, .tender-title")
-
-            if not link_el or not title_el:
-                continue
-
-            title = title_el.get_text(strip=True)
-            href  = link_el.get("href", "")
-            link  = href if href.startswith("http") else f"https://www.somaliajobs.com{href}"
-            summary = card.get_text(separator=" ", strip=True)[:500]
-
-            if check_opportunity_exists(link):
-                continue
-
-            if not quick_relevance_check(title, summary):
-                continue
-
-            opportunities.append({
-                "title":        title,
-                "source_url":   link,
-                "summary":      summary,
-                "source_portal": "Somalia Jobs Tenders",
-                "published":    "",
-            })
-
-    except Exception as e:
-        logger.error(f"Somalia Jobs scrape failed: {e}")
-
-    return opportunities
-
-
-def scrape_generic_list(source: dict) -> list[dict]:
-    """
-    Generic scraper for procurement list pages.
-    Extracts any anchor tag that looks like a tender/consultancy posting.
-    Works as a best-effort fallback for sources without structured markup.
-    """
-    opportunities = []
-    name = source["name"]
-    url  = source["url"]
-
-    try:
-        response = httpx.get(
-            url, timeout=20, follow_redirects=True,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "lxml")
-
-        # Collect all anchor tags with meaningful text
-        for anchor in soup.select("a[href]"):
-            title = anchor.get_text(strip=True)
-            href  = anchor.get("href", "")
-
-            if not title or len(title) < 15:
-                continue
-
-            # Only follow links that look like individual tender pages
-            skip_patterns = [
-                "login", "register", "contact", "about", "home",
-                "privacy", "terms", "sitemap", "javascript:", "mailto:",
-                "#",
-            ]
-            if any(p in href.lower() for p in skip_patterns):
-                continue
-
-            link = href if href.startswith("http") else (
-                url.rstrip("/") + "/" + href.lstrip("/")
-            )
-
-            # Get surrounding text as summary context
-            parent_text = ""
-            if anchor.parent:
-                parent_text = anchor.parent.get_text(separator=" ", strip=True)[:300]
-
-            summary = parent_text or title
-
-            if check_opportunity_exists(link):
-                continue
-
-            if not quick_relevance_check(title, summary):
-                continue
-
-            opportunities.append({
-                "title":         title,
-                "source_url":    link,
-                "summary":       summary,
-                "source_portal": name,
-                "published":     "",
-            })
-
-    except Exception as e:
-        logger.error(f"Scrape failed for {name}: {e}")
-
-    return opportunities
-
-
-def scrape_non_rss_sources() -> list[dict]:
-    """
-    Runs all non-RSS scrapers defined in config.SCRAPE_SOURCES.
-    Called from run_pipeline() alongside monitor_rss_feeds().
-    """
-    all_found = []
-
-    for source in SCRAPE_SOURCES:
-        logger.info(f"Scraping: {source['name']}")
-
-        if source["type"] == "somaliajobs":
-            found = scrape_somaliajobs(source["url"])
-        else:
-            found = scrape_generic_list(source)
-
-        logger.info(f"  {len(found)} passed filter from {source['name']}")
-        all_found.extend(found)
-
-    return all_found
