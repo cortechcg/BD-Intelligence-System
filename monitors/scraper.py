@@ -145,6 +145,17 @@ SCRAPE_SOURCES = [
         "needs_browser":  True,
         "timeout":        DEFAULT_TIMEOUT_MS,
     },
+    {
+        "name":           "EGP Kenya",
+        "url":            "https://egpkenya.go.ke/tender",
+        "selector":       "tr, div.tender-item, div.listing, article",
+        "link_selector":  "a[href]",
+        "title_selector": "td, h3, h4, h2, a",
+        "base_url":       "https://egpkenya.go.ke",
+        "needs_browser":  True,
+        "wait_for":       "table, .tender, a[href*='tender']",
+        "timeout":        DEFAULT_TIMEOUT_MS,
+    },
 ]
 
 
