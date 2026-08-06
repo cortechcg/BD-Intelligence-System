@@ -11,6 +11,12 @@ AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
+# Optional dead-man's-switch (e.g. a Healthchecks.io check URL). Pipeline
+# pings this on every successful run and pings f"{url}/fail" on a crash.
+# Leave unset to disable — every call site checks for this being empty
+# first and no-ops, so nothing breaks if you don't set this up.
+HEALTHCHECK_URL = os.getenv("HEALTHCHECK_URL", "")
+
 # ── AIRTABLE TABLE NAMES ──────────────────────────────────────
 TABLES = {
     "opportunities": "OPPORTUNITIES",
@@ -152,68 +158,6 @@ RSS_FEEDS = [
     },
 ]
 
-# Sources with no RSS feed — scraped directly
-# Handled in monitors/rss_monitor.py → scrape_non_rss_sources()
-SCRAPE_SOURCES = [
-    {
-        "name": "Somali Jobs Tenders",
-        "url": "https://www.somalijobs.com/tenders",
-        "type": "somalijobs",
-    },
-    {
-        "name": "DRC Procurement",
-        "url": "https://pro.drc.ngo/suppliers/open-procurements/",
-        "type": "generic_list",
-    },
-    {
-        "name": "Save the Children Procurement",
-        "url": "https://www.savethechildren.net/about-us/jobs/procurement",
-        "type": "generic_list",
-    },
-    {
-        "name": "CARE International Tenders",
-        "url": "https://www.care.org/about-us/procurement/",
-        "type": "generic_list",
-    },
-    {
-        "name": "Welthungerhilfe Tenders",
-        "url": "https://www.welthungerhilfe.org/our-work/procurement/",
-        "type": "generic_list",
-    },
-    {
-        "name": "NRC Tenders",
-        "url": "https://www.nrc.no/about-nrc/procurements/",
-        "type": "generic_list",
-    },
-    {
-        "name": "Kenya Government PPIP",
-        "url": "https://tenders.go.ke/website/tenders/index",
-        "type": "generic_list",
-    },
-    {
-        "name": "Ethiopia PPPA",
-        "url": "https://www.pppa.gov.et/procurement-notices",
-        "type": "generic_list",
-    },
-    {
-        "name": "USAID Business Forecast",
-        "url": "https://www.usaid.gov/rss/business-forecast",
-        "type": "generic_list",
-    },
-    {
-        "name": "GIZ Procurement",
-        "url": "https://www.giz.de/en/html/tenders.html",
-        "type": "generic_list",
-    },
-]
-
-# ── SCORING THRESHOLDS ────────────────────────────────────────
-SCORE_THRESHOLDS = {
-    "bid": 40,        # Score >= 40 → Recommend BID
-    "watch": 30,      # Score 30-40 → WATCH
-    "no_bid": 10,      # Score < 10 → NO-BID
-}
-
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
 SOON_DEADLINE_DAYS = 7     # Flag as soon if deadline in N days
-CHECK_INTERVAL_HOURS = 6  # polling interval for continuous (non --once) mode
+CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "6"))  # polling interval for continuous (non --once) mode

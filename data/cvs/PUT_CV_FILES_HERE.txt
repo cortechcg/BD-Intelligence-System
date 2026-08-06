@@ -1,3 +1,0 @@
-Put all consultant CV files here.
-Supported formats: PDF, DOCX, TXT
-You can put them in subfolders too.

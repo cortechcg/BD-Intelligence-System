@@ -5,6 +5,7 @@ from loguru import logger
 from database.supabase_client import search_consultants
 from database.airtable_client import get_consultant_by_id, log_agent_action
 from config import CLAUDE_MODEL, CORTECH_PROFILE
+from utils.claude_helpers import get_text
 
 client = anthropic.Anthropic()
 
@@ -85,46 +86,3 @@ def match_team_to_requirements(
             if matched_team else 0
         )
     }
-
-
-def generate_team_narrative(
-    matched_team: dict,
-    opportunity_title: str
-) -> str:
-    """Use Claude to write the team composition section."""
-
-    team_summary = []
-    for role, match in matched_team.items():
-        if match.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED":
-            meta = match.get("metadata", {})
-            team_summary.append({
-                "required_role": role,
-                "assigned_person": match["consultant_name"],
-                "their_title": match["role_title"],
-                "match_score": match["similarity_score"],
-            })
-
-    prompt = f"""Write a professional team composition section for a technical proposal.
-
-Assignment: {opportunity_title}
-
-Matched Team:
-{json.dumps(team_summary, indent=2)}
-
-Cortech Profile for context:
-{CORTECH_PROFILE}
-
-Write 2-3 paragraphs explaining:
-1. The overall team structure and why this combination is ideal
-2. Key qualifications of each team member (brief)
-3. How the team's collective experience positions Cortech to succeed
-
-Professional tone. Evidence-based. No fluff. Maximum 400 words."""
-
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    return response.content[0].text

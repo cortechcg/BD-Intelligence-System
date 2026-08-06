@@ -125,6 +125,26 @@ SCRAPE_SOURCES = [
         "needs_browser":  True,
         "timeout":        DEFAULT_TIMEOUT_MS,
     },
+    {
+        "name":           "USAID Business Forecast",
+        "url":            "https://www.usaid.gov/business-forecast",
+        "selector":       "article, div.views-row, tr",
+        "link_selector":  "a[href]",
+        "title_selector": "h2, h3, h4, .title, a",
+        "base_url":       "https://www.usaid.gov",
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":           "Ethiopia PPPA",
+        "url":            "https://www.pppa.gov.et/procurement-notices",
+        "selector":       "article, div.tender, tr",
+        "link_selector":  "a[href]",
+        "title_selector": "h2, h3, h4, .title, a",
+        "base_url":       "https://www.pppa.gov.et",
+        "needs_browser":  True,
+        "timeout":        DEFAULT_TIMEOUT_MS,
+    },
 ]
 
 

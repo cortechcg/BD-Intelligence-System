@@ -286,7 +286,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
             {new_opps_html}
         </table>
         <p style="font-size:11px;color:#999;margin-top:10px">
-            🟢 Score ≥70 = BID | 🟡 Score 50-69 = WATCH | 🔴 Score <50 = NO-BID
+            🟢 Score ≥70 = Strong Match | 🟡 Score 50-69 = Moderate | 🔴 Score <50 = Weak Match
         </p>
         """ if new_opportunities else "<p>No new opportunities discovered in this cycle.</p>"}
     </div>
@@ -394,12 +394,16 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </div>"""
 
     proposal_html = (
-        section_block("Cover Letter",       proposal.get("cover_letter", ""))
+        section_block("Cover Letter", proposal.get("cover_letter", ""))
         + section_block("Executive Summary", proposal.get("executive_summary", ""))
-        + section_block("Methodology",       proposal.get("methodology", ""))
-        + section_block("Team Composition",  proposal.get("team_section", ""))
-        + section_block("Work Plan",         proposal.get("work_plan", ""))
-        + section_block("Risk Register",     proposal.get("risk_register", ""))
+        + section_block("Organisational Profile & Track Record", proposal.get("org_profile_and_track_record", ""))
+        + section_block("Introduction, Background & Conceptual Framework", proposal.get("introduction_and_framework", ""))
+        + section_block("Methodology", proposal.get("methodology", ""))
+        + section_block("Sampling & Data Analysis Plan", proposal.get("analysis_plan", ""))
+        + section_block("Quality Assurance & Ethical Safeguarding", proposal.get("qa_and_ethics", ""))
+        + section_block("Risk Register", proposal.get("risk_register", ""))
+        + section_block("Team Composition", proposal.get("team_section", ""))
+        + section_block("Work Plan", proposal.get("work_plan", ""))
     )
 
     # ── SCORE COLOR ────────────────────────────────────────────────────────

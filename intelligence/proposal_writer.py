@@ -2,6 +2,7 @@
 import anthropic
 import json
 from loguru import logger
+from utils.claude_helpers import get_text
 from database.airtable_client import get_winning_proposals, log_agent_action
 from config import CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE
 client = anthropic.Anthropic()
@@ -65,6 +66,33 @@ RELEVANT PAST ASSIGNMENTS (use as references in proposal):
 """
 
 
+def _build_past_work_context() -> str:
+    """
+    Pull real winning proposals from Airtable for use as proposal evidence.
+    Falls back to the static CORTECH_PAST_WORK list if Airtable returns
+    nothing, so proposal generation never blocks on this.
+    """
+    try:
+        winners = get_winning_proposals(limit=10)
+    except Exception as e:
+        logger.warning(f"Could not fetch winning proposals from Airtable: {e}")
+        winners = []
+
+    if not winners:
+        return CORTECH_PAST_WORK
+
+    lines = ["RELEVANT PAST ASSIGNMENTS (use as references in proposal):"]
+    for i, w in enumerate(winners, 1):
+        lines.append(
+            f"{i}. {w.get('project_title', 'Untitled')}\n"
+            f"   Client: {w.get('client', 'N/A')} | "
+            f"Value: ${w.get('contract_value_usd', 0):,} | "
+            f"Year: {w.get('year', 'N/A')}\n"
+            f"   Description: {w.get('methodology_approach', '')[:200]}"
+        )
+    return "\n\n".join(lines)
+
+
 def generate_proposal(
     analysis: dict,
     matched_team_result: dict,
@@ -90,32 +118,31 @@ def generate_proposal(
                 f"- {match['consultant_name']}: {role} (Match: {match['similarity_score']}%)"
             )
 
-    # Generate each section separately for quality + token management
+    # Generate each section separately for quality + token management.
+    # Ordered to match PROPOSAL_STRUCTURE above — 10 Claude calls total,
+    # covering all 14 documented sections via 4 grouped calls.
     sections = {}
 
-    # SECTION 1: Cover Letter
     sections["cover_letter"] = generate_cover_letter(
         title, client_name, deadline, analysis
     )
-
-    # SECTION 2: Executive Summary
     sections["executive_summary"] = generate_executive_summary(
         analysis, matched_team_result, budget
     )
-
-    # SECTION 3: Methodology (most important section)
+    sections["org_profile_and_track_record"] = generate_org_profile_and_track_record(
+        analysis
+    )
+    sections["introduction_and_framework"] = generate_introduction_and_framework(
+        analysis
+    )
     sections["methodology"] = generate_methodology(analysis)
-
-    # SECTION 4: Team Section
+    sections["analysis_plan"] = generate_analysis_plan(analysis)
+    sections["qa_and_ethics"] = generate_qa_and_ethics(analysis)
+    sections["risk_register"] = generate_risk_register(analysis)
     sections["team_section"] = generate_team_section(
         matched_team_result, title
     )
-
-    # SECTION 5: Work Plan
     sections["work_plan"] = generate_work_plan(analysis)
-
-    # SECTION 6: Risk Register
-    sections["risk_register"] = generate_risk_register(analysis)
 
     # Log
     log_agent_action(
@@ -168,7 +195,7 @@ REQUIREMENTS:
         max_tokens=800,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def generate_executive_summary(
@@ -202,7 +229,7 @@ CORTECH PROFILE:
 TEAM COVERAGE: {matched_team_result.get('coverage_percent', 0)}% internal match
 
 PAST WORK:
-{CORTECH_PAST_WORK}
+{_build_past_work_context()}
 
 Write a 4-paragraph executive summary:
 1. Context and the challenge the assignment addresses
@@ -211,14 +238,15 @@ Write a 4-paragraph executive summary:
 4. Budget compliance and value for money statement
 
 Professional, evidence-based, specific. 350-450 words.
-Reference 2-3 specific past assignments as credibility evidence."""
+Reference 2-3 specific past assignments as credibility evidence.
+Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
     response = client.messages.create(
         model=CLAUDE_MODEL_PROPOSAL,
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def generate_methodology(analysis: dict) -> str:
@@ -259,14 +287,15 @@ STRUCTURE THE METHODOLOGY AS:
 5. Ethical considerations integration
 
 Development sector professional language. Evidence-based. Specific tool names.
-Reference KoboToolbox, SPSS, NVivo explicitly. 600-800 words."""
+Reference KoboToolbox, SPSS, NVivo explicitly. 600-800 words.
+Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
     response = client.messages.create(
         model=CLAUDE_MODEL_PROPOSAL,
         max_tokens=1500,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def generate_team_section(matched_team_result: dict, title: str) -> str:
@@ -297,14 +326,15 @@ Write:
 3. Note on any external specialist to be recruited (if gaps exist)
 4. Statement on team availability and commitment
 
-Professional, confident tone. 300-400 words."""
+Professional, confident tone. 300-400 words.
+Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
     response = client.messages.create(
         model=CLAUDE_MODEL_PROPOSAL,
         max_tokens=800,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def generate_work_plan(analysis: dict) -> str:
@@ -325,14 +355,15 @@ Create:
 4. Note on parallel vs sequential activities
 5. A text-based Gantt table showing Month/Week vs Activities
 
-Format the Gantt as a simple text table. Professional. 400-500 words."""
+Format the Gantt as a simple text table. Professional. 400-500 words.
+Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
     response = client.messages.create(
         model=CLAUDE_MODEL_PROPOSAL,
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def generate_risk_register(analysis: dict) -> str:
@@ -357,11 +388,169 @@ Include risks related to:
 - Team availability
 
 Format as a table followed by 2 paragraphs on overall risk management approach.
-Professional development sector language. 300-400 words."""
+Professional development sector language. 300-400 words.
+Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
     response = client.messages.create(
         model=CLAUDE_MODEL_PROPOSAL,
         max_tokens=800,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.content[0].text
+    return get_text(response)
+
+
+def generate_org_profile_and_track_record(analysis: dict) -> str:
+    """Generate 'Organisational Profile' + 'Related Previous Assignments'."""
+    past_work = _build_past_work_context()
+
+    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
+
+CORTECH PROFILE:
+{CORTECH_PROFILE}
+
+PAST ASSIGNMENTS:
+{past_work}
+
+SECTION 1 — ORGANISATIONAL PROFILE (300-400 words):
+Cortech's history, registrations, certifications, geographic presence,
+core thematic areas, and what distinguishes it from competitors.
+Evidence-based, no generic claims.
+
+SECTION 2 — RELATED PREVIOUS ASSIGNMENTS (table):
+Format as a table: Project | Client | Value | Year | Relevance to this assignment
+Use the past assignments listed above. For each, add one sentence
+connecting it directly to THIS opportunity's requirements.
+
+ASSIGNMENT CONTEXT (for relevance-mapping):
+{analysis.get('opportunity', {}).get('title', '')}
+{json.dumps(analysis.get('requirements', {}).get('thematic_areas', []), indent=2)}
+
+Return both sections with clear headers. Professional development
+consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL_PROPOSAL,
+        max_tokens=1200,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return get_text(response)
+
+
+def generate_introduction_and_framework(analysis: dict) -> str:
+    """
+    Generate 'Introduction and Background' (6 sub-sections per
+    PROPOSAL_STRUCTURE) plus 'Conceptual Framework'.
+    """
+    opportunity = analysis.get("opportunity", {})
+    deliverables = analysis.get("deliverables", [])
+    eval_criteria = analysis.get("evaluation_criteria", [])
+
+    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
+
+ASSIGNMENT: {opportunity.get('title', '')}
+CLIENT: {opportunity.get('client', '')}
+
+DELIVERABLES:
+{json.dumps(deliverables, indent=2)}
+
+EVALUATION CRITERIA:
+{json.dumps(eval_criteria, indent=2)}
+
+CORTECH PROFILE:
+{CORTECH_PROFILE}
+
+SECTION 1 — INTRODUCTION AND BACKGROUND, with these exact sub-headers:
+5.1 Context and Strategic Importance
+5.2 Purpose and Objectives
+5.3 Our Interpretation of the Assignment
+5.4 Key Evaluation Questions
+5.5 Deliverables
+5.6 Understanding of Success
+Each sub-section 2-4 sentences. Specific to this assignment, not generic.
+
+SECTION 2 — CONCEPTUAL FRAMEWORK (250-350 words):
+The theoretical/analytical lens Cortech will apply (e.g. OECD DAC criteria,
+theory of change, results framework) and why it fits this assignment.
+
+Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL_PROPOSAL,
+        max_tokens=1500,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return get_text(response)
+
+
+def generate_analysis_plan(analysis: dict) -> str:
+    """Generate 'Sampling Strategy' (if applicable) + 'Data Analysis Plan'."""
+    methodology_reqs = analysis.get("requirements", {}).get("methodology_requirements", [])
+    deliverables = analysis.get("deliverables", [])
+    involves_survey = any(
+        "survey" in str(d).lower() or "sample" in str(d).lower()
+        for d in deliverables + methodology_reqs
+    )
+    sampling_instruction = (
+        "SECTION 1 — SAMPLING STRATEGY (200-300 words): sample size "
+        "approach, sampling method (probability/purposive), stratification "
+        "logic, confidence level assumptions."
+        if involves_survey else
+        "This assignment does not appear to involve a survey — write one "
+        "short paragraph noting the data collection approach does not "
+        "require a probability sample, and explain the selection logic "
+        "instead (e.g. purposive selection of KII/FGD participants)."
+    )
+
+    prompt = f"""Write sections for a Cortech Consulting Group technical proposal.
+
+METHODOLOGY REQUIREMENTS:
+{json.dumps(methodology_reqs, indent=2)}
+
+DELIVERABLES:
+{json.dumps(deliverables, indent=2)}
+
+{sampling_instruction}
+
+SECTION 2 — DATA ANALYSIS PLAN (250-350 words):
+How quantitative data will be analyzed (SPSS, descriptive/inferential
+approach) and qualitative data (NVivo, thematic analysis), and how the
+two will be triangulated.
+
+Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL_PROPOSAL,
+        max_tokens=1000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return get_text(response)
+
+
+def generate_qa_and_ethics(analysis: dict) -> str:
+    """Generate 'Quality Assurance Framework' + 'Ethical Considerations and Safeguarding'."""
+    location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
+
+    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
+
+PROJECT LOCATION: {location}
+CORTECH PROFILE:
+{CORTECH_PROFILE}
+
+SECTION 1 — QUALITY ASSURANCE FRAMEWORK (250-350 words):
+Data quality checks, peer review process, deliverable review stages,
+client feedback loops.
+
+SECTION 2 — ETHICAL CONSIDERATIONS AND SAFEGUARDING (250-350 words):
+Reference Cortech's actual certifications: ISO certification, child
+safeguarding policy, PSEA policy compliance. Cover informed consent,
+data protection, protection of vulnerable groups given the project
+location, and do-no-harm principles.
+
+Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL_PROPOSAL,
+        max_tokens=1000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return get_text(response)
