@@ -38,6 +38,7 @@ from rich.progress import track
 from config import CORTECH_PROFILE
 from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
+from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
@@ -82,13 +83,22 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
 
     # ── STEP 1: FETCH AND EXTRACT DOCUMENT TEXT ────────────────────────────
     logger.info("  Step 1: Fetching document...")
-    full_text = fetch_and_extract(source_url, opportunity_id=opp_id)
-
-    if not full_text or len(full_text) < 200:
-        logger.warning(
-            f"  Insufficient text ({len(full_text)} chars) — skipping"
-        )
-        return None
+    if raw_opportunity.get("skip_fetch"):
+        # Email-based sources (e.g. Assortis/ICA newsletter) carry the full
+        # blurb text inline — there is no URL to download.
+        full_text = raw_opportunity.get("raw_text", "")
+        if not full_text or len(full_text) < 40:  # matches MIN_BLURB_LENGTH
+            logger.warning(
+                f"  Insufficient text ({len(full_text)} chars) — skipping"
+            )
+            return None
+    else:
+        full_text = fetch_and_extract(source_url, opportunity_id=opp_id)
+        if not full_text or len(full_text) < 200:
+            logger.warning(
+                f"  Insufficient text ({len(full_text)} chars) — skipping"
+            )
+            return None
 
     console.print(
         f"  Extracted [green]{len(full_text):,}[/green] characters"
@@ -437,6 +447,38 @@ def run_pipeline() -> None:
         pass
 
 
+def run_assortis_check() -> None:
+    """
+    Runs independently of run_pipeline() — the newsletter arrives on
+    its own schedule, not the general discovery cycle's.
+    """
+    logger.info("Checking Assortis/ICA newsletter...")
+    opportunities = check_assortis_newsletter()
+    for opp in opportunities:
+        try:
+            process_opportunity(opp)
+        except Exception as e:
+            logger.error(
+                f"Assortis pipeline error for "
+                f"'{opp.get('title', 'Unknown')[:60]}': {e}"
+            )
+            try:
+                log_agent_action(
+                    action_type="Error",
+                    description=(
+                        f"Assortis pipeline exception: "
+                        f"{opp.get('title', 'Unknown')[:50]}"
+                    ),
+                    status="Error",
+                    error_message=str(e),
+                )
+            except Exception:
+                pass
+    logger.info(
+        f"Assortis check complete — {len(opportunities)} opportunity(ies) processed"
+    )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CONTINUOUS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -464,9 +506,15 @@ def start_scheduler() -> None:
     # Also fire at 07:00 EAT daily so the team has a morning report
     schedule.every().day.at("07:00").do(run_pipeline)
 
+    # Assortis/ICA newsletter arrives ~01:32 — check a few minutes after.
+    # NOTE: `schedule` runs in the server’s local timezone; confirm the
+    # Railway/VPS timezone matches the observed arrival time before locking
+    # this in. Adjust "01:45" as needed.
+    schedule.every().day.at("01:45").do(run_assortis_check)
+
     logger.info(
-        f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours "
-        f"and daily at 07:00"
+        f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours, "
+        f"daily at 07:00, and Assortis newsletter at 01:45"
     )
 
     while True:
