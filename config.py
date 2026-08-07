@@ -29,7 +29,7 @@ TABLES = {
 
 # ── CLAUDE SETTINGS ───────────────────────────────────────────
 CLAUDE_MODEL = "claude-haiku-4-5"
-CLAUDE_MODEL_PROPOSAL = "claude-opus-4-8"
+CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"
 CLAUDE_MAX_TOKENS = 8192
 
 # ── CORTECH PROFILE (injected into every prompt) ─────────────
