@@ -117,6 +117,34 @@ def check_opportunity_exists(source_url: str) -> bool:
     return len(result.data) > 0
 
 
+def find_similar_opportunity(
+    title: str,
+    match_threshold: float = 0.90
+) -> Optional[dict]:
+    """
+    Semantic near-duplicate check, on top of check_opportunity_exists().
+    Catches the same tender posted on multiple portals — including the
+    Assortis/ICA newsletter listing something already seen via RSS or a
+    scraper under a different URL — which exact URL matching can't see.
+
+    Requires the match_opportunities() Postgres function and the
+    embedding column on opportunities_cache. Fails open (returns None,
+    not a duplicate) on any error, so an infra hiccup never blocks a
+    possibly-real opportunity.
+    """
+    try:
+        query_embedding = get_embedding(title)
+        result = supabase.rpc("match_opportunities", {
+            "query_embedding": query_embedding,
+            "match_threshold": match_threshold,
+            "match_count": 1,
+        }).execute()
+        return result.data[0] if result.data else None
+    except Exception as e:
+        logger.warning(f"Semantic duplicate check failed (non-fatal): {e}")
+        return None
+
+
 def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
     """Store new opportunity in cache."""
     result = supabase.table("opportunities_cache").insert({
