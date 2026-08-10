@@ -4,8 +4,9 @@ CORTECH BD INTELLIGENCE AGENT — MAIN ORCHESTRATOR
 ==================================================
 
 Entry points:
-  python main.py --once   → single run (used by crontab + manual testing)
-  python main.py          → continuous scheduler every CHECK_INTERVAL_HOURS
+  python main.py --once        → single run (used by crontab + manual testing)
+  python main.py --submit-url  → process one URL on demand (manual submission)
+  python main.py               → continuous scheduler every CHECK_INTERVAL_HOURS
 
 Pipeline (runs for EVERY opportunity passing the RSS filter):
   1.  RSS feed monitoring + three-gate keyword filter
@@ -62,7 +63,7 @@ console = Console()
 # SINGLE OPPORTUNITY PIPELINE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def process_opportunity(raw_opportunity: dict) -> dict | None:
+def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | None:
     """
     Runs the full pipeline for one opportunity.
 
@@ -136,7 +137,7 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
     # because of a missing field.
     is_consultancy = bid_analysis.get("is_consultancy_contract", True)
 
-    if not is_consultancy:
+    if not is_consultancy and not force:
         rationale = bid_analysis.get(
             "rationale",
             "Staff vacancy — not a firm-level consultancy contract",
@@ -162,13 +163,18 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         except Exception:
             pass  # Audit save failure must not crash the pipeline
         return None
-
-    console.print(
-        "  [green]✅ Confirmed consultancy contract — running full pipeline[/green]"
-    )
+    elif not is_consultancy and force:
+        logger.warning(
+            f"  Not flagged as a consultancy contract, but force=True — "
+            f"proceeding anyway: {title[:60]}"
+        )
+    else:
+        console.print(
+            "  [green]✅ Confirmed consultancy contract — running full pipeline[/green]"
+        )
 
     # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
-    if recommendation == "NO-BID":
+    if recommendation == "NO-BID" and not force:
         rationale = bid_analysis.get(
             "rationale",
             "Low fit — not recommended for bid",
@@ -194,6 +200,13 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         except Exception:
             pass
         return None
+    elif recommendation == "NO-BID" and force:
+        logger.warning(
+            f"  NO-BID recommendation, but force=True — proceeding anyway: "
+            f"{title[:60]}"
+        )
+
+    title = opportunity.get("title") or title
 
     # ── STEP 4: CREATE AIRTABLE OPPORTUNITY RECORD ─────────────────────────
     airtable_record_id = create_opportunity({
@@ -311,6 +324,82 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         "proposal_sections": proposal_sections,
         "compliance_matrix": compliance_matrix,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MANUAL URL SUBMISSION
+# ══════════════════════════════════════════════════════════════════════════════
+
+def submit_single_url(url: str) -> None:
+    """
+    Manual on-demand entry point. Runs one URL through the full pipeline
+    immediately. Skips quick_relevance_check() and find_similar_opportunity()
+    deliberately — those exist to filter noise out of AUTOMATED discovery;
+    a human explicitly choosing this URL has already made that call.
+    Exact-URL dedup (check_opportunity_exists) still applies, so
+    re-submitting something already processed doesn't waste a second
+    full run.
+    """
+    console.print(Panel(f"Manual submission: {url}", style="bold cyan"))
+
+    if check_opportunity_exists(url):
+        console.print(
+            "[yellow]Already processed — check Airtable or Supabase "
+            "for the existing record rather than reprocessing.[/yellow]"
+        )
+        return
+
+    raw_opportunity = {
+        "title": "",                    # analyze_rfp() extracts the real title from the document
+        "source_url": url,
+        "summary": "",
+        "source_portal": "Manual submission",
+    }
+
+    result = process_opportunity(raw_opportunity, force=True)
+
+    if result is None:
+        console.print(
+            "[red]Could not process this URL — check the log above: "
+            "usually a fetch failure or insufficient extracted text.[/red]"
+        )
+        return
+
+    if not result.get("analysis", {}).get("bid_analysis", {}).get(
+        "is_consultancy_contract", True
+    ):
+        console.print(
+            "[yellow]Note: this didn't read as a consultancy contract "
+            "(closer to a staff vacancy or unrelated posting) — a draft "
+            "was generated anyway since you submitted it directly. "
+            "Use your judgment on whether it's actually worth using.[/yellow]"
+        )
+
+    try:
+        send_proposal_email(result)
+    except Exception as email_err:
+        logger.error(f"Proposal email failed: {email_err}")
+
+    # Write immediately to a local file — don't make the person wait on
+    # email delivery when they're sitting at the terminal watching this run
+    os.makedirs("output", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = f"output/draft_{timestamp}.md"
+    sections = result.get("proposal_sections", {})
+    _skip_keys = {"lightweight", "lightweight_reason"}
+    with open(out_path, "w") as f:
+        for section_name, content in sections.items():
+            if section_name in _skip_keys or not isinstance(content, str):
+                continue
+            f.write(
+                f"## {section_name.replace('_', ' ').title()}\n\n{content}\n\n"
+            )
+
+    console.print(Panel(
+        f"Draft generated: {out_path}\nAlso sent to the team via the normal proposal email, "
+        f"and logged in Airtable/Supabase like any other opportunity.",
+        style="bold green",
+    ))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -582,9 +671,13 @@ def start_scheduler() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--once":
-        # Single run — used by crontab and manual testing
+    if "--submit-url" in sys.argv:
+        idx = sys.argv.index("--submit-url")
+        if idx + 1 >= len(sys.argv):
+            print("Usage: python main.py --submit-url <url>")
+            sys.exit(1)
+        submit_single_url(sys.argv[idx + 1])
+    elif "--once" in sys.argv:
         run_pipeline()
     else:
-        # Continuous scheduler — used on VPS foreground process
         start_scheduler()
