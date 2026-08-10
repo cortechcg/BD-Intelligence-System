@@ -6,23 +6,58 @@ from docx import Document as DocxDocument
 from io import BytesIO
 from loguru import logger
 from database.supabase_client import store_document
+from urllib.parse import urljoin
 import re
 
 MIN_USEFUL_CHARS = 200  # matches main.py's own "insufficient text" threshold
 
+HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
+
+
+def _is_ssl_error(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "certificate" in msg or "ssl" in msg
+
+
+def _looks_like_pdf_url(url: str) -> bool:
+    return url.lower().split("?")[0].split("#")[0].endswith(".pdf")
+
 
 def download_document(url: str) -> bytes:
-    """Download a document from URL."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-    }
-    try:
-        response = httpx.get(url, headers=headers, follow_redirects=True, timeout=30)
-        response.raise_for_status()
-        return response.content
-    except Exception as e:
-        logger.error(f"Download failed for {url}: {e}")
-        raise
+    """Download a document from URL, retrying without SSL verify on bad certs."""
+    last_error: Exception | None = None
+    for verify in (True, False):
+        try:
+            response = httpx.get(
+                url,
+                headers=HTTP_HEADERS,
+                follow_redirects=True,
+                timeout=60,
+                verify=verify,
+            )
+            response.raise_for_status()
+            if not verify:
+                logger.warning(
+                    f"  Downloaded with SSL verification disabled: {url[:80]}"
+                )
+            return response.content
+        except Exception as e:
+            last_error = e
+            if verify and _is_ssl_error(e):
+                logger.warning(
+                    f"  SSL verify failed for {url[:60]} — retrying without verification"
+                )
+                continue
+            logger.error(f"Download failed for {url}: {e}")
+            raise
+    assert last_error is not None
+    logger.error(f"Download failed for {url}: {last_error}")
+    raise last_error
 
 
 def extract_text_from_pdf(content: bytes) -> str:
@@ -61,6 +96,30 @@ def extract_text_from_docx(content: bytes) -> str:
         return ""
 
 
+def _find_pdf_links(html: str, base_url: str) -> list[str]:
+    """Collect PDF hrefs from a rendered page — common on WordPress tender posts."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "lxml")
+    seen: set[str] = set()
+    links: list[str] = []
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"]
+        if ".pdf" not in href.lower():
+            continue
+        absolute = urljoin(base_url, href)
+        if absolute not in seen:
+            seen.add(absolute)
+            links.append(absolute)
+    return links
+
+
+def _extract_from_pdf_url(pdf_url: str) -> tuple[str, bytes]:
+    """Download and extract text from a direct PDF link."""
+    content = download_document(pdf_url)
+    return extract_text_from_pdf(content), content
+
+
 def extract_text_from_html(html: str) -> str:
     """Extract clean text from HTML."""
     from bs4 import BeautifulSoup
@@ -86,16 +145,18 @@ async def _fetch_rendered_html(url: str) -> str | None:
                 headless=True,
                 args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
-            page = await browser.new_page()
+            context = await browser.new_context(ignore_https_errors=True)
+            page = await context.new_page()
             try:
-                await page.goto(url, wait_until="commit", timeout=45000)
-                await page.wait_for_timeout(3000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                await page.wait_for_timeout(5000)
                 return await page.content()
             except PlaywrightTimeout:
                 logger.warning(f"  Playwright timeout loading: {url}")
                 return None
             finally:
                 await page.close()
+                await context.close()
                 await browser.close()
     except Exception as e:
         logger.error(f"  Playwright fallback failed for {url}: {e}")
@@ -122,32 +183,61 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     text = ""
     file_type = "html"
     content = b""
+    is_pdf_url = _looks_like_pdf_url(url)
 
     try:
         content = download_document(url)
-        if url.lower().endswith(".pdf") or content[:4] == b"%PDF":
+        if is_pdf_url or content[:4] == b"%PDF":
             text = extract_text_from_pdf(content)
             file_type = "pdf"
-        elif url.lower().endswith(".docx"):
+        elif url.lower().split("?")[0].endswith(".docx"):
             text = extract_text_from_docx(content)
             file_type = "docx"
         else:
             text = extract_text_from_html(content.decode("utf-8", errors="ignore"))
             file_type = "html"
     except Exception as e:
-        logger.warning(f"  httpx fetch/extract failed for {url}: {e} — will try Playwright")
+        if is_pdf_url:
+            logger.error(f"  PDF download failed for {url}: {e}")
+        else:
+            logger.warning(f"  httpx fetch/extract failed for {url}: {e} — will try Playwright")
 
-    # ── PLAYWRIGHT FALLBACK ────────────────────────────────────────────
-    # Only for HTML — a genuine PDF/DOCX either extracted or truly failed;
-    # a browser won't fix a bad PDF.
-    if file_type == "html" and len(text) < MIN_USEFUL_CHARS:
-        logger.info(f"  httpx extraction thin ({len(text)} chars) — trying Playwright: {url[:60]}")
+    # ── PLAYWRIGHT FALLBACK (HTML pages only — never for direct PDF links) ─
+    rendered_html: str | None = None
+    if file_type == "html" and not is_pdf_url and len(text) < MIN_USEFUL_CHARS:
+        logger.info(
+            f"  httpx extraction thin ({len(text)} chars) — trying Playwright: {url[:60]}"
+        )
         rendered_html = _fetch_rendered_html_sync(url)
         if rendered_html:
             browser_text = extract_text_from_html(rendered_html)
             if len(browser_text) > len(text):
                 text = browser_text
-                logger.success(f"  Playwright fallback recovered {len(text)} chars: {url[:60]}")
+                logger.success(
+                    f"  Playwright fallback recovered {len(text)} chars: {url[:60]}"
+                )
+
+    # ── PDF LINK FOLLOW — WordPress posts often only link to the ToR PDF ───
+    html_source = rendered_html or (
+        content.decode("utf-8", errors="ignore") if content else ""
+    )
+    if file_type == "html" and len(text) < MIN_USEFUL_CHARS and html_source:
+        for pdf_url in _find_pdf_links(html_source, url):
+            logger.info(f"  Following PDF link from page: {pdf_url[:70]}")
+            try:
+                pdf_text, pdf_content = _extract_from_pdf_url(pdf_url)
+            except Exception as e:
+                logger.warning(f"  PDF link fetch failed ({pdf_url[:60]}): {e}")
+                continue
+            if len(pdf_text) >= MIN_USEFUL_CHARS:
+                text = pdf_text
+                content = pdf_content
+                file_type = "pdf"
+                url = pdf_url  # store under the PDF filename
+                logger.success(
+                    f"  Recovered {len(text)} chars from linked PDF: {pdf_url[:60]}"
+                )
+                break
 
     # ── STORE IN SUPABASE — isolated, never discards a good extraction ──
     if opportunity_id and file_type in ["pdf", "docx"] and text and content:
