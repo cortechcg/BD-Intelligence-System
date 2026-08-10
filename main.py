@@ -167,6 +167,34 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         "  [green]✅ Confirmed consultancy contract — running full pipeline[/green]"
     )
 
+    # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
+    if recommendation == "NO-BID":
+        rationale = bid_analysis.get(
+            "rationale",
+            "Low fit — not recommended for bid",
+        )
+        console.print(
+            f"  [yellow]⛔ NO-BID recommendation — stopping before CV/proposal[/yellow]\n"
+            f"  [dim]{rationale[:100]}[/dim]"
+        )
+        try:
+            create_opportunity({
+                "title":              opportunity.get("title") or title,
+                "client":             opportunity.get("client", ""),
+                "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
+                "source_url":         source_url,
+                "relevance_score":    fit_score,
+                "win_probability":    win_prob,
+                "bid_recommendation": "NO-BID",
+                "key_strengths":      "\n".join(bid_analysis.get("key_strengths", [])),
+                "key_gaps":           "\n".join(bid_analysis.get("key_gaps", [])),
+                "claude_analysis":    str(analysis)[:50000],
+                "status":             "No-bid",
+            })
+        except Exception:
+            pass
+        return None
+
     # ── STEP 4: CREATE AIRTABLE OPPORTUNITY RECORD ─────────────────────────
     airtable_record_id = create_opportunity({
         "title": opportunity.get("title") or title,
@@ -232,14 +260,18 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
         primary_location,
     )
 
-    # ── STEP 7: COMPLIANCE MATRIX ──────────────────────────────────────────
-    logger.info("  Step 5: Generating compliance matrix...")
-    compliance_matrix = generate_compliance_matrix(
-        analysis,
-        list(matched_team_result.get("matched_team", {}).values()),
-    )
+    # ── STEP 7: COMPLIANCE MATRIX (BID only — skip for WATCH quick-flag) ─────
+    compliance_matrix = ""
+    if recommendation == "BID":
+        logger.info("  Step 5: Generating compliance matrix...")
+        compliance_matrix = generate_compliance_matrix(
+            analysis,
+            list(matched_team_result.get("matched_team", {}).values()),
+        )
+    else:
+        logger.info("  Step 5: Skipping compliance matrix (WATCH quick-flag)")
 
-    # ── STEP 8: WRITE FULL PROPOSAL DRAFT ─────────────────────────────────
+    # ── STEP 8: WRITE PROPOSAL DRAFT (full for BID, lightweight for WATCH) ─
     logger.info("  Step 6: Writing proposal draft...")
     proposal_sections = generate_proposal(
         analysis,
@@ -260,6 +292,8 @@ def process_opportunity(raw_opportunity: dict) -> dict | None:
 
     console.print(
         "  [bold green]✅ Proposal draft complete — ready for team review[/bold green]"
+        if recommendation == "BID"
+        else "  [bold yellow]🔍 WATCH quick-flag sent — not a full draft[/bold yellow]"
     )
 
     return {

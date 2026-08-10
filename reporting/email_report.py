@@ -326,6 +326,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     matched     = opportunity_result.get("matched_team", {})
     compliance  = opportunity_result.get("compliance_matrix", "")
     recommendation = opportunity_result.get("recommendation", "WATCH")
+    is_lightweight = proposal.get("lightweight", False)
 
     bid_analysis   = analysis.get("bid_analysis", {})
     key_strengths  = bid_analysis.get("key_strengths", [])
@@ -396,15 +397,18 @@ def send_proposal_email(opportunity_result: dict) -> None:
     proposal_html = (
         section_block("Cover Letter", proposal.get("cover_letter", ""))
         + section_block("Executive Summary", proposal.get("executive_summary", ""))
-        + section_block("Organisational Profile & Track Record", proposal.get("org_profile_and_track_record", ""))
-        + section_block("Introduction, Background & Conceptual Framework", proposal.get("introduction_and_framework", ""))
-        + section_block("Methodology", proposal.get("methodology", ""))
-        + section_block("Sampling & Data Analysis Plan", proposal.get("analysis_plan", ""))
-        + section_block("Quality Assurance & Ethical Safeguarding", proposal.get("qa_and_ethics", ""))
-        + section_block("Risk Register", proposal.get("risk_register", ""))
-        + section_block("Team Composition", proposal.get("team_section", ""))
-        + section_block("Work Plan", proposal.get("work_plan", ""))
     )
+    if not is_lightweight:
+        proposal_html += (
+            section_block("Organisational Profile & Track Record", proposal.get("org_profile_and_track_record", ""))
+            + section_block("Introduction, Background & Conceptual Framework", proposal.get("introduction_and_framework", ""))
+            + section_block("Methodology", proposal.get("methodology", ""))
+            + section_block("Sampling & Data Analysis Plan", proposal.get("analysis_plan", ""))
+            + section_block("Quality Assurance & Ethical Safeguarding", proposal.get("qa_and_ethics", ""))
+            + section_block("Risk Register", proposal.get("risk_register", ""))
+            + section_block("Team Composition", proposal.get("team_section", ""))
+            + section_block("Work Plan", proposal.get("work_plan", ""))
+        )
 
     # ── SCORE COLOR ────────────────────────────────────────────────────────
     score_color = (
@@ -414,6 +418,48 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
 
     # ── FULL HTML EMAIL ────────────────────────────────────────────────────
+    header_title = (
+        "🔍 QUICK FLAG — WATCH OPPORTUNITY"
+        if is_lightweight
+        else "📋 PROPOSAL DRAFT READY FOR REVIEW"
+    )
+    header_subtitle = (
+        proposal.get(
+            "lightweight_reason",
+            "WATCH recommendation — quick flag, not a full draft",
+        )
+        if is_lightweight
+        else "Human review required before submission — do not submit without approval"
+    )
+    action_banner = (
+        f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
+        <strong>🔍 WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
+        (cover letter + executive summary). No full proposal was generated.
+        Review the opportunity and decide whether to pursue a full bid.
+        </div>"""
+        if is_lightweight
+        else """<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
+        <strong>⚠️ ACTION REQUIRED:</strong> Review the draft below, make edits,
+        confirm team availability, verify the budget, then approve for submission.
+        <strong>Nothing has been sent to the client.</strong>
+        </div>"""
+    )
+    compliance_block = "" if is_lightweight else f"""
+    <!-- COMPLIANCE MATRIX -->
+    <div style="margin-bottom:24px">
+        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
+                   border-bottom:2px solid #1F3864;padding-bottom:6px">
+            📊 Compliance Matrix
+        </h3>
+        <pre style="background:#f8f9fa;padding:14px;border-radius:4px;
+                    font-size:12px;overflow-x:auto;white-space:pre-wrap">{compliance}</pre>
+    </div>"""
+    draft_heading = (
+        "📄 Quick-Flag Preview (Cover Letter + Executive Summary)"
+        if is_lightweight
+        else "📄 Draft Technical Proposal"
+    )
+
     html = f"""
     <!DOCTYPE html>
     <html>
@@ -424,9 +470,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <!-- HEADER -->
     <div style="background:#1F3864;color:white;padding:24px 20px;
                 border-radius:8px 8px 0 0">
-        <h1 style="margin:0;font-size:22px">📋 PROPOSAL DRAFT READY FOR REVIEW</h1>
+        <h1 style="margin:0;font-size:22px">{header_title}</h1>
         <p style="margin:8px 0 0;opacity:0.85;font-size:14px">
-            Human review required before submission — do not submit without approval
+            {header_subtitle}
         </p>
     </div>
 
@@ -465,13 +511,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </table>
     </div>
 
-    <!-- ACTION BANNER -->
-    <div style="background:#fff3cd;padding:14px 20px;
-                border-left:4px solid #f0a500">
-        <strong>⚠️ ACTION REQUIRED:</strong> Review the draft below, make edits,
-        confirm team availability, verify the budget, then approve for submission.
-        <strong>Nothing has been sent to the client.</strong>
-    </div>
+    {action_banner}
 
     <div style="padding:20px">
 
@@ -532,19 +572,11 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </p>
     </div>
 
-    <!-- COMPLIANCE MATRIX -->
-    <div style="margin-bottom:24px">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                   border-bottom:2px solid #1F3864;padding-bottom:6px">
-            📊 Compliance Matrix
-        </h3>
-        <pre style="background:#f8f9fa;padding:14px;border-radius:4px;
-                    font-size:12px;overflow-x:auto;white-space:pre-wrap">{compliance}</pre>
-    </div>
+    {compliance_block}
 
     <!-- PROPOSAL DRAFT -->
     <div style="border-top:3px solid #1F3864;padding-top:20px;margin-top:8px">
-        <h2 style="color:#1F3864;margin:0 0 20px">📄 Draft Technical Proposal</h2>
+        <h2 style="color:#1F3864;margin:0 0 20px">{draft_heading}</h2>
         {proposal_html}
     </div>
 
@@ -566,11 +598,18 @@ def send_proposal_email(opportunity_result: dict) -> None:
     """
 
     # ── SUBJECT LINE ───────────────────────────────────────────────────────
-    subject = (
-        f"📋 DRAFT READY: {title[:50]} | "
-        f"Deadline: {str(deadline)[:10]} | "
-        f"Score: {score}/100 | REVIEW REQUIRED"
-    )
+    if is_lightweight:
+        subject = (
+            f"🔍 QUICK FLAG: {title[:50]} | "
+            f"Deadline: {str(deadline)[:10]} | "
+            f"Score: {score}/100 | WATCH"
+        )
+    else:
+        subject = (
+            f"📋 DRAFT READY: {title[:50]} | "
+            f"Deadline: {str(deadline)[:10]} | "
+            f"Score: {score}/100 | REVIEW REQUIRED"
+        )
 
     if _send_email(subject, html):
         logger.success(f"Proposal email sent: {title[:50]}")
