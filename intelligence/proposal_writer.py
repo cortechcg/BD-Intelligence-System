@@ -4,7 +4,8 @@ import json
 from loguru import logger
 from utils.claude_helpers import get_text
 from database.airtable_client import get_winning_proposals, log_agent_action
-from config import CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE
+from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL, CORTECH_PROFILE
+
 client = anthropic.Anthropic()
 
 
@@ -93,6 +94,47 @@ def _build_past_work_context() -> str:
     return "\n\n".join(lines)
 
 
+def _build_shared_context(analysis: dict) -> str:
+    """Build once per proposal — identical bytes across all section calls for cache hits."""
+    return (
+        f"CORTECH PROFILE:\n{CORTECH_PROFILE}\n\n"
+        f"OPPORTUNITY ANALYSIS:\n{json.dumps(analysis, indent=2, sort_keys=True)}\n\n"
+        f"{_build_past_work_context()}"
+    )
+
+
+def _log_cache_usage(response, section_name: str) -> None:
+    """Log prompt-cache stats — verify cache_read > 0 on calls 2+ during testing."""
+    usage = response.usage
+    creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
+    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    logger.info(
+        f"  [{section_name}] cache_creation={creation} cache_read={read} "
+        f"input={usage.input_tokens} output={usage.output_tokens}"
+    )
+
+
+def _generate_section(
+    section_name: str,
+    model: str,
+    max_tokens: int,
+    shared_context: str,
+    user_prompt: str,
+) -> str:
+    response = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=[{
+            "type": "text",
+            "text": shared_context,
+            "cache_control": {"type": "ephemeral"},
+        }],
+        messages=[{"role": "user", "content": user_prompt}],
+    )
+    _log_cache_usage(response, section_name)
+    return get_text(response)
+
+
 def generate_proposal(
     analysis: dict,
     matched_team_result: dict,
@@ -101,58 +143,74 @@ def generate_proposal(
     opportunity_id: str = None,
 ) -> dict:
     """
-    Generate a complete technical proposal using Claude.
-    Returns a dict with each section as a separate key.
+    Generate a proposal draft routed by bid_recommendation:
+      BID   → all 10 sections (4 on proposal model, 6 on analysis model)
+      WATCH → cover letter + executive summary only (analysis model)
+    NO-BID callers should not invoke this function.
     """
-    logger.info("Generating proposal with Claude...")
-
+    recommendation = analysis.get("bid_analysis", {}).get("bid_recommendation", "WATCH")
     opportunity = analysis.get("opportunity", {})
     title = opportunity.get("title", "Unknown Assignment")
     client_name = opportunity.get("client", "Client")
     deadline = opportunity.get("submission_deadline", "TBD")
 
-    team_members = []
-    for role, match in matched_team_result.get("matched_team", {}).items():
-        if match.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED":
-            team_members.append(
-                f"- {match['consultant_name']}: {role} (Match: {match['similarity_score']}%)"
-            )
+    shared_context = _build_shared_context(analysis)
+    logger.info(f"Generating proposal ({recommendation}) for: {title[:60]}")
 
-    # Generate each section separately for quality + token management.
-    # Ordered to match PROPOSAL_STRUCTURE above — 10 Claude calls total,
-    # covering all 14 documented sections via 4 grouped calls.
-    sections = {}
+    if recommendation == "WATCH":
+        sections = {
+            "cover_letter": generate_cover_letter(
+                title, client_name, deadline, analysis, shared_context,
+                model=CLAUDE_MODEL,
+            ),
+            "executive_summary": generate_executive_summary(
+                analysis, matched_team_result, budget, shared_context,
+                model=CLAUDE_MODEL,
+            ),
+            "lightweight": True,
+            "lightweight_reason": "WATCH recommendation — quick flag, not a full draft",
+        }
+        log_agent_action(
+            action_type="Proposal",
+            description=f"Generated WATCH quick-flag for: {title[:60]}",
+            opportunity_id=opportunity_id,
+            tokens_used=3000,
+            status="Success",
+        )
+        logger.success("WATCH quick-flag generation complete!")
+        return sections
 
-    sections["cover_letter"] = generate_cover_letter(
-        title, client_name, deadline, analysis
-    )
-    sections["executive_summary"] = generate_executive_summary(
-        analysis, matched_team_result, budget
-    )
-    sections["org_profile_and_track_record"] = generate_org_profile_and_track_record(
-        analysis
-    )
-    sections["introduction_and_framework"] = generate_introduction_and_framework(
-        analysis
-    )
-    sections["methodology"] = generate_methodology(analysis)
-    sections["analysis_plan"] = generate_analysis_plan(analysis)
-    sections["qa_and_ethics"] = generate_qa_and_ethics(analysis)
-    sections["risk_register"] = generate_risk_register(analysis)
-    sections["team_section"] = generate_team_section(
-        matched_team_result, title
-    )
-    sections["work_plan"] = generate_work_plan(analysis)
+    # BID — full 10-section draft
+    sections = {
+        "cover_letter": generate_cover_letter(
+            title, client_name, deadline, analysis, shared_context,
+        ),
+        "executive_summary": generate_executive_summary(
+            analysis, matched_team_result, budget, shared_context,
+        ),
+        "org_profile_and_track_record": generate_org_profile_and_track_record(
+            analysis, shared_context,
+        ),
+        "introduction_and_framework": generate_introduction_and_framework(
+            analysis, shared_context,
+        ),
+        "methodology": generate_methodology(analysis, shared_context),
+        "analysis_plan": generate_analysis_plan(analysis, shared_context),
+        "qa_and_ethics": generate_qa_and_ethics(analysis, shared_context),
+        "risk_register": generate_risk_register(analysis, shared_context),
+        "team_section": generate_team_section(
+            matched_team_result, title, shared_context,
+        ),
+        "work_plan": generate_work_plan(analysis, shared_context),
+    }
 
-    # Log
     log_agent_action(
         action_type="Proposal",
-        description=f"Generated draft proposal for: {title[:60]}",
+        description=f"Generated full draft proposal for: {title[:60]}",
         opportunity_id=opportunity_id,
-        tokens_used=15000,  # Approximate
-        status="Success"
+        tokens_used=15000,
+        status="Success",
     )
-
     logger.success("Proposal generation complete!")
     return sections
 
@@ -161,22 +219,23 @@ def generate_cover_letter(
     title: str,
     client_name: str,
     deadline: str,
-    analysis: dict
+    analysis: dict,
+    shared_context: str,
+    model: str = CLAUDE_MODEL_PROPOSAL,
 ) -> str:
     """Generate professional cover letter."""
     strengths = analysis.get("bid_analysis", {}).get("key_strengths", [])
 
-    prompt = f"""Write a professional cover letter for Cortech Consulting Group's technical proposal.
+    user_prompt = f"""Write a professional cover letter for Cortech Consulting Group's technical proposal.
 
 ASSIGNMENT: {title}
 CLIENT: {client_name}
 SUBMISSION DATE: {deadline}
 
-CORTECH PROFILE:
-{CORTECH_PROFILE}
-
 KEY STRENGTHS FOR THIS BID:
 {json.dumps(strengths, indent=2)}
+
+Use the CORTECH PROFILE and OPPORTUNITY ANALYSIS provided in your system context.
 
 REQUIREMENTS:
 - Address to the procurement committee
@@ -190,26 +249,21 @@ REQUIREMENTS:
 - Be specific about capabilities, not generic
 - Maximum 400 words"""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=800,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("cover_letter", model, 800, shared_context, user_prompt)
 
 
 def generate_executive_summary(
     analysis: dict,
     matched_team_result: dict,
-    budget: dict
+    budget: dict,
+    shared_context: str,
+    model: str = CLAUDE_MODEL_PROPOSAL,
 ) -> str:
     """Generate executive summary."""
     opportunity = analysis.get("opportunity", {})
-    deliverables = analysis.get("deliverables", [])
-    eval_criteria = analysis.get("evaluation_criteria", [])
     budget_total = budget.get("summary", {}).get("grand_total_usd", 0)
 
-    prompt = f"""Write a comprehensive executive summary for a technical proposal.
+    user_prompt = f"""Write a comprehensive executive summary for a technical proposal.
 
 ASSIGNMENT: {opportunity.get('title', '')}
 CLIENT: {opportunity.get('client', '')}
@@ -217,19 +271,9 @@ DURATION: {opportunity.get('project_duration', '')}
 BUDGET: ${budget_total:,} USD
 LOCATION: {', '.join(opportunity.get('project_location', []))}
 
-DELIVERABLES:
-{json.dumps([d.get('name', '') for d in deliverables], indent=2)}
-
-EVALUATION CRITERIA:
-{json.dumps(eval_criteria, indent=2)}
-
-CORTECH PROFILE:
-{CORTECH_PROFILE}
-
 TEAM COVERAGE: {matched_team_result.get('coverage_percent', 0)}% internal match
 
-PAST WORK:
-{_build_past_work_context()}
+Use the CORTECH PROFILE, past assignments, and full OPPORTUNITY ANALYSIS in your system context.
 
 Write a 4-paragraph executive summary:
 1. Context and the challenge the assignment addresses
@@ -241,33 +285,16 @@ Professional, evidence-based, specific. 350-450 words.
 Reference 2-3 specific past assignments as credibility evidence.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("executive_summary", model, 1000, shared_context, user_prompt)
 
 
-def generate_methodology(analysis: dict) -> str:
+def generate_methodology(analysis: dict, shared_context: str) -> str:
     """Generate the detailed methodology section — longest and most important."""
-    deliverables = analysis.get("deliverables", [])
-    requirements = analysis.get("requirements", {})
-    methodology_reqs = requirements.get("methodology_requirements", [])
-    thematic_areas = requirements.get("thematic_areas", [])
-
-    prompt = f"""Write a detailed methodology section for a technical proposal.
+    user_prompt = f"""Write a detailed methodology section for a technical proposal.
 
 ASSIGNMENT: {analysis.get('opportunity', {}).get('title', '')}
 
-DELIVERABLES REQUIRED:
-{json.dumps(deliverables, indent=2)}
-
-METHODOLOGY REQUIREMENTS FROM ToR:
-{json.dumps(methodology_reqs, indent=2)}
-
-THEMATIC AREAS:
-{json.dumps(thematic_areas, indent=2)}
+Use deliverables, methodology requirements, and thematic areas from the OPPORTUNITY ANALYSIS in your system context.
 
 CORTECH'S STANDARD TOOLS:
 - KoboToolbox for digital data collection
@@ -290,15 +317,16 @@ Development sector professional language. Evidence-based. Specific tool names.
 Reference KoboToolbox, SPSS, NVivo explicitly. 600-800 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
+    return _generate_section(
+        "methodology", CLAUDE_MODEL_PROPOSAL, 1500, shared_context, user_prompt,
     )
-    return get_text(response)
 
 
-def generate_team_section(matched_team_result: dict, title: str) -> str:
+def generate_team_section(
+    matched_team_result: dict,
+    title: str,
+    shared_context: str,
+) -> str:
     """Generate team composition section."""
     team = matched_team_result.get("matched_team", {})
     gaps = matched_team_result.get("gaps", [])
@@ -311,14 +339,13 @@ def generate_team_section(matched_team_result: dict, title: str) -> str:
             "match_score": match.get("similarity_score", 0),
         })
 
-    prompt = f"""Write a team composition section for a technical proposal.
+    user_prompt = f"""Write a team composition section for a technical proposal.
 
 ASSIGNMENT: {title}
 MATCHED TEAM: {json.dumps(team_list, indent=2)}
 GAPS REQUIRING EXTERNAL RECRUITMENT: {json.dumps(gaps, indent=2)}
 
-CORTECH PROFILE:
-{CORTECH_PROFILE}
+Use the CORTECH PROFILE in your system context for team credentials.
 
 Write:
 1. Opening paragraph on overall team strength
@@ -329,24 +356,18 @@ Write:
 Professional, confident tone. 300-400 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=800,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("team_section", CLAUDE_MODEL, 800, shared_context, user_prompt)
 
 
-def generate_work_plan(analysis: dict) -> str:
+def generate_work_plan(analysis: dict, shared_context: str) -> str:
     """Generate workplan/Gantt description."""
-    deliverables = analysis.get("deliverables", [])
     duration = analysis.get("opportunity", {}).get("project_duration", "3 months")
 
-    prompt = f"""Create a work plan narrative and Gantt chart description for a proposal.
+    user_prompt = f"""Create a work plan narrative and Gantt chart description for a proposal.
 
 PROJECT DURATION: {duration}
-DELIVERABLES:
-{json.dumps(deliverables, indent=2)}
+
+Use deliverables from the OPPORTUNITY ANALYSIS in your system context.
 
 Create:
 1. Phase breakdown with timing (e.g., Phase 1: Inception - Week 1-2)
@@ -358,20 +379,15 @@ Create:
 Format the Gantt as a simple text table. Professional. 400-500 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("work_plan", CLAUDE_MODEL, 1000, shared_context, user_prompt)
 
 
-def generate_risk_register(analysis: dict) -> str:
+def generate_risk_register(analysis: dict, shared_context: str) -> str:
     """Generate risk register."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
     thematic_areas = analysis.get("requirements", {}).get("thematic_areas", [])
 
-    prompt = f"""Create a risk management section for a technical proposal.
+    user_prompt = f"""Create a risk management section for a technical proposal.
 
 PROJECT LOCATION: {location}
 THEMATIC AREAS: {thematic_areas}
@@ -391,25 +407,14 @@ Format as a table followed by 2 paragraphs on overall risk management approach.
 Professional development sector language. 300-400 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=800,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("risk_register", CLAUDE_MODEL, 800, shared_context, user_prompt)
 
 
-def generate_org_profile_and_track_record(analysis: dict) -> str:
+def generate_org_profile_and_track_record(analysis: dict, shared_context: str) -> str:
     """Generate 'Organisational Profile' + 'Related Previous Assignments'."""
-    past_work = _build_past_work_context()
+    user_prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
 
-    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
-
-CORTECH PROFILE:
-{CORTECH_PROFILE}
-
-PAST ASSIGNMENTS:
-{past_work}
+Use the CORTECH PROFILE and past assignments from your system context.
 
 SECTION 1 — ORGANISATIONAL PROFILE (300-400 words):
 Cortech's history, registrations, certifications, geographic presence,
@@ -418,7 +423,7 @@ Evidence-based, no generic claims.
 
 SECTION 2 — RELATED PREVIOUS ASSIGNMENTS (table):
 Format as a table: Project | Client | Value | Year | Relevance to this assignment
-Use the past assignments listed above. For each, add one sentence
+Use the past assignments listed in context. For each, add one sentence
 connecting it directly to THIS opportunity's requirements.
 
 ASSIGNMENT CONTEXT (for relevance-mapping):
@@ -428,36 +433,24 @@ ASSIGNMENT CONTEXT (for relevance-mapping):
 Return both sections with clear headers. Professional development
 consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1200,
-        messages=[{"role": "user", "content": prompt}]
+    return _generate_section(
+        "org_profile_and_track_record", CLAUDE_MODEL, 1200, shared_context, user_prompt,
     )
-    return get_text(response)
 
 
-def generate_introduction_and_framework(analysis: dict) -> str:
+def generate_introduction_and_framework(analysis: dict, shared_context: str) -> str:
     """
     Generate 'Introduction and Background' (6 sub-sections per
     PROPOSAL_STRUCTURE) plus 'Conceptual Framework'.
     """
     opportunity = analysis.get("opportunity", {})
-    deliverables = analysis.get("deliverables", [])
-    eval_criteria = analysis.get("evaluation_criteria", [])
 
-    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
+    user_prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
 
 ASSIGNMENT: {opportunity.get('title', '')}
 CLIENT: {opportunity.get('client', '')}
 
-DELIVERABLES:
-{json.dumps(deliverables, indent=2)}
-
-EVALUATION CRITERIA:
-{json.dumps(eval_criteria, indent=2)}
-
-CORTECH PROFILE:
-{CORTECH_PROFILE}
+Use deliverables and evaluation criteria from the OPPORTUNITY ANALYSIS in your system context.
 
 SECTION 1 — INTRODUCTION AND BACKGROUND, with these exact sub-headers:
 5.1 Context and Strategic Importance
@@ -474,15 +467,12 @@ theory of change, results framework) and why it fits this assignment.
 
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}]
+    return _generate_section(
+        "introduction_and_framework", CLAUDE_MODEL_PROPOSAL, 1500, shared_context, user_prompt,
     )
-    return get_text(response)
 
 
-def generate_analysis_plan(analysis: dict) -> str:
+def generate_analysis_plan(analysis: dict, shared_context: str) -> str:
     """Generate 'Sampling Strategy' (if applicable) + 'Data Analysis Plan'."""
     methodology_reqs = analysis.get("requirements", {}).get("methodology_requirements", [])
     deliverables = analysis.get("deliverables", [])
@@ -501,13 +491,9 @@ def generate_analysis_plan(analysis: dict) -> str:
         "instead (e.g. purposive selection of KII/FGD participants)."
     )
 
-    prompt = f"""Write sections for a Cortech Consulting Group technical proposal.
+    user_prompt = f"""Write sections for a Cortech Consulting Group technical proposal.
 
-METHODOLOGY REQUIREMENTS:
-{json.dumps(methodology_reqs, indent=2)}
-
-DELIVERABLES:
-{json.dumps(deliverables, indent=2)}
+Use methodology requirements and deliverables from the OPPORTUNITY ANALYSIS in your system context.
 
 {sampling_instruction}
 
@@ -518,23 +504,18 @@ two will be triangulated.
 
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("analysis_plan", CLAUDE_MODEL, 1000, shared_context, user_prompt)
 
 
-def generate_qa_and_ethics(analysis: dict) -> str:
+def generate_qa_and_ethics(analysis: dict, shared_context: str) -> str:
     """Generate 'Quality Assurance Framework' + 'Ethical Considerations and Safeguarding'."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
 
-    prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
+    user_prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
 
 PROJECT LOCATION: {location}
-CORTECH PROFILE:
-{CORTECH_PROFILE}
+
+Use the CORTECH PROFILE in your system context for certifications and policies.
 
 SECTION 1 — QUALITY ASSURANCE FRAMEWORK (250-350 words):
 Data quality checks, peer review process, deliverable review stages,
@@ -548,9 +529,4 @@ location, and do-no-harm principles.
 
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims." """
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL_PROPOSAL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return get_text(response)
+    return _generate_section("qa_and_ethics", CLAUDE_MODEL, 1000, shared_context, user_prompt)
