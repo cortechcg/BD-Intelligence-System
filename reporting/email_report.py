@@ -1,20 +1,23 @@
 # reporting/email_report.py
 from datetime import datetime, timedelta
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import base64
 import os
 import smtplib
 import ssl
 import httpx
 from loguru import logger
 from database.airtable_client import get_table
+from reporting.docx_builder import build_proposal_docx
 
 
 def _get_recipients() -> list[str]:
     return [r.strip() for r in (os.getenv("EMAIL_RECIPIENTS") or "").split(",") if r.strip()]
 
 
-def _send_via_gmail(subject: str, html_content: str) -> bool:
+def _send_via_gmail(subject: str, html_content: str, attachment_path: str = None) -> bool:
     """
     Send an HTML email through Gmail's SMTP server.
 
@@ -37,11 +40,24 @@ def _send_via_gmail(subject: str, html_content: str) -> bool:
     # strip spaces Google shows in the app password (e.g. "abcd efgh ijkl mnop")
     gmail_pass = gmail_pass.replace(" ", "")
 
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = gmail_user
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_content, "html"))
+
+    if attachment_path and os.path.exists(attachment_path):
+        with open(attachment_path, "rb") as f:
+            part = MIMEApplication(
+                f.read(),
+                _subtype="vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        part.add_header(
+            "Content-Disposition",
+            "attachment",
+            filename=os.path.basename(attachment_path),
+        )
+        msg.attach(part)
 
     try:
         context = ssl.create_default_context()
@@ -55,7 +71,7 @@ def _send_via_gmail(subject: str, html_content: str) -> bool:
         return False
 
 
-def _send_via_resend(subject: str, html_content: str) -> bool:
+def _send_via_resend(subject: str, html_content: str, attachment_path: str = None) -> bool:
     """
     Send an HTML email via the Resend HTTP API.
 
@@ -74,18 +90,28 @@ def _send_via_resend(subject: str, html_content: str) -> bool:
         return False
 
     try:
+        payload = {
+            "from": sender,
+            "to": recipients,
+            "subject": subject,
+            "html": html_content,
+        }
+
+        if attachment_path and os.path.exists(attachment_path):
+            with open(attachment_path, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode()
+            payload["attachments"] = [{
+                "filename": os.path.basename(attachment_path),
+                "content": encoded,
+            }]
+
         resp = httpx.post(
             "https://api.resend.com/emails",
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            json={
-                "from": sender,
-                "to": recipients,
-                "subject": subject,
-                "html": html_content,
-            },
+            json=payload,
             timeout=30,
         )
         resp.raise_for_status()
@@ -98,16 +124,16 @@ def _send_via_resend(subject: str, html_content: str) -> bool:
         return False
 
 
-def _send_email(subject: str, html_content: str) -> bool:
+def _send_email(subject: str, html_content: str, attachment_path: str = None) -> bool:
     """
     Send an HTML email, preferring Gmail SMTP and falling back to Resend.
 
     Gmail is tried first (free, no verified domain). If Gmail isn't configured
     or fails (e.g. SMTP blocked on Railway), Resend is used instead.
     """
-    if _send_via_gmail(subject, html_content):
+    if _send_via_gmail(subject, html_content, attachment_path):
         return True
-    if _send_via_resend(subject, html_content):
+    if _send_via_resend(subject, html_content, attachment_path):
         return True
 
     logger.error(
@@ -157,7 +183,7 @@ def get_pipeline_summary() -> dict:
 
                 if days_left <= 3 and status not in ["Submitted", "Won", "Lost"]:
                     stats["urgent"].append({
-                        "title": fields.get("title", "")[:50],
+                        "title": (fields.get("title") or "")[:50],
                         "client": fields.get("client", ""),
                         "deadline": deadline_str[:10],
                         "days_left": days_left,
@@ -167,7 +193,7 @@ def get_pipeline_summary() -> dict:
 
                 elif recommendation == "BID" and score >= 70:
                     stats["high_priority"].append({
-                        "title": fields.get("title", "")[:50],
+                        "title": (fields.get("title") or "")[:50],
                         "client": fields.get("client", ""),
                         "deadline": deadline_str[:10],
                         "days_left": days_left,
@@ -176,7 +202,7 @@ def get_pipeline_summary() -> dict:
 
                 elif recommendation == "WATCH":
                     stats["watchlist"].append({
-                        "title": fields.get("title", "")[:50],
+                        "title": (fields.get("title") or "")[:50],
                         "client": fields.get("client", ""),
                         "score": score,
                         "days_left": days_left,
@@ -327,6 +353,20 @@ def send_proposal_email(opportunity_result: dict) -> None:
     compliance  = opportunity_result.get("compliance_matrix", "")
     recommendation = opportunity_result.get("recommendation", "WATCH")
     is_lightweight = proposal.get("lightweight", False)
+
+    opportunity = dict(analysis.get("opportunity", {}))
+    if title:
+        opportunity["title"] = title
+    if client:
+        opportunity["client"] = client
+
+    docx_path = None
+    try:
+        docx_path = build_proposal_docx(proposal, opportunity)
+    except Exception as e:
+        logger.error(
+            f"Could not build proposal docx — email will still send without it: {e}"
+        )
 
     bid_analysis   = analysis.get("bid_analysis", {})
     key_strengths  = bid_analysis.get("key_strengths", [])
@@ -611,7 +651,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
 
-    if _send_email(subject, html):
+    if _send_email(subject, html, attachment_path=docx_path):
         logger.success(f"Proposal email sent: {title[:50]}")
     else:
         logger.error(f"Proposal email failed for {title[:50]}")
