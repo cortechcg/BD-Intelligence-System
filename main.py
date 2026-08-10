@@ -338,6 +338,27 @@ def run_pipeline() -> None:
         except Exception:
             pass
 
+    # ── SOURCE 3: ASSORTIS / ICA DAILY NEWSLETTER (EMAIL) ──────────────────
+    # Only processes UNSEEN newsletter emails and marks them seen, so this
+    # is safe to run here AND on the dedicated 01:45 schedule — whichever
+    # runs first wins, the other finds nothing unread.
+    logger.info("Checking Assortis/ICA newsletter...")
+    try:
+        assortis_results = check_assortis_newsletter()
+        all_new.extend(assortis_results)
+        logger.info(f"  Assortis total: {len(assortis_results)} passed filter")
+    except Exception as e:
+        logger.error(f"Assortis newsletter check failed: {e}")
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=f"Assortis newsletter check failed: {e}",
+                status="Error",
+                error_message=str(e),
+            )
+        except Exception:
+            pass
+
     # ── DEDUP: REMOVE ANYTHING ALREADY IN THIS RUN ─────────────────────────
     seen_urls: set[str] = set()
     unique_new: list[dict] = []
