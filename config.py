@@ -25,6 +25,7 @@ TABLES = {
     "rate_cards": "RATE_CARDS",
     "pipeline": "PIPELINE_TRACKER",
     "logs": "AGENT_LOGS",
+    "donor_intelligence": "DONOR_INTELLIGENCE",
 }
 
 # ── CLAUDE SETTINGS ───────────────────────────────────────────

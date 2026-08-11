@@ -143,6 +143,85 @@ def _send_email(subject: str, html_content: str, attachment_path: str = None) ->
     return False
 
 
+def get_urgency_level(deadline_str: str) -> dict:
+    """Calculate urgency based on days to deadline."""
+    try:
+        deadline = datetime.strptime(deadline_str[:10], "%Y-%m-%d").date()
+        days_left = (deadline - datetime.now().date()).days
+    except Exception:
+        return {"level": "unknown", "days": None, "color": "#666666", "prefix": ""}
+
+    if days_left <= 0:
+        return {"level": "EXPIRED", "days": days_left, "color": "#dc3545", "prefix": "🔴 DEADLINE PASSED"}
+    elif days_left <= 1:
+        return {"level": "CRITICAL", "days": days_left, "color": "#dc3545", "prefix": "🚨 24 HOURS REMAINING"}
+    elif days_left <= 3:
+        return {"level": "URGENT", "days": days_left, "color": "#e85d04", "prefix": f"🔥 {days_left} DAYS LEFT"}
+    elif days_left <= 7:
+        return {"level": "HIGH", "days": days_left, "color": "#f0a500", "prefix": f"⚠️ {days_left} DAYS LEFT"}
+    elif days_left <= 14:
+        return {"level": "NORMAL", "days": days_left, "color": "#2e86c1", "prefix": f"📋 {days_left} days left"}
+    else:
+        return {"level": "LOW", "days": days_left, "color": "#28a745", "prefix": f"✅ {days_left} days left"}
+
+
+def send_deadline_alert_email(urgent: list[dict]) -> None:
+    """Single digest email for opportunities with approaching deadlines."""
+    sorted_opps = sorted(
+        urgent,
+        key=lambda o: o.get("urgency", {}).get("days") if o.get("urgency", {}).get("days") is not None else 9999,
+    )
+
+    rows_html = ""
+    for opp in sorted_opps:
+        urgency = opp.get("urgency", {})
+        color = urgency.get("color", "#666666")
+        rows_html += f"""
+        <tr style="border-left:4px solid {color}">
+            <td style="padding:10px;border:1px solid #ddd;font-weight:bold">{opp.get('title', '')}</td>
+            <td style="padding:10px;border:1px solid #ddd">{opp.get('client', '')}</td>
+            <td style="padding:10px;border:1px solid #ddd">{str(opp.get('deadline', ''))[:10]}</td>
+            <td style="padding:10px;border:1px solid #ddd;color:{color};font-weight:bold">
+                {urgency.get('prefix', urgency.get('level', ''))}
+            </td>
+        </tr>"""
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;color:#333">
+    <div style="background:#1F3864;color:white;padding:20px;border-radius:8px 8px 0 0">
+        <h1 style="margin:0;font-size:22px">⏰ Deadline Escalation Alert</h1>
+        <p style="margin:8px 0 0;opacity:0.85">{datetime.now().strftime('%A, %d %B %Y at %H:%M')}</p>
+    </div>
+    <div style="padding:20px">
+        <p><strong>{len(sorted_opps)}</strong> active opportunit
+        {"y" if len(sorted_opps) == 1 else "ies"} need attention within 7 days.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr style="background:#1F3864;color:white">
+                <th style="padding:8px;text-align:left">Title</th>
+                <th style="padding:8px;text-align:left">Client</th>
+                <th style="padding:8px;text-align:left">Deadline</th>
+                <th style="padding:8px;text-align:left">Urgency</th>
+            </tr>
+            {rows_html}
+        </table>
+        <p style="font-size:12px;color:#666;margin-top:16px">
+            Review these in Airtable and confirm submission status.
+        </p>
+    </div>
+    </body>
+    </html>
+    """
+
+    subject = f"⏰ DEADLINE ALERT: {len(sorted_opps)} opportunit{'y' if len(sorted_opps) == 1 else 'ies'} need action"
+    if _send_email(subject, html):
+        logger.success(f"Deadline alert email sent ({len(sorted_opps)} items)")
+    else:
+        logger.error("Deadline alert email failed to send")
+
+
 def get_pipeline_summary() -> dict:
     """Get current pipeline stats from Airtable."""
     table = get_table("opportunities")
@@ -375,18 +454,31 @@ def send_proposal_email(opportunity_result: dict) -> None:
     team_matches   = matched.get("matched_team", {})
     budget_total   = budget_summary.get("grand_total_usd", 0)
     budget_cap_str = f"${budget_cap:,.0f}" if budget_cap else "Not specified"
+    urgency        = get_urgency_level(str(deadline))
+    quality        = proposal.get("quality_score", {}) if isinstance(proposal.get("quality_score"), dict) else {}
+    quality_line   = ""
+    if quality.get("overall_score") is not None:
+        quality_line = (
+            f"<p style='margin:8px 0 0;font-size:13px;color:#555'>"
+            f"Self-assessed: <strong>{quality['overall_score']}/100</strong> — "
+            f"weakest: {quality.get('weakest_criterion', 'N/A')}. "
+            f"{quality.get('one_improvement', '')}"
+            f"</p>"
+        )
 
     # ── TEAM TABLE ─────────────────────────────────────────────────────────
     team_rows_html = ""
     for role, match in team_matches.items():
         name  = match.get("consultant_name", "TBD")
         score_pct = match.get("similarity_score", 0)
+        avail = match.get("availability_flag", "❓ Unknown")
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
         <tr>
             <td style="padding:8px;border:1px solid #ddd">{role}</td>
             <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{name}</td>
             <td style="padding:8px;border:1px solid #ddd;color:{color};font-weight:bold">{score_pct}% match</td>
+            <td style="padding:8px;border:1px solid #ddd">{avail}</td>
         </tr>"""
 
     # ── STRENGTHS / GAPS ───────────────────────────────────────────────────
@@ -527,7 +619,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 </td>
                 <td style="padding:4px 0">
                     <strong>Deadline:</strong>
-                    <span style="color:#dc3545;font-weight:bold">{deadline}</span>
+                    <span style="color:{urgency.get('color', '#dc3545')};font-weight:bold">
+                        {deadline} {urgency.get('prefix', '')}
+                    </span>
                 </td>
             </tr>
             <tr>
@@ -541,6 +635,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 <td style="padding:4px 0">
                     <strong>Budget Cap:</strong> {budget_cap_str}
                 </td>
+            </tr>
+            <tr>
+                <td colspan="2">{quality_line}</td>
             </tr>
             <tr>
                 <td colspan="2" style="padding:8px 0 4px">
@@ -582,6 +679,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 <th style="padding:8px;text-align:left">Required Role</th>
                 <th style="padding:8px;text-align:left">Matched Consultant</th>
                 <th style="padding:8px;text-align:left">CV Match</th>
+                <th style="padding:8px;text-align:left">Availability</th>
             </tr>
             {team_rows_html}
         </table>
