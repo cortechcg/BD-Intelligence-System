@@ -9,6 +9,30 @@ from utils.claude_helpers import get_text
 
 client = anthropic.Anthropic()
 
+# Human prerequisite — CONSULTANTS table must include and maintain:
+#   current_projects, available_from, availability_percentage, booked_until
+# This feature is only as good as those fields staying current.
+
+
+def filter_by_availability(matches: list[dict]) -> list[dict]:
+    """Annotates matches with live availability from Airtable. Never
+    drops a match for missing data — flags it and lets a human decide."""
+    for match in matches:
+        airtable_id = match.get("airtable_consultant_id") or match.get("airtable_id")
+        consultant = get_consultant_by_id(airtable_id) if airtable_id else None
+        if not consultant:
+            match["availability_flag"] = "❓ Unknown"
+            continue
+        pct = consultant.get("availability_percentage", 100)
+        match["availability_percent"] = pct
+        match["current_project_count"] = consultant.get("current_projects", 0)
+        match["availability_flag"] = (
+            "🟢 Available" if pct >= 50 else
+            "🟡 Partially" if pct >= 20 else
+            "🔴 Busy"
+        )
+    return sorted(matches, key=lambda m: m.get("availability_percent", 100), reverse=True)
+
 
 def match_team_to_requirements(
     team_requirements: list[dict],

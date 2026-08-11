@@ -42,9 +42,10 @@ from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
-from intelligence.cv_matcher import match_team_to_requirements
+from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal
+from intelligence.learning import process_win_loss_outcomes
 from database.supabase_client import (
     check_opportunity_exists,
     store_opportunity,
@@ -54,7 +55,12 @@ from database.airtable_client import (
     update_opportunity,
     log_agent_action,
 )
-from reporting.email_report import send_report, send_proposal_email
+from reporting.email_report import (
+    send_report,
+    send_proposal_email,
+    send_deadline_alert_email,
+    get_urgency_level,
+)
 
 console = Console()
 
@@ -255,6 +261,14 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             opportunity_id=opp_id,
             opportunity_title=title,
         )
+        team = matched_team_result.get("matched_team", {})
+        if team:
+            for role, match in team.items():
+                match["_sort_role"] = role
+            reordered = filter_by_availability(list(team.values()))
+            matched_team_result["matched_team"] = {
+                m.pop("_sort_role"): m for m in reordered
+            }
         try:
             update_opportunity(airtable_record_id, {
                 "matched_team": str(matched_team_result),
@@ -623,6 +637,45 @@ def run_assortis_check() -> None:
     )
 
 
+def run_deadline_check() -> None:
+    """
+    Independent of run_pipeline() — checks OPPORTUNITIES already in
+    Airtable for approaching deadlines and sends an escalation digest.
+    Active statuses verified from main.py + email_report.py: Reviewing
+    (post-proposal), New, and Bidding — excludes Submitted/Won/Lost/No-bid.
+    """
+    from database.airtable_client import get_table
+
+    table = get_table("opportunities")
+    active = table.all(
+        formula=(
+            "AND("
+            "OR({status}='Reviewing', {status}='New', {status}='Bidding'),"
+            "{submission_deadline}!=''"
+            ")"
+        )
+    )
+
+    urgent = []
+    for record in active:
+        fields = record["fields"]
+        deadline = fields.get("submission_deadline", "")
+        urgency = get_urgency_level(deadline)
+        if urgency["level"] in ("CRITICAL", "URGENT", "HIGH"):
+            urgent.append({
+                "title": (fields.get("title") or "")[:60],
+                "client": fields.get("client", ""),
+                "deadline": deadline,
+                "urgency": urgency,
+            })
+
+    if urgent:
+        send_deadline_alert_email(urgent)
+        logger.info(f"Deadline alert sent for {len(urgent)} opportunities")
+    else:
+        logger.info("Deadline check: nothing urgent")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CONTINUOUS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -656,9 +709,13 @@ def start_scheduler() -> None:
     # this in. Adjust "01:45" as needed.
     schedule.every().day.at("01:45").do(run_assortis_check)
 
+    schedule.every().day.at("08:00").do(run_deadline_check)
+    schedule.every().day.at("08:15").do(process_win_loss_outcomes)
+
     logger.info(
         f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours, "
-        f"daily at 07:00, and Assortis newsletter at 01:45"
+        f"daily at 07:00, Assortis at 01:45, deadline check at 08:00, "
+        f"win/loss learning at 08:15"
     )
 
     while True:

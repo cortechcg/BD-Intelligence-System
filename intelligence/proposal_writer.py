@@ -3,7 +3,8 @@ import anthropic
 import json
 from loguru import logger
 from utils.claude_helpers import get_text
-from database.airtable_client import get_winning_proposals, log_agent_action
+from database.airtable_client import get_winning_proposals, log_agent_action, get_table
+from database.supabase_client import get_embedding, supabase
 from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL, CORTECH_PROFILE
 
 client = anthropic.Anthropic()
@@ -94,13 +95,103 @@ def _build_past_work_context() -> str:
     return "\n\n".join(lines)
 
 
-def _build_shared_context(analysis: dict) -> str:
+def _build_shared_context(analysis: dict, extra_context: str = "") -> str:
     """Build once per proposal — identical bytes across all section calls for cache hits."""
-    return (
+    base = (
         f"CORTECH PROFILE:\n{CORTECH_PROFILE}\n\n"
         f"OPPORTUNITY ANALYSIS:\n{json.dumps(analysis, indent=2, sort_keys=True)}\n\n"
         f"{_build_past_work_context()}"
     )
+    if extra_context.strip():
+        return f"{base}\n\n{extra_context.strip()}"
+    return base
+
+
+def get_relevant_lessons(client_name: str, donor: str) -> str:
+    """Non-fatal on any failure — empty string means no past-lesson context."""
+    if not client_name and not donor:
+        return ""
+    try:
+        embedding = get_embedding(f"proposals for {client_name} {donor}")
+        results = supabase.rpc("match_win_loss_memory", {
+            "query_embedding": embedding,
+            "match_threshold": 0.70,
+            "match_count": 3,
+        }).execute()
+    except Exception as e:
+        logger.warning(f"Could not fetch win/loss lessons (non-fatal): {e}")
+        return ""
+    if not results.data:
+        return ""
+    lines = [f"Past {r['outcome']}: {r['lessons']}" for r in results.data]
+    return "\nRELEVANT PAST PERFORMANCE LESSONS:\n" + "\n".join(lines) + "\n"
+
+
+def get_donor_intelligence(donor: str, client_name: str) -> str:
+    """Pull donor/client preferences from Airtable DONOR_INTELLIGENCE table."""
+    if not donor and not client_name:
+        return ""
+    try:
+        safe_donor = (donor or "").replace("'", "\\'")
+        safe_client = (client_name or "").replace("'", "\\'")
+        table = get_table("donor_intelligence")
+        records = table.all(
+            formula=(
+                f"OR(FIND('{safe_donor}', {{donor_name}}), "
+                f"FIND('{safe_client}', {{donor_name}}))"
+            )
+        )
+    except Exception as e:
+        logger.warning(f"Could not fetch donor intelligence (non-fatal): {e}")
+        return ""
+    if not records:
+        return ""
+    intel = records[0]["fields"]
+    return f"""
+DONOR INTELLIGENCE FOR {donor or client_name}:
+Preferred frameworks: {intel.get("preferred_frameworks", "None on file")}
+Required sections: {intel.get("required_sections", "Standard")}
+Evaluation priorities: {intel.get("evaluation_priorities", "Unknown")}
+Red lines to avoid: {intel.get("red_lines", "None known")}
+"""
+
+
+def generate_quality_self_score(sections: dict, analysis: dict) -> dict:
+    """
+    One Claude call, evaluating the finished draft against the ToR's own
+    stated evaluation criteria — not invented generic categories.
+    """
+    eval_criteria = analysis.get("evaluation_criteria", [])
+    combined = "\n\n".join(
+        f"[{k}]\n{v}" for k, v in sections.items() if isinstance(v, str)
+    )
+
+    prompt = f"""Score this draft proposal against the evaluation criteria actually stated in the ToR — not generic categories.
+
+EVALUATION CRITERIA FROM THE TOR:
+{json.dumps(eval_criteria, indent=2)}
+
+DRAFT:
+{combined[:8000]}
+
+Return ONLY valid JSON:
+{{
+  "overall_score": <0-100, grounded in the criteria above, not a guess>,
+  "weakest_criterion": "<which stated criterion is weakest, and why, one sentence>",
+  "strongest_criterion": "<which stated criterion is strongest, and why, one sentence>",
+  "one_improvement": "<the single most impactful specific fix, referencing something specific in the draft>"
+}}"""
+
+    try:
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=400,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return json.loads(get_text(response))
+    except Exception as e:
+        logger.warning(f"Quality self-score failed (non-fatal): {e}")
+        return {}
 
 
 def _log_cache_usage(response, section_name: str) -> None:
@@ -152,9 +243,14 @@ def generate_proposal(
     opportunity = analysis.get("opportunity", {})
     title = opportunity.get("title", "Unknown Assignment")
     client_name = opportunity.get("client", "Client")
+    donor = opportunity.get("donor", "")
     deadline = opportunity.get("submission_deadline", "TBD")
 
-    shared_context = _build_shared_context(analysis)
+    extra_context = (
+        get_relevant_lessons(client_name, donor)
+        + get_donor_intelligence(donor, client_name)
+    )
+    shared_context = _build_shared_context(analysis, extra_context)
     logger.info(f"Generating proposal ({recommendation}) for: {title[:60]}")
 
     if recommendation == "WATCH":
@@ -170,6 +266,7 @@ def generate_proposal(
             "lightweight": True,
             "lightweight_reason": "WATCH recommendation — quick flag, not a full draft",
         }
+        sections["quality_score"] = generate_quality_self_score(sections, analysis)
         log_agent_action(
             action_type="Proposal",
             description=f"Generated WATCH quick-flag for: {title[:60]}",
@@ -203,6 +300,7 @@ def generate_proposal(
         ),
         "work_plan": generate_work_plan(analysis, shared_context),
     }
+    sections["quality_score"] = generate_quality_self_score(sections, analysis)
 
     log_agent_action(
         action_type="Proposal",
