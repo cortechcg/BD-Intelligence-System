@@ -95,13 +95,36 @@ def _build_past_work_context() -> str:
     return "\n\n".join(lines)
 
 
-def _build_shared_context(analysis: dict, extra_context: str = "") -> str:
+def _load_style_guide(submission_type: str) -> str:
+    label = "eoi" if submission_type == "EOI" else "full_proposal"
+    path = f"intelligence/style_guides/{label}_style.md"
+    try:
+        with open(path) as f:
+            content = f.read().strip()
+            if not content:
+                return ""
+            return f"CORTECH HOUSE STYLE ({label.replace('_', ' ').upper()}):\n{content}"
+    except FileNotFoundError:
+        logger.warning(
+            f"No style guide at {path} — run extract_style_guide.py first. Proceeding without it."
+        )
+        return ""
+
+
+def _build_shared_context(
+    analysis: dict,
+    extra_context: str = "",
+    submission_type: str = "FULL_PROPOSAL",
+) -> str:
     """Build once per proposal — identical bytes across all section calls for cache hits."""
+    style_guide = _load_style_guide(submission_type)
     base = (
         f"CORTECH PROFILE:\n{CORTECH_PROFILE}\n\n"
         f"OPPORTUNITY ANALYSIS:\n{json.dumps(analysis, indent=2, sort_keys=True)}\n\n"
         f"{_build_past_work_context()}"
     )
+    if style_guide:
+        base = f"{base}\n\n{style_guide}"
     if extra_context.strip():
         return f"{base}\n\n{extra_context.strip()}"
     return base
@@ -240,7 +263,11 @@ def generate_eoi(
     title = opportunity.get("title", "Unknown Assignment")
     client_name = opportunity.get("client", "Client")
 
-    cover_letter_prompt = f"""Write a brief Expression of Interest cover letter for Cortech Consulting Group.
+    style_prefix = _load_style_guide("EOI")
+    if style_prefix:
+        style_prefix = f"{style_prefix}\n\n"
+
+    cover_letter_prompt = f"""{style_prefix}Write a brief Expression of Interest cover letter for Cortech Consulting Group.
 
 ASSIGNMENT: {title}
 CLIENT: {client_name}
@@ -269,7 +296,7 @@ here."""
         for role, m in matched_team_result.get("matched_team", {}).items()
         if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
     }, indent=2)
-    experts_prompt = f"""Write brief 2-3 sentence professional bios for each proposed key expert below, suitable for an Expression of Interest submission (not a full CV, not a full team narrative).
+    experts_prompt = f"""{style_prefix}Write brief 2-3 sentence professional bios for each proposed key expert below, suitable for an Expression of Interest submission (not a full CV, not a full team narrative).
 
 PROPOSED EXPERTS:
 {team_summary}
@@ -326,7 +353,9 @@ def generate_proposal(
         get_relevant_lessons(client_name, donor)
         + get_donor_intelligence(donor, client_name)
     )
-    shared_context = _build_shared_context(analysis, extra_context)
+    shared_context = _build_shared_context(
+        analysis, extra_context, submission_type="FULL_PROPOSAL"
+    )
     logger.info(f"Generating proposal ({recommendation}) for: {title[:60]}")
 
     if recommendation == "WATCH":
