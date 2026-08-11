@@ -44,7 +44,7 @@ from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
 from intelligence.budget_calculator import calculate_budget
-from intelligence.proposal_writer import generate_proposal
+from intelligence.proposal_writer import generate_proposal, generate_eoi
 from intelligence.learning import process_win_loss_outcomes
 from database.supabase_client import (
     check_opportunity_exists,
@@ -276,37 +276,56 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         except Exception as e:
             logger.warning(f"  Airtable matched_team update failed: {e}")
 
-    # ── STEP 6: BUDGET CALCULATION ─────────────────────────────────────────
-    logger.info("  Step 4: Calculating budget...")
-    project_locations = opportunity.get("project_location", [])
-    primary_location  = project_locations[0] if project_locations else "Nairobi"
-
-    budget = calculate_budget(
-        analysis,
-        matched_team_result.get("matched_team", {}),
-        primary_location,
+    # ── STEPS 6–8: BUDGET / COMPLIANCE / DRAFT (branch on submission type) ───
+    submission_type = analysis.get("bid_analysis", {}).get(
+        "submission_type", "FULL_PROPOSAL"
     )
-
-    # ── STEP 7: COMPLIANCE MATRIX (BID only — skip for WATCH quick-flag) ─────
+    budget = {}
     compliance_matrix = ""
-    if recommendation == "BID":
-        logger.info("  Step 5: Generating compliance matrix...")
-        compliance_matrix = generate_compliance_matrix(
+
+    if submission_type == "EOI":
+        logger.info("  Submission type: EOI — lightweight path")
+        console.print(
+            "  [cyan]📄 EOI submission — skipping budget & compliance[/cyan]"
+        )
+        logger.info("  Step 4: Skipping budget (EOI stage)")
+        logger.info("  Step 5: Skipping compliance matrix (EOI stage)")
+        logger.info("  Step 6: Writing Expression of Interest...")
+        proposal_sections = generate_eoi(
             analysis,
-            list(matched_team_result.get("matched_team", {}).values()),
+            matched_team_result,
+            opportunity_id=opp_id,
         )
     else:
-        logger.info("  Step 5: Skipping compliance matrix (WATCH quick-flag)")
+        logger.info("  Submission type: Full technical proposal")
 
-    # ── STEP 8: WRITE PROPOSAL DRAFT (full for BID, lightweight for WATCH) ─
-    logger.info("  Step 6: Writing proposal draft...")
-    proposal_sections = generate_proposal(
-        analysis,
-        matched_team_result,
-        budget,
-        compliance_matrix,
-        opportunity_id=opp_id,
-    )
+        logger.info("  Step 4: Calculating budget...")
+        project_locations = opportunity.get("project_location", [])
+        primary_location  = project_locations[0] if project_locations else "Nairobi"
+
+        budget = calculate_budget(
+            analysis,
+            matched_team_result.get("matched_team", {}),
+            primary_location,
+        )
+
+        if recommendation == "BID":
+            logger.info("  Step 5: Generating compliance matrix...")
+            compliance_matrix = generate_compliance_matrix(
+                analysis,
+                list(matched_team_result.get("matched_team", {}).values()),
+            )
+        else:
+            logger.info("  Step 5: Skipping compliance matrix (WATCH quick-flag)")
+
+        logger.info("  Step 6: Writing proposal draft...")
+        proposal_sections = generate_proposal(
+            analysis,
+            matched_team_result,
+            budget,
+            compliance_matrix,
+            opportunity_id=opp_id,
+        )
 
     # ── STEP 9: UPDATE AIRTABLE STATUS ────────────────────────────────────
     try:
@@ -317,11 +336,18 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     except Exception as e:
         logger.warning(f"  Airtable status update failed (non-fatal): {e}")
 
-    console.print(
-        "  [bold green]✅ Proposal draft complete — ready for team review[/bold green]"
-        if recommendation == "BID"
-        else "  [bold yellow]🔍 WATCH quick-flag sent — not a full draft[/bold yellow]"
-    )
+    if submission_type == "EOI":
+        console.print(
+            "  [bold green]✅ Expression of Interest draft complete — ready for review[/bold green]"
+        )
+    elif recommendation == "BID":
+        console.print(
+            "  [bold green]✅ Proposal draft complete — ready for team review[/bold green]"
+        )
+    else:
+        console.print(
+            "  [bold yellow]🔍 WATCH quick-flag sent — not a full draft[/bold yellow]"
+        )
 
     return {
         "airtable_id":       airtable_record_id,
@@ -400,7 +426,7 @@ def submit_single_url(url: str) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = f"output/draft_{timestamp}.md"
     sections = result.get("proposal_sections", {})
-    _skip_keys = {"lightweight", "lightweight_reason"}
+    _skip_keys = {"lightweight", "lightweight_reason", "submission_type", "quality_score"}
     with open(out_path, "w") as f:
         for section_name, content in sections.items():
             if section_name in _skip_keys or not isinstance(content, str):

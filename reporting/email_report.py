@@ -432,6 +432,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
     compliance  = opportunity_result.get("compliance_matrix", "")
     recommendation = opportunity_result.get("recommendation", "WATCH")
     is_lightweight = proposal.get("lightweight", False)
+    submission_type = proposal.get("submission_type", "FULL_PROPOSAL")
+    is_eoi = submission_type == "EOI"
+    doc_label = "EXPRESSION OF INTEREST" if is_eoi else "DRAFT PROPOSAL"
 
     opportunity = dict(analysis.get("opportunity", {}))
     if title:
@@ -530,7 +533,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
         section_block("Cover Letter", proposal.get("cover_letter", ""))
         + section_block("Executive Summary", proposal.get("executive_summary", ""))
     )
-    if not is_lightweight:
+    if is_eoi:
+        proposal_html = (
+            section_block("Cover Letter", proposal.get("cover_letter", ""))
+            + section_block("Firm Profile", proposal.get("firm_profile", ""))
+            + section_block("Relevant Experience", proposal.get("relevant_experience", ""))
+            + section_block("Proposed Key Experts", proposal.get("key_experts", ""))
+        )
+    elif not is_lightweight:
         proposal_html += (
             section_block("Organisational Profile & Track Record", proposal.get("org_profile_and_track_record", ""))
             + section_block("Introduction, Background & Conceptual Framework", proposal.get("introduction_and_framework", ""))
@@ -551,12 +561,16 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     # ── FULL HTML EMAIL ────────────────────────────────────────────────────
     header_title = (
-        "🔍 QUICK FLAG — WATCH OPPORTUNITY"
+        "📋 EXPRESSION OF INTEREST READY FOR REVIEW"
+        if is_eoi
+        else "🔍 QUICK FLAG — WATCH OPPORTUNITY"
         if is_lightweight
         else "📋 PROPOSAL DRAFT READY FOR REVIEW"
     )
     header_subtitle = (
-        proposal.get(
+        "EOI-stage submission — review and submit as Expression of Interest, not a full technical proposal"
+        if is_eoi
+        else proposal.get(
             "lightweight_reason",
             "WATCH recommendation — quick flag, not a full draft",
         )
@@ -564,7 +578,13 @@ def send_proposal_email(opportunity_result: dict) -> None:
         else "Human review required before submission — do not submit without approval"
     )
     action_banner = (
-        f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
+        """<div style="background:#e8f4fd;padding:14px 20px;border-left:4px solid #2e86c1">
+        <strong>📄 EOI STAGE:</strong> This document asks for an Expression of Interest only.
+        Review the draft below, confirm team availability, then submit as an EOI —
+        not a full technical/financial proposal unless shortlisted.
+        </div>"""
+        if is_eoi
+        else f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
         <strong>🔍 WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
         (cover letter + executive summary). No full proposal was generated.
         Review the opportunity and decide whether to pursue a full bid.
@@ -576,7 +596,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <strong>Nothing has been sent to the client.</strong>
         </div>"""
     )
-    compliance_block = "" if is_lightweight else f"""
+    compliance_block = "" if is_lightweight or is_eoi else f"""
     <!-- COMPLIANCE MATRIX -->
     <div style="margin-bottom:24px">
         <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
@@ -587,10 +607,38 @@ def send_proposal_email(opportunity_result: dict) -> None:
                     font-size:12px;overflow-x:auto;white-space:pre-wrap">{compliance}</pre>
     </div>"""
     draft_heading = (
-        "📄 Quick-Flag Preview (Cover Letter + Executive Summary)"
+        "📄 Expression of Interest Draft"
+        if is_eoi
+        else "📄 Quick-Flag Preview (Cover Letter + Executive Summary)"
         if is_lightweight
         else "📄 Draft Technical Proposal"
     )
+    budget_block = "" if is_eoi else f"""
+    <!-- BUDGET TABLE -->
+    <div style="margin-bottom:24px">
+        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
+                   border-bottom:2px solid #1F3864;padding-bottom:6px">
+            💰 Budget Draft
+        </h3>
+        <table style="width:50%;border-collapse:collapse;font-size:13px">
+            <tr style="background:#1F3864;color:white">
+                <th style="padding:8px;text-align:left">Line Item</th>
+                <th style="padding:8px;text-align:right">Amount</th>
+            </tr>
+            {budget_rows_html}
+            <tr style="background:#1F3864;color:white;font-weight:bold">
+                <td style="padding:8px">TOTAL</td>
+                <td style="padding:8px;text-align:right">
+                    ${budget_total:,.0f}
+                </td>
+            </tr>
+        </table>
+        <p style="font-size:12px;color:#666;margin:8px 0 0">
+            ⚠️ Verify against the budget cap before submission.
+            Adjust line items as needed.
+        </p>
+    </div>
+"""
 
     html = f"""
     <!DOCTYPE html>
@@ -685,30 +733,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </table>
     </div>
 
-    <!-- BUDGET TABLE -->
-    <div style="margin-bottom:24px">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                   border-bottom:2px solid #1F3864;padding-bottom:6px">
-            💰 Budget Draft
-        </h3>
-        <table style="width:50%;border-collapse:collapse;font-size:13px">
-            <tr style="background:#1F3864;color:white">
-                <th style="padding:8px;text-align:left">Line Item</th>
-                <th style="padding:8px;text-align:right">Amount</th>
-            </tr>
-            {budget_rows_html}
-            <tr style="background:#1F3864;color:white;font-weight:bold">
-                <td style="padding:8px">TOTAL</td>
-                <td style="padding:8px;text-align:right">
-                    ${budget_total:,.0f}
-                </td>
-            </tr>
-        </table>
-        <p style="font-size:12px;color:#666;margin:8px 0 0">
-            ⚠️ Verify against the budget cap before submission.
-            Adjust line items as needed.
-        </p>
-    </div>
+    {budget_block}
 
     {compliance_block}
 
@@ -742,9 +767,15 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | WATCH"
         )
+    elif is_eoi:
+        subject = (
+            f"📋 {doc_label}: {title[:50]} | "
+            f"Deadline: {str(deadline)[:10]} | "
+            f"Score: {score}/100 | REVIEW REQUIRED"
+        )
     else:
         subject = (
-            f"📋 DRAFT READY: {title[:50]} | "
+            f"📋 {doc_label}: {title[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )

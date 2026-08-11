@@ -19,6 +19,9 @@ from loguru import logger
 # two separate PROPOSAL_STRUCTURE entries, etc.) — see proposal_writer.py.
 SECTION_ORDER = [
     ("cover_letter", "Cover Letter"),
+    ("firm_profile", "Firm Profile"),
+    ("relevant_experience", "Relevant Experience"),
+    ("key_experts", "Proposed Key Experts"),
     ("executive_summary", "Executive Summary"),
     ("org_profile_and_track_record", "Organisational Profile & Track Record"),
     ("introduction_and_framework", "Introduction, Background & Conceptual Framework"),
@@ -87,7 +90,12 @@ def build_proposal_docx(
 
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle.add_run("Technical Proposal").italic = True
+    doc_type = (
+        "Expression of Interest"
+        if sections.get("submission_type") == "EOI"
+        else "Technical Proposal"
+    )
+    subtitle.add_run(doc_type).italic = True
 
     doc.add_paragraph()
 
