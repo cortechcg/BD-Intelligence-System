@@ -86,6 +86,7 @@ ANALYSIS_SCHEMA = """
 
   "bid_analysis": {
     "is_consultancy_contract": "boolean — TRUE if a company/firm is being hired to deliver a product, study, evaluation, assessment, or service with defined deliverables and a scope of work. FALSE only if this is a pure individual staff vacancy with no deliverables (salaried employment). DEFAULT TO TRUE when in doubt.",
+    "submission_type": "EOI or FULL_PROPOSAL — EOI if the document explicitly requests an Expression of Interest, REOI, pre-qualification, or shortlisting submission. FULL_PROPOSAL if it requests a Technical Proposal, RFP response, or doesn't specify a lighter stage. DEFAULT TO FULL_PROPOSAL WHEN GENUINELY AMBIGUOUS.",
     "cortech_fit_score": "number 0-100",
     "win_probability": "number 0-100",
     "bid_recommendation": "BID/WATCH/NO-BID",
@@ -162,6 +163,16 @@ If is_consultancy_contract is FALSE:
   - Set bid_recommendation to "NO-BID"
   - State clearly in rationale: "STAFF VACANCY — not a consultancy contract"
 
+SUBMISSION TYPE — classify what the document asks firms to submit:
+Set submission_type = "EOI" if the document explicitly requests an
+Expression of Interest, REOI, pre-qualification, or shortlisting submission.
+Set submission_type = "FULL_PROPOSAL" if it requests a Technical Proposal,
+RFP response, or doesn't specify a lighter stage.
+DEFAULT TO FULL_PROPOSAL WHEN GENUINELY AMBIGUOUS — a full proposal can
+be trimmed by a human reviewer in minutes; an EOI-only draft cannot be
+expanded into a full proposal under deadline pressure if a full one
+turns out to be needed.
+
 SCORING GUIDANCE for cortech_fit_score (0-100):
 - 85-100: Perfect match — all requirements met, strong track record,
           ideal geography, high win probability
@@ -213,10 +224,15 @@ DOCUMENT TO ANALYZE:
             .get("bid_analysis", {})
             .get("is_consultancy_contract", True)
         )
+        submission_type = (
+            analysis
+            .get("bid_analysis", {})
+            .get("submission_type", "FULL_PROPOSAL")
+        )
 
         logger.success(
             f"  Analysis complete — score: {score}/100 | "
-            f"consultancy: {is_contract}"
+            f"consultancy: {is_contract} | submission: {submission_type}"
         )
 
         try:

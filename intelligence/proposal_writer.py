@@ -226,6 +226,82 @@ def _generate_section(
     return get_text(response)
 
 
+def generate_eoi(
+    analysis: dict,
+    matched_team_result: dict,
+    opportunity_id: str = None,
+) -> dict:
+    """
+    Lightweight path for opportunities classified as EOI/REOI. Four
+    pieces, two of which reuse existing content with zero new API
+    calls. Total: ~2 Claude calls, vs 10 for a full proposal.
+    """
+    opportunity = analysis.get("opportunity", {})
+    title = opportunity.get("title", "Unknown Assignment")
+    client_name = opportunity.get("client", "Client")
+
+    cover_letter_prompt = f"""Write a brief Expression of Interest cover letter for Cortech Consulting Group.
+
+ASSIGNMENT: {title}
+CLIENT: {client_name}
+
+This is an EXPRESSION OF INTEREST, not a full technical proposal —
+keep it to 2-3 short paragraphs: state clear interest in the
+opportunity, briefly indicate relevant capability, note that a full
+technical and financial proposal will follow if shortlisted. Do not
+describe methodology — that belongs in the full proposal stage, not
+here."""
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=400,
+        messages=[{"role": "user", "content": cover_letter_prompt}],
+    )
+    cover_letter = get_text(response)
+
+    firm_profile = CORTECH_PROFILE
+    relevant_experience = _build_past_work_context()
+
+    team_summary = json.dumps({
+        role: {
+            "name": m.get("consultant_name"),
+            "score": m.get("similarity_score"),
+        }
+        for role, m in matched_team_result.get("matched_team", {}).items()
+        if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
+    }, indent=2)
+    experts_prompt = f"""Write brief 2-3 sentence professional bios for each proposed key expert below, suitable for an Expression of Interest submission (not a full CV, not a full team narrative).
+
+PROPOSED EXPERTS:
+{team_summary}
+
+Return plain text, one short bio per named expert."""
+    response = client.messages.create(
+        model=CLAUDE_MODEL,
+        max_tokens=600,
+        messages=[{"role": "user", "content": experts_prompt}],
+    )
+    key_experts = get_text(response)
+
+    try:
+        log_agent_action(
+            action_type="Proposal",
+            description=f"Generated EOI for: {title[:60]}",
+            opportunity_id=opportunity_id,
+            tokens_used=2000,
+            status="Success",
+        )
+    except Exception:
+        pass
+
+    return {
+        "submission_type": "EOI",
+        "cover_letter": cover_letter,
+        "firm_profile": firm_profile,
+        "relevant_experience": relevant_experience,
+        "key_experts": key_experts,
+    }
+
+
 def generate_proposal(
     analysis: dict,
     matched_team_result: dict,
