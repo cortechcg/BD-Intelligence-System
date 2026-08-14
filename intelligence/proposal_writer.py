@@ -5,9 +5,9 @@ from loguru import logger
 from utils.claude_helpers import get_text
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import get_embedding, supabase
-from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL, CORTECH_PROFILE
+from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL, CORTECH_PROFILE, get_anthropic_client
 
-client = anthropic.Anthropic()
+client = get_anthropic_client()
 
 
 # This is Cortech's exact proposal structure (from the DRC template)

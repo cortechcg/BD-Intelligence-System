@@ -3,9 +3,9 @@ import anthropic
 import json
 from loguru import logger
 from database.airtable_client import get_rate_card
-from config import CLAUDE_MODEL
+from config import CLAUDE_MODEL, get_anthropic_client
 
-client = anthropic.Anthropic()
+client = get_anthropic_client()
 
 
 def calculate_budget(

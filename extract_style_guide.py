@@ -18,11 +18,11 @@ import anthropic
 from docx import Document
 from loguru import logger
 
-from config import CLAUDE_MODEL_PROPOSAL
+from config import CLAUDE_MODEL_PROPOSAL, get_anthropic_client
 from intelligence.proposal_writer import PROPOSAL_STRUCTURE
 from utils.claude_helpers import get_text
 
-client = anthropic.Anthropic()
+client = get_anthropic_client()
 
 
 def extract_structure(docx_path: Path) -> dict:

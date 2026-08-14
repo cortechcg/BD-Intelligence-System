@@ -5,12 +5,12 @@ import json
 import anthropic
 from loguru import logger
 
-from config import CLAUDE_MODEL
+from config import CLAUDE_MODEL, get_anthropic_client
 from database.airtable_client import get_table
 from database.supabase_client import get_embedding, supabase
 from utils.claude_helpers import get_text
 
-anthropic_client = anthropic.Anthropic()
+anthropic_client = get_anthropic_client()
 
 
 def process_win_loss_outcomes() -> None:

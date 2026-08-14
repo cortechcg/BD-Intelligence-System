@@ -1,15 +1,14 @@
 # database/supabase_client.py
 import os
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_SERVICE_KEY
+from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL, get_anthropic_client
 from loguru import logger
-import anthropic
 import httpx
 import json
 from typing import Optional
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-claude = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+claude = get_anthropic_client()
 
 
 def get_embedding(text: str) -> list[float]:
@@ -49,7 +48,7 @@ def get_embedding(text: str) -> list[float]:
 def summarize_for_embedding(text: str) -> str:
     """Summarize long text before embedding. Reuses the module-level client."""
     response = claude.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model=CLAUDE_MODEL,
         max_tokens=500,
         messages=[{
             "role": "user",

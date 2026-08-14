@@ -4,12 +4,11 @@ from datetime import datetime
 from loguru import logger
 from database.supabase_client import check_opportunity_exists, store_opportunity
 from database.airtable_client import create_opportunity, log_agent_action
-from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL
-import anthropic
+from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL, get_anthropic_client
 import json
 from utils.claude_helpers import get_text
 
-client = anthropic.Anthropic()
+client = get_anthropic_client()
 # ── FILTER CONSTANTS ──────────────────────────────────────────────────────────
 
 # ONLY reject titles that are unambiguously staff vacancies.

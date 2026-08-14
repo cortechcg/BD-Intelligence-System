@@ -43,6 +43,7 @@ if missing:
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
 import anthropic
+from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client
 import pdfplumber
 from docx import Document as DocxDocument
 from pyairtable import Api
@@ -59,7 +60,7 @@ from rich import print as rprint
 from loguru import logger
 
 # ── SETUP ─────────────────────────────────────────────────────────────────────
-load_dotenv()
+load_dotenv(override=True)
 console = Console()
 
 # Remove default loguru handler, add clean one
@@ -134,11 +135,11 @@ def get_airtable_clients():
 
 def get_claude_client():
     """Initialize Anthropic Claude client."""
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
+    try:
+        return get_anthropic_client()
+    except ValueError:
         console.print("[red]❌ Missing ANTHROPIC_API_KEY in .env[/red]")
         sys.exit(1)
-    return anthropic.Anthropic(api_key=api_key)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -319,7 +320,7 @@ CV DOCUMENT (filename: {file_name}):
 
     try:
         response = claude.messages.create(
-            model="claude-haiku-4-5-20251001",  # Fast + cheap for extraction
+            model=CLAUDE_MODEL,  # Fast + cheap for extraction
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -399,7 +400,7 @@ PROPOSAL DOCUMENT (filename: {file_name}):
 
     try:
         response = claude.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=CLAUDE_MODEL,
             max_tokens=1200,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -659,13 +660,25 @@ def validate_environment() -> bool:
     ]
 
     for key in required_keys:
-        val = os.getenv(key)
+        val = os.getenv(key) if key != "ANTHROPIC_API_KEY" else get_anthropic_api_key()
         if not val:
             errors.append(f"Missing: {key}")
+        elif key == "ANTHROPIC_API_KEY" and not val.startswith("sk-ant-"):
+            errors.append(
+                f"{key} should start with sk-ant- (check for a pasted OpenAI or wrong key)"
+            )
         elif len(val) < 10:
             errors.append(f"Looks invalid: {key}")
         else:
             console.print(f"  ✅ {key}: {'*' * 8}{val[-4:]}")
+
+    # Warn if shell env would have overridden .env before override=True fix
+    raw_env = os.environ.get("ANTHROPIC_API_KEY")
+    cleaned = get_anthropic_api_key()
+    if raw_env and cleaned and raw_env.strip() != cleaned:
+        warnings.append(
+            "ANTHROPIC_API_KEY in the shell differed from .env — config now uses .env (override=True)"
+        )
 
     for key in optional_keys:
         val = os.getenv(key)
@@ -705,13 +718,22 @@ def validate_environment() -> bool:
     try:
         claude = get_claude_client()
         response = claude.messages.create(
-            model="claude-haiku-4-5-20251001",
+            model=CLAUDE_MODEL,
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}]
         )
         console.print("  ✅ Anthropic API: OK")
     except Exception as e:
-        errors.append(f"Anthropic API failed: {e}")
+        err = str(e)
+        if "401" in err or "authentication_error" in err:
+            errors.append(
+                "Anthropic API rejected the key (401 invalid). "
+                "Create a fresh key at console.anthropic.com → API Keys, "
+                "paste it in .env as ANTHROPIC_API_KEY=sk-ant-... (no quotes), "
+                "then open a new terminal and run again."
+            )
+        else:
+            errors.append(f"Anthropic API failed: {e}")
         console.print(f"  ❌ Anthropic API failed: {e}")
 
     # Show results
