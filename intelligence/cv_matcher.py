@@ -4,10 +4,12 @@ import json
 from loguru import logger
 from database.supabase_client import search_consultants
 from database.airtable_client import get_consultant_by_id, log_agent_action
-from config import CLAUDE_MODEL, CORTECH_PROFILE
+from config import CLAUDE_MODEL, get_anthropic_client
+
+client = get_anthropic_client()
 from utils.claude_helpers import get_text
 
-client = anthropic.Anthropic()
+client = get_anthropic_client()
 
 # Human prerequisite — CONSULTANTS table must include and maintain:
 #   current_projects, available_from, availability_percentage, booked_until

@@ -12,10 +12,10 @@ from loguru import logger
 
 import anthropic
 
-from config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE
+from config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE, get_anthropic_client
 from database.airtable_client import log_agent_action
 
-client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+client = get_anthropic_client()
 
 
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────

@@ -2,10 +2,32 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
+# silently beat an updated .env after the user rotates keys.
+load_dotenv(override=True)
+
+
+def get_anthropic_api_key() -> str | None:
+    """Return a cleaned Anthropic API key from the environment."""
+    raw = os.getenv("ANTHROPIC_API_KEY") or ""
+    key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
+    return key or None
+
+
+def get_anthropic_client():
+    """Shared Anthropic client — always uses the sanitized key from .env."""
+    import anthropic
+
+    api_key = get_anthropic_api_key()
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY is not set. Add it to .env and restart the terminal."
+        )
+    return anthropic.Anthropic(api_key=api_key)
+
 
 # ── API KEYS ──────────────────────────────────────────────────
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+ANTHROPIC_API_KEY = get_anthropic_api_key()
 AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
