@@ -1,46 +1,69 @@
-# Cortech Consulting Group: Technical Proposal Structure & Style Guide
+# Cortech Consulting Group — Structure & Style Guide for Full Technical Proposals
 
-*Synthesized from 56 real submitted proposals*
+*Synthesized from 56 real submitted proposals. This is descriptive, not prescriptive — it tells you what Cortech actually does, including its inconsistencies, so you can make an informed choice rather than guess.*
 
-## 1. The Core Pattern That Actually Recurs
+---
 
-Despite significant variation, there is a recognizable "Cortech house pattern" that appears — sometimes in full, sometimes partially — across a majority of documents, especially the evaluation/survey-type consultancies (ZIZI Afrique, GREDO, IOM, IOM 18 Nov, Concern Worldwide, CARE, SCI, Technical Proposal 3, 5, 14, 15, ACEF, KRCS2). The recurring skeleton is:
+## 1. The Core Skeleton (the closest thing to a "standard" Cortech proposal)
 
-1. **COVER LETTER** (almost always first, standalone Heading 1)
-2. **RELATED PREVIOUS ASSIGNMENTS** (very common second section — ZIZI Afrique, GREDO, IOM, IOM 18 Nov, ACEF, Technical Proposal 3, 4, 6, IGAD)
-3. **UNDERSTANDING THE TERMS OF REFERENCE** (or "Background," "Introduction and Understanding of the Assignment") — usually broken into Heading 2 sub-items:
+A clear, dominant pattern appears across a large cluster of evaluation/survey proposals — most cleanly in **ZIZI Afrique, GREDO, IOM (both copies), Concern Worldwide, HI Kenya, Technical Proposal 3, and Technical Proposal to WHH 2**. When in doubt, build a new proposal on this skeleton:
+
+1. **COVER LETTER**
+2. **RELATED PREVIOUS ASSIGNMENTS**
+3. **UNDERSTANDING THE TERMS OF REFERENCE** (often lettered "A." or numbered "1.")
    - Project/Program Approach and Goal
    - Rationale for the Assignment
-   - Our Understanding/Interpretation of the Assignment
+   - Our Interpretation/Understanding of the Assignment
    - Purpose
    - Objectives
    - Scope of Work
    - Outputs and Deliverables
-4. **PROPOSED APPROACH AND METHODOLOGY** — nearly always phased:
-   - Inception/Planning Phase
-   - Desk Review Phase (sometimes)
+4. **PROPOSED APPROACH AND METHODOLOGY** ("B." or "3./4.")
+   - Study/Survey/Evaluation Design
+   - Planning and Inception Phase
    - Field Data Collection Phase
-   - Analysis/Report Writing Phase
-   - Validation/Dissemination Phase (sometimes)
-5. **RISK MANAGEMENT AND MITIGATION PLAN** (very consistent as a standalone Heading 1, though placement varies — see below)
-6. **WORKPLAN AND TIMELINES** — often paired with or followed by a **GANTT CHART** as a *separate* Heading 1 (ZIZI Afrique, SCI, Concern Worldwide)
-7. **PROPOSED CORE PERSONNEL FOR THE ASSIGNMENT** (or "Core Experts," "Team Composition," "Personnel and Staffing")
-8. **ANNEXES** (final section, almost universal — often subdivided into ANNEX I: Resumes/CVs and ANNEX II: Registration Information in the more recent/polished proposals — CARE, KENHA, Technical Proposal 5, 13, 14, 15, Cortech to Kituo, Cortech to GIZ)
+   - Analysis and Report Writing Phase (sometimes split into Analysis + Reporting)
+5. **RISK MANAGEMENT AND MITIGATION PLAN** (own section, or folded in as last methodology subsection — see variation below)
+6. **WORKPLAN AND TIMELINES** (occasionally followed by a separate **GANTT CHART** heading — ZIZI Afrique, Concern Worldwide, Technical Proposal SCI)
+7. **PROPOSED CORE PERSONNEL FOR THE ASSIGNMENT**
+8. **ANNEXES**
 
-**Takeaway:** If drafting a new proposal with no other guidance, follow this backbone. It is the modal structure, not a mandatory one.
+This order — ToR understanding → methodology (inception/design → fieldwork → analysis) → risk → workplan → personnel → annexes — is the most consistent narrative logic across the corpus, regardless of exact heading wording.
 
 ---
 
-## 2. Documented Variations — Described Honestly
+## 2. Where an "Organisational Profile" Front-Matter Block Is Added
 
-### A. Section labeling style varies by document "family"
-Three distinct labeling conventions coexist in the corpus:
-- **Lettered sections**: A., B., C., D., E., F., G. (ZIZI Afrique, RACIDA, WHH, DRC, Technical Proposal 1) — often paired with an "A. Consultant's Organisation" opener containing "A.1 About Cortech Consulting Group" and "A.2 Our Experience" (RACIDA, WHH, DRC, Technical Proposal 1 all use this exact sub-heading wording).
-- **Numbered sections**: 1., 2., 3.… (GREDO, Technical Proposal 3, Technical Proposal 6, TECHNICAL PROPOSAL 2)
-- **"SECTION X:" prefix**: used specifically in ToR-driven government/institutional bids (Technical Proposal 7 — "SECTION 1: UNDERSTANDING THE TERMS OF REFERENCE" etc.; Technical Proposal IGAD — "SECTION A:", "SECTION E:"; Technical Proposal 31 Jan 2026 — "SECTION 2:" through "SECTION 9:")
-- **Untitled/no numbering**: A meaningful subset has NO numbering at all in Heading 1 (Technical Proposal 5, CARE, KENHA, Technical Proposal 13, 14, 15, Cortech to Kituo, Cortech to GIZ) — headings are plain caps text like "ORGANISATIONAL PROFILE," "TECHNICAL APPROACH AND METHODOLOGY," "PROPOSED WORKPLAN." This appears to be the newer/current default style for polished bids.
+A second recurring pattern inserts a firm-credentials block **before** the ToR discussion. Seen in **Technical Proposal 11, CARE, KENHA, Technical Proposal 5/14/15, Cortech_9_April, Kituo Cha Sheria**:
 
-**Guidance:** Match the numbering convention to what the client's ToR itself uses (evident in Technical Proposal 3, 31 Jan 2026, and the CEF-RFP-01/Form-based ones, which mirror donor-supplied form numbering like "Form TECH-1," "FORM TECH-1"). When there's no ToR-imposed format, default to the unnumbered ALL-CAPS Heading 1 style seen in the most recent/detailed documents (CARE, Technical Proposal 5/13/14/15, Cortech to Kituo, Cortech to GIZ).
+- COVER LETTER
+- (LIST OF ABBREVIATIONS / EXECUTIVE SUMMARY — sometimes, e.g. Kituo Cha Sheria)
+- ORGANISATIONAL PROFILE
+  - Our Expertise (near-universal sub-heading whenever Organisational Profile appears)
+  - Relevant Project Experience (KENHA)
+- INTRODUCTION AND UNDERSTANDING OF THE ASSIGNMENT / UNDERSTANDING OF THE ASSIGNMENT
+- TECHNICAL APPROACH AND METHODOLOGY
+- RISK ANALYSIS AND MITIGATION
+- PROPOSED WORKPLAN
+- PROPOSED CORE EXPERTS FOR THE ASSIGNMENT
+- ANNEX I: RESUME OF KEY EXPERTS / ANNEX II: REGISTRATION INFORMATION
 
-### B. "Organisational Profile" is inconsistent in placement and presence
-- Present early, right after Cover Letter (CARE, Technical Proposal 5
+Note the **two-part annex convention** in this cluster (Technical Proposal 5, 14, 15, KENHA, CARE, Kituo Cha Sheria) — CVs and registration/statutory documents are split into separate labeled annexes rather than one generic "ANNEXES" heading. This is different from the ZIZI/GREDO cluster, which uses a single "ANNEXES" heading.
+
+---
+
+## 3. Where a "Consultant's Organisation" Front Block Is Used Instead
+
+A distinct third pattern — seen in **TECHNICAL PROPOSAL 1, RACIDA, WHH, DRC, Technical Proposal 2** (all evaluation proposals for INGO/NGO clients) — opens differently:
+
+- A. Consultant's Organisation
+  - A.1 About Cortech Consulting Group
+  - A.2 Our Experience
+- 1. Introduction
+  - 1.1 Contextual Background
+  - 1.2 Project Background / Purpose
+- 2. Organizational Context (background on the *client*, e.g. "2.1 About Qatar Red Crescent Society", "2.1 About WHH", "2.1 About Danish Refugee Council (DRC)")
+- 3. Our Understanding of the Terms of Reference (Purpose/Goals/Objectives/Target Audience/Deliverables/Interpretation/Consultant Responsibilities as sub-numbered items)
+- 4. Proposed Approach and Methodology (Evaluation Design, Framework, Sources of Data, Data Collection Tools, Analysis, Quality Assurance as sub-items)
+- 5. Evaluation Timeline and Work Plan / Proposed Team Composition
+- 6–9
