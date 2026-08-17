@@ -803,3 +803,10 @@ def send_report(new_opportunities: list[dict] = None) -> None:
     # Send email via Resend HTTP API (Railway blocks SMTP)
     if _send_email(subject, html_content):
         logger.success("BD report email sent!")
+    else:
+        logger.error(
+            "Pipeline summary report email failed via both Gmail and Resend — "
+            "check GMAIL_ADDRESS/GMAIL_APP_PASSWORD and RESEND_API_KEY/EMAIL_SENDER "
+            "are actually set in Railway's environment (not just present in "
+            ".env.example), not just locally."
+        )
