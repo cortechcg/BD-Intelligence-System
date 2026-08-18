@@ -138,9 +138,8 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     # ── CONSULTANCY CONTRACT GATE ──────────────────────────────────────────
     # Claude has read the full document. If it is definitively a staff
-    # vacancy, stop here — save it as NO-BID for audit trail and return.
-    # Default is TRUE — fail open, not closed. Never miss a real opportunity
-    # because of a missing field.
+    # vacancy, stop here — do not write to Airtable at all. Staff vacancies
+    # are noise, not opportunities. Default is TRUE — fail open, not closed.
     is_consultancy = bid_analysis.get("is_consultancy_contract", True)
 
     if not is_consultancy and not force:
@@ -152,22 +151,6 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             f"  [red]⛔ Staff vacancy — stopping pipeline[/red]\n"
             f"  [dim]{rationale[:100]}[/dim]"
         )
-        # Save to Airtable as NO-BID for audit trail and dedup
-        try:
-            create_opportunity({
-                "title":              opportunity.get("title") or title,
-                "client":             opportunity.get("client", ""),
-                "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
-                "source_url":         source_url,
-                "relevance_score":    0,
-                "bid_recommendation": "NO-BID",
-                "key_gaps": (
-                    "Staff vacancy — not a firm-level consultancy contract"
-                ),
-                "status": "No-bid",
-            })
-        except Exception:
-            pass  # Audit save failure must not crash the pipeline
         return None
     elif not is_consultancy and force:
         logger.warning(
@@ -242,9 +225,10 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     if airtable_record_id is None:
         console.print(
-            "  [red]Could not save to Airtable — skipping[/red]"
+            "  [yellow]⚠ Could not save to Airtable (rate-limited or down) — "
+            "continuing anyway. No CRM record will exist for this run, but "
+            "the draft will still be generated and emailed.[/yellow]"
         )
-        return None
 
     # ── STEP 5: CV MATCHING ────────────────────────────────────────────────
     logger.info("  Step 3: Matching team from CV database...")
@@ -270,9 +254,10 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
                 m.pop("_sort_role"): m for m in reordered
             }
         try:
-            update_opportunity(airtable_record_id, {
-                "matched_team": str(matched_team_result),
-            })
+            if airtable_record_id:
+                update_opportunity(airtable_record_id, {
+                    "matched_team": str(matched_team_result),
+                })
         except Exception as e:
             logger.warning(f"  Airtable matched_team update failed: {e}")
 
@@ -329,10 +314,11 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     # ── STEP 9: UPDATE AIRTABLE STATUS ────────────────────────────────────
     try:
-        update_opportunity(airtable_record_id, {
-            "compliance_matrix": compliance_matrix,
-            "status":            "Reviewing",
-        })
+        if airtable_record_id:
+            update_opportunity(airtable_record_id, {
+                "compliance_matrix": compliance_matrix,
+                "status":            "Reviewing",
+            })
     except Exception as e:
         logger.warning(f"  Airtable status update failed (non-fatal): {e}")
 
@@ -384,10 +370,12 @@ def submit_single_url(url: str) -> None:
 
     if check_opportunity_exists(url):
         console.print(
-            "[yellow]Already processed — check Airtable or Supabase "
-            "for the existing record rather than reprocessing.[/yellow]"
+            "[yellow]Note: this URL was already processed before. "
+            "Proceeding anyway since you submitted it directly — if the "
+            "earlier attempt failed partway through, this run will still "
+            "produce a fresh result. Check Airtable/Supabase afterward if "
+            "you want to compare against the earlier record.[/yellow]"
         )
-        return
 
     raw_opportunity = {
         "title": "",                    # analyze_rfp() extracts the real title from the document
