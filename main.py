@@ -5,7 +5,8 @@ CORTECH BD INTELLIGENCE AGENT — MAIN ORCHESTRATOR
 
 Entry points:
   python main.py --once        → single run (used by crontab + manual testing)
-  python main.py --submit-url  → process one URL on demand (manual submission)
+  python main.py --submit-url  → process one URL on demand (web page, PDF, or
+                                 a Google Drive folder with multiple annexes)
   python main.py               → continuous scheduler every CHECK_INTERVAL_HOURS
 
 Pipeline (runs for EVERY opportunity passing the RSS filter):
