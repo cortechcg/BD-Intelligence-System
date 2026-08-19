@@ -46,7 +46,7 @@ import anthropic
 from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client
 import pdfplumber
 from docx import Document as DocxDocument
-from pyairtable import Api
+from pyairtable import Api, retry_strategy
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -121,7 +121,12 @@ def get_airtable_clients():
         console.print("[red]❌ Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
         sys.exit(1)
 
-    api  = Api(api_key)
+    retry = retry_strategy(
+        status_forcelist=(429, 500, 502, 503, 504),
+        backoff_factor=5,
+        total=8,
+    )
+    api  = Api(api_key, retry_strategy=retry)
     base = api.base(base_id)
 
     return {
@@ -628,7 +633,7 @@ def populate_rate_cards(tables: dict) -> int:
             rate["last_updated"] = datetime.now().strftime("%Y-%m-%d")
             tables["rate_cards"].create(rate)
             added += 1
-            time.sleep(0.1)  # Airtable rate limit
+            time.sleep(0.25)  # stay under Airtable's ~5 req/s limit
         except Exception as e:
             logger.error(f"Failed to add rate: {e}")
 
@@ -703,16 +708,33 @@ def validate_environment() -> bool:
         warnings.append(f"Proposals folder not found: {PROPOSALS_DIR}")
         console.print(f"  ⚠️  Proposals folder not found: {PROPOSALS_DIR}")
 
-    # Test Airtable connection
+    # Test Airtable connection — 429 is transient, wait and retry
     console.print()
-    try:
-        tables = get_airtable_clients()
-        # Try to read from consultants table
-        tables["consultants"].all(max_records=1)
-        console.print("  ✅ Airtable connection: OK")
-    except Exception as e:
-        errors.append(f"Airtable connection failed: {e}")
-        console.print(f"  ❌ Airtable connection failed: {e}")
+    airtable_ok = False
+    last_airtable_err = None
+    for attempt in range(1, 6):
+        try:
+            tables = get_airtable_clients()
+            tables["consultants"].all(max_records=1)
+            console.print("  ✅ Airtable connection: OK")
+            airtable_ok = True
+            break
+        except Exception as e:
+            last_airtable_err = e
+            err_text = str(e)
+            is_429 = "429" in err_text or "RetryError" in type(e).__name__
+            if not is_429:
+                break
+            wait = min(15 * attempt, 60)
+            console.print(
+                f"  [yellow]⚠ Airtable rate-limited (429) — "
+                f"waiting {wait}s then retrying ({attempt}/5)[/yellow]"
+            )
+            time.sleep(wait)
+
+    if not airtable_ok:
+        errors.append(f"Airtable connection failed: {last_airtable_err}")
+        console.print(f"  ❌ Airtable connection failed: {last_airtable_err}")
 
     # Test Anthropic connection
     try:
