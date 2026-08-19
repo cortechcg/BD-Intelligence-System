@@ -288,11 +288,15 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         project_locations = opportunity.get("project_location", [])
         primary_location  = project_locations[0] if project_locations else "Nairobi"
 
-        budget = calculate_budget(
-            analysis,
-            matched_team_result.get("matched_team", {}),
-            primary_location,
-        )
+        try:
+            budget = calculate_budget(
+                analysis,
+                matched_team_result.get("matched_team", {}),
+                primary_location,
+            )
+        except Exception as e:
+            logger.warning(f"  Budget calculation failed (non-fatal): {e}")
+            budget = {}
 
         if recommendation == "BID":
             logger.info("  Step 5: Generating compliance matrix...")

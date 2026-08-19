@@ -1,0 +1,20 @@
+{
+  "title": "ILO Standard Contract Terms and Conditions",
+  "client": "International Labour Organization (ILO)",
+  "donor": null,
+  "source_portal": "Manual submission",
+  "source_url": "https://www.ilo.org/sites/default/files/wcmsp5/groups/public/@ed_mas/@inter/documents/legaldocument/wcms_768752.pdf",
+  "submission_deadline": null,
+  "estimated_budget_usd": null,
+  "location": [],
+  "thematic_areas": [],
+  "relevance_score": 0,
+  "win_probability": 0,
+  "bid_recommendation": "NO-BID",
+  "claude_analysis": "{'opportunity': {'title': 'ILO Standard Contract Terms and Conditions', 'client': 'International Labour Organization (ILO)', 'donor': None, 'reference_number': None, 'submission_deadline': None, 'project_location': [], 'project_duration': None, 'estimated_budget_usd': None, 'currency': None}, 'requirements': {'technical': [], 'thematic_areas': [], 'geographic_experience': [], 'language_requirements': [], 'certifications': [], 'methodology_requirements': []}, 'team_requirements': [], 'deliverables': [], 'evaluation_criteria': [], 'submission_requirements': {'technical_proposal_page_limit': None, 'cvs_required': False, 'past_work_samples_required': 0, 'references_required': 0, 'financial_proposal_required': False}, 'bid_analysis': {'is_consultancy_contract': False, 'submission_type': None, 'cortech_fit_score': 0, 'win_probability': 0, 'bid_recommendation': 'NO-BID', 'effort_required': None, 'key_strengths': [], 'key_gaps': [], 'recommended_external_partners': [], 'rationale': 'This document is a standard terms and conditions template for ILO contracts, not a consultancy contract opportunity, RFP, EOI, or job posting. It is boilerplate contractual language that would be attached to future ILO procurement notices. No opportunity exists to bid on this document itself.', 'priority': 'LOW'}}",
+  "key_strengths": "",
+  "key_gaps": "",
+  "status": "New",
+  "opportunity_id": "21ffe0e4-d2a9-4828-bff6-0a55a04629c2",
+  "discovered_at": "2026-08-19"
+}
