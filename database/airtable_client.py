@@ -37,47 +37,73 @@ def create_opportunity(opportunity_data: dict) -> str | None:
 
 
 def update_opportunity(record_id: str, fields: dict) -> None:
-    """Update opportunity record."""
-    table = get_table("opportunities")
-    table.update(record_id, fields)
+    """Update opportunity record. Never raises — a 429 must not crash the pipeline."""
+    try:
+        table = get_table("opportunities")
+        table.update(record_id, fields)
+    except Exception as e:
+        logger.warning(f"Airtable update failed (non-fatal): {e}")
 
 
 def get_all_consultants() -> list[dict]:
     """Fetch all consultant records from Airtable."""
-    table = get_table("consultants")
-    records = table.all()
-    return [{"id": r["id"], **r["fields"]} for r in records]
+    try:
+        table = get_table("consultants")
+        records = table.all()
+        return [{"id": r["id"], **r["fields"]} for r in records]
+    except Exception as e:
+        logger.warning(f"Could not fetch consultants (non-fatal): {e}")
+        return []
 
 
 def get_consultant_by_id(airtable_id: str) -> Optional[dict]:
-    """Fetch single consultant."""
-    table = get_table("consultants")
-    record = table.get(airtable_id)
-    return record["fields"] if record else None
+    """Fetch single consultant. Returns None on Airtable failure so matching continues."""
+    try:
+        table = get_table("consultants")
+        record = table.get(airtable_id)
+        return record["fields"] if record else None
+    except Exception as e:
+        logger.warning(f"Could not fetch consultant {airtable_id} (non-fatal): {e}")
+        return None
 
 
 def get_rate_card() -> list[dict]:
-    """Get all rate card entries."""
-    table = get_table("rate_cards")
-    records = table.all()
-    return [r["fields"] for r in records]
+    """Get all rate card entries. Empty list on 429 so budget still calculates with defaults."""
+    try:
+        table = get_table("rate_cards")
+        records = table.all()
+        return [r["fields"] for r in records]
+    except Exception as e:
+        logger.warning(
+            f"Could not fetch rate card from Airtable (non-fatal) — "
+            f"budget will use default day rates: {e}"
+        )
+        return []
 
 
 def get_past_proposals(limit: int = 20) -> list[dict]:
     """Get past proposals for style reference."""
-    table = get_table("past_proposals")
-    records = table.all(max_records=limit, sort=["-year"])
-    return [{"id": r["id"], **r["fields"]} for r in records]
+    try:
+        table = get_table("past_proposals")
+        records = table.all(max_records=limit, sort=["-year"])
+        return [{"id": r["id"], **r["fields"]} for r in records]
+    except Exception as e:
+        logger.warning(f"Could not fetch past proposals (non-fatal): {e}")
+        return []
 
 
 def get_winning_proposals(limit: int = 10) -> list[dict]:
     """Get only winning proposals."""
-    table = get_table("past_proposals")
-    records = table.all(
-        formula="won = TRUE()",
-        max_records=limit,
-    )
-    return [r["fields"] for r in records]
+    try:
+        table = get_table("past_proposals")
+        records = table.all(
+            formula="won = TRUE()",
+            max_records=limit,
+        )
+        return [r["fields"] for r in records]
+    except Exception as e:
+        logger.warning(f"Could not fetch winning proposals (non-fatal): {e}")
+        return []
 
 
 def log_agent_action(
