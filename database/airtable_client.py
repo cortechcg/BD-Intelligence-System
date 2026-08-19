@@ -1,5 +1,5 @@
 # database/airtable_client.py
-from pyairtable import Api
+from pyairtable import Api, retry_strategy
 from config import AIRTABLE_API_KEY, AIRTABLE_BASE_ID, TABLES
 from loguru import logger
 import uuid
@@ -7,7 +7,16 @@ from datetime import datetime
 from typing import Optional
 
 
-api = Api(AIRTABLE_API_KEY)
+# Airtable free/workspace limit is ~5 req/s. Default pyairtable retries
+# 429s too quickly and then raise MaxRetryError ("too many 429").
+# Longer backoff + more attempts lets the quota recover instead of crashing.
+AIRTABLE_RETRY = retry_strategy(
+    status_forcelist=(429, 500, 502, 503, 504),
+    backoff_factor=5,  # 5s, 10s, 20s, 40s...
+    total=8,
+)
+
+api = Api(AIRTABLE_API_KEY, retry_strategy=AIRTABLE_RETRY)
 base = api.base(AIRTABLE_BASE_ID)
 
 
