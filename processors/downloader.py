@@ -6,8 +6,8 @@ from docx import Document as DocxDocument
 from io import BytesIO
 from loguru import logger
 from database.supabase_client import store_document
-from urllib.parse import urljoin
 import re
+from urllib.parse import parse_qs, urlparse, urljoin
 
 MIN_USEFUL_CHARS = 200  # matches main.py's own "insufficient text" threshold
 
@@ -172,6 +172,205 @@ def _fetch_rendered_html_sync(url: str) -> str | None:
         return None
 
 
+# ── GOOGLE DRIVE (folder + multi-file annex packs) ───────────────────────────
+
+_GDRIVE_HOSTS = ("drive.google.com", "docs.google.com")
+
+
+def _is_gdrive_url(url: str) -> bool:
+    host = urlparse(url).netloc.lower()
+    return any(h in host for h in _GDRIVE_HOSTS)
+
+
+def _gdrive_id_from_url(url: str) -> tuple[str, str]:
+    """
+    Returns (kind, id) where kind is 'folder' or 'file'.
+    kind='file' covers uploaded PDFs/DOCX and native Google Docs.
+    """
+    parsed = urlparse(url)
+    path = parsed.path or ""
+    query = parse_qs(parsed.query)
+
+    folder_match = re.search(r"/folders/([a-zA-Z0-9_-]+)", path)
+    if folder_match:
+        return "folder", folder_match.group(1)
+
+    file_match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", path)
+    if file_match:
+        return "file", file_match.group(1)
+
+    doc_match = re.search(r"/document/d/([a-zA-Z0-9_-]+)", path)
+    if doc_match:
+        return "file", doc_match.group(1)
+
+    if query.get("id"):
+        file_id = query["id"][0]
+        if "/folders" in path:
+            return "folder", file_id
+        return "file", file_id
+
+    return "file", ""
+
+
+def _extract_from_bytes(content: bytes, filename: str = "") -> tuple[str, str]:
+    """Detect PDF/DOCX/HTML from bytes or filename and extract text."""
+    name = filename.lower()
+    if content[:4] == b"%PDF" or name.endswith(".pdf"):
+        return extract_text_from_pdf(content), "pdf"
+    if content[:2] == b"PK" or name.endswith(".docx"):
+        return extract_text_from_docx(content), "docx"
+    try:
+        return extract_text_from_html(content.decode("utf-8", errors="ignore")), "html"
+    except Exception:
+        return "", "bin"
+
+
+def _gdrive_confirm_url(html: str, file_id: str) -> str | None:
+    """Virus-scan interstitial — follow the confirm= token if present."""
+    match = re.search(
+        rf"href=\"(/uc\?export=download[^\"']*confirm=[^\"']+id={re.escape(file_id)}[^\"']*)\"",
+        html,
+        re.I,
+    )
+    if match:
+        return "https://drive.google.com" + match.group(1).replace("&amp;", "&")
+    match = re.search(r"confirm=([0-9A-Za-z_-]+)", html)
+    if match:
+        return (
+            f"https://drive.google.com/uc?export=download"
+            f"&confirm={match.group(1)}&id={file_id}"
+        )
+    return None
+
+
+def _download_gdrive_file(file_id: str) -> bytes:
+    """Download a publicly-shared Drive file (Anyone with the link)."""
+    download_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t"
+    content = download_document(download_url)
+
+    looks_binary = content[:4] == b"%PDF" or content[:2] == b"PK"
+    if looks_binary:
+        return content
+
+    html = content.decode("utf-8", errors="ignore")
+    if "virus scan" in html.lower() or "confirm=" in html:
+        confirm_url = _gdrive_confirm_url(html, file_id)
+        if confirm_url:
+            content = download_document(confirm_url)
+            if content[:4] == b"%PDF" or content[:2] == b"PK":
+                return content
+
+    # Native Google Doc — export as DOCX
+    export_url = (
+        f"https://docs.google.com/document/d/{file_id}/export?format=docx"
+    )
+    try:
+        exported = download_document(export_url)
+        if exported[:2] == b"PK":
+            return exported
+    except Exception as e:
+        logger.warning(f"  Google Doc export failed for {file_id[:12]}: {e}")
+
+    return content
+
+
+def _list_gdrive_folder_files(folder_id: str) -> list[tuple[str, str]]:
+    """
+    List files in a public Drive folder via the embed view.
+    Returns [(file_id, filename), ...] sorted so Annex I/II/III stay in order.
+    """
+    embed_url = f"https://drive.google.com/embeddedfolderview?id={folder_id}"
+    html = ""
+    try:
+        html = download_document(embed_url).decode("utf-8", errors="ignore")
+    except Exception as e:
+        logger.warning(f"  Drive folder embed fetch failed: {e}")
+
+    if len(html) < 200:
+        rendered = _fetch_rendered_html_sync(
+            f"https://drive.google.com/drive/folders/{folder_id}"
+        )
+        html = rendered or html
+
+    files: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    for match in re.finditer(
+        r"https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)/[^\"'\s]*\"[^>]*>([^<]+)",
+        html,
+    ):
+        file_id, name = match.group(1), match.group(2).strip()
+        if file_id not in seen and name:
+            seen.add(file_id)
+            files.append((file_id, name))
+
+    if not files:
+        for match in re.finditer(
+            r"/file/d/([a-zA-Z0-9_-]+)",
+            html,
+        ):
+            file_id = match.group(1)
+            if file_id not in seen:
+                seen.add(file_id)
+                files.append((file_id, f"file_{file_id[:8]}"))
+
+    files.sort(key=lambda item: item[1].lower())
+    return files
+
+
+def fetch_gdrive_and_extract(url: str) -> str:
+    """
+    Download every file in a public Google Drive folder (or a single file)
+    and concatenate extracted text. Each file is labelled so Claude can
+    see Annex I / II / III as separate source documents.
+    """
+    kind, drive_id = _gdrive_id_from_url(url)
+    if not drive_id:
+        logger.error(f"  Could not parse Google Drive id from: {url}")
+        return ""
+
+    items: list[tuple[str, str]] = []
+    if kind == "folder":
+        logger.info(f"  Google Drive folder — listing files...")
+        items = _list_gdrive_folder_files(drive_id)
+        logger.info(f"  Found {len(items)} file(s) in Drive folder")
+    else:
+        items = [(drive_id, "drive_file")]
+
+    if not items:
+        logger.error(
+            "  Drive folder listed 0 files. Share it as "
+            "'Anyone with the link can view' and retry."
+        )
+        return ""
+
+    parts: list[str] = []
+    for file_id, filename in items:
+        logger.info(f"  Downloading Drive file: {filename}")
+        try:
+            content = _download_gdrive_file(file_id)
+        except Exception as e:
+            logger.warning(f"  Failed to download '{filename}': {e}")
+            continue
+        text, file_type = _extract_from_bytes(content, filename)
+        if not text or len(text) < 40:
+            logger.warning(
+                f"  No useful text from '{filename}' ({file_type}, {len(content)} bytes)"
+            )
+            continue
+        logger.success(f"  Extracted {len(text):,} chars from {filename}")
+        parts.append(
+            f"\n\n===== SOURCE FILE: {filename} =====\n\n{text.strip()}\n"
+        )
+
+    combined = "".join(parts).strip()
+    if combined:
+        logger.success(
+            f"  Combined {len(parts)} Drive file(s) into {len(combined):,} chars"
+        )
+    return combined
+
+
 def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     """
     Main function: fetch URL, detect type, extract text.
@@ -180,6 +379,14 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     from the extraction result so a Supabase hiccup can never discard a
     successful extraction.
     """
+    if _is_gdrive_url(url):
+        text = fetch_gdrive_and_extract(url)
+        if text:
+            logger.success(f"Extracted {len(text)} chars from gdrive: {url[:60]}...")
+        else:
+            logger.warning(f"No text extracted for {url[:60]}...")
+        return text
+
     text = ""
     file_type = "html"
     content = b""

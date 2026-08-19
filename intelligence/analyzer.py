@@ -118,7 +118,7 @@ def analyze_rfp(
     logger.info(f"  Analyzing: {title[:60]}...")
 
     # Truncate if too long — keep within safe token budget
-    max_chars = 80000  # ~20k tokens at average compression
+    max_chars = 120000  # ~30k tokens — enough for a ToR plus 2–3 annexes
     if len(tor_text) > max_chars:
         # Keep beginning and end — both contain critical information
         half = max_chars // 2
@@ -185,6 +185,13 @@ SCHEMA — return a JSON object matching this exactly:
 {ANALYSIS_SCHEMA}
 
 DOCUMENT TO ANALYZE:
+The text may contain multiple source files concatenated (e.g. Annex I, II, III
+from a Google Drive folder), each marked with ===== SOURCE FILE: <name> =====.
+Read ALL of them. Evaluation criteria, scoring metrics, required proposal
+sections, and submission instructions often live in an annex rather than the
+cover ToR — extract evaluation_criteria from wherever they actually appear
+and treat the combined pack as one assignment.
+
 {tor_text}"""
 
     tokens_used = 0
