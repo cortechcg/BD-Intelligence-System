@@ -15,8 +15,6 @@ import anthropic
 from config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE, get_anthropic_client
 from database.airtable_client import log_agent_action
 
-client = get_anthropic_client()
-
 
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
 # Claude must return a JSON object matching this structure exactly.
@@ -197,7 +195,7 @@ and treat the combined pack as one assignment.
     tokens_used = 0
 
     try:
-        response = client.messages.create(
+        response = get_anthropic_client().messages.create(
             model=CLAUDE_MODEL,
             max_tokens=CLAUDE_MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}]
@@ -274,6 +272,23 @@ and treat the combined pack as one assignment.
         logger.error("  Anthropic rate limit hit — waiting 60s")
         import time
         time.sleep(60)
+        return {}
+
+    except anthropic.AuthenticationError:
+        suffix = "????"
+        try:
+            from config import get_anthropic_api_key as _key
+            k = _key() or ""
+            if len(k) >= 4:
+                suffix = k[-4:]
+        except Exception:
+            pass
+        logger.error(
+            f"  Anthropic rejected API key ending ...{suffix} (401 invalid). "
+            "Create a new key at https://console.anthropic.com/settings/keys "
+            "(API Console, not claude.ai), paste it in .env as "
+            "ANTHROPIC_API_KEY=sk-ant-api03-... with no quotes, save, and rerun."
+        )
         return {}
 
     except Exception as e:
@@ -360,7 +375,7 @@ End with:
 Maximum 600 words. Be specific — reference actual Cortech experience."""
 
     try:
-        response = client.messages.create(
+        response = get_anthropic_client().messages.create(
             model=CLAUDE_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
