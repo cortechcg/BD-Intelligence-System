@@ -37,7 +37,7 @@ for pkg in REQUIRED:
         missing.append(pkg if pkg != "dotenv" else "python-dotenv")
 
 if missing:
-    print(f"\n❌ Missing packages: {', '.join(missing)}")
+    print(f"\nMissing packages: {', '.join(missing)}")
     print(f"   Run: pip install {' '.join(missing)}\n")
     sys.exit(1)
 
@@ -118,7 +118,7 @@ def get_airtable_clients():
     base_id  = os.getenv("AIRTABLE_BASE_ID")
 
     if not api_key or not base_id:
-        console.print("[red]❌ Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
+        console.print("[red]Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
         sys.exit(1)
 
     retry = retry_strategy(
@@ -143,7 +143,7 @@ def get_claude_client():
     try:
         return get_anthropic_client()
     except ValueError:
-        console.print("[red]❌ Missing ANTHROPIC_API_KEY in .env[/red]")
+        console.print("[red]Missing ANTHROPIC_API_KEY in .env[/red]")
         sys.exit(1)
 
 
@@ -649,7 +649,7 @@ def validate_environment() -> bool:
     errors = []
     warnings = []
 
-    console.print("\n[bold]🔍 Validating environment...[/bold]\n")
+    console.print("\n[bold]Validating environment...[/bold]\n")
 
     # Check .env keys
     required_keys = [
@@ -675,7 +675,7 @@ def validate_environment() -> bool:
         elif len(val) < 10:
             errors.append(f"Looks invalid: {key}")
         else:
-            console.print(f"  ✅ {key}: {'*' * 8}{val[-4:]}")
+            console.print(f"  {key}: {'*' * 8}{val[-4:]}")
 
     # Warn if shell env would have overridden .env before override=True fix
     raw_env = os.environ.get("ANTHROPIC_API_KEY")
@@ -690,23 +690,23 @@ def validate_environment() -> bool:
         if not val:
             warnings.append(f"Optional missing: {key}")
         else:
-            console.print(f"  ✅ {key}: {'*' * 8}{val[-4:]}")
+            console.print(f"  {key}: {'*' * 8}{val[-4:]}")
 
     # Check folders exist
     console.print()
     if CVS_DIR.exists():
         cv_count = len(get_files_in_folder(CVS_DIR))
-        console.print(f"  ✅ CVs folder exists: {cv_count} files found")
+        console.print(f"  CVs folder exists: {cv_count} files found")
     else:
         warnings.append(f"CVs folder not found: {CVS_DIR}")
-        console.print(f"  ⚠️  CVs folder not found: {CVS_DIR}")
+        console.print(f"  CVs folder not found: {CVS_DIR}")
 
     if PROPOSALS_DIR.exists():
         prop_count = len(get_files_in_folder(PROPOSALS_DIR))
-        console.print(f"  ✅ Proposals folder exists: {prop_count} files found")
+        console.print(f"  Proposals folder exists: {prop_count} files found")
     else:
         warnings.append(f"Proposals folder not found: {PROPOSALS_DIR}")
-        console.print(f"  ⚠️  Proposals folder not found: {PROPOSALS_DIR}")
+        console.print(f"  Proposals folder not found: {PROPOSALS_DIR}")
 
     # Test Airtable connection — 429 is transient, wait and retry
     console.print()
@@ -716,7 +716,7 @@ def validate_environment() -> bool:
         try:
             tables = get_airtable_clients()
             tables["consultants"].all(max_records=1)
-            console.print("  ✅ Airtable connection: OK")
+            console.print("  Airtable connection: OK")
             airtable_ok = True
             break
         except Exception as e:
@@ -727,14 +727,14 @@ def validate_environment() -> bool:
                 break
             wait = min(15 * attempt, 60)
             console.print(
-                f"  [yellow]⚠ Airtable rate-limited (429) — "
+                f"  [yellow]Airtable rate-limited (429) — "
                 f"waiting {wait}s then retrying ({attempt}/5)[/yellow]"
             )
             time.sleep(wait)
 
     if not airtable_ok:
         errors.append(f"Airtable connection failed: {last_airtable_err}")
-        console.print(f"  ❌ Airtable connection failed: {last_airtable_err}")
+        console.print(f"  Airtable connection failed: {last_airtable_err}")
 
     # Test Anthropic connection
     try:
@@ -744,7 +744,7 @@ def validate_environment() -> bool:
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}]
         )
-        console.print("  ✅ Anthropic API: OK")
+        console.print("  Anthropic API: OK")
     except Exception as e:
         err = str(e)
         if "401" in err or "authentication_error" in err:
@@ -756,22 +756,22 @@ def validate_environment() -> bool:
             )
         else:
             errors.append(f"Anthropic API failed: {e}")
-        console.print(f"  ❌ Anthropic API failed: {e}")
+        console.print(f"  Anthropic API failed: {e}")
 
     # Show results
     console.print()
     if warnings:
         for w in warnings:
-            console.print(f"  [yellow]⚠️  {w}[/yellow]")
+            console.print(f"  [yellow]{w}[/yellow]")
 
     if errors:
         console.print()
         for err in errors:
-            console.print(f"  [red]❌ {err}[/red]")
+            console.print(f"  [red]{err}[/red]")
         console.print()
         return False
 
-    console.print("  [green bold]✅ All checks passed![/green bold]")
+    console.print("  [green bold]All checks passed![/green bold]")
     return True
 
 
@@ -794,7 +794,7 @@ def check_for_duplicates(tables: dict, name: str, table_key: str, field: str) ->
 def show_cv_preview(cv_info: dict, file_name: str) -> None:
     """Show a preview of extracted CV information before saving."""
 
-    table = Table(title=f"📄 CV Extracted: {file_name}", show_header=True)
+    table = Table(title=f"CV Extracted: {file_name}", show_header=True)
     table.add_column("Field", style="bold cyan", width=25)
     table.add_column("Extracted Value", style="white")
 
@@ -816,7 +816,7 @@ def show_cv_preview(cv_info: dict, file_name: str) -> None:
 def show_proposal_preview(proposal_info: dict, file_name: str) -> None:
     """Show a preview of extracted proposal information before saving."""
 
-    table = Table(title=f"📋 Proposal Extracted: {file_name}", show_header=True)
+    table = Table(title=f"Proposal Extracted: {file_name}", show_header=True)
     table.add_column("Field", style="bold cyan", width=25)
     table.add_column("Extracted Value", style="white")
 
@@ -824,7 +824,7 @@ def show_proposal_preview(proposal_info: dict, file_name: str) -> None:
     table.add_row("Client", proposal_info.get("client", "—"))
     table.add_row("Donor", proposal_info.get("donor", "—"))
     table.add_row("Year", str(proposal_info.get("year", "—")))
-    table.add_row("Won?", "✅ YES" if proposal_info.get("won") else "❌ No")
+    table.add_row("Won?", "YES" if proposal_info.get("won") else "No")
     table.add_row("Value (USD)", f"${proposal_info.get('contract_value_usd', 0):,}")
     table.add_row("Thematic Areas", ", ".join(proposal_info.get("thematic_areas", [])))
     table.add_row("Location", ", ".join(proposal_info.get("location", [])))
@@ -873,11 +873,11 @@ def run_cv_population(
     cv_files = [f for f in cv_files if "PUT_CV" not in f.name.upper()]
 
     if not cv_files:
-        console.print(f"[yellow]⚠️  No CV files found in {CVS_DIR}[/yellow]")
+        console.print(f"[yellow]No CV files found in {CVS_DIR}[/yellow]")
         console.print(f"   Add PDF or DOCX files to: [cyan]{CVS_DIR.absolute()}[/cyan]\n")
         return {"added": 0, "skipped": 0, "errors": 0}
 
-    console.print(f"\n[bold blue]📂 Found {len(cv_files)} CV file(s)[/bold blue]")
+    console.print(f"\n[bold blue]Found {len(cv_files)} CV file(s)[/bold blue]")
 
     results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
 
@@ -890,7 +890,7 @@ def run_cv_population(
                 raw_text = read_file(cv_file)
 
             if not raw_text or len(raw_text) < 100:
-                console.print(f"  [yellow]⚠️  Could not extract text. Skipping.[/yellow]")
+                console.print(f"  [yellow]Could not extract text. Skipping.[/yellow]")
                 results["skipped"] += 1
                 continue
 
@@ -916,7 +916,7 @@ def run_cv_population(
                 time.sleep(0.3)  # Airtable rate limit
 
             if record_id:
-                console.print(f"  [green]✅ Added: {cv_info.get('full_name', cv_file.name)}[/green]")
+                console.print(f"  [green]Added: {cv_info.get('full_name', cv_file.name)}[/green]")
                 results["added"] += 1
                 results["records"].append({
                     "name": cv_info.get("full_name"),
@@ -924,11 +924,11 @@ def run_cv_population(
                     "file": cv_file.name
                 })
             else:
-                console.print(f"  [red]❌ Failed to save to Airtable[/red]")
+                console.print(f"  [red]Failed to save to Airtable[/red]")
                 results["errors"] += 1
 
         except Exception as e:
-            console.print(f"  [red]❌ Error: {e}[/red]")
+            console.print(f"  [red]Error: {e}[/red]")
             logger.exception(f"CV processing error for {cv_file.name}")
             results["errors"] += 1
 
@@ -946,11 +946,11 @@ def run_proposal_population(
     prop_files = [f for f in prop_files if "PUT_PROPOSAL" not in f.name.upper()]
 
     if not prop_files:
-        console.print(f"[yellow]⚠️  No proposal files found in {PROPOSALS_DIR}[/yellow]")
+        console.print(f"[yellow]No proposal files found in {PROPOSALS_DIR}[/yellow]")
         console.print(f"   Add PDF or DOCX files to: [cyan]{PROPOSALS_DIR.absolute()}[/cyan]\n")
         return {"added": 0, "skipped": 0, "errors": 0}
 
-    console.print(f"\n[bold blue]📂 Found {len(prop_files)} proposal file(s)[/bold blue]")
+    console.print(f"\n[bold blue]Found {len(prop_files)} proposal file(s)[/bold blue]")
 
     results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
 
@@ -962,7 +962,7 @@ def run_proposal_population(
                 raw_text = read_file(prop_file)
 
             if not raw_text or len(raw_text) < 200:
-                console.print(f"  [yellow]⚠️  Could not extract text. Skipping.[/yellow]")
+                console.print(f"  [yellow]Could not extract text. Skipping.[/yellow]")
                 results["skipped"] += 1
                 continue
 
@@ -994,8 +994,8 @@ def run_proposal_population(
 
             if record_id:
                 title = proposal_info.get("project_title", prop_file.name)
-                won_str = "✅ WON" if proposal_info.get("won") else "📋 Not won"
-                console.print(f"  [green]✅ Added: {title[:50]} ({won_str})[/green]")
+                won_str = "WON" if proposal_info.get("won") else "Not won"
+                console.print(f"  [green]Added: {title[:50]} ({won_str})[/green]")
                 results["added"] += 1
                 results["records"].append({
                     "title": title,
@@ -1003,11 +1003,11 @@ def run_proposal_population(
                     "airtable_id": record_id
                 })
             else:
-                console.print(f"  [red]❌ Failed to save to Airtable[/red]")
+                console.print(f"  [red]Failed to save to Airtable[/red]")
                 results["errors"] += 1
 
         except Exception as e:
-            console.print(f"  [red]❌ Error: {e}[/red]")
+            console.print(f"  [red]Error: {e}[/red]")
             logger.exception(f"Proposal processing error for {prop_file.name}")
             results["errors"] += 1
 
@@ -1023,7 +1023,7 @@ def show_final_summary(
 
     console.print()
     console.print(Panel.fit(
-        "[bold green]🎉 Population Complete![/bold green]",
+        "[bold green]Population Complete![/bold green]",
         border_style="green"
     ))
 
@@ -1050,7 +1050,7 @@ def show_final_summary(
     console.print(table)
 
     console.print()
-    console.print("[bold]📋 Next Steps:[/bold]")
+    console.print("[bold]Next Steps:[/bold]")
     console.print("  1. Open Airtable and review the records")
     console.print("  2. Fix any incorrect extractions manually")
     console.print("  3. Run the CV embedder to enable semantic search:")
@@ -1067,7 +1067,7 @@ def show_final_summary(
 
 def main():
     console.print(Panel.fit(
-        "[bold blue]🤖 Cortech Airtable Auto-Population Script[/bold blue]\n"
+        "[bold blue]Cortech Airtable Auto-Population Script[/bold blue]\n"
         "[dim]Reads your files and fills Airtable automatically[/dim]",
         border_style="blue"
     ))
@@ -1111,24 +1111,24 @@ def main():
 
     # 5. Run selected populations
     if choice in ("3", "4"):
-        console.print("\n[bold blue]💰 Populating Rate Cards...[/bold blue]")
+        console.print("\n[bold blue]Populating Rate Cards...[/bold blue]")
 
         # Check if rate cards already exist
         existing = tables["rate_cards"].all(max_records=1)
         if existing:
             if Confirm.ask("Rate cards already exist. Overwrite?", default=False):
                 rate_cards_added = populate_rate_cards(tables)
-                console.print(f"  [green]✅ Added {rate_cards_added} rate card entries[/green]")
+                console.print(f"  [green]Added {rate_cards_added} rate card entries[/green]")
         else:
             rate_cards_added = populate_rate_cards(tables)
-            console.print(f"  [green]✅ Added {rate_cards_added} rate card entries[/green]")
+            console.print(f"  [green]Added {rate_cards_added} rate card entries[/green]")
 
     if choice in ("1", "4"):
-        console.print("\n[bold blue]👥 Processing CVs...[/bold blue]")
+        console.print("\n[bold blue]Processing CVs...[/bold blue]")
         cv_results = run_cv_population(tables, claude, interactive)
 
     if choice in ("2", "4"):
-        console.print("\n[bold blue]📋 Processing Past Proposals...[/bold blue]")
+        console.print("\n[bold blue]Processing Past Proposals...[/bold blue]")
         prop_results = run_proposal_population(tables, claude, interactive)
 
     # 6. Final summary

@@ -365,7 +365,7 @@ CORTECH PROFILE:
 Format the matrix as:
 CRITERION | WEIGHT | STATUS | CORTECH EVIDENCE | ESTIMATED SCORE
 
-Use: ✅ STRONG | ⚠️ PARTIAL | ❌ GAP for status column.
+Use: STRONG | PARTIAL | GAP for status column.
 
 End with:
 - ESTIMATED TOTAL SCORE: X/100

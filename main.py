@@ -149,7 +149,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             "Staff vacancy — not a firm-level consultancy contract",
         )
         console.print(
-            f"  [red]⛔ Staff vacancy — stopping pipeline[/red]\n"
+            f"  [red]Staff vacancy — stopping pipeline[/red]\n"
             f"  [dim]{rationale[:100]}[/dim]"
         )
         return None
@@ -160,7 +160,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         )
     else:
         console.print(
-            "  [green]✅ Confirmed consultancy contract — running full pipeline[/green]"
+            "  [green]Confirmed consultancy contract — running full pipeline[/green]"
         )
 
     # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
@@ -170,7 +170,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             "Low fit — not recommended for bid",
         )
         console.print(
-            f"  [yellow]⛔ NO-BID recommendation — stopping before CV/proposal[/yellow]\n"
+            f"  [yellow]NO-BID recommendation — stopping before CV/proposal[/yellow]\n"
             f"  [dim]{rationale[:100]}[/dim]"
         )
         try:
@@ -226,7 +226,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     if airtable_record_id is None:
         console.print(
-            "  [yellow]⚠ Could not save to Airtable (rate-limited or down) — "
+            "  [yellow]Could not save to Airtable (rate-limited or down) — "
             "continuing anyway. No CRM record will exist for this run, but "
             "the draft will still be generated and emailed.[/yellow]"
         )
@@ -272,7 +272,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     if submission_type == "EOI":
         logger.info("  Submission type: EOI — lightweight path")
         console.print(
-            "  [cyan]📄 EOI submission — skipping budget & compliance[/cyan]"
+            "  [cyan]EOI submission — skipping budget & compliance[/cyan]"
         )
         logger.info("  Step 4: Skipping budget (EOI stage)")
         logger.info("  Step 5: Skipping compliance matrix (EOI stage)")
@@ -329,15 +329,15 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     if submission_type == "EOI":
         console.print(
-            "  [bold green]✅ Expression of Interest draft complete — ready for review[/bold green]"
+            "  [bold green]Expression of Interest draft complete — ready for review[/bold green]"
         )
     elif recommendation == "BID":
         console.print(
-            "  [bold green]✅ Proposal draft complete — ready for team review[/bold green]"
+            "  [bold green]Proposal draft complete — ready for team review[/bold green]"
         )
     else:
         console.print(
-            "  [bold yellow]🔍 WATCH quick-flag sent — not a full draft[/bold yellow]"
+            "  [bold yellow]WATCH quick-flag sent — not a full draft[/bold yellow]"
         )
 
     return {
@@ -448,7 +448,7 @@ def run_pipeline() -> None:
     and sends a summary report at the end of each run.
     """
     console.print(Panel.fit(
-        f"[bold blue]🤖 Cortech BD Agent Running[/bold blue]\n"
+        f"[bold blue]Cortech BD Agent Running[/bold blue]\n"
         f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
         border_style="blue",
     ))
@@ -603,7 +603,7 @@ def run_pipeline() -> None:
     # ── RUN SUMMARY ────────────────────────────────────────────────────────
     n = len(processed_opportunities)
     console.print(Panel.fit(
-        f"[bold green]✅ Pipeline Complete[/bold green]\n"
+        f"[bold green]Pipeline Complete[/bold green]\n"
         f"Discovered:       {total} opportunities\n"
         f"Proposals drafted: {n}\n"
         f"Emails sent:      {n} individual + 1 summary",
@@ -708,7 +708,7 @@ def start_scheduler() -> None:
     from config import CHECK_INTERVAL_HOURS
 
     console.print(Panel.fit(
-        f"[bold blue]🤖 Cortech BD Intelligence Agent[/bold blue]\n"
+        f"[bold blue]Cortech BD Intelligence Agent[/bold blue]\n"
         f"[dim]Running every {CHECK_INTERVAL_HOURS} hours[/dim]",
         border_style="blue",
     ))
