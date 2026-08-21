@@ -4,11 +4,14 @@ from dotenv import load_dotenv
 
 # override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
 # silently beat an updated .env after the user rotates keys.
-load_dotenv(override=True)
+# interpolate=False — $ in API keys must not be treated as variable expansion.
+_ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(_ENV_PATH, override=True, interpolate=False)
 
 
 def get_anthropic_api_key() -> str | None:
     """Return a cleaned Anthropic API key from the environment."""
+    load_dotenv(_ENV_PATH, override=True, interpolate=False)
     raw = os.getenv("ANTHROPIC_API_KEY") or ""
     key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
     return key or None

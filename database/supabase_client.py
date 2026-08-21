@@ -145,12 +145,15 @@ def find_similar_opportunity(
 
 
 def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
-    """Store new opportunity in cache."""
-    result = supabase.table("opportunities_cache").insert({
-        "source_url": source_url,
-        "title": title,
-        "raw_text": raw_text,
-    }).execute()
+    """Store opportunity text in cache. Upsert on source_url so re-submits don't 23505."""
+    result = supabase.table("opportunities_cache").upsert(
+        {
+            "source_url": source_url,
+            "title": title,
+            "raw_text": raw_text,
+        },
+        on_conflict="source_url",
+    ).execute()
     return result.data[0]["id"]
 
 
