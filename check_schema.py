@@ -57,8 +57,8 @@ for table_name, expected_fields in EXPECTED.items():
     missing = [f for f in expected_fields if f not in actual_fields]
 
     if not missing:
-        print(f"  ✅ All {len(expected_fields)} expected fields exist correctly")
+        print(f"  All {len(expected_fields)} expected fields exist correctly")
     else:
-        print(f"  ❌ MISSING or MISNAMED ({len(missing)}):")
+        print(f"  MISSING or MISNAMED ({len(missing)}):")
         for f in missing:
             print(f"     - {f}")

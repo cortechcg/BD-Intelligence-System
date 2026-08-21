@@ -310,17 +310,17 @@ def embed_proposal(
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
-    console.print("\n[bold blue]🧠 Cortech CV Embedder[/bold blue]")
+    console.print("\n[bold blue]Cortech CV Embedder[/bold blue]")
     console.print("[dim]Loading consultant CVs into Supabase vector store[/dim]\n")
 
     # Check OpenAI key
     use_openai = bool(os.getenv("OPENAI_API_KEY"))
 
     if use_openai:
-        console.print("  ✅ OpenAI API key found — using vector embeddings")
+        console.print("  OpenAI API key found — using vector embeddings")
     else:
         console.print(
-            "  ❌ OPENAI_API_KEY is required — CV matching depends on "
+            "  OPENAI_API_KEY is required — CV matching depends on "
             "1536-dimension vector embeddings"
         )
         sys.exit(1)
@@ -328,7 +328,7 @@ def main():
     # Check Supabase
     if not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_SERVICE_KEY"):
         console.print(
-            "\n[yellow]⚠️  Supabase not configured.[/yellow]\n"
+            "\n[yellow]Supabase not configured.[/yellow]\n"
             "   Add SUPABASE_URL and SUPABASE_SERVICE_KEY to .env\n"
             "   Without Supabase, CV matching will not work.\n"
         )
@@ -337,7 +337,7 @@ def main():
     try:
         consultant_table, proposal_table, supabase = get_clients()
     except Exception as e:
-        console.print(f"[red]❌ Connection failed: {e}[/red]")
+        console.print(f"[red]Connection failed: {e}[/red]")
         sys.exit(1)
 
     # ── EMBED CVS ──────────────────────────────────────────────────────────────
@@ -390,10 +390,10 @@ def main():
     )
 
     if cv_counts["failed"] or prop_counts["failed"]:
-        console.print("\n[bold red]❌ Embedding finished with failures.[/bold red]")
+        console.print("\n[bold red]Embedding finished with failures.[/bold red]")
         sys.exit(1)
 
-    console.print("\n[bold green]✅ Embedding complete![/bold green]")
+    console.print("\n[bold green]Embedding complete![/bold green]")
     console.print("\n[bold]Next step:[/bold]")
     console.print("  Run: [cyan]python main.py --once[/cyan]")
 

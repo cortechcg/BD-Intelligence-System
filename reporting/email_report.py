@@ -152,17 +152,17 @@ def get_urgency_level(deadline_str: str) -> dict:
         return {"level": "unknown", "days": None, "color": "#666666", "prefix": ""}
 
     if days_left <= 0:
-        return {"level": "EXPIRED", "days": days_left, "color": "#dc3545", "prefix": "🔴 DEADLINE PASSED"}
+        return {"level": "EXPIRED", "days": days_left, "color": "#dc3545", "prefix": "DEADLINE PASSED"}
     elif days_left <= 1:
-        return {"level": "CRITICAL", "days": days_left, "color": "#dc3545", "prefix": "🚨 24 HOURS REMAINING"}
+        return {"level": "CRITICAL", "days": days_left, "color": "#dc3545", "prefix": "24 HOURS REMAINING"}
     elif days_left <= 3:
-        return {"level": "URGENT", "days": days_left, "color": "#e85d04", "prefix": f"🔥 {days_left} DAYS LEFT"}
+        return {"level": "URGENT", "days": days_left, "color": "#e85d04", "prefix": f"{days_left} DAYS LEFT"}
     elif days_left <= 7:
-        return {"level": "HIGH", "days": days_left, "color": "#f0a500", "prefix": f"⚠️ {days_left} DAYS LEFT"}
+        return {"level": "HIGH", "days": days_left, "color": "#f0a500", "prefix": f"{days_left} DAYS LEFT"}
     elif days_left <= 14:
-        return {"level": "NORMAL", "days": days_left, "color": "#2e86c1", "prefix": f"📋 {days_left} days left"}
+        return {"level": "NORMAL", "days": days_left, "color": "#2e86c1", "prefix": f"{days_left} days left"}
     else:
-        return {"level": "LOW", "days": days_left, "color": "#28a745", "prefix": f"✅ {days_left} days left"}
+        return {"level": "LOW", "days": days_left, "color": "#28a745", "prefix": f"{days_left} days left"}
 
 
 def send_deadline_alert_email(urgent: list[dict]) -> None:
@@ -192,7 +192,7 @@ def send_deadline_alert_email(urgent: list[dict]) -> None:
     <head><meta charset="utf-8"></head>
     <body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;color:#333">
     <div style="background:#1F3864;color:white;padding:20px;border-radius:8px 8px 0 0">
-        <h1 style="margin:0;font-size:22px">⏰ Deadline Escalation Alert</h1>
+        <h1 style="margin:0;font-size:22px">Deadline Escalation Alert</h1>
         <p style="margin:8px 0 0;opacity:0.85">{datetime.now().strftime('%A, %d %B %Y at %H:%M')}</p>
     </div>
     <div style="padding:20px">
@@ -215,7 +215,7 @@ def send_deadline_alert_email(urgent: list[dict]) -> None:
     </html>
     """
 
-    subject = f"⏰ DEADLINE ALERT: {len(sorted_opps)} opportunit{'y' if len(sorted_opps) == 1 else 'ies'} need action"
+    subject = f"DEADLINE ALERT: {len(sorted_opps)} opportunit{'y' if len(sorted_opps) == 1 else 'ies'} need action"
     if _send_email(subject, html):
         logger.success(f"Deadline alert email sent ({len(sorted_opps)} items)")
     else:
@@ -328,7 +328,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
 
     <!-- HEADER -->
     <div style="background:#1F3864;color:white;padding:20px;border-radius:8px 8px 0 0">
-        <h1 style="margin:0;font-size:22px">🤖 Cortech BD Intelligence Report</h1>
+        <h1 style="margin:0;font-size:22px">Cortech BD Intelligence Report</h1>
         <p style="margin:5px 0 0;font-size:14px;opacity:0.8">
             {datetime.now().strftime('%A, %d %B %Y at %H:%M EAT')}
         </p>
@@ -336,7 +336,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
 
     <!-- PIPELINE STATS -->
     <div style="background:#f8f9fa;padding:20px;border-left:4px solid #1F3864">
-        <h2 style="color:#1F3864;margin-top:0">📊 Pipeline Overview</h2>
+        <h2 style="color:#1F3864;margin-top:0">Pipeline Overview</h2>
         <table style="width:100%;border-collapse:collapse">
             <tr>
                 <td style="text-align:center;padding:15px">
@@ -362,7 +362,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
     {"<!-- URGENT -->" if stats.get('urgent') else ""}
     {f"""
     <div style="background:#fff3cd;padding:20px;border-left:4px solid #dc3545">
-        <h2 style="color:#dc3545;margin-top:0">🚨 URGENT — Deadlines in 72 Hours</h2>
+        <h2 style="color:#dc3545;margin-top:0">URGENT — Deadlines in 72 Hours</h2>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
             <tr style="background:#dc3545;color:white">
                 <th style="padding:8px;text-align:left">Title</th>
@@ -378,7 +378,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
 
     <!-- NEW OPPORTUNITIES -->
     <div style="padding:20px">
-        <h2 style="color:#1F3864">🆕 New Opportunities Discovered</h2>
+        <h2 style="color:#1F3864">New Opportunities Discovered</h2>
         {f"""
         <table style="width:100%;border-collapse:collapse;font-size:13px">
             <tr style="background:#1F3864;color:white">
@@ -391,7 +391,7 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
             {new_opps_html}
         </table>
         <p style="font-size:11px;color:#999;margin-top:10px">
-            🟢 Score ≥70 = Strong Match | 🟡 Score 50-69 = Moderate | 🔴 Score <50 = Weak Match
+            Score ≥70 = Strong Match | Score 50-69 = Moderate | Score <50 = Weak Match
         </p>
         """ if new_opportunities else "<p>No new opportunities discovered in this cycle.</p>"}
     </div>
@@ -474,7 +474,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     for role, match in team_matches.items():
         name  = match.get("consultant_name", "TBD")
         score_pct = match.get("similarity_score", 0)
-        avail = match.get("availability_flag", "❓ Unknown")
+        avail = match.get("availability_flag", "Unknown")
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
         <tr>
@@ -486,11 +486,11 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     # ── STRENGTHS / GAPS ───────────────────────────────────────────────────
     strengths_html = "".join(
-        f"<li style='margin-bottom:4px'>✅ {s}</li>"
+        f"<li style='margin-bottom:4px'>{s}</li>"
         for s in key_strengths[:5]
     )
     gaps_html = "".join(
-        f"<li style='margin-bottom:4px'>⚠️ {g}</li>"
+        f"<li style='margin-bottom:4px'>{g}</li>"
         for g in key_gaps[:5]
     )
 
@@ -561,11 +561,11 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     # ── FULL HTML EMAIL ────────────────────────────────────────────────────
     header_title = (
-        "📋 EXPRESSION OF INTEREST READY FOR REVIEW"
+        "EXPRESSION OF INTEREST READY FOR REVIEW"
         if is_eoi
-        else "🔍 QUICK FLAG — WATCH OPPORTUNITY"
+        else "QUICK FLAG — WATCH OPPORTUNITY"
         if is_lightweight
-        else "📋 PROPOSAL DRAFT READY FOR REVIEW"
+        else "PROPOSAL DRAFT READY FOR REVIEW"
     )
     header_subtitle = (
         "EOI-stage submission — review and submit as Expression of Interest, not a full technical proposal"
@@ -579,19 +579,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
     action_banner = (
         """<div style="background:#e8f4fd;padding:14px 20px;border-left:4px solid #2e86c1">
-        <strong>📄 EOI STAGE:</strong> This document asks for an Expression of Interest only.
+        <strong>EOI STAGE:</strong> This document asks for an Expression of Interest only.
         Review the draft below, confirm team availability, then submit as an EOI —
         not a full technical/financial proposal unless shortlisted.
         </div>"""
         if is_eoi
         else f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
-        <strong>🔍 WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
+        <strong>WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
         (cover letter + executive summary). No full proposal was generated.
         Review the opportunity and decide whether to pursue a full bid.
         </div>"""
         if is_lightweight
         else """<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
-        <strong>⚠️ ACTION REQUIRED:</strong> Review the draft below, make edits,
+        <strong>ACTION REQUIRED:</strong> Review the draft below, make edits,
         confirm team availability, verify the budget, then approve for submission.
         <strong>Nothing has been sent to the client.</strong>
         </div>"""
@@ -601,24 +601,24 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <div style="margin-bottom:24px">
         <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
                    border-bottom:2px solid #1F3864;padding-bottom:6px">
-            📊 Compliance Matrix
+            Compliance Matrix
         </h3>
         <pre style="background:#f8f9fa;padding:14px;border-radius:4px;
                     font-size:12px;overflow-x:auto;white-space:pre-wrap">{compliance}</pre>
     </div>"""
     draft_heading = (
-        "📄 Expression of Interest Draft"
+        "Expression of Interest Draft"
         if is_eoi
-        else "📄 Quick-Flag Preview (Cover Letter + Executive Summary)"
+        else "Quick-Flag Preview (Cover Letter + Executive Summary)"
         if is_lightweight
-        else "📄 Draft Technical Proposal"
+        else "Draft Technical Proposal"
     )
     budget_block = "" if is_eoi else f"""
     <!-- BUDGET TABLE -->
     <div style="margin-bottom:24px">
         <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
                    border-bottom:2px solid #1F3864;padding-bottom:6px">
-            💰 Budget Draft
+            Budget Draft
         </h3>
         <table style="width:50%;border-collapse:collapse;font-size:13px">
             <tr style="background:#1F3864;color:white">
@@ -634,7 +634,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             </tr>
         </table>
         <p style="font-size:12px;color:#666;margin:8px 0 0">
-            ⚠️ Verify against the budget cap before submission.
+            Verify against the budget cap before submission.
             Adjust line items as needed.
         </p>
     </div>
@@ -689,7 +689,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             </tr>
             <tr>
                 <td colspan="2" style="padding:8px 0 4px">
-                    <strong>📎 TOR / Source:</strong>
+                    <strong>TOR / Source:</strong>
                     <a href="{source_url}" style="color:#1F3864">{source_url}</a>
                 </td>
             </tr>
@@ -704,13 +704,13 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <div style="display:flex;gap:20px;margin-bottom:24px">
         <div style="flex:1;background:#d4edda;padding:16px;border-radius:6px">
             <h3 style="color:#155724;margin:0 0 10px;font-size:14px">
-                ✅ Key Strengths
+                Key Strengths
             </h3>
             <ul style="margin:0;padding-left:18px">{strengths_html}</ul>
         </div>
         <div style="flex:1;background:#fff3cd;padding:16px;border-radius:6px">
             <h3 style="color:#856404;margin:0 0 10px;font-size:14px">
-                ⚠️ Gaps to Address
+                Gaps to Address
             </h3>
             <ul style="margin:0;padding-left:18px">{gaps_html}</ul>
         </div>
@@ -720,7 +720,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <div style="margin-bottom:24px">
         <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
                    border-bottom:2px solid #1F3864;padding-bottom:6px">
-            👥 Matched Team
+            Matched Team
         </h3>
         <table style="width:100%;border-collapse:collapse;font-size:13px">
             <tr style="background:#1F3864;color:white">
@@ -763,19 +763,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
     # ── SUBJECT LINE ───────────────────────────────────────────────────────
     if is_lightweight:
         subject = (
-            f"🔍 QUICK FLAG: {title[:50]} | "
+            f"QUICK FLAG: {title[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | WATCH"
         )
     elif is_eoi:
         subject = (
-            f"📋 {doc_label}: {title[:50]} | "
+            f"{doc_label}: {title[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
     else:
         subject = (
-            f"📋 {doc_label}: {title[:50]} | "
+            f"{doc_label}: {title[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
@@ -796,9 +796,9 @@ def send_report(new_opportunities: list[dict] = None) -> None:
     new_count = len(new_opportunities or [])
 
     if urgent_count > 0:
-        subject = f"🚨 BD ALERT: {urgent_count} Urgent Deadline(s) | {new_count} New Opportunities"
+        subject = f"BD ALERT: {urgent_count} Urgent Deadline(s) | {new_count} New Opportunities"
     else:
-        subject = f"📊 Cortech BD Report | {new_count} New Opportunities"
+        subject = f"Cortech BD Report | {new_count} New Opportunities"
 
     # Send email via Resend HTTP API (Railway blocks SMTP)
     if _send_email(subject, html_content):

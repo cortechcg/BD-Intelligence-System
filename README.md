@@ -16,7 +16,7 @@
 - [Automatic Scheduling (systemd)](#automatic-scheduling-systemd)
 - [Data Stores at a Glance](#data-stores-at-a-glance)
 - [Known Issues & Hard-Won Lessons](#known-issues--hard-won-lessons)
-- [🆘 Disaster Recovery — Rebuilding From Zero](#-disaster-recovery--rebuilding-from-zero)
+- [Disaster Recovery — Rebuilding From Zero](#disaster-recovery--rebuilding-from-zero)
 - [Working With This Repo (Cursor Workflow)](#working-with-this-repo-cursor-workflow)
 
 ---
@@ -134,7 +134,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
 | `ALWAYS_FULL_PROPOSAL` | `true` (current default) generates the full 10-section proposal even for WATCH-tier opportunities. Set to `false` to bring back the lightweight cover-letter-only path for uncertain fits. |
 
-**None of these are recoverable from git.** `.env` is deliberately excluded from version control — see [Disaster Recovery](#-disaster-recovery--rebuilding-from-zero).
+**None of these are recoverable from git.** `.env` is deliberately excluded from version control — see [Disaster Recovery](#disaster-recovery--rebuilding-from-zero).
 
 ---
 
@@ -201,7 +201,7 @@ These have each caused real, confirmed production failures. Documented here spec
 
 ---
 
-## 🆘 Disaster Recovery — Rebuilding From Zero
+## Disaster Recovery — Rebuilding From Zero
 
 **Read this before you need it.** This assumes the local folder — this entire directory — has been lost (stolen laptop, disk failure, accidental deletion). It does **not** assume Supabase, Airtable, or the GitHub repo have also been lost; those are separate cloud services and almost certainly still exist. A section for the more extreme "everything is gone" case is at the end.
 

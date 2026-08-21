@@ -23,15 +23,15 @@ def filter_by_availability(matches: list[dict]) -> list[dict]:
         airtable_id = match.get("airtable_consultant_id") or match.get("airtable_id")
         consultant = get_consultant_by_id(airtable_id) if airtable_id else None
         if not consultant:
-            match["availability_flag"] = "❓ Unknown"
+            match["availability_flag"] = "Unknown"
             continue
         pct = consultant.get("availability_percentage", 100)
         match["availability_percent"] = pct
         match["current_project_count"] = consultant.get("current_projects", 0)
         match["availability_flag"] = (
-            "🟢 Available" if pct >= 50 else
-            "🟡 Partially" if pct >= 20 else
-            "🔴 Busy"
+            "Available" if pct >= 50 else
+            "Partially" if pct >= 20 else
+            "Busy"
         )
     return sorted(matches, key=lambda m: m.get("availability_percent", 100), reverse=True)
 
