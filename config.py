@@ -206,3 +206,10 @@ RSS_FEEDS = [
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
 SOON_DEADLINE_DAYS = 7     # Flag as soon if deadline in N days
 CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "6"))  # polling interval for continuous (non --once) mode
+
+# Hard ceiling on how many opportunities one run will draft for. Each one
+# costs up to ~10 Claude calls, so an unbounded run over a big discovery
+# batch takes hours and a lot of credit. Nothing is lost by capping: an
+# opportunity is only written to Supabase once it has been processed, so
+# whatever is deferred here is rediscovered on the next run.
+MAX_OPPORTUNITIES_PER_RUN = int(os.getenv("MAX_OPPORTUNITIES_PER_RUN", "15"))
