@@ -162,7 +162,7 @@ Four timers, each invoking one of the CLI flags above:
 | Timer | Fires | Runs |
 |---|---|---|
 | `cortech-discovery.timer` | Every `CHECK_INTERVAL_HOURS` | `main.py --once` |
-| `cortech-assortis.timer` | Daily, ~01:45 | `main.py --run-assortis` |
+| `cortech-assortis.timer` | Daily, ~11:45 | `main.py --run-assortis` |
 | `cortech-deadline.timer` | Daily, ~08:00 | `main.py --run-deadline-check` |
 | `cortech-winloss.timer` | Daily, ~08:15 | `main.py --run-winloss` |
 
