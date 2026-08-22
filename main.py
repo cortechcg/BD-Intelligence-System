@@ -37,7 +37,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
-from config import CORTECH_PROFILE
+from config import CORTECH_PROFILE, MAX_OPPORTUNITIES_PER_RUN
 from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
@@ -149,7 +149,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     bid_analysis   = analysis.get("bid_analysis", {})
     fit_score      = bid_analysis.get("cortech_fit_score", 0)
     win_prob       = bid_analysis.get("win_probability", 0)
-    recommendation = bid_analysis.get("bid_recommendation", "WATCH")
+    recommendation = bid_analysis.get("bid_recommendation") or "WATCH"
 
     console.print(
         f"  Score: [green]{fit_score}/100[/green] | "
@@ -282,9 +282,12 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             logger.warning(f"  Airtable matched_team update failed: {e}")
 
     # ── STEPS 6–8: BUDGET / COMPLIANCE / DRAFT (branch on submission type) ───
+    # `or`, not a .get() default: Claude returns an explicit null here for
+    # anything it classified as a staff vacancy, and a null key is present,
+    # so the default never fires.
     submission_type = analysis.get("bid_analysis", {}).get(
-        "submission_type", "FULL_PROPOSAL"
-    )
+        "submission_type"
+    ) or "FULL_PROPOSAL"
     budget = {}
     compliance_matrix = ""
 
@@ -549,6 +552,23 @@ def run_pipeline() -> None:
         f"\n[bold]Found {total} new opportunit"
         f"{'y' if total == 1 else 'ies'} after filtering[/bold]"
     )
+
+    # ── CAP THE RUN ────────────────────────────────────────────────────────
+    # Deferred, not dropped: only processed opportunities are written to
+    # Supabase, so the remainder is rediscovered by the next run.
+    if total > MAX_OPPORTUNITIES_PER_RUN:
+        deferred = total - MAX_OPPORTUNITIES_PER_RUN
+        console.print(
+            f"[yellow]Processing the first {MAX_OPPORTUNITIES_PER_RUN} this run — "
+            f"{deferred} deferred to the next run. Raise "
+            f"MAX_OPPORTUNITIES_PER_RUN in .env to widen this.[/yellow]"
+        )
+        logger.warning(
+            f"Run capped at {MAX_OPPORTUNITIES_PER_RUN} of {total} opportunities "
+            f"— {deferred} deferred to the next run"
+        )
+        all_new = all_new[:MAX_OPPORTUNITIES_PER_RUN]
+        total = len(all_new)
 
     # ── SEND STATUS REPORT IF NOTHING FOUND ───────────────────────────────
     if not all_new:
