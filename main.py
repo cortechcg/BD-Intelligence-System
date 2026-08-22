@@ -65,6 +65,13 @@ from reporting.email_report import (
 
 console = Console()
 
+# A fetched ToR/listing page below this is a fetch failure, not a short
+# document — matches MIN_USEFUL_CHARS in processors/downloader.py.
+MIN_FETCHED_CHARS = 200
+# A newsletter blurb is short by nature — matches MIN_BLURB_LENGTH in
+# monitors/assortis_email.py. Only ever applied to the fallback text.
+MIN_BLURB_CHARS = 40
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SINGLE OPPORTUNITY PIPELINE
@@ -85,36 +92,48 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     """
     title      = raw_opportunity.get("title", "Unknown")
     source_url = raw_opportunity.get("source_url", "")
+    # Email-newsletter sources fetch and dedup on different URLs — the
+    # newsletter rewrites its access tokens daily. See monitors/assortis_email.py.
+    dedup_url  = raw_opportunity.get("dedup_url") or source_url
     opp_id     = str(uuid.uuid4())
 
     console.print(f"\n[bold blue]Processing:[/bold blue] {title[:70]}")
 
     # ── STEP 1: FETCH AND EXTRACT DOCUMENT TEXT ────────────────────────────
     logger.info("  Step 1: Fetching document...")
-    if raw_opportunity.get("skip_fetch"):
-        # Email-based sources (e.g. Assortis/ICA newsletter) carry the full
-        # blurb text inline — there is no URL to download.
-        full_text = raw_opportunity.get("raw_text", "")
-        if not full_text or len(full_text) < 40:  # matches MIN_BLURB_LENGTH
-            logger.warning(
-                f"  Insufficient text ({len(full_text)} chars) — skipping"
-            )
-            return None
-    else:
-        full_text = fetch_and_extract(source_url, opportunity_id=opp_id)
-        if not full_text or len(full_text) < 200:
-            logger.warning(
-                f"  Insufficient text ({len(full_text)} chars) — skipping"
-            )
-            return None
+    # Newsletter sources carry a usable summary blurb inline. It is worth
+    # far less than the real listing page, so it is a fallback, not a
+    # replacement — and when the fetch works, both are passed to Claude:
+    # the blurb's metadata line (donor, country, deadline) is often
+    # cleaner than anything on the page itself.
+    fallback_text = raw_opportunity.get("fallback_text", "")
+    full_text = fetch_and_extract(source_url, opportunity_id=opp_id) if source_url else ""
+
+    if len(full_text) >= MIN_FETCHED_CHARS and fallback_text:
+        full_text = (
+            f"===== SOURCE FILE: newsletter listing =====\n\n{fallback_text}\n\n"
+            f"===== SOURCE FILE: {source_url} =====\n\n{full_text}"
+        )
+    elif len(full_text) < MIN_FETCHED_CHARS and len(fallback_text) >= MIN_BLURB_CHARS:
+        logger.warning(
+            f"  Listing page gave only {len(full_text)} chars — falling back to "
+            f"the {len(fallback_text)}-char newsletter blurb"
+        )
+        full_text = fallback_text
+    elif len(full_text) < MIN_FETCHED_CHARS:
+        logger.warning(
+            f"  Insufficient text ({len(full_text)} chars) — skipping"
+        )
+        return None
 
     console.print(
         f"  Extracted [green]{len(full_text):,}[/green] characters"
     )
 
     # ── STEP 2: CACHE IN SUPABASE ──────────────────────────────────────────
+    # Keyed on dedup_url, which is what the monitors check against.
     try:
-        store_opportunity(source_url, title, full_text)
+        store_opportunity(dedup_url, title, full_text)
     except Exception as e:
         logger.warning(f"  Supabase cache write failed (non-fatal): {e}")
 
@@ -519,7 +538,7 @@ def run_pipeline() -> None:
     seen_urls: set[str] = set()
     unique_new: list[dict] = []
     for opp in all_new:
-        url = opp.get("source_url", "")
+        url = opp.get("dedup_url") or opp.get("source_url", "")
         if url and url not in seen_urls:
             seen_urls.add(url)
             unique_new.append(opp)
@@ -628,12 +647,25 @@ def run_assortis_check() -> None:
     """
     Runs independently of run_pipeline() — the newsletter arrives on
     its own schedule, not the general discovery cycle's.
+
+    Emails each drafted proposal exactly like run_pipeline() does. A
+    draft that only lands in Airtable is a draft nobody reads.
     """
     logger.info("Checking Assortis/ICA newsletter...")
     opportunities = check_assortis_newsletter()
+    drafted = 0
     for opp in opportunities:
         try:
-            process_opportunity(opp)
+            result = process_opportunity(opp)
+            if result:
+                drafted += 1
+                try:
+                    send_proposal_email(result)
+                except Exception as email_err:
+                    logger.error(
+                        f"Proposal email failed for "
+                        f"'{result.get('title', 'Unknown')[:50]}': {email_err}"
+                    )
         except Exception as e:
             logger.error(
                 f"Assortis pipeline error for "
@@ -652,7 +684,8 @@ def run_assortis_check() -> None:
             except Exception:
                 pass
     logger.info(
-        f"Assortis check complete — {len(opportunities)} opportunity(ies) processed"
+        f"Assortis check complete — {len(opportunities)} opportunity(ies) found, "
+        f"{drafted} drafted and emailed"
     )
 
 
@@ -722,18 +755,19 @@ def start_scheduler() -> None:
     # Also fire at 07:00 EAT daily so the team has a morning report
     schedule.every().day.at("07:00").do(run_pipeline)
 
-    # Assortis/ICA newsletter arrives ~01:32 — check a few minutes after.
-    # NOTE: `schedule` runs in the server’s local timezone; confirm the
-    # Railway/VPS timezone matches the observed arrival time before locking
-    # this in. Adjust "01:45" as needed.
-    schedule.every().day.at("01:45").do(run_assortis_check)
+    # The ICA Daily Newsletter is sent at 08:32 UTC every day, which is
+    # 11:32 on this machine (Africa/Nairobi, UTC+3) — `schedule` runs in
+    # local time. Checking at 11:45 catches it the same morning. Missing
+    # this window is not fatal: the check re-reads IMAP_LOOKBACK_DAYS of
+    # newsletters, so a skipped or failed run self-heals the next day.
+    schedule.every().day.at("11:45").do(run_assortis_check)
 
     schedule.every().day.at("08:00").do(run_deadline_check)
     schedule.every().day.at("08:15").do(process_win_loss_outcomes)
 
     logger.info(
         f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours, "
-        f"daily at 07:00, Assortis at 01:45, deadline check at 08:00, "
+        f"daily at 07:00, Assortis at 11:45, deadline check at 08:00, "
         f"win/loss learning at 08:15"
     )
 
@@ -755,5 +789,15 @@ if __name__ == "__main__":
         submit_single_url(sys.argv[idx + 1])
     elif "--once" in sys.argv:
         run_pipeline()
+    # The systemd timers (see README) invoke these three individually.
+    # Without them the flags fell through to start_scheduler(), so
+    # `--run-assortis` started an endless polling loop instead of
+    # checking the newsletter once and exiting.
+    elif "--run-assortis" in sys.argv:
+        run_assortis_check()
+    elif "--run-deadline-check" in sys.argv:
+        run_deadline_check()
+    elif "--run-winloss" in sys.argv:
+        process_win_loss_outcomes()
     else:
         start_scheduler()

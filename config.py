@@ -36,6 +36,25 @@ AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
+# ── ASSORTIS / ICA DAILY NEWSLETTER (IMAP) ───────────────────
+# Read here rather than in monitors/assortis_email.py so they cannot be
+# read before load_dotenv() has run — that ordering bug silently turns
+# the whole newsletter source off with only a "not configured" warning.
+IMAP_HOST = os.getenv("IMAP_HOST")
+IMAP_PORT = int(os.getenv("IMAP_PORT", "993"))
+IMAP_USERNAME = os.getenv("IMAP_USERNAME")
+IMAP_PASSWORD = os.getenv("IMAP_PASSWORD")
+IMAP_FOLDER = os.getenv("IMAP_FOLDER", "INBOX")
+# Matched against the sender ADDRESS or display name, case-insensitively —
+# not passed to the IMAP FROM search key. See _sender_matches().
+IMAP_NEWSLETTER_SENDER = os.getenv("IMAP_NEWSLETTER_SENDER", "icaworld.net")
+IMAP_NEWSLETTER_SUBJECT = os.getenv("IMAP_NEWSLETTER_SUBJECT", "ICA Daily Newsletter")
+# How many days of newsletters to re-read each run. The agent does NOT
+# use the \Seen flag (shared human inbox — see monitors/assortis_email.py),
+# so this window is what makes a missed run self-healing. Re-reading is
+# free: Supabase dedup blocks anything already processed.
+IMAP_LOOKBACK_DAYS = int(os.getenv("IMAP_LOOKBACK_DAYS", "3"))
+
 # Optional dead-man's-switch (e.g. a Healthchecks.io check URL). Pipeline
 # pings this on every successful run and pings f"{url}/fail" on a crash.
 # Leave unset to disable — every call site checks for this being empty

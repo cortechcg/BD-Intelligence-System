@@ -145,13 +145,30 @@ def find_similar_opportunity(
 
 
 def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
-    """Store opportunity text in cache. Upsert on source_url so re-submits don't 23505."""
+    """
+    Store opportunity text in cache. Upsert on source_url so re-submits don't 23505.
+
+    Writes the TITLE embedding — not the document's — because that is what
+    find_similar_opportunity() queries with. Without this write the
+    semantic near-duplicate gate silently matches nothing forever: the RPC
+    and the column both exist, they just have no vectors to search. Failure
+    here is non-fatal; the row still lands and exact-URL dedup still works.
+    """
+    row = {
+        "source_url": source_url,
+        "title": title,
+        "raw_text": raw_text,
+    }
+
+    embed_source = (title or "").strip() or (raw_text or "")[:500]
+    if embed_source:
+        try:
+            row["embedding"] = get_embedding(embed_source)
+        except Exception as e:
+            logger.warning(f"Opportunity embedding failed (non-fatal): {e}")
+
     result = supabase.table("opportunities_cache").upsert(
-        {
-            "source_url": source_url,
-            "title": title,
-            "raw_text": raw_text,
-        },
+        row,
         on_conflict="source_url",
     ).execute()
     return result.data[0]["id"]
