@@ -12,7 +12,13 @@ from loguru import logger
 
 import anthropic
 
-from config import CLAUDE_MODEL, CLAUDE_MAX_TOKENS, CORTECH_PROFILE, get_anthropic_client
+from config import (
+    ANTHROPIC_MAX_RETRIES,
+    CLAUDE_MODEL,
+    CLAUDE_MAX_TOKENS,
+    CORTECH_PROFILE,
+    get_anthropic_client,
+)
 from database.airtable_client import log_agent_action
 
 
@@ -266,6 +272,16 @@ and treat the combined pack as one assignment.
             )
         except Exception:
             pass
+        return {}
+
+    except anthropic.APITimeoutError:
+        from config import ANTHROPIC_TIMEOUT_SECONDS
+        logger.error(
+            f"  Analysis timed out after {ANTHROPIC_TIMEOUT_SECONDS:.0f}s "
+            f"(x{ANTHROPIC_MAX_RETRIES + 1} attempts) for '{title[:60]}' — "
+            "skipping. Raise ANTHROPIC_TIMEOUT_SECONDS in .env if this "
+            "recurs on large documents."
+        )
         return {}
 
     except anthropic.RateLimitError:

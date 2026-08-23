@@ -17,8 +17,24 @@ def get_anthropic_api_key() -> str | None:
     return key or None
 
 
+# Hard wall-clock limit on any single Claude call. Without this the SDK
+# default (600s per attempt) applies, so one stalled connection parks the
+# whole pipeline at "Analyzing with Claude..." for up to half an hour with
+# no output — the run looks hung rather than slow. 180s is well above a
+# normal ToR analysis (10-25s) and still fails fast.
+ANTHROPIC_TIMEOUT_SECONDS = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "180"))
+ANTHROPIC_MAX_RETRIES = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
+
+_CLIENT_CACHE: dict[str, object] = {}
+
+
 def get_anthropic_client():
-    """Shared Anthropic client — always uses the sanitized key from .env."""
+    """Shared Anthropic client — always uses the sanitized key from .env.
+
+    Cached per API key so repeated calls reuse one HTTP connection pool
+    instead of opening a new one per opportunity; a rotated key in .env
+    still produces a fresh client because the key is the cache key.
+    """
     import anthropic
 
     api_key = get_anthropic_api_key()
@@ -26,7 +42,15 @@ def get_anthropic_client():
         raise ValueError(
             "ANTHROPIC_API_KEY is not set. Add it to .env and restart the terminal."
         )
-    return anthropic.Anthropic(api_key=api_key)
+    client = _CLIENT_CACHE.get(api_key)
+    if client is None:
+        client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=ANTHROPIC_TIMEOUT_SECONDS,
+            max_retries=ANTHROPIC_MAX_RETRIES,
+        )
+        _CLIENT_CACHE[api_key] = client
+    return client
 
 
 # ── API KEYS ──────────────────────────────────────────────────
