@@ -160,46 +160,14 @@ COMPETITIVE STRENGTHS:
 6. Rapid mobilization capacity
 """
 
+# Monitored sources are deliberately limited to three portals:
+# Assortis (via the ICA newsletter IMAP monitor), Somali Jobs (scraper),
+# and World Bank Procurement (RSS below).
 RSS_FEEDS = [
-    {
-        "name": "ReliefWeb Consultancies",
-        "url": "https://reliefweb.int/jobs/rss.xml?type=consultancy",
-        "filter_keywords": [],  # three-gate filter handles this
-    },
     {
         "name": "World Bank Procurement",
         "url": "https://www.worldbank.org/en/projects-operations/products-and-services/brief/consulting-services-rss",
-        "filter_keywords": [],
-    },
-    {
-        "name": "UNGM Notices",
-        "url": "https://www.ungm.org/Public/Notice/rss",
-        "filter_keywords": [],
-    },
-    {
-        "name": "UNDP Procurement",
-        "url": "https://procurement-notices.undp.org/index.cfm?event=RSS.showRSS",
-        "filter_keywords": [],
-    },
-    {
-        "name": "AfDB Procurement",
-        "url": "https://www.afdb.org/en/rss/procurement",
-        "filter_keywords": [],
-    },
-    {
-        "name": "EU TED Procurement (East Africa)",
-        "url": "https://ted.europa.eu/api/v1/notices/search/rss?q=east+africa+consultancy&fields=title,publicationDate,tenderType",
-        "filter_keywords": [],
-    },
-    {
-        "name": "IOM Procurement",
-        "url": "https://www.iom.int/iom-procurement-rss",
-        "filter_keywords": [],
-    },
-    {
-        "name": "DevelopmentAid Tenders",
-        "url": "https://www.developmentaid.org/rss/tenders",
-        "filter_keywords": [],
+        "filter_keywords": [],  # three-gate filter handles this
     },
 ]
 
