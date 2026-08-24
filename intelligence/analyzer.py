@@ -195,6 +195,10 @@ Read ALL of them. Evaluation criteria, scoring metrics, required proposal
 sections, and submission instructions often live in an annex rather than the
 cover ToR — extract evaluation_criteria from wherever they actually appear
 and treat the combined pack as one assignment.
+Copy every scored criterion and its weight_percent exactly as stated
+(technical approach, methodology, team, experience, financial, etc.).
+If a scoring matrix or marking scheme exists in any annex, extract every
+row. Do not summarise away the weights or collapse distinct criteria.
 
 {tor_text}"""
 
