@@ -42,7 +42,7 @@ from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
-from intelligence.analyzer import analyze_rfp, generate_compliance_matrix
+from intelligence.analyzer import analyze_rfp
 from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
@@ -281,7 +281,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         except Exception as e:
             logger.warning(f"  Airtable matched_team update failed: {e}")
 
-    # ── STEPS 6–8: BUDGET / COMPLIANCE / DRAFT (branch on submission type) ───
+    # ── STEPS 6–7: BUDGET / DRAFT (branch on submission type) ───
     # `or`, not a .get() default: Claude returns an explicit null here for
     # anything it classified as a staff vacancy, and a null key is present,
     # so the default never fires.
@@ -289,16 +289,14 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         "submission_type"
     ) or "FULL_PROPOSAL"
     budget = {}
-    compliance_matrix = ""
 
     if submission_type == "EOI":
         logger.info("  Submission type: EOI — lightweight path")
         console.print(
-            "  [cyan]EOI submission — skipping budget & compliance[/cyan]"
+            "  [cyan]EOI submission — skipping budget[/cyan]"
         )
         logger.info("  Step 4: Skipping budget (EOI stage)")
-        logger.info("  Step 5: Skipping compliance matrix (EOI stage)")
-        logger.info("  Step 6: Writing Expression of Interest...")
+        logger.info("  Step 5: Writing Expression of Interest...")
         proposal_sections = generate_eoi(
             analysis,
             matched_team_result,
@@ -321,21 +319,11 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             logger.warning(f"  Budget calculation failed (non-fatal): {e}")
             budget = {}
 
-        if recommendation == "BID":
-            logger.info("  Step 5: Generating compliance matrix...")
-            compliance_matrix = generate_compliance_matrix(
-                analysis,
-                list(matched_team_result.get("matched_team", {}).values()),
-            )
-        else:
-            logger.info("  Step 5: Skipping compliance matrix (WATCH quick-flag)")
-
-        logger.info("  Step 6: Writing proposal draft...")
+        logger.info("  Step 5: Writing proposal draft...")
         proposal_sections = generate_proposal(
             analysis,
             matched_team_result,
             budget,
-            compliance_matrix,
             opportunity_id=opp_id,
         )
 
@@ -343,8 +331,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     try:
         if airtable_record_id:
             update_opportunity(airtable_record_id, {
-                "compliance_matrix": compliance_matrix,
-                "status":            "Reviewing",
+                "status": "Reviewing",
             })
     except Exception as e:
         logger.warning(f"  Airtable status update failed (non-fatal): {e}")
@@ -375,7 +362,6 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         "matched_team":      matched_team_result,
         "budget":            budget,
         "proposal_sections": proposal_sections,
-        "compliance_matrix": compliance_matrix,
     }
 
 

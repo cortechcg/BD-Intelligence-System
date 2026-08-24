@@ -644,7 +644,6 @@ def generate_proposal(
     analysis: dict,
     matched_team_result: dict,
     budget: dict,
-    compliance_matrix: str,
     opportunity_id: str = None,
 ) -> dict:
     """

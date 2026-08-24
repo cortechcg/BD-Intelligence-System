@@ -429,7 +429,6 @@ def send_proposal_email(opportunity_result: dict) -> None:
     budget      = opportunity_result.get("budget", {})
     analysis    = opportunity_result.get("analysis", {})
     matched     = opportunity_result.get("matched_team", {})
-    compliance  = opportunity_result.get("compliance_matrix", "")
     recommendation = opportunity_result.get("recommendation", "WATCH")
     is_lightweight = proposal.get("lightweight", False)
     submission_type = proposal.get("submission_type", "FULL_PROPOSAL")
@@ -596,16 +595,6 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <strong>Nothing has been sent to the client.</strong>
         </div>"""
     )
-    compliance_block = "" if is_lightweight or is_eoi else f"""
-    <!-- COMPLIANCE MATRIX -->
-    <div style="margin-bottom:24px">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                   border-bottom:2px solid #1F3864;padding-bottom:6px">
-            Compliance Matrix
-        </h3>
-        <pre style="background:#f8f9fa;padding:14px;border-radius:4px;
-                    font-size:12px;overflow-x:auto;white-space:pre-wrap">{compliance}</pre>
-    </div>"""
     draft_heading = (
         "Expression of Interest Draft"
         if is_eoi
@@ -734,8 +723,6 @@ def send_proposal_email(opportunity_result: dict) -> None:
     </div>
 
     {budget_block}
-
-    {compliance_block}
 
     <!-- PROPOSAL DRAFT -->
     <div style="border-top:3px solid #1F3864;padding-top:20px;margin-top:8px">
