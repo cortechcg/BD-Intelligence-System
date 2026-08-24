@@ -3,7 +3,7 @@ import anthropic
 import json
 from loguru import logger
 from database.supabase_client import search_consultants
-from database.airtable_client import get_consultant_by_id, log_agent_action
+from database.airtable_client import get_all_consultants, log_agent_action
 from config import CLAUDE_MODEL, get_anthropic_client
 
 client = get_anthropic_client()
@@ -18,10 +18,14 @@ client = get_anthropic_client()
 
 def filter_by_availability(matches: list[dict]) -> list[dict]:
     """Annotates matches with live availability from Airtable. Never
-    drops a match for missing data — flags it and lets a human decide."""
+    drops a match for missing data — flags it and lets a human decide.
+    One table.all() — not a get() per consultant — so a 429 cannot
+    serialize the pipeline for tens of minutes."""
+    consultants = get_all_consultants()
+    by_id = {c.get("id"): c for c in consultants}
     for match in matches:
         airtable_id = match.get("airtable_consultant_id") or match.get("airtable_id")
-        consultant = get_consultant_by_id(airtable_id) if airtable_id else None
+        consultant = by_id.get(airtable_id) if airtable_id else None
         if not consultant:
             match["availability_flag"] = "Unknown"
             continue
@@ -95,14 +99,16 @@ def match_team_to_requirements(
             }
             logger.warning(f"  {role} → NO MATCH FOUND — External recruitment needed")
 
-    # Log
-    log_agent_action(
-        action_type="Analysis",
-        description=f"CV matching: {len(matched_team)} roles, {len(gaps)} gaps",
-        opportunity_id=opportunity_id,
-        tokens_used=0,  # Semantic search, no Claude tokens
-        status="Success"
-    )
+    try:
+        log_agent_action(
+            action_type="Analysis",
+            description=f"CV matching: {len(matched_team)} roles, {len(gaps)} gaps",
+            opportunity_id=opportunity_id,
+            tokens_used=0,
+            status="Success",
+        )
+    except Exception:
+        pass
 
     return {
         "matched_team": matched_team,

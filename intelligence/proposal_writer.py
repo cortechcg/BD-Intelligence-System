@@ -1,6 +1,7 @@
 # intelligence/proposal_writer.py
 import anthropic
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 from utils.claude_helpers import get_text
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
@@ -299,6 +300,9 @@ def get_donor_intelligence(donor: str, client_name: str) -> str:
     """Pull donor/client preferences from Airtable DONOR_INTELLIGENCE table."""
     if not donor and not client_name:
         return ""
+    from database.airtable_client import _circuit_open, _note_failure
+    if _circuit_open():
+        return ""
     try:
         safe_donor = (donor or "").replace("'", "\\'")
         safe_client = (client_name or "").replace("'", "\\'")
@@ -310,6 +314,8 @@ def get_donor_intelligence(donor: str, client_name: str) -> str:
             )
         )
     except Exception as e:
+        from database.airtable_client import _note_failure
+        _note_failure(e)
         logger.warning(f"Could not fetch donor intelligence (non-fatal): {e}")
         return ""
     if not records:
@@ -390,6 +396,7 @@ def _generate_section(
     or otherwise stops mid-sentence. Unfinished sentences in emailed
     drafts were caused by max_tokens cutoffs with no continuation.
     """
+    logger.info(f"  Writing {section_name}...")
     system = [{
         "type": "text",
         "text": shared_context,
@@ -443,6 +450,25 @@ def _generate_section(
             f"back to the last complete sentence"
         )
     return cleaned
+
+
+def _run_parallel_sections(jobs: dict) -> dict:
+    """Run independent section generators concurrently so wall-clock time
+    is roughly one long section, not ten sequential ones."""
+    sections = {}
+    workers = min(4, max(1, len(jobs)))
+    logger.info(f"  Writing {len(jobs)} sections in parallel (workers={workers})")
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(fn): key for key, fn in jobs.items()}
+        for fut in as_completed(futures):
+            key = futures[fut]
+            try:
+                sections[key] = fut.result()
+                logger.success(f"  [{key}] complete")
+            except Exception as e:
+                logger.error(f"  [{key}] failed: {e}")
+                sections[key] = ""
+    return sections
 
 
 def _repair_weakest_section(
@@ -519,12 +545,13 @@ def generate_eoi(
         if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
     }, indent=2)
 
-    cover_letter = _generate_section(
-        "eoi_cover",
-        CLAUDE_MODEL_PROPOSAL,
-        4096,
-        shared_context,
-        f"""Write a complete Expression of Interest cover letter for Cortech Consulting Group.
+    jobs = {
+        "cover_letter": lambda: _generate_section(
+            "eoi_cover",
+            CLAUDE_MODEL_PROPOSAL,
+            4096,
+            shared_context,
+            f"""Write a complete Expression of Interest cover letter for Cortech Consulting Group.
 
 ASSIGNMENT: {title}
 CLIENT: {client_name}
@@ -539,14 +566,13 @@ Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
 - Sign off: Daud Hussein Ibrahim, Director, Cortech Consulting Group
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
-    )
-
-    firm_profile = _generate_section(
-        "eoi_firm",
-        CLAUDE_MODEL_PROPOSAL,
-        CLAUDE_MAX_TOKENS,
-        shared_context,
-        f"""Write the 'Presentation of Cortech Consulting Group' section for this EOI.
+        ),
+        "firm_profile": lambda: _generate_section(
+            "eoi_firm",
+            CLAUDE_MODEL_PROPOSAL,
+            CLAUDE_MAX_TOKENS,
+            shared_context,
+            f"""Write the 'Presentation of Cortech Consulting Group' section for this EOI.
 
 ASSIGNMENT: {title}
 CLIENT: {client_name}
@@ -557,14 +583,13 @@ Map credentials to the ToR evaluation/shortlisting criteria. Use only
 facts from the CORTECH PROFILE. Complete every paragraph.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
-    )
-
-    relevant_experience = _generate_section(
-        "eoi_experience",
-        CLAUDE_MODEL_PROPOSAL,
-        CLAUDE_MAX_TOKENS,
-        shared_context,
-        f"""Write the 'Relevant Experience of Completed Assignments' section for this EOI.
+        ),
+        "relevant_experience": lambda: _generate_section(
+            "eoi_experience",
+            CLAUDE_MODEL_PROPOSAL,
+            CLAUDE_MAX_TOKENS,
+            shared_context,
+            f"""Write the 'Relevant Experience of Completed Assignments' section for this EOI.
 
 ASSIGNMENT: {title}
 
@@ -575,14 +600,13 @@ Follow the table with 2-3 paragraphs of narrative that explicitly address
 the experience-related evaluation criteria.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
-    )
-
-    key_experts = _generate_section(
-        "eoi_experts",
-        CLAUDE_MODEL_PROPOSAL,
-        4096,
-        shared_context,
-        f"""Write the 'Resources in Staff' section for this EOI.
+        ),
+        "key_experts": lambda: _generate_section(
+            "eoi_experts",
+            CLAUDE_MODEL_PROPOSAL,
+            4096,
+            shared_context,
+            f"""Write the 'Resources in Staff' section for this EOI.
 
 ASSIGNMENT: {title}
 PROPOSED EXPERTS:
@@ -594,15 +618,10 @@ is unfilled, state the recruitment profile in 3-4 complete sentences.
 Close with a short availability and commitment paragraph.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
-    )
-
-    sections = {
-        "submission_type": "EOI",
-        "cover_letter": cover_letter,
-        "firm_profile": firm_profile,
-        "relevant_experience": relevant_experience,
-        "key_experts": key_experts,
+        ),
     }
+    sections = _run_parallel_sections(jobs)
+    sections["submission_type"] = "EOI"
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
     sections = _repair_weakest_section(sections, analysis, shared_context)
 
@@ -679,29 +698,29 @@ def generate_proposal(
         logger.success("WATCH quick-flag generation complete!")
         return sections
 
-    # BID — full 10-section draft
-    sections = {
-        "cover_letter": generate_cover_letter(
+    # BID — full 10-section draft, written concurrently
+    sections = _run_parallel_sections({
+        "cover_letter": lambda: generate_cover_letter(
             title, client_name, deadline, analysis, shared_context,
         ),
-        "executive_summary": generate_executive_summary(
+        "executive_summary": lambda: generate_executive_summary(
             analysis, matched_team_result, budget, shared_context,
         ),
-        "org_profile_and_track_record": generate_org_profile_and_track_record(
+        "org_profile_and_track_record": lambda: generate_org_profile_and_track_record(
             analysis, shared_context,
         ),
-        "introduction_and_framework": generate_introduction_and_framework(
+        "introduction_and_framework": lambda: generate_introduction_and_framework(
             analysis, shared_context,
         ),
-        "methodology": generate_methodology(analysis, shared_context),
-        "analysis_plan": generate_analysis_plan(analysis, shared_context),
-        "qa_and_ethics": generate_qa_and_ethics(analysis, shared_context),
-        "risk_register": generate_risk_register(analysis, shared_context),
-        "team_section": generate_team_section(
+        "methodology": lambda: generate_methodology(analysis, shared_context),
+        "analysis_plan": lambda: generate_analysis_plan(analysis, shared_context),
+        "qa_and_ethics": lambda: generate_qa_and_ethics(analysis, shared_context),
+        "risk_register": lambda: generate_risk_register(analysis, shared_context),
+        "team_section": lambda: generate_team_section(
             matched_team_result, title, shared_context, analysis,
         ),
-        "work_plan": generate_work_plan(analysis, shared_context),
-    }
+        "work_plan": lambda: generate_work_plan(analysis, shared_context),
+    })
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
     sections = _repair_weakest_section(sections, analysis, shared_context)
 
