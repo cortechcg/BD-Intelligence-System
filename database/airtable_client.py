@@ -2,22 +2,50 @@
 from pyairtable import Api, retry_strategy
 from config import AIRTABLE_API_KEY, AIRTABLE_BASE_ID, TABLES
 from loguru import logger
+import time
 import uuid
 from datetime import datetime
 from typing import Optional
 
 
-# Airtable free/workspace limit is ~5 req/s. Default pyairtable retries
-# 429s too quickly and then raise MaxRetryError ("too many 429").
-# Longer backoff + more attempts lets the quota recover instead of crashing.
+# Fail fast. backoff_factor=5 × total=8 slept ~21 minutes PER CALL
+# (5+10+20+40+80+160+320+640s) before the fail-open except ever ran.
+# That hung the pipeline on availability lookup and made it look like
+# proposal writing had stalled. Two short retries, then continue.
 AIRTABLE_RETRY = retry_strategy(
     status_forcelist=(429, 500, 502, 503, 504),
-    backoff_factor=5,  # 5s, 10s, 20s, 40s...
-    total=8,
+    backoff_factor=0.5,
+    total=2,
 )
 
 api = Api(AIRTABLE_API_KEY, retry_strategy=AIRTABLE_RETRY)
 base = api.base(AIRTABLE_BASE_ID)
+
+_circuit_open_until = 0.0
+_CIRCUIT_SECONDS = 90
+
+
+def _circuit_open() -> bool:
+    return time.time() < _circuit_open_until
+
+
+def _trip_circuit() -> None:
+    global _circuit_open_until
+    _circuit_open_until = max(_circuit_open_until, time.time() + _CIRCUIT_SECONDS)
+    logger.warning(
+        f"Airtable rate-limited — skipping further Airtable calls "
+        f"for {_CIRCUIT_SECONDS}s so the draft can proceed"
+    )
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "rate limit" in msg
+
+
+def _note_failure(exc: Exception) -> None:
+    if _is_rate_limited(exc):
+        _trip_circuit()
 
 
 def get_table(table_name: str):
