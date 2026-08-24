@@ -1,9 +1,8 @@
 # intelligence/analyzer.py
 """
 RFP/ToR analysis via Claude.
-Two public functions:
-  analyze_rfp()              → structured JSON from full document text
-  generate_compliance_matrix() → scored matrix against evaluation criteria
+One public function:
+  analyze_rfp() → structured JSON from full document text
 """
 
 import os
@@ -325,83 +324,3 @@ row. Do not summarise away the weights or collapse distinct criteria.
         except Exception:
             pass
         return {}
-
-
-# ── COMPLIANCE MATRIX ─────────────────────────────────────────────────────────
-
-def generate_compliance_matrix(
-    analysis: dict,
-    matched_team: list[dict],
-) -> str:
-    """
-    Generates a compliance matrix mapping evaluation criteria from the
-    ToR against Cortech's matched capabilities and team.
-
-    Returns formatted text suitable for inclusion in proposal emails
-    and Airtable records.
-    """
-    evaluation_criteria = analysis.get("evaluation_criteria", [])
-    bid_analysis        = analysis.get("bid_analysis", {})
-    key_strengths       = bid_analysis.get("key_strengths", [])
-    key_gaps            = bid_analysis.get("key_gaps", [])
-    opportunity         = analysis.get("opportunity", {})
-
-    team_summary = [
-        {
-            "required_role": role,
-            "assigned":      match.get("consultant_name", "TBD"),
-            "match_score":   match.get("similarity_score", 0),
-        }
-        for role, match in
-        {r: m for r, m in
-         [(r, m) for m in matched_team
-          for r in [m.get("role", "Unknown")]
-          if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"]
-        }.items()
-    ] if matched_team else []
-
-    prompt = f"""Generate a compliance matrix for a Cortech Consulting Group
-proposal bid response. Format as a structured text table followed by
-a brief summary.
-
-OPPORTUNITY: {opportunity.get("title", "Unknown")}
-CLIENT: {opportunity.get("client", "Unknown")}
-
-EVALUATION CRITERIA FROM ToR:
-{json.dumps(evaluation_criteria, indent=2)}
-
-CORTECH KEY STRENGTHS FOR THIS BID:
-{json.dumps(key_strengths, indent=2)}
-
-GAPS TO ADDRESS:
-{json.dumps(key_gaps, indent=2)}
-
-MATCHED TEAM:
-{json.dumps(team_summary, indent=2)}
-
-CORTECH PROFILE:
-{CORTECH_PROFILE}
-
-Format the matrix as:
-CRITERION | WEIGHT | STATUS | CORTECH EVIDENCE | ESTIMATED SCORE
-
-Use: STRONG | PARTIAL | GAP for status column.
-
-End with:
-- ESTIMATED TOTAL SCORE: X/100
-- WIN PROBABILITY: X%
-- TOP 3 MITIGATION STRATEGIES for any gaps
-
-Maximum 600 words. Be specific — reference actual Cortech experience."""
-
-    try:
-        response = get_anthropic_client().messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
-
-    except Exception as e:
-        logger.error(f"Compliance matrix generation failed: {e}")
-        return "Compliance matrix generation failed — see analysis JSON for manual assessment."
