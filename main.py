@@ -296,11 +296,14 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             "  [cyan]EOI submission — skipping budget[/cyan]"
         )
         logger.info("  Step 4: Skipping budget (EOI stage)")
-        logger.info("  Step 5: Writing Expression of Interest...")
+        logger.info("  Step 5: Reading the tender documents, then writing the EOI...")
+        # full_text, not just `analysis`: the writer reads the tender pack
+        # itself before drafting — see intelligence/tender_reader.py.
         proposal_sections = generate_eoi(
             analysis,
             matched_team_result,
             opportunity_id=opp_id,
+            tor_text=full_text,
         )
     else:
         logger.info("  Submission type: Full technical proposal")
@@ -319,12 +322,16 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             logger.warning(f"  Budget calculation failed (non-fatal): {e}")
             budget = {}
 
-        logger.info("  Step 5: Writing proposal draft...")
+        logger.info("  Step 5: Reading the tender documents, then drafting...")
+        # The budget is passed for the internal review email only. No amount
+        # from it reaches the drafted proposal — see NO_MONETARY_RULE in
+        # intelligence/proposal_writer.py.
         proposal_sections = generate_proposal(
             analysis,
             matched_team_result,
             budget,
             opportunity_id=opp_id,
+            tor_text=full_text,
         )
 
     # ── STEP 9: UPDATE AIRTABLE STATUS ────────────────────────────────────
