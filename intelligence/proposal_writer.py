@@ -1,9 +1,18 @@
 # intelligence/proposal_writer.py
 import anthropic
+import copy
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from loguru import logger
 from utils.claude_helpers import get_text
+from utils.money_scrub import (
+    contains_monetary_amount,
+    find_monetary_amounts,
+    strip_monetary_amounts,
+)
+from intelligence.tender_reader import build_tor_brief, tender_documents_block
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import get_embedding, supabase
 from config import (
@@ -43,34 +52,37 @@ PROPOSAL SECTIONS (in order):
 """
 
 
+# Contract values are deliberately absent from this list. It feeds the
+# writing context, and a technical proposal must carry no monetary figure —
+# see NO_MONETARY_RULE and utils/money_scrub.py.
 CORTECH_PAST_WORK = """
 RELEVANT PAST ASSIGNMENTS (use as references in proposal):
 1. End-of-Project Evaluation — IGAD Land Governance Programme
-   Client: IGAD / Swedish Embassy | Value: $24,500 | Year: 2026
+   Client: IGAD / Swedish Embassy | Year: 2026
    Description: Comprehensive evaluation of land governance in IGAD region
 
 2. Assessment of Federal MOH Capacity — Somalia
-   Client: World Bank | Value: $149,000 | Year: 2025
+   Client: World Bank | Year: 2025
    Description: Ministry of Health institutional assessment across Somalia
 
 3. Free Movement of Persons Framework — Africa
-   Client: IOM & African Union | Value: $59,500 | Year: 2024
+   Client: IOM & African Union | Year: 2024
    Description: MEL framework development for continental protocol
 
 4. Green Skills Documentation — Baidoa, Somalia
-   Client: GREDO/DANIDA/Save the Children | Value: $6,800 | Year: 2025
+   Client: GREDO/DANIDA/Save the Children | Year: 2025
    Description: Best practices documentation for youth employment project
 
 5. Endline Evaluation — Water & Livelihoods, Somalia
-   Client: Arche Nova | Value: $34,740 | Year: 2025
+   Client: Arche Nova | Year: 2025
    Description: WASH and livelihoods project evaluation
 
 6. Financial Services Mapping — Refugees Kenya
-   Client: DRC Kenya | Value: KES 3.5M | Year: 2025
+   Client: DRC Kenya | Year: 2025
    Description: FSP mapping for refugees in Garissa, Nairobi, Turkana
 
 7. Civil Society Evaluation — Chukua Control, Kenya
-   Client: Welthungerhilfe | Value: KES 4.3M | Year: 2025
+   Client: Welthungerhilfe | Year: 2025
    Description: Endline evaluation of civil society empowerment project
 """
 
@@ -80,6 +92,9 @@ def _build_past_work_context() -> str:
     Pull real winning proposals from Airtable for use as proposal evidence.
     Falls back to the static CORTECH_PAST_WORK list if Airtable returns
     nothing, so proposal generation never blocks on this.
+
+    contract_value_usd is read from Airtable for other purposes but is
+    never surfaced here — the drafted proposal must state no amounts.
     """
     try:
         winners = get_winning_proposals(limit=10)
@@ -95,45 +110,181 @@ def _build_past_work_context() -> str:
         lines.append(
             f"{i}. {w.get('project_title', 'Untitled')}\n"
             f"   Client: {w.get('client', 'N/A')} | "
-            f"Value: ${w.get('contract_value_usd', 0):,} | "
             f"Year: {w.get('year', 'N/A')}\n"
             f"   Description: {w.get('methodology_approach', '')[:200]}"
         )
-    return "\n\n".join(lines)
+    return strip_monetary_amounts("\n\n".join(lines))[0]
+
+
+_STYLE_GUIDE_DIR = Path(__file__).resolve().parent / "style_guides"
 
 
 def _load_style_guide(submission_type: str) -> str:
     label = "eoi" if submission_type == "EOI" else "full_proposal"
-    path = f"intelligence/style_guides/{label}_style.md"
+    path = _STYLE_GUIDE_DIR / f"{label}_style.md"
     try:
-        with open(path) as f:
-            content = f.read().strip()
-            if not content:
-                return ""
-            return f"CORTECH HOUSE STYLE ({label.replace('_', ' ').upper()}):\n{content}"
+        content = path.read_text().strip()
     except FileNotFoundError:
         logger.warning(
-            f"No style guide at {path} — run extract_style_guide.py first. Proceeding without it."
+            f"No style guide at {path} — run extract_style_guide.py first. "
+            "Proceeding without it."
         )
         return ""
+    if not content:
+        return ""
+    return f"CORTECH HOUSE STYLE ({label.replace('_', ' ').upper()}):\n{content}"
 
+
+_EXEMPLAR_MARKER_RE = re.compile(r"<!--\s*section:\s*([a-z_]+)\s*-->")
+_EXEMPLARS_CACHE: dict[str, str] | None = None
+
+# Generator section key → exemplar key in voice_exemplars.md. Several
+# generators write two structural sections at once, so they map onto the
+# closest single corpus section.
+_EXEMPLAR_KEY_FOR = {
+    "cover_letter": "cover_letter",
+    "executive_summary": "executive_summary",
+    "org_profile_and_track_record": "org_profile",
+    "introduction_and_framework": "understanding",
+    "methodology": "methodology",
+    "analysis_plan": "analysis",
+    "qa_and_ethics": "qa_ethics",
+    "risk_register": "risk",
+    "team_section": "team",
+    "work_plan": "work_plan",
+    # EOI generators
+    "eoi_cover": "cover_letter",
+    "eoi_firm": "org_profile",
+    "eoi_experience": "experience",
+    "eoi_experts": "team",
+}
+
+
+def _load_exemplars() -> dict[str, str]:
+    """
+    Parse intelligence/style_guides/voice_exemplars.md into
+    {section_key: real prose from Cortech's submitted proposals}.
+
+    Produced by extract_voice_exemplars.py. Cached per process — the file
+    is static between runs and every section call reads it.
+    """
+    global _EXEMPLARS_CACHE
+    if _EXEMPLARS_CACHE is not None:
+        return _EXEMPLARS_CACHE
+
+    path = _STYLE_GUIDE_DIR / "voice_exemplars.md"
+    try:
+        content = path.read_text()
+    except FileNotFoundError:
+        logger.warning(
+            f"No house-voice exemplars at {path} — run "
+            "`python extract_voice_exemplars.py` so drafts are grounded in "
+            "the real proposals in data/proposals/. Proceeding without them."
+        )
+        _EXEMPLARS_CACHE = {}
+        return _EXEMPLARS_CACHE
+
+    exemplars: dict[str, str] = {}
+    parts = _EXEMPLAR_MARKER_RE.split(content)
+    # parts = [preamble, key, body, key, body, ...]
+    for key, body in zip(parts[1::2], parts[2::2]):
+        body = body.strip()
+        if body:
+            exemplars[key] = body
+    _EXEMPLARS_CACHE = exemplars
+    logger.info(f"Loaded house-voice exemplars for {len(exemplars)} sections")
+    return exemplars
+
+
+def _exemplar_block(section_name: str) -> str:
+    """
+    The matching real-proposal excerpts for this section, framed so the
+    model copies the voice and level of specificity but none of the facts.
+    """
+    key = _EXEMPLAR_KEY_FOR.get(section_name.replace("_repair", ""))
+    if not key:
+        return ""
+    excerpt = _load_exemplars().get(key)
+    if not excerpt:
+        return ""
+    return (
+        "\n\nHOUSE VOICE — REAL EXCERPTS FROM PROPOSALS CORTECH HAS SUBMITTED "
+        "AND WON WORK WITH:\n"
+        f"{excerpt}\n\n"
+        "Match the register, sentence rhythm, paragraph length, and — above all "
+        "— the density of concrete detail in those excerpts. Do NOT reuse their "
+        "facts, client names, project names, countries, or figures: they are "
+        "from other assignments. Write about THIS assignment in THAT voice."
+    )
+
+
+# The single hardest rule in the whole writer. A technical proposal that
+# discloses price is disqualified under most procurement rules, and Cortech
+# submits its financial proposal as a separate envelope. Enforced three
+# ways: stated here, kept out of the context the model can see, and
+# stripped from every generated section by utils/money_scrub.py.
+NO_MONETARY_RULE = """
+ABSOLUTE RULE — NO MONEY IN THIS DOCUMENT:
+- State NO monetary amount anywhere: no budget, total, ceiling, unit rate,
+  daily fee, per-diem, contract value, past-assignment value, cost estimate,
+  contingency amount, or currency figure. Not in prose, not in a table cell,
+  not in a bracket, not "approximately", not as a range.
+- This applies to figures in ANY currency and to amounts written in words.
+- Past assignments are evidenced by client, year, geography, scale of
+  fieldwork, and outcome — never by contract value. If an experience table
+  would normally carry a value column, use duration or scope instead.
+- Never state that the proposal is within budget, competitively priced, or
+  good value for money. Cost-competitiveness is asserted in the financial
+  proposal, which is a separate submission and not your job here.
+- Where cost is unavoidable as a topic, refer to "the financial proposal"
+  with no figure attached.
+- Efficiency and value are demonstrated through method, sequencing, team
+  seniority mix, and reuse of existing data — never through price.
+"""
 
 COMPLETENESS_RULES = """
 MANDATORY WRITING STANDARDS:
 - This is a client-facing, submission-ready document. Write complete sections only.
 - Never stop mid-sentence, mid-bullet, mid-table row, or mid-heading.
 - If you open a heading, write the full body under it before moving on.
-- Align every claim with the ToR EVALUATION CRITERIA. Weighted criteria get proportionally more depth.
-- Be specific: geographies, sample sizes, tools, dates, named past assignments, named experts.
-- Do not invent evaluation criteria. Use those extracted from the ToR.
+- You have the full tender documents in your context. Ground every claim in
+  what they actually say, using the client's own terminology, named locations,
+  named target groups, and named deliverables. A section that could be sent to
+  a different client unchanged has failed.
+- Align every claim with the ToR EVALUATION CRITERIA. Weighted criteria get
+  proportionally more depth.
+- Be specific: geographies, sample sizes, tools, dates, named past assignments,
+  named experts.
+- Do not invent evaluation criteria or requirements. Use what the tender states.
+- Where the tender prescribes a structure, heading, or page limit, follow it
+  exactly — the prescribed structure always beats Cortech's house structure.
 - Professional development-consulting tone. No hollow phrases ("we are excited",
   "we believe", "our team is passionate", "this proposal aims", "we are pleased").
+"""
+
+WINNING_STANDARD = """
+WHAT MAKES THIS PROPOSAL WIN:
+This is scored against competitors who will also write a competent generic
+response. The margin comes from four things, in this order:
+1. Demonstrated comprehension — the client recognises their own assignment,
+   context, constraints, and vocabulary in your text, including details that
+   only appear in an annex.
+2. Method that is decidable — a reader can tell exactly what will be done,
+   by whom, in what sequence, with which tool, producing which output, and
+   how quality is assured at each step. No method described only in the
+   abstract.
+3. Evidence over assertion — every capability claim is attached to a named
+   past assignment, a named expert, a named tool, or a stated procedure.
+4. Explicit scoring alignment — each scored criterion is addressed head-on,
+   in proportion to its weight.
 """
 
 QUALITY_SUFFIX = (
     "\n\nFinish the entire section. Never end mid-sentence, mid-list, or mid-table. "
     "Explicitly satisfy the ToR evaluation criteria from your system context with "
-    "specific, evidence-based claims — not generic consulting language."
+    "specific, evidence-based claims — not generic consulting language. "
+    "Ground the content in the tender documents in your system context and use the "
+    "client's own terms. State no monetary amount of any kind."
 )
 
 
@@ -255,25 +406,120 @@ _CONTINUE_INSTRUCTION = (
 )
 
 
-def _build_shared_context(
+# Keys whose values are monetary and must never enter the writing context.
+# Matched on whole snake_case tokens, not substrings — a substring match on
+# "fee" would also drop a "feedback" key.
+_MONETARY_KEY_TOKENS = {
+    "budget", "budgets", "cost", "costs", "costing", "price", "pricing",
+    "fee", "fees", "rate", "rates", "amount", "amounts", "currency",
+    "usd", "kes", "eur", "gbp", "value", "values", "expenditure",
+    "remuneration", "salary", "salaries", "perdiem", "honorarium", "ceiling",
+}
+_KEY_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _is_monetary_key(key: str) -> bool:
+    tokens = set(_KEY_TOKEN_RE.split(str(key).lower()))
+    return bool(tokens & _MONETARY_KEY_TOKENS)
+
+
+def _strip_monetary_keys(node):
+    """
+    Recursively drop monetary keys and scrub monetary figures out of the
+    strings that remain. The analysis JSON is dumped verbatim into the
+    writing context, and it carries estimated_budget_usd straight from the
+    ToR — leaving it there is how a ceiling ends up quoted back at the
+    client in an executive summary.
+    """
+    if isinstance(node, dict):
+        return {
+            k: _strip_monetary_keys(v)
+            for k, v in node.items()
+            if not _is_monetary_key(k)
+        }
+    if isinstance(node, list):
+        return [_strip_monetary_keys(v) for v in node]
+    if isinstance(node, str):
+        return strip_monetary_amounts(node)[0]
+    return node
+
+
+def _profile_for_writing() -> str:
+    """
+    CORTECH_PROFILE with its money lines removed. The profile states a
+    typical budget range, which is useful to the analyzer for fit scoring
+    and inadmissible in a drafted proposal.
+    """
+    return strip_monetary_amounts(CORTECH_PROFILE)[0]
+
+
+def _build_guidance_block(
     analysis: dict,
     extra_context: str = "",
     submission_type: str = "FULL_PROPOSAL",
+    tor_brief: str = "",
 ) -> str:
     """Build once per proposal — identical bytes across all section calls for cache hits."""
     style_guide = _load_style_guide(submission_type)
-    base = (
-        f"{COMPLETENESS_RULES}\n\n"
-        f"{_eval_criteria_block(analysis)}\n\n"
-        f"CORTECH PROFILE:\n{CORTECH_PROFILE}\n\n"
-        f"OPPORTUNITY ANALYSIS:\n{json.dumps(analysis, indent=2, sort_keys=True)}\n\n"
-        f"{_build_past_work_context()}"
-    )
+    writing_analysis = _strip_monetary_keys(copy.deepcopy(analysis))
+    parts = [
+        COMPLETENESS_RULES,
+        NO_MONETARY_RULE,
+        WINNING_STANDARD,
+        _eval_criteria_block(analysis),
+    ]
+    if tor_brief.strip():
+        parts.append(tor_brief.strip())
+    parts.extend([
+        f"CORTECH PROFILE:\n{_profile_for_writing()}",
+        "OPPORTUNITY ANALYSIS (a structured reading of the tender documents — "
+        "where it disagrees with the documents themselves, the documents win):\n"
+        f"{json.dumps(writing_analysis, indent=2, sort_keys=True)}",
+        _build_past_work_context(),
+    ])
     if style_guide:
-        base = f"{base}\n\n{style_guide}"
+        parts.append(style_guide)
     if extra_context.strip():
-        return f"{base}\n\n{extra_context.strip()}"
-    return base
+        parts.append(extra_context.strip())
+    return "\n\n".join(parts)
+
+
+def build_system_blocks(
+    analysis: dict,
+    tor_text: str = "",
+    extra_context: str = "",
+    submission_type: str = "FULL_PROPOSAL",
+) -> list[dict]:
+    """
+    The cached system prompt every section-writing call shares.
+
+    Block 1 is the verbatim tender pack, block 2 the guidance derived from
+    it. Two separate cache breakpoints, in that order, because the ToR
+    comprehension pass sends block 1 alone and therefore warms it: the ten
+    section calls that follow read the pack from cache rather than
+    re-uploading it ten times.
+
+    Returns a single guidance block when no tender text is available.
+    """
+    doc_block = tender_documents_block(tor_text)
+    tor_brief = build_tor_brief(tor_text, analysis, doc_block=doc_block)
+    guidance = _build_guidance_block(
+        analysis, extra_context, submission_type, tor_brief=tor_brief
+    )
+
+    blocks = []
+    if doc_block:
+        blocks.append({
+            "type": "text",
+            "text": doc_block,
+            "cache_control": {"type": "ephemeral"},
+        })
+    blocks.append({
+        "type": "text",
+        "text": guidance,
+        "cache_control": {"type": "ephemeral"},
+    })
+    return blocks
 
 
 def get_relevant_lessons(client_name: str, donor: str) -> str:
@@ -384,24 +630,95 @@ def _log_cache_usage(response, section_name: str) -> None:
     )
 
 
+_MONEY_REWRITE_INSTRUCTION = """The section below states monetary amounts. A
+technical proposal that discloses price is disqualified under the procurement
+rules Cortech bids into, and cost is submitted separately in the financial
+proposal.
+
+Return the same section with every monetary amount removed — figures, ranges,
+contract values, rates, per-diems, contingency amounts, totals, and amounts
+written in words, in any currency. Do not replace them with placeholders.
+
+Rewrite the surrounding sentence so it still reads naturally and still makes a
+substantive point: past assignments are evidenced by client, year, geography,
+and scale of fieldwork instead of value; efficiency is evidenced by method,
+sequencing, and team composition instead of price. Drop any sentence whose only
+content was the amount. Keep every table's column count and row count intact,
+replacing a value column with duration or scope.
+
+Change nothing else: keep all headings, all other facts, the same structure,
+and the same length. Return only the corrected section text."""
+
+
+def _enforce_no_monetary(section_name: str, text: str) -> str:
+    """
+    Last line of defence on the no-money rule.
+
+    The prompt-level rule holds most of the time, but "most of the time" is
+    not good enough for a rule that can void a bid, so anything that slips
+    through gets one cheap rewrite pass and then, if it survives that, a
+    deterministic strip. utils/money_scrub.py drops the offending sentence
+    rather than the figure alone, so no broken sentence can reach a client.
+    """
+    if not text or not contains_monetary_amount(text):
+        return text
+
+    found = find_monetary_amounts(text)
+    logger.warning(
+        f"  [{section_name}] contains {len(found)} monetary amount(s) "
+        f"({', '.join(found[:5])}{'…' if len(found) > 5 else ''}) — rewriting"
+    )
+    try:
+        response = client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            messages=[{
+                "role": "user",
+                "content": f"{_MONEY_REWRITE_INSTRUCTION}\n\nSECTION:\n{text}",
+            }],
+        )
+        rewritten = get_text(response).strip()
+        # A truncated or empty rewrite is worse than the original — only take
+        # it if it is complete, substantial, and actually clean.
+        if (
+            rewritten
+            and len(rewritten) > len(text) * 0.5
+            and not contains_monetary_amount(rewritten)
+            and not _looks_truncated(rewritten)
+        ):
+            logger.success(f"  [{section_name}] monetary amounts rewritten out")
+            return rewritten
+    except Exception as e:
+        logger.warning(f"  [{section_name}] money rewrite call failed: {e}")
+
+    cleaned, removed = strip_monetary_amounts(text)
+    logger.warning(
+        f"  [{section_name}] stripped {len(removed)} monetary amount(s) "
+        "deterministically — review this section's wording before submission"
+    )
+    return _trim_to_clean_end(cleaned)
+
+
 def _generate_section(
     section_name: str,
     model: str,
     max_tokens: int,
-    shared_context: str,
+    system_blocks: list[dict],
     user_prompt: str,
 ) -> str:
     """
     Generate a section and continue if the model hits the output cap
     or otherwise stops mid-sentence. Unfinished sentences in emailed
     drafts were caused by max_tokens cutoffs with no continuation.
+
+    `system_blocks` is the cached tender-pack + guidance prompt from
+    build_system_blocks(). The house-voice exemplar for this section is
+    appended to the user prompt rather than the system blocks, so the
+    cached prefix stays byte-identical across all sections.
     """
     logger.info(f"  Writing {section_name}...")
-    system = [{
-        "type": "text",
-        "text": shared_context,
-        "cache_control": {"type": "ephemeral"},
-    }]
+    system = system_blocks
+    user_prompt = f"{user_prompt}{_exemplar_block(section_name)}"
     messages = [{"role": "user", "content": user_prompt}]
     assembled = ""
     max_attempts = 4
@@ -431,7 +748,7 @@ def _generate_section(
         spent += getattr(response.usage, "output_tokens", 0) or 0
         stop = getattr(response, "stop_reason", None)
         if stop != "max_tokens" and not _looks_truncated(assembled):
-            return assembled.strip()
+            return _enforce_no_monetary(section_name, assembled.strip())
         logger.warning(
             f"  [{section_name}] output truncated "
             f"(stop_reason={stop}, attempt={attempt + 1}/{max_attempts}) — continuing"
@@ -449,7 +766,7 @@ def _generate_section(
             f"trimmed {len(assembled.strip()) - len(cleaned)} trailing chars "
             f"back to the last complete sentence"
         )
-    return cleaned
+    return _enforce_no_monetary(section_name, cleaned)
 
 
 def _run_parallel_sections(jobs: dict) -> dict:
@@ -471,10 +788,32 @@ def _run_parallel_sections(jobs: dict) -> dict:
     return sections
 
 
+def _final_money_audit(sections: dict) -> None:
+    """
+    Log-only sweep after every section is written. _generate_section already
+    enforces the rule per section; this catches anything assembled outside
+    that path and makes a violation visible in the run log instead of only
+    in the emailed .docx.
+    """
+    offenders = {
+        key: find_monetary_amounts(value)
+        for key, value in sections.items()
+        if isinstance(value, str) and contains_monetary_amount(value)
+    }
+    if not offenders:
+        logger.success("  Money audit clean — no monetary amounts in the draft")
+        return
+    for key, amounts in offenders.items():
+        logger.error(
+            f"  MONEY AUDIT FAILED [{key}]: {', '.join(amounts[:8])} — "
+            "remove before submission"
+        )
+
+
 def _repair_weakest_section(
     sections: dict,
     analysis: dict,
-    shared_context: str,
+    system_blocks: list[dict],
 ) -> dict:
     """One targeted rewrite of the weakest section when the self-score is below 80."""
     score = sections.get("quality_score") or {}
@@ -499,12 +838,12 @@ REQUIRED FIX: {score.get("one_improvement", "")}
 CURRENT DRAFT:
 {sections[target]}
 
-Rewrite the complete section from start to finish. Keep accurate facts (names, dates, sample sizes, past assignments, named experts). Strengthen alignment with the evaluation criteria. Finish every sentence and every subsection. Do not leave headings without body text.{QUALITY_SUFFIX}"""
+Rewrite the complete section from start to finish, working from the tender documents in your system context. Keep accurate facts (names, dates, sample sizes, past assignments, named experts). Strengthen alignment with the evaluation criteria and with the client's own terminology. Finish every sentence and every subsection. Do not leave headings without body text.{QUALITY_SUFFIX}"""
     sections[target] = _generate_section(
         f"{target}_repair",
         CLAUDE_MODEL_PROPOSAL,
         CLAUDE_MAX_TOKENS,
-        shared_context,
+        system_blocks,
         user_prompt,
     )
     return sections
@@ -514,12 +853,16 @@ def generate_eoi(
     analysis: dict,
     matched_team_result: dict,
     opportunity_id: str = None,
+    tor_text: str = "",
 ) -> dict:
     """
     Full Expression of Interest aligned to ToR evaluation/shortlisting
     criteria. House style: letter of interest, firm presentation,
     relevant experience table, resources in staff — complete prose,
     not a profile dump.
+
+    `tor_text` is the tender pack as extracted by processors.downloader.
+    It is read before any section is written — see tender_reader.py.
     """
     opportunity = analysis.get("opportunity", {})
     title = opportunity.get("title", "Unknown Assignment")
@@ -530,10 +873,10 @@ def generate_eoi(
         get_relevant_lessons(client_name, donor)
         + get_donor_intelligence(donor, client_name)
     )
-    shared_context = _build_shared_context(
-        analysis, extra_context, submission_type="EOI"
-    )
     logger.info(f"Generating EOI for: {title[:60]}")
+    system_blocks = build_system_blocks(
+        analysis, tor_text, extra_context, submission_type="EOI"
+    )
 
     team_summary = json.dumps({
         role: {
@@ -550,7 +893,7 @@ def generate_eoi(
             "eoi_cover",
             CLAUDE_MODEL_PROPOSAL,
             4096,
-            shared_context,
+            system_blocks,
             f"""Write a complete Expression of Interest cover letter for Cortech Consulting Group.
 
 ASSIGNMENT: {title}
@@ -558,9 +901,11 @@ CLIENT: {client_name}
 
 This is an EOI / shortlisting submission, not a full technical proposal.
 Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
-- Addressed to the procurement committee
-- Clear statement of interest and understanding of the assignment
-- Two or three specific past assignments that match this ToR
+- Addressed to the procurement committee named in the tender documents
+- A statement of interest that shows you have read the documents: name the
+  assignment's purpose, geography, and target groups in the client's own terms
+- Two or three specific past assignments that match this ToR, evidenced by
+  client, year, geography, and scale — never by contract value
 - Confirmation that Cortech can field a qualified team and will submit a
   full technical and financial proposal if shortlisted
 - Sign off: Daud Hussein Ibrahim, Director, Cortech Consulting Group
@@ -571,7 +916,7 @@ Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
             "eoi_firm",
             CLAUDE_MODEL_PROPOSAL,
             CLAUDE_MAX_TOKENS,
-            shared_context,
+            system_blocks,
             f"""Write the 'Presentation of Cortech Consulting Group' section for this EOI.
 
 ASSIGNMENT: {title}
@@ -579,8 +924,9 @@ CLIENT: {client_name}
 
 400-600 words covering history, registrations, geographic presence,
 thematic competence, and why the firm is qualified for THIS assignment.
-Map credentials to the ToR evaluation/shortlisting criteria. Use only
-facts from the CORTECH PROFILE. Complete every paragraph.
+Map credentials to the shortlisting criteria the tender documents state.
+Use only facts from the CORTECH PROFILE. Complete every paragraph.
+State no monetary amounts, including any typical budget range.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
         ),
@@ -588,16 +934,20 @@ facts from the CORTECH PROFILE. Complete every paragraph.
             "eoi_experience",
             CLAUDE_MODEL_PROPOSAL,
             CLAUDE_MAX_TOKENS,
-            shared_context,
+            system_blocks,
             f"""Write the 'Relevant Experience of Completed Assignments' section for this EOI.
 
 ASSIGNMENT: {title}
 
-Format as a markdown table: Project | Client | Value | Year | Relevance to this assignment
+Format as a markdown table with exactly these columns:
+Project | Client | Country | Year | Scope delivered | Relevance to this assignment
+There is deliberately no contract-value column — state no amounts anywhere.
+'Scope delivered' carries the scale evidence instead: sample sizes, districts
+covered, instruments used, number of KIIs/FGDs, or report outputs.
 Use the past assignments in your system context. For each row, one sentence
-connecting that assignment to THIS ToR (geography, theme, method, or client type).
+connecting that assignment to THIS tender (geography, theme, method, or client type).
 Follow the table with 2-3 paragraphs of narrative that explicitly address
-the experience-related evaluation criteria.
+the experience-related shortlisting criteria in the tender documents.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
         ),
@@ -605,7 +955,7 @@ the experience-related evaluation criteria.
             "eoi_experts",
             CLAUDE_MODEL_PROPOSAL,
             4096,
-            shared_context,
+            system_blocks,
             f"""Write the 'Resources in Staff' section for this EOI.
 
 ASSIGNMENT: {title}
@@ -613,9 +963,11 @@ PROPOSED EXPERTS:
 {team_summary}
 
 For each named expert: role on this assignment, 4-6 sentence bio, and
-why they satisfy the ToR's personnel/shortlisting criteria. If a role
-is unfilled, state the recruitment profile in 3-4 complete sentences.
+why they satisfy the personnel/shortlisting criteria stated in the tender
+documents — quote the requirement they meet. If a role is unfilled, state
+the recruitment profile in 3-4 complete sentences.
 Close with a short availability and commitment paragraph.
+State no fees, rates, or costs for any expert.
 
 {_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
         ),
@@ -623,7 +975,8 @@ Close with a short availability and commitment paragraph.
     sections = _run_parallel_sections(jobs)
     sections["submission_type"] = "EOI"
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
-    sections = _repair_weakest_section(sections, analysis, shared_context)
+    sections = _repair_weakest_section(sections, analysis, system_blocks)
+    _final_money_audit(sections)
 
     try:
         log_agent_action(
@@ -645,6 +998,7 @@ def generate_proposal(
     matched_team_result: dict,
     budget: dict,
     opportunity_id: str = None,
+    tor_text: str = "",
 ) -> dict:
     """
     Generate a proposal draft routed by bid_recommendation:
@@ -652,6 +1006,15 @@ def generate_proposal(
               aligned to ToR evaluation criteria
       WATCH → cover letter + executive summary only (analysis model)
     NO-BID callers should not invoke this function.
+
+    `tor_text` is the tender pack as extracted by processors.downloader.
+    It is read and turned into a compliance brief before a single section
+    is drafted — see tender_reader.py.
+
+    `budget` is accepted for interface stability and is deliberately NOT
+    used in any drafted text: the technical proposal must state no
+    monetary amount. The costed budget still reaches the team through the
+    internal review email in reporting/email_report.py.
     """
     recommendation = analysis.get("bid_analysis", {}).get("bid_recommendation", "WATCH")
     opportunity = analysis.get("opportunity", {})
@@ -664,26 +1027,27 @@ def generate_proposal(
         get_relevant_lessons(client_name, donor)
         + get_donor_intelligence(donor, client_name)
     )
-    shared_context = _build_shared_context(
-        analysis, extra_context, submission_type="FULL_PROPOSAL"
-    )
     logger.info(f"Generating proposal ({recommendation}) for: {title[:60]}")
+    system_blocks = build_system_blocks(
+        analysis, tor_text, extra_context, submission_type="FULL_PROPOSAL"
+    )
 
     if recommendation == "WATCH":
         sections = {
             "cover_letter": generate_cover_letter(
-                title, client_name, deadline, analysis, shared_context,
+                title, client_name, deadline, analysis, system_blocks,
                 model=CLAUDE_MODEL,
             ),
             "executive_summary": generate_executive_summary(
-                analysis, matched_team_result, budget, shared_context,
+                analysis, matched_team_result, system_blocks,
                 model=CLAUDE_MODEL,
             ),
             "lightweight": True,
             "lightweight_reason": "WATCH recommendation — quick flag, not a full draft",
         }
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
-        sections = _repair_weakest_section(sections, analysis, shared_context)
+        sections = _repair_weakest_section(sections, analysis, system_blocks)
+        _final_money_audit(sections)
         try:
             log_agent_action(
                 action_type="Proposal",
@@ -700,28 +1064,29 @@ def generate_proposal(
     # BID — full 10-section draft, written concurrently
     sections = _run_parallel_sections({
         "cover_letter": lambda: generate_cover_letter(
-            title, client_name, deadline, analysis, shared_context,
+            title, client_name, deadline, analysis, system_blocks,
         ),
         "executive_summary": lambda: generate_executive_summary(
-            analysis, matched_team_result, budget, shared_context,
+            analysis, matched_team_result, system_blocks,
         ),
         "org_profile_and_track_record": lambda: generate_org_profile_and_track_record(
-            analysis, shared_context,
+            analysis, system_blocks,
         ),
         "introduction_and_framework": lambda: generate_introduction_and_framework(
-            analysis, shared_context,
+            analysis, system_blocks,
         ),
-        "methodology": lambda: generate_methodology(analysis, shared_context),
-        "analysis_plan": lambda: generate_analysis_plan(analysis, shared_context),
-        "qa_and_ethics": lambda: generate_qa_and_ethics(analysis, shared_context),
-        "risk_register": lambda: generate_risk_register(analysis, shared_context),
+        "methodology": lambda: generate_methodology(analysis, system_blocks),
+        "analysis_plan": lambda: generate_analysis_plan(analysis, system_blocks),
+        "qa_and_ethics": lambda: generate_qa_and_ethics(analysis, system_blocks),
+        "risk_register": lambda: generate_risk_register(analysis, system_blocks),
         "team_section": lambda: generate_team_section(
-            matched_team_result, title, shared_context, analysis,
+            matched_team_result, title, system_blocks, analysis,
         ),
-        "work_plan": lambda: generate_work_plan(analysis, shared_context),
+        "work_plan": lambda: generate_work_plan(analysis, system_blocks),
     })
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
-    sections = _repair_weakest_section(sections, analysis, shared_context)
+    sections = _repair_weakest_section(sections, analysis, system_blocks)
+    _final_money_audit(sections)
 
     try:
         log_agent_action(
@@ -742,7 +1107,7 @@ def generate_cover_letter(
     client_name: str,
     deadline: str,
     analysis: dict,
-    shared_context: str,
+    system_blocks: list[dict],
     model: str = CLAUDE_MODEL_PROPOSAL,
 ) -> str:
     """Generate professional cover letter."""
@@ -757,69 +1122,91 @@ SUBMISSION DATE: {deadline}
 KEY STRENGTHS FOR THIS BID:
 {json.dumps(strengths, indent=2)}
 
-Use the CORTECH PROFILE and OPPORTUNITY ANALYSIS provided in your system context.
+Work from the tender documents in your system context, plus the CORTECH
+PROFILE and the reading brief.
 
 REQUIREMENTS:
-- Address to the procurement committee
+- Address it to the procurement committee / contact named in the tender
+  documents, with the tender reference number if one is stated
 - 4-5 professional paragraphs
-- Opening: Express interest and understanding of the opportunity
-- Middle: Highlight Cortech's most relevant experience and team
-- Closing: Availability for questions, enthusiasm for partnership
+- Opening: state the assignment as the client framed it — purpose, geography,
+  target groups — using their own terminology, so it is immediately clear the
+  documents have been read
+- Middle: Cortech's most relevant past assignments and the proposed team,
+  each tied to a requirement the documents actually state
+- Closing: confirm compliance with the stated submission requirements and
+  availability for clarification
 - Sign off from: Daud Hussein Ibrahim, Director, Cortech Consulting Group
 - Professional development consulting sector tone
 - Do NOT use hollow phrases like "we are excited" or "we are pleased"
 - Be specific about capabilities, not generic
+- State no monetary amounts — no fee, no budget, no past contract values
 - Write a complete letter — every sentence finished
 - 400-500 words{QUALITY_SUFFIX}"""
 
-    return _generate_section("cover_letter", model, 4096, shared_context, user_prompt)
+    return _generate_section("cover_letter", model, 4096, system_blocks, user_prompt)
 
 
 def generate_executive_summary(
     analysis: dict,
     matched_team_result: dict,
-    budget: dict,
-    shared_context: str,
+    system_blocks: list[dict],
     model: str = CLAUDE_MODEL_PROPOSAL,
 ) -> str:
-    """Generate executive summary."""
+    """
+    Generate executive summary.
+
+    Takes no budget argument: the fourth paragraph used to be a budget and
+    value-for-money statement, which is exactly the disclosure a technical
+    proposal must not make. Delivery assurance replaces it.
+    """
     opportunity = analysis.get("opportunity", {})
-    budget_total = budget.get("summary", {}).get("grand_total_usd", 0)
 
     user_prompt = f"""Write a comprehensive executive summary for a technical proposal.
 
 ASSIGNMENT: {opportunity.get('title', '')}
 CLIENT: {opportunity.get('client', '')}
 DURATION: {opportunity.get('project_duration', '')}
-BUDGET: ${budget_total:,} USD
 LOCATION: {', '.join(opportunity.get('project_location', []))}
 
 TEAM COVERAGE: {matched_team_result.get('coverage_percent', 0)}% internal match
 
-Use the CORTECH PROFILE, past assignments, and full OPPORTUNITY ANALYSIS in your system context.
+Work from the tender documents and the reading brief in your system context,
+plus the CORTECH PROFILE and past assignments.
 
 Write a 4-paragraph executive summary:
-1. Context and the challenge the assignment addresses
-2. Cortech's proposed approach and what makes it distinctive
-3. Team composition highlights and coverage
-4. Budget compliance and value for money statement
+1. The context and the specific problem the assignment addresses, named as the
+   client names it
+2. Cortech's proposed approach and what makes it distinctive for this
+   assignment — the design choice, not a list of methods
+3. Team composition highlights and coverage against the personnel requirements
+   the documents state
+4. Delivery assurance: how the work will be sequenced against the stated
+   deadline, how quality is controlled, and what the client receives at each
+   milestone. State no amounts and make no claim about price, budget
+   compliance, or value for money — costs are covered in the separate
+   financial proposal.
 
 Professional, evidence-based, specific. 450-650 words. Complete all four
-paragraphs including the budget/value statement — do not stop mid-paragraph.
-Reference 2-3 specific past assignments as credibility evidence.
+paragraphs — do not stop mid-paragraph.
+Reference 2-3 specific past assignments as credibility evidence, identified by
+client, year, and geography rather than contract value.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
-    return _generate_section("executive_summary", model, 4096, shared_context, user_prompt)
+    return _generate_section("executive_summary", model, 4096, system_blocks, user_prompt)
 
 
-def generate_methodology(analysis: dict, shared_context: str) -> str:
+def generate_methodology(analysis: dict, system_blocks: list[dict]) -> str:
     """Generate the detailed methodology section — longest and most important."""
     user_prompt = f"""Write a detailed methodology section for a technical proposal.
 
 ASSIGNMENT: {analysis.get('opportunity', {}).get('title', '')}
 
-Use deliverables, methodology requirements, thematic areas, and
-evaluation criteria from the OPPORTUNITY ANALYSIS in your system context.
+Work primarily from the tender documents in your system context: the scope of
+work, every stated deliverable, any methodology the documents require or
+prohibit, and the scoring weight given to technical approach. The reading brief
+lists what the scored criteria want to see. Use the client's own names for
+phases, tools, target groups, and locations.
 
 CORTECH'S STANDARD TOOLS:
 - KoboToolbox for digital data collection
@@ -831,29 +1218,34 @@ CORTECH'S STANDARD TOOLS:
 - Participatory approaches ensuring community voice
 - Triangulation across multiple data sources
 
-STRUCTURE THE METHODOLOGY AS:
-1. Overall Approach (2-3 paragraphs on mixed methods rationale)
+STRUCTURE THE METHODOLOGY AS (unless the tender documents prescribe a
+different structure, in which case follow theirs exactly):
+1. Overall Approach (2-3 paragraphs on the design rationale for THIS assignment)
 2. Phase-by-phase breakdown (Inception → Field Work → Analysis → Reporting)
-3. Specific method for each deliverable (surveys, FGDs, KIIs, desk review)
+3. Specific method for each deliverable the documents list, deliverable by
+   deliverable, naming the instrument, the respondents, and the output
 4. Data quality assurance
 5. Ethical considerations integration
 
 Development sector professional language. Evidence-based. Specific tool names.
 Reference KoboToolbox, SPSS, NVivo explicitly. 900-1400 words.
 Complete ALL five numbered parts — do not stop inside part 3, 4, or 5.
-Map the method explicitly to the ToR evaluation criteria (especially any
-methodology / technical-approach weighting).
+Every method must be decidable: who does it, when, with which instrument,
+producing which output. No method described only in the abstract.
+Map the method explicitly to the scored criteria in the tender documents
+(especially any methodology / technical-approach weighting).
+State no costs, day rates, or budget figures — the financial proposal covers those.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "methodology", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, shared_context, user_prompt,
+        "methodology", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
 def generate_team_section(
     matched_team_result: dict,
     title: str,
-    shared_context: str,
+    system_blocks: list[dict],
     analysis: dict | None = None,
 ) -> str:
     """Generate team composition section."""
@@ -875,24 +1267,29 @@ ASSIGNMENT: {title}
 MATCHED TEAM: {json.dumps(team_list, indent=2)}
 GAPS REQUIRING EXTERNAL RECRUITMENT: {json.dumps(gaps, indent=2)}
 
-Use the CORTECH PROFILE in your system context for team credentials.
+Use the CORTECH PROFILE in your system context for team credentials, and the
+personnel requirements stated in the tender documents as the bar to clear.
 {_eval_criteria_block(analysis)}
 
 Write:
-1. Opening paragraph on overall team strength against the ToR personnel criteria
-2. Brief profile for each team member (4-6 sentences each — qualifications, relevant assignments, role on this job)
+1. Opening paragraph on overall team strength against the personnel criteria the
+   tender documents actually state
+2. Brief profile for each team member (4-6 sentences each — qualifications,
+   relevant assignments, role on this job), each one closing on the specific
+   stated requirement that person satisfies
 3. Note on any external specialist to be recruited (if gaps exist)
-4. Statement on team availability and commitment
+4. Statement on team availability and commitment against the stated timeline
 
 Professional, confident tone. 400-600 words. Complete every bio.
+State no fees, day rates, or personnel costs.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "team_section", CLAUDE_MODEL_PROPOSAL, 4096, shared_context, user_prompt,
+        "team_section", CLAUDE_MODEL_PROPOSAL, 4096, system_blocks, user_prompt,
     )
 
 
-def generate_work_plan(analysis: dict, shared_context: str) -> str:
+def generate_work_plan(analysis: dict, system_blocks: list[dict]) -> str:
     """Generate workplan/Gantt description."""
     duration = analysis.get("opportunity", {}).get("project_duration", "3 months")
 
@@ -900,25 +1297,29 @@ def generate_work_plan(analysis: dict, shared_context: str) -> str:
 
 PROJECT DURATION: {duration}
 
-Use deliverables from the OPPORTUNITY ANALYSIS in your system context.
+Use the deliverables, milestones, approval gates, and submission dates stated in
+the tender documents in your system context. Where the documents fix a date or a
+sequence, the work plan must match it.
 
 Create:
 1. Phase breakdown with timing (e.g., Phase 1: Inception - Week 1-2)
 2. For each phase: key activities and outputs
-3. Milestone dates
+3. Milestone dates, aligned to any deadline the documents state
 4. Note on parallel vs sequential activities
 5. A text-based Gantt table showing Month/Week vs Activities
 
 Format the Gantt as a complete markdown table with every phase/activity row filled.
+Include no payment amounts or cost columns — milestones are described by
+deliverable and date only.
 Professional. 500-700 words. Do not stop after a heading such as "GANTT CHART".
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "work_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, shared_context, user_prompt,
+        "work_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
-def generate_risk_register(analysis: dict, shared_context: str) -> str:
+def generate_risk_register(analysis: dict, system_blocks: list[dict]) -> str:
     """Generate risk register."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
     thematic_areas = analysis.get("requirements", {}).get("thematic_areas", [])
@@ -932,38 +1333,51 @@ Generate 6-8 risks in this format for each:
 | Risk Category | Description | Likelihood | Impact | Mitigation |
 
 Include risks related to:
-- Field access and security
+- Field access and security in the specific locations the tender names
 - Data quality and collection
-- Government engagement
+- Government and stakeholder engagement
 - Community participation
-- Timeline and budget
+- Timeline, sequencing, and approval gates
 - Team availability
 
+Prioritise the risks that are real for THIS assignment's context, geography, and
+respondent groups as described in the tender documents — a generic register
+scores nothing.
 Format as a complete markdown table (every row finished) followed by 2 paragraphs
 on overall risk management approach.
+Mitigations must be operational, not financial: no contingency amounts, no cost
+buffers, no budget figures anywhere in the table or the narrative.
 Professional development sector language. 400-550 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "risk_register", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, shared_context, user_prompt,
+        "risk_register", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
-def generate_org_profile_and_track_record(analysis: dict, shared_context: str) -> str:
+def generate_org_profile_and_track_record(
+    analysis: dict, system_blocks: list[dict]
+) -> str:
     """Generate 'Organisational Profile' + 'Related Previous Assignments'."""
     user_prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
 
-Use the CORTECH PROFILE and past assignments from your system context.
+Use the CORTECH PROFILE and past assignments from your system context, and the
+capacity requirements stated in the tender documents.
 
 SECTION 1 — ORGANISATIONAL PROFILE (300-400 words):
 Cortech's history, registrations, certifications, geographic presence,
 core thematic areas, and what distinguishes it from competitors.
-Evidence-based, no generic claims.
+Evidence-based, no generic claims. Include no turnover, budget range, or
+other monetary figure.
 
 SECTION 2 — RELATED PREVIOUS ASSIGNMENTS (table):
-Format as a table: Project | Client | Value | Year | Relevance to this assignment
+Format as a table with exactly these columns:
+Project | Client | Country | Year | Scope delivered | Relevance to this assignment
+There is deliberately no contract-value column — state no amounts anywhere.
+'Scope delivered' carries the scale evidence: sample sizes, districts covered,
+instruments used, numbers of KIIs/FGDs, or report outputs.
 Use the past assignments listed in context. For each, add one sentence
-connecting it directly to THIS opportunity's requirements.
+connecting it directly to a requirement THIS tender actually states.
 
 ASSIGNMENT CONTEXT (for relevance-mapping):
 {analysis.get('opportunity', {}).get('title', '')}
@@ -976,12 +1390,14 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
         "org_profile_and_track_record",
         CLAUDE_MODEL_PROPOSAL,
         CLAUDE_MAX_TOKENS,
-        shared_context,
+        system_blocks,
         user_prompt,
     )
 
 
-def generate_introduction_and_framework(analysis: dict, shared_context: str) -> str:
+def generate_introduction_and_framework(
+    analysis: dict, system_blocks: list[dict]
+) -> str:
     """
     Generate 'Introduction and Background' (6 sub-sections per
     PROPOSAL_STRUCTURE) plus 'Conceptual Framework'.
@@ -993,7 +1409,11 @@ def generate_introduction_and_framework(analysis: dict, shared_context: str) -> 
 ASSIGNMENT: {opportunity.get('title', '')}
 CLIENT: {opportunity.get('client', '')}
 
-Use deliverables and evaluation criteria from the OPPORTUNITY ANALYSIS in your system context.
+This is the section where the client checks whether you actually read their
+documents, and it is usually the cheapest place to lose the bid. Work from the
+tender documents in your system context, not from the summary: use their
+background, their stated problem, their objectives, their questions, and their
+deliverable names, in their words.
 
 SECTION 1 — INTRODUCTION AND BACKGROUND, with these exact sub-headers:
 5.1 Context and Strategic Importance
@@ -1003,10 +1423,14 @@ SECTION 1 — INTRODUCTION AND BACKGROUND, with these exact sub-headers:
 5.5 Deliverables
 5.6 Understanding of Success
 Each sub-section 2-4 sentences. Specific to this assignment, not generic.
+Under 5.3, state at least one implication or constraint the documents imply but
+do not spell out — that is what distinguishes comprehension from paraphrase.
+Under 5.4 and 5.5, reproduce the client's own questions and deliverable names.
 
 SECTION 2 — CONCEPTUAL FRAMEWORK (300-400 words):
 The theoretical/analytical lens Cortech will apply (e.g. OECD DAC criteria,
-theory of change, results framework) and why it fits this assignment.
+theory of change, results framework) and why it fits this assignment
+specifically. If the documents name a framework, use theirs.
 Complete this section in full — do not stop mid-sentence.
 
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
@@ -1015,12 +1439,12 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
         "introduction_and_framework",
         CLAUDE_MODEL_PROPOSAL,
         CLAUDE_MAX_TOKENS,
-        shared_context,
+        system_blocks,
         user_prompt,
     )
 
 
-def generate_analysis_plan(analysis: dict, shared_context: str) -> str:
+def generate_analysis_plan(analysis: dict, system_blocks: list[dict]) -> str:
     """Generate 'Sampling Strategy' (if applicable) + 'Data Analysis Plan'."""
     methodology_reqs = analysis.get("requirements", {}).get("methodology_requirements", [])
     deliverables = analysis.get("deliverables", [])
@@ -1041,7 +1465,10 @@ def generate_analysis_plan(analysis: dict, shared_context: str) -> str:
 
     user_prompt = f"""Write sections for a Cortech Consulting Group technical proposal.
 
-Use methodology requirements, deliverables, and evaluation criteria from the OPPORTUNITY ANALYSIS in your system context.
+Use the methodology requirements, deliverables, target populations, and scored
+criteria as stated in the tender documents in your system context. Where the
+documents specify a sample, a precision level, a disaggregation, or a reporting
+breakdown, match it exactly.
 
 {sampling_instruction}
 
@@ -1054,11 +1481,11 @@ Professional development consulting tone. Complete both sections — do not stop
 inside the triangulation paragraph. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "analysis_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, shared_context, user_prompt,
+        "analysis_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
-def generate_qa_and_ethics(analysis: dict, shared_context: str) -> str:
+def generate_qa_and_ethics(analysis: dict, system_blocks: list[dict]) -> str:
     """Generate 'Quality Assurance Framework' + 'Ethical Considerations and Safeguarding'."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
 
@@ -1066,20 +1493,24 @@ def generate_qa_and_ethics(analysis: dict, shared_context: str) -> str:
 
 PROJECT LOCATION: {location}
 
-Use the CORTECH PROFILE in your system context for certifications and policies.
+Use the CORTECH PROFILE in your system context for certifications and policies,
+and any QA, ethics, safeguarding, data-protection, or ethical-approval
+requirement the tender documents state — quote their requirement and say how it
+is met.
 
 SECTION 1 — QUALITY ASSURANCE FRAMEWORK (250-350 words):
 Data quality checks, peer review process, deliverable review stages,
-client feedback loops.
+client feedback loops — each tied to a named phase of the work plan.
 
 SECTION 2 — ETHICAL CONSIDERATIONS AND SAFEGUARDING (250-350 words):
 Reference Cortech's actual certifications: ISO certification, child
 safeguarding policy, PSEA policy compliance. Cover informed consent,
-data protection, protection of vulnerable groups given the project
-location, and do-no-harm principles. Complete both sections in full.
+data protection, protection of the specific vulnerable groups this
+assignment involves, ethical clearance where the documents require it,
+and do-no-harm principles. Complete both sections in full.
 
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "qa_and_ethics", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, shared_context, user_prompt,
+        "qa_and_ethics", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
     )
