@@ -54,11 +54,28 @@ def get_anthropic_client():
 
 
 # ── API KEYS ──────────────────────────────────────────────────
+def _clean(name: str) -> str | None:
+    """Strip whitespace, quotes and a trailing slash off an env value.
+
+    Values are pasted out of web consoles, which is how AIRTABLE_BASE_ID
+    once arrived as "app.../ " — the trailing slash produced a double
+    slash in the request path and Airtable answered 404 NOT_FOUND, which
+    reads like a wrong base ID rather than a formatting problem.
+    """
+    raw = os.getenv(name) or ""
+    return raw.strip().strip('"').strip("'").rstrip("/").strip() or None
+
+
 ANTHROPIC_API_KEY = get_anthropic_api_key()
-AIRTABLE_API_KEY = os.getenv("AIRTABLE_API_KEY")
-AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+AIRTABLE_API_KEY = _clean("AIRTABLE_API_KEY")
+AIRTABLE_BASE_ID = _clean("AIRTABLE_BASE_ID")
+# Must be the bare project URL. supabase-py appends /rest/v1 itself, so a
+# pasted ".../rest/v1/" endpoint would build /rest/v1/rest/v1/... and 404
+# every query.
+SUPABASE_URL = _clean("SUPABASE_URL")
+if SUPABASE_URL and SUPABASE_URL.endswith("/rest/v1"):
+    SUPABASE_URL = SUPABASE_URL[: -len("/rest/v1")]
+SUPABASE_SERVICE_KEY = _clean("SUPABASE_SERVICE_KEY")
 
 # ── ASSORTIS / ICA DAILY NEWSLETTER (IMAP) ───────────────────
 # Read here rather than in monitors/assortis_email.py so they cannot be
