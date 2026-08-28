@@ -73,8 +73,15 @@ ANALYSIS_SCHEMA = """
 
   "evaluation_criteria": [
     {
-      "criterion": "string",
+      "criterion": "string — a criterion the SUBMITTED PROPOSAL is SCORED on when the buyer picks a supplier (e.g. technical quality, methodology, relevant experience, team, understanding of the assignment, ability to deliver on time, financial). NOT the criteria the assignment itself will study.",
       "weight_percent": "number or null",
+      "description": "string"
+    }
+  ],
+
+  "assignment_evaluation_framework": [
+    {
+      "criterion": "string — ONLY for tenders that procure an evaluation/review/assessment: a criterion the CONSULTANT WILL APPLY to the project under study (e.g. the OECD-DAC criteria relevance, effectiveness, efficiency, impact, sustainability, coherence; a GESI or ToC lens). These are subject matter for the methodology, NOT how the bid is scored. Empty list for every other tender type.",
       "description": "string"
     }
   ],
@@ -198,6 +205,22 @@ Copy every scored criterion and its weight_percent exactly as stated
 (technical approach, methodology, team, experience, financial, etc.).
 If a scoring matrix or marking scheme exists in any annex, extract every
 row. Do not summarise away the weights or collapse distinct criteria.
+
+CRITICAL — when the tender is procuring an EVALUATION, these are two
+different lists and must not be merged:
+  * evaluation_criteria = how OUR PROPOSAL will be judged against
+    competitors. Look for wording like "proposals will be assessed on",
+    "award criteria", "scoring", "marking scheme", "shortlisting". This is
+    often a short paragraph in the submission-instructions section rather
+    than a table, and it is easy to miss.
+  * assignment_evaluation_framework = the OECD-DAC criteria and evaluation
+    questions the consultant must APPLY to the project being evaluated.
+    A "Key Evaluation Questions" section listing relevance, effectiveness,
+    efficiency, impact, sustainability and coherence belongs HERE.
+Putting the DAC criteria in evaluation_criteria makes the proposal writer
+address the wrong target. If the ToR states no award criteria at all,
+return an empty evaluation_criteria list rather than filling it with the
+DAC criteria.
 
 {tor_text}"""
 

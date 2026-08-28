@@ -14,12 +14,13 @@ from utils.money_scrub import (
 )
 from intelligence.tender_reader import build_tor_brief, tender_documents_block
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
-from database.supabase_client import get_embedding, supabase
+from database.supabase_client import get_embedding, search_past_proposals, supabase
 from config import (
     CLAUDE_MODEL,
     CLAUDE_MODEL_PROPOSAL,
     CLAUDE_MAX_TOKENS,
     CORTECH_PROFILE,
+    FULL_DRAFT_FOR_WATCH,
     get_anthropic_client,
 )
 
@@ -87,15 +88,89 @@ RELEVANT PAST ASSIGNMENTS (use as references in proposal):
 """
 
 
-def _build_past_work_context() -> str:
+def _past_work_query(analysis: dict) -> str:
     """
-    Pull real winning proposals from Airtable for use as proposal evidence.
-    Falls back to the static CORTECH_PAST_WORK list if Airtable returns
-    nothing, so proposal generation never blocks on this.
+    Build the retrieval query from what makes THIS tender distinctive —
+    title, sector, geography — and nothing else.
 
-    contract_value_usd is read from Airtable for other purposes but is
-    never surfaced here — the drafted proposal must state no amounts.
+    Adding the methodology language ("OECD-DAC criteria, outcome
+    harvesting, contribution analysis") to the query destroys the ranking:
+    every evaluation proposal in the corpus contains those words, so the
+    sector signal is swamped. Measured on the Christian Aid energy tender,
+    the sector-only query ranks Cortech's Sub-Saharan Africa energy access
+    evaluation 1st out of 114 chunks; adding the method words drops it out
+    of the top 8 entirely.
     """
+    opportunity = analysis.get("opportunity", {}) or {}
+    requirements = analysis.get("requirements", {}) or {}
+    themes = requirements.get("thematic_areas") or []
+    locations = (
+        opportunity.get("project_location")
+        or requirements.get("geographic_experience")
+        or []
+    )
+    parts = [opportunity.get("title", "")]
+    if themes:
+        parts.append("Sector: " + ", ".join(str(t) for t in themes))
+    if locations:
+        parts.append("Countries: " + ", ".join(str(l) for l in locations))
+    return ". ".join(p for p in parts if p)
+
+
+def _build_past_work_context(analysis: dict | None = None) -> str:
+    """
+    Assemble the past-assignment evidence the proposal will cite, ranked by
+    relevance to this specific tender.
+
+    Previously this called get_winning_proposals(limit=10), which is
+    `formula="won = TRUE()", max_records=10` — an arbitrary first-ten with
+    no relevance ordering at all — and fell back to a hardcoded seven-item
+    list whenever Airtable was unavailable. Both paths are tender-blind, so
+    an energy-access evaluation was drafted citing land governance and
+    health-ministry assessments while Cortech's own Sub-Saharan Africa
+    energy access evaluation sat unmentioned in the database.
+
+    Order of preference: semantic match against the real proposal corpus,
+    then the Airtable winners list, then the static list.
+
+    contract_value_usd is never surfaced here — the drafted proposal must
+    state no amounts.
+    """
+    if analysis:
+        try:
+            matches = search_past_proposals(_past_work_query(analysis), match_count=8)
+        except Exception as e:
+            logger.warning(f"Relevance search over past proposals failed: {e}")
+            matches = []
+
+        if matches:
+            lines = [
+                "RELEVANT PAST ASSIGNMENTS — ranked by similarity to THIS tender.",
+                "Cite from this list only. Do not cite an assignment that is not "
+                "here, and do not invent contract values, dates or clients.",
+                "",
+            ]
+            for i, m in enumerate(matches, 1):
+                meta = m.get("metadata") or {}
+                outcome = "WON" if m.get("won") else "submitted"
+                lines.append(
+                    f"{i}. {m.get('project_title', 'Untitled')} [{outcome}]\n"
+                    f"   Client: {meta.get('client', 'N/A')} | "
+                    f"Year: {meta.get('year', 'N/A')} | "
+                    f"Location: {', '.join(meta.get('location') or []) or 'N/A'}\n"
+                    f"   Relevance: {m.get('similarity', 0):.2f}\n"
+                    f"   Detail: {(m.get('content_chunk') or '')[:400]}"
+                )
+            logger.info(
+                f"  Past-work evidence: {len(matches)} assignments matched, "
+                f"top = {matches[0].get('project_title', '')[:60]}"
+            )
+            return strip_monetary_amounts("\n\n".join(lines))[0]
+
+        logger.warning(
+            "  Past-work evidence: no semantic matches — falling back to Airtable"
+        )
+
     try:
         winners = get_winning_proposals(limit=10)
     except Exception as e:
@@ -289,18 +364,68 @@ QUALITY_SUFFIX = (
 
 
 def _eval_criteria_block(analysis: dict) -> str:
+    """
+    Two separate lists, and conflating them loses bids.
+
+    evaluation_criteria is how the buyer scores our submission.
+    assignment_evaluation_framework is the DAC criteria we must apply to the
+    project under review — subject matter for the methodology section, not a
+    scoring target. An earlier version had only the first field, so on
+    evaluation tenders the analyzer filed the DAC criteria there and the
+    writer dutifully "wrote to" relevance/effectiveness/efficiency while the
+    actual award criteria went unaddressed.
+    """
     criteria = analysis.get("evaluation_criteria") or []
-    if not criteria:
-        return (
-            "EVALUATION CRITERIA: None were extracted from the ToR. Infer the likely "
-            "scoring dimensions from the opportunity analysis (methodology, team, "
-            "relevant experience, work plan, organisational capacity) and address "
-            "each explicitly."
+    framework = analysis.get("assignment_evaluation_framework") or []
+
+    if criteria:
+        block = (
+            "HOW THIS PROPOSAL WILL BE SCORED (these decide the bid — every one "
+            "of them must be visibly and explicitly addressed, and where a "
+            "weight is given, depth should follow the weight):\n"
+            + json.dumps(criteria, indent=2)
         )
-    return (
-        "EVALUATION CRITERIA FROM THE TOR (these decide the bid — write to them):\n"
-        + json.dumps(criteria, indent=2)
-    )
+    else:
+        block = (
+            "HOW THIS PROPOSAL WILL BE SCORED: no award criteria were extracted "
+            "from the ToR. Address the standard scoring dimensions explicitly — "
+            "technical quality and methodology, relevant experience, "
+            "understanding of the assignment, proposed team, and ability to "
+            "deliver within the required timeframe."
+        )
+
+    if framework:
+        block += (
+            "\n\nEVALUATION FRAMEWORK THE ASSIGNMENT MUST APPLY (this is the "
+            "subject matter of the methodology — the criteria and questions we "
+            "will assess the client's project against. Build the evaluation "
+            "matrix around these. Do NOT mistake them for the criteria our "
+            "proposal is scored on):\n"
+            + json.dumps(framework, indent=2)
+        )
+    return block
+
+
+# A cover letter closes on a signature block — a name, a job title, a city,
+# a phone number, a URL. None of those carry terminal punctuation, so a
+# bare "ends with .!?" test reads a perfectly finished letter as truncated,
+# fires a continuation, and the model answers "there is nothing to
+# continue — which section would you like next?" That reply used to be
+# appended straight into the client-facing draft.
+_CONTACT_LINE_RE = re.compile(
+    r"""(
+        ^(www\.|https?://)                # bare URL
+      | \S+@\S+\.\S+                      # email address
+      | ^\+?[\d\s()/-]{7,}$               # phone number
+      | ^\*\*[^*]+\*\*[:,]?$              # bold-only line (name, label)
+    )""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _ends_in_contact_block(last_line: str) -> bool:
+    """True for signature-block lines that legitimately carry no full stop."""
+    return bool(_CONTACT_LINE_RE.search(last_line))
 
 
 def _looks_truncated(text: str) -> bool:
@@ -317,7 +442,9 @@ def _looks_truncated(text: str) -> bool:
         return False
     if last_line.endswith("|") and last_line.count("|") >= 2:
         return False
-    if t[-1] in ".!?\"'”’":
+    if t[-1] in ".!?\"'”’:":
+        return False
+    if _ends_in_contact_block(last_line):
         return False
     return True
 
@@ -402,8 +529,51 @@ _CONTINUE_INSTRUCTION = (
     "beyond those the original instructions asked for. Finish the open "
     "sentence, complete any unfinished table or list, close out the "
     "subsection you were in, then stop. Closing the section is the priority, "
-    "not adding new material."
+    "not adding new material.\n\n"
+    "If the text is already complete, reply with exactly SECTION_COMPLETE and "
+    "nothing else. Never address the reader, never ask which section to write "
+    "next, and never describe the state of the document — anything you write "
+    "here goes straight into the client's proposal."
 )
+
+_SECTION_COMPLETE_SENTINEL = "SECTION_COMPLETE"
+
+# Even with the sentinel above, a continuation can come back as commentary
+# addressed to the operator ("There is no open sentence to close... If you
+# wish to continue with the next section, please indicate which..."). That
+# text is not proposal content and must never be appended.
+_META_REPLY_RE = re.compile(
+    r"""(
+        if\s+you\s+(would\s+like|wish|want)
+      | please\s+(indicate|confirm|specify|let\s+me\s+know)
+      | let\s+me\s+know
+      | would\s+you\s+like\s+me\s+to
+      | shall\s+I\s+(continue|proceed|write)
+      | I\s+(will|can)\s+write\s+it
+      | the\s+(document|section|text)\s+is\s+(now\s+)?(complete|closed|finished)
+      | there\s+is\s+(no|nothing)\s+(open|further|more|remaining)
+      | nothing\s+(further\s+)?to\s+(close|continue|add)
+      | no\s+(open|unfinished|incomplete)\s+(sentence|table|list|subsection)
+    )""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _is_meta_reply(chunk: str) -> bool:
+    """
+    True when a continuation returned commentary about the document instead
+    of more of the document.
+
+    Deliberately scoped to short replies: a long section that happens to
+    contain "let me know" in a quoted stakeholder comment is real content,
+    whereas the meta-commentary failure mode is always a brief note.
+    """
+    t = (chunk or "").strip()
+    if not t:
+        return True
+    if t.upper().startswith(_SECTION_COMPLETE_SENTINEL):
+        return True
+    return len(t) < 1200 and bool(_META_REPLY_RE.search(t))
 
 
 # Keys whose values are monetary and must never enter the writing context.
@@ -475,7 +645,7 @@ def _build_guidance_block(
         "OPPORTUNITY ANALYSIS (a structured reading of the tender documents — "
         "where it disagrees with the documents themselves, the documents win):\n"
         f"{json.dumps(writing_analysis, indent=2, sort_keys=True)}",
-        _build_past_work_context(),
+        _build_past_work_context(analysis),
     ])
     if style_guide:
         parts.append(style_guide)
@@ -744,9 +914,22 @@ def _generate_section(
         )
         label = section_name if attempt == 0 else f"{section_name}+cont{attempt}"
         _log_cache_usage(response, label)
-        assembled += get_text(response)
+        chunk = get_text(response)
         spent += getattr(response.usage, "output_tokens", 0) or 0
         stop = getattr(response, "stop_reason", None)
+
+        # A continuation that answers "there is nothing left to continue" is
+        # telling us the section was already finished. Take the answer, drop
+        # the commentary — appending it shipped operator-facing chatter into
+        # a client draft.
+        if attempt > 0 and _is_meta_reply(chunk):
+            logger.info(
+                f"  [{section_name}] continuation reported the section already "
+                f"complete — discarding the reply and closing"
+            )
+            break
+
+        assembled += chunk
         if stop != "max_tokens" and not _looks_truncated(assembled):
             return _enforce_no_monetary(section_name, assembled.strip())
         logger.warning(
@@ -1003,8 +1186,9 @@ def generate_proposal(
     """
     Generate a proposal draft routed by bid_recommendation:
       BID   → all 10 sections on the proposal model, complete and
-              aligned to ToR evaluation criteria
-      WATCH → cover letter + executive summary only (analysis model)
+              aligned to the ToR award criteria
+      WATCH → same full draft by default; a two-section quick flag only
+              when FULL_DRAFT_FOR_WATCH is disabled (see config.py)
     NO-BID callers should not invoke this function.
 
     `tor_text` is the tender pack as extracted by processors.downloader.
@@ -1032,7 +1216,8 @@ def generate_proposal(
         analysis, tor_text, extra_context, submission_type="FULL_PROPOSAL"
     )
 
-    if recommendation == "WATCH":
+    if recommendation == "WATCH" and not FULL_DRAFT_FOR_WATCH:
+        logger.info("  WATCH + FULL_DRAFT_FOR_WATCH disabled — quick flag only")
         sections = {
             "cover_letter": generate_cover_letter(
                 title, client_name, deadline, analysis, system_blocks,
@@ -1061,7 +1246,7 @@ def generate_proposal(
         logger.success("WATCH quick-flag generation complete!")
         return sections
 
-    # BID — full 10-section draft, written concurrently
+    # BID, and WATCH by default — full 10-section draft, written concurrently
     sections = _run_parallel_sections({
         "cover_letter": lambda: generate_cover_letter(
             title, client_name, deadline, analysis, system_blocks,

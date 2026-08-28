@@ -222,3 +222,14 @@ CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "6"))  # polling in
 # opportunity is only written to Supabase once it has been processed, so
 # whatever is deferred here is rediscovered on the next run.
 MAX_OPPORTUNITIES_PER_RUN = int(os.getenv("MAX_OPPORTUNITIES_PER_RUN", "15"))
+
+# WATCH-rated opportunities used to get a two-section quick flag (cover
+# letter + executive summary) instead of a draft. A WATCH is a mid-scoring
+# fit, not a rejection — the Christian Aid energy evaluation scored 65 and
+# still warranted a real submission — and a two-section stub is not
+# something a reviewer can act on. Full draft is now the default for both
+# BID and WATCH. Set FULL_DRAFT_FOR_WATCH=false to restore the quick flag;
+# it costs roughly five times fewer Claude calls per WATCH opportunity.
+FULL_DRAFT_FOR_WATCH = os.getenv(
+    "FULL_DRAFT_FOR_WATCH", "true"
+).strip().lower() not in {"false", "0", "no", "off"}
