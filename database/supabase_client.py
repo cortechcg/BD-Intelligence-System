@@ -108,6 +108,97 @@ def search_consultants(
         return []
 
 
+def _cosine(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    na = sum(x * x for x in a) ** 0.5
+    nb = sum(y * y for y in b) ** 0.5
+    return dot / (na * nb) if na and nb else 0.0
+
+
+def search_past_proposals(
+    query_text: str,
+    match_threshold: float = 0.30,
+    match_count: int = 8,
+    winners_only: bool = False,
+) -> list[dict]:
+    """
+    Semantic search over past Cortech proposals, ranked against THIS
+    opportunity.
+
+    proposal_embeddings has been populated by embed_cvs.py since the
+    project started, but nothing ever queried it — proposal drafting
+    instead pulled an arbitrary "first 10 winners" list out of Airtable,
+    so an energy tender was written using whichever proposals happened to
+    be at the top of the table. This is the read path that was missing.
+
+    Uses the match_proposals RPC when it exists and falls back to scoring
+    client-side, so it works before the migration is applied. The corpus
+    is small (low hundreds of chunks); the fallback is not a bottleneck.
+    """
+    try:
+        query_embedding = get_embedding(query_text)
+    except Exception as e:
+        logger.warning(f"Past-proposal search: embedding failed ({e})")
+        return []
+
+    try:
+        result = supabase.rpc("match_proposals", {
+            "query_embedding": query_embedding,
+            "match_threshold": match_threshold,
+            "match_count": match_count,
+        }).execute()
+        if result.data:
+            return [r for r in result.data if r.get("won")] if winners_only else result.data
+    except Exception:
+        logger.debug("match_proposals RPC unavailable — scoring client-side")
+
+    try:
+        rows = supabase.table("proposal_embeddings").select(
+            "project_title,content_chunk,metadata,won,embedding"
+        ).execute().data
+    except Exception as e:
+        logger.warning(f"Past-proposal search: fetch failed ({e})")
+        return []
+
+    scored = []
+    for row in rows:
+        if winners_only and not row.get("won"):
+            continue
+        raw = row.get("embedding")
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (ValueError, TypeError):
+                continue
+        if not raw:
+            continue
+        similarity = _cosine(query_embedding, raw)
+        if similarity < match_threshold:
+            continue
+        scored.append({
+            "project_title": row.get("project_title"),
+            "content_chunk": row.get("content_chunk"),
+            "metadata": row.get("metadata") or {},
+            "won": row.get("won"),
+            "similarity": similarity,
+        })
+
+    scored.sort(key=lambda r: r["similarity"], reverse=True)
+
+    # One row per assignment — the table holds several chunks per proposal
+    # and an unde-duplicated list would spend the whole context on one.
+    deduped, seen = [], set()
+    for row in scored:
+        title = row["project_title"]
+        if title in seen:
+            continue
+        seen.add(title)
+        deduped.append(row)
+        if len(deduped) >= match_count:
+            break
+    return deduped
+
+
 def check_opportunity_exists(source_url: str) -> bool:
     """Check if we've already seen this opportunity (dedup)."""
     result = supabase.table("opportunities_cache").select("id").eq(
