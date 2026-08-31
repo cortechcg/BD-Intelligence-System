@@ -10,10 +10,13 @@
 ║  2. Put all proposal files in:          ./data/proposals/        ║
 ║  3. Make sure your .env file has API keys                        ║
 ║  4. Run: python populate_airtable.py                             ║
+║     One new proposal: python populate_airtable.py --file NAME   ║
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
+import argparse
 import os
+import re
 import sys
 import json
 import uuid
@@ -121,12 +124,15 @@ def get_airtable_clients():
         console.print("[red]Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
         sys.exit(1)
 
+    # Same fail-fast retry as database/airtable_client.py. The old
+    # backoff_factor=5 × total=8 slept ~21 minutes per call with no
+    # output, which made this script look hung after "files found".
     retry = retry_strategy(
         status_forcelist=(429, 500, 502, 503, 504),
-        backoff_factor=5,
-        total=8,
+        backoff_factor=0.5,
+        total=2,
     )
-    api  = Api(api_key, retry_strategy=retry)
+    api = Api(api_key, timeout=(10, 20), retry_strategy=retry)
     base = api.base(base_id)
 
     return {
@@ -708,11 +714,13 @@ def validate_environment() -> bool:
         warnings.append(f"Proposals folder not found: {PROPOSALS_DIR}")
         console.print(f"  Proposals folder not found: {PROPOSALS_DIR}")
 
-    # Test Airtable connection — 429 is transient, wait and retry
+    # Test Airtable connection — 429 is transient, wait and retry.
+    # Print first so a slow/rate-limited probe cannot look like a hang.
     console.print()
+    console.print("  Testing Airtable connection...")
     airtable_ok = False
     last_airtable_err = None
-    for attempt in range(1, 6):
+    for attempt in range(1, 4):
         try:
             tables = get_airtable_clients()
             tables["consultants"].all(max_records=1)
@@ -725,10 +733,10 @@ def validate_environment() -> bool:
             is_429 = "429" in err_text or "RetryError" in type(e).__name__
             if not is_429:
                 break
-            wait = min(15 * attempt, 60)
+            wait = min(5 * attempt, 15)
             console.print(
                 f"  [yellow]Airtable rate-limited (429) — "
-                f"waiting {wait}s then retrying ({attempt}/5)[/yellow]"
+                f"waiting {wait}s then retrying ({attempt}/3)[/yellow]"
             )
             time.sleep(wait)
 
@@ -736,13 +744,19 @@ def validate_environment() -> bool:
         errors.append(f"Airtable connection failed: {last_airtable_err}")
         console.print(f"  Airtable connection failed: {last_airtable_err}")
 
-    # Test Anthropic connection
+    # Probe with a short timeout — the shared client waits up to 180s
+    # per attempt, which looked hung after "files found".
+    console.print("  Testing Anthropic API...")
     try:
-        claude = get_claude_client()
-        response = claude.messages.create(
+        probe = anthropic.Anthropic(
+            api_key=get_anthropic_api_key(),
+            timeout=20.0,
+            max_retries=0,
+        )
+        probe.messages.create(
             model=CLAUDE_MODEL,
             max_tokens=10,
-            messages=[{"role": "user", "content": "Hi"}]
+            messages=[{"role": "user", "content": "Hi"}],
         )
         console.print("  Anthropic API: OK")
     except Exception as e:
@@ -935,20 +949,63 @@ def run_cv_population(
     return results
 
 
+def _norm_title(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
+
+
+def _already_in_airtable(file_path: Path, existing_norm: list[str]) -> bool:
+    """True if this filename looks like a PAST_PROPOSALS title already stored."""
+    stem_norm = _norm_title(file_path.stem)
+    if len(stem_norm) < 12:
+        return False
+    for title_norm in existing_norm:
+        if len(title_norm) < 12:
+            continue
+        if title_norm[:50] in stem_norm or stem_norm[:50] in title_norm:
+            return True
+    return False
+
+
 def run_proposal_population(
     tables: dict,
     claude: anthropic.Anthropic,
-    interactive: bool = True
+    interactive: bool = True,
+    only_file: str | None = None,
 ) -> dict:
-    """Process all proposal files and add to Airtable."""
+    """Process proposal files and add to Airtable."""
 
     prop_files = get_files_in_folder(PROPOSALS_DIR)
     prop_files = [f for f in prop_files if "PUT_PROPOSAL" not in f.name.upper()]
+
+    if only_file:
+        wanted = only_file.lower()
+        matched = [
+            f for f in prop_files
+            if f.name.lower() == wanted or wanted in f.name.lower()
+        ]
+        if not matched:
+            console.print(
+                f"[red]No file matching '{only_file}' in {PROPOSALS_DIR}[/red]"
+            )
+            return {"added": 0, "skipped": 0, "errors": 1}
+        prop_files = matched
 
     if not prop_files:
         console.print(f"[yellow]No proposal files found in {PROPOSALS_DIR}[/yellow]")
         console.print(f"   Add PDF or DOCX files to: [cyan]{PROPOSALS_DIR.absolute()}[/cyan]\n")
         return {"added": 0, "skipped": 0, "errors": 0}
+
+    existing_norm: list[str] = []
+    try:
+        for rec in tables["past_proposals"].all(fields=["project_title"]):
+            title = (rec.get("fields") or {}).get("project_title")
+            if title:
+                existing_norm.append(_norm_title(title))
+        console.print(
+            f"  Airtable already has {len(existing_norm)} past proposal(s)"
+        )
+    except Exception as e:
+        logger.warning(f"Could not list existing proposals (will not skip): {e}")
 
     console.print(f"\n[bold blue]Found {len(prop_files)} proposal file(s)[/bold blue]")
 
@@ -956,6 +1013,11 @@ def run_proposal_population(
 
     for i, prop_file in enumerate(prop_files, 1):
         console.print(f"\n[{i}/{len(prop_files)}] Processing: [cyan]{prop_file.name}[/cyan]")
+
+        if not only_file and _already_in_airtable(prop_file, existing_norm):
+            console.print("  [yellow]Already in Airtable — skipping.[/yellow]")
+            results["skipped"] += 1
+            continue
 
         try:
             with console.status("  Reading file..."):
@@ -1066,6 +1128,28 @@ def show_final_summary(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Load CVs and past proposals from data/ into Airtable."
+    )
+    parser.add_argument(
+        "--proposals-only",
+        action="store_true",
+        help="Load past proposals only (skip CVs and rate cards).",
+    )
+    parser.add_argument(
+        "--file",
+        metavar="NAME",
+        help="Only process this filename in data/proposals/ (implies --proposals-only).",
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Save without prompting per record.",
+    )
+    args = parser.parse_args()
+    if args.file:
+        args.proposals_only = True
+
     console.print(Panel.fit(
         "[bold blue]Cortech Airtable Auto-Population Script[/bold blue]\n"
         "[dim]Reads your files and fills Airtable automatically[/dim]",
@@ -1081,25 +1165,34 @@ def main():
         sys.exit(1)
 
     # 2. Ask what to populate
-    console.print()
-    console.print("[bold]What would you like to populate?[/bold]")
-    console.print("  1. CVs only")
-    console.print("  2. Past Proposals only")
-    console.print("  3. Rate Cards only")
-    console.print("  4. Everything (CVs + Proposals + Rate Cards)")
-    console.print("  5. Exit")
+    if args.proposals_only:
+        choice = "2"
+        console.print("\n[bold]Mode:[/bold] Past Proposals only")
+        if args.file:
+            console.print(f"  File filter: [cyan]{args.file}[/cyan]")
+    else:
+        console.print()
+        console.print("[bold]What would you like to populate?[/bold]")
+        console.print("  1. CVs only")
+        console.print("  2. Past Proposals only")
+        console.print("  3. Rate Cards only")
+        console.print("  4. Everything (CVs + Proposals + Rate Cards)")
+        console.print("  5. Exit")
 
-    choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "4", "5"], default="4")
+        choice = Prompt.ask("\nChoice", choices=["1", "2", "3", "4", "5"], default="4")
 
     if choice == "5":
         console.print("Goodbye!")
         sys.exit(0)
 
     # 3. Interactive mode?
-    interactive = Confirm.ask(
-        "\nReview each record before saving? (Recommended for first run)",
-        default=True
-    )
+    if args.yes:
+        interactive = False
+    else:
+        interactive = Confirm.ask(
+            "\nReview each record before saving? (Recommended for first run)",
+            default=True
+        )
 
     # 4. Initialize clients
     tables = get_airtable_clients()
@@ -1129,7 +1222,9 @@ def main():
 
     if choice in ("2", "4"):
         console.print("\n[bold blue]Processing Past Proposals...[/bold blue]")
-        prop_results = run_proposal_population(tables, claude, interactive)
+        prop_results = run_proposal_population(
+            tables, claude, interactive, only_file=args.file
+        )
 
     # 6. Final summary
     show_final_summary(cv_results, prop_results, rate_cards_added)
