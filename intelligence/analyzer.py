@@ -77,7 +77,7 @@ ANALYSIS_SCHEMA = """
       "required_skills": ["list of skills"],
       "required_geographic_experience": ["list of locations"],
       "required_education": "string",
-      "estimated_days_of_effort": "number or null",
+      "estimated_days_of_effort": "number only when the ToR explicitly states role effort/input days; otherwise null — do not estimate",
       "must_be_local": "boolean",
       "local_country": "string or null"
     }

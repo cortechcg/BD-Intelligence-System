@@ -53,12 +53,15 @@ def get_table(table_name: str):
 
 
 def create_opportunity(opportunity_data: dict) -> str | None:
-    """Create new opportunity record in Airtable."""
+    """Create an opportunity record without overwriting its lifecycle state."""
+    opportunity_data = dict(opportunity_data or {})
     table = get_table("opportunities")
 
-    opportunity_data["opportunity_id"] = str(uuid.uuid4())
-    opportunity_data["discovered_at"] = datetime.now().strftime("%Y-%m-%d")
-    opportunity_data["status"] = "New"
+    opportunity_data.setdefault("opportunity_id", str(uuid.uuid4()))
+    opportunity_data.setdefault("discovered_at", datetime.now().strftime("%Y-%m-%d"))
+    # A caller may intentionally set a lifecycle state such as Reviewing or
+    # Failed. Blank remains equivalent to the normal New state.
+    opportunity_data["status"] = opportunity_data.get("status") or "New"
 
     if _circuit_open():
         logger.warning(

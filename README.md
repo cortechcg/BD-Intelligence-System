@@ -34,7 +34,7 @@ Cortech competes for consulting work advertised across dozens of tender portals,
 1. **Discover** — RSS feeds, Playwright-driven scrapers for JavaScript-heavy portals, and an IMAP-based check of the Assortis/ICA World daily newsletter.
 2. **Filter, for free** — before any paid API call, every posting passes a three-gate keyword check (staff-vacancy language, geography, thematic relevance) and a semantic near-duplicate check against everything already seen, catching the same tender posted on multiple portals under different URLs.
 3. **Analyze** — the LLM reads the full document (as untrusted data) and extracts structured fields. A **deterministic scorer** (`intelligence/bid_scorer.py`, weights in `intelligence/scoring_model.json`) calculates FIT / WIN / STRATEGIC / RISK and BID / WATCH / NO-BID. The model's own numeric score is stored only as an audit field.
-4. **Match & price** — team CVs matched semantically against requirements, then checked for explicit geography/years (missing education is UNKNOWN, never inferred). A budget is built from the real rate card. Skipped entirely for EOI-stage and NO-BID opportunities to avoid spending on work that isn't needed yet.
+4. **Match & cost safely** — team CVs are matched semantically against requirements, then checked for explicit geography/years (missing education is UNKNOWN, never inferred). Financial preparation uses only ToR-stated effort days and an exact maintained rate-card row. It returns `PARTIAL` / `INSUFFICIENT DATA` rather than inventing travel, workshop, overhead, contingency, or tax figures.
 5. **Draft** — a strategy is decided once, then every section is drafted against it and against real past-proposal structure (extracted from 60+ real submissions, not an assumed template).
 6. **Review itself** — a self-assessment pass scores the draft against the ToR's actual stated evaluation criteria before anyone sees it.
 7. **Deliver** — a formatted `.docx` and an email land with the team, flagged by urgency and by anything the review pass caught.
@@ -57,7 +57,7 @@ cortech-bd-agent/
 │   ├── scoring_model.json        # score_version 1.0.0 — changing this does not rewrite old records
 │   ├── cv_matcher.py             # Semantic CV matching + explicit capability overlay
 │   ├── compliance.py             # SATISFIED/PARTIAL/MISSING/UNKNOWN matrix
-│   ├── budget_calculator.py     # Rate-card-based budget generation
+│   ├── budget_calculator.py     # Evidence-bound personnel costing; never LLM-estimated
 │   ├── proposal_writer.py       # Section generation, strategy, style-guide grounding, quality self-score
 │   └── learning.py               # Win/loss lesson extraction and retrieval
 ├── monitors/
@@ -140,6 +140,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
 | `FULL_DRAFT_FOR_WATCH` | `true` (current default) generates the full proposal even for WATCH-tier opportunities. Set to `false` for the lightweight cover-letter-only path. |
 | `ANTHROPIC_TIMEOUT_SECONDS` / `ANTHROPIC_MAX_RETRIES` | Claude call timeout (default 180s) and SDK retries (default 2). |
+| `DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` / `MAX_DOCUMENT_BYTES` / `MAX_DOWNLOAD_REDIRECTS` / `DOCUMENT_DOWNLOAD_MAX_RETRIES` | Limits for untrusted document downloads. Defaults: 60 seconds, 25 MiB, 5 redirects, and 2 transient retries. |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
 `python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
@@ -210,7 +211,7 @@ These have each caused real, confirmed production failures. Documented here spec
 - **Never write `dict.get(key, default)[some_slice]`.** `.get()` only substitutes the default when the key is *missing* — if the key exists but its value is `None`, `.get()` returns `None`, and slicing it crashes with `'NoneType' object is not subscriptable`. Use `(dict.get(key) or default)[slice]` instead. This has also regressed once.
 - **Railway SMTP is blocked at the platform level** (irrelevant now that this runs locally, but relevant again if ever redeployed to a similar host) — `email_report.py` tries Gmail SMTP first, falls back to Resend's HTTP API. Both paths need real, working credentials for delivery to succeed; a failure in one silently masks whether the other is even configured.
 - **`.env` must never be committed.** It was tracked in git history for a period early in this project before being corrected — if that history was ever shared or the repo was ever public, treat every credential used at that time as compromised and rotate it, regardless of whether this has already been done.
-- **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug. The NO-BID label now comes from the deterministic scorer, not from Claude's integer.
+- **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug. A NO-BID is stored as a recommendation on a `New` record for human confirmation; it is not an automated final business decision. The label comes from the deterministic scorer, not Claude's integer.
 - **The LLM `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting the model to return a different number.
 - **`.env.example` must never contain live keys.**
 

@@ -32,6 +32,28 @@ def get_openai_api_key() -> str | None:
 ANTHROPIC_TIMEOUT_SECONDS = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "180"))
 ANTHROPIC_MAX_RETRIES = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
 
+
+def _positive_int_env(name: str, default: int) -> int:
+    """Read a positive integer setting or fail at startup with a useful error."""
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a positive integer, got {raw!r}") from exc
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer, got {value}")
+    return value
+
+
+# Download limits are deliberately finite: tender URLs are untrusted and a
+# malformed or hostile endpoint must not exhaust the agent's memory or disk.
+DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS = _positive_int_env(
+    "DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS", 60
+)
+MAX_DOCUMENT_BYTES = _positive_int_env("MAX_DOCUMENT_BYTES", 25 * 1024 * 1024)
+MAX_DOWNLOAD_REDIRECTS = _positive_int_env("MAX_DOWNLOAD_REDIRECTS", 5)
+DOCUMENT_DOWNLOAD_MAX_RETRIES = _positive_int_env("DOCUMENT_DOWNLOAD_MAX_RETRIES", 2)
+
 _CLIENT_CACHE: dict[str, object] = {}
 
 

@@ -7,9 +7,16 @@ from io import BytesIO
 from loguru import logger
 from database.supabase_client import store_document
 import re
+import time
 from urllib.parse import parse_qs, urlparse, urljoin
 
 from processors.document_quality import MIN_USEFUL_CHARS, assess_extraction
+from config import (
+    DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS,
+    DOCUMENT_DOWNLOAD_MAX_RETRIES,
+    MAX_DOCUMENT_BYTES,
+    MAX_DOWNLOAD_REDIRECTS,
+)
 from utils.errors import ErrorType
 from utils.urls import UnsafeURLError, assert_public_http_url, safe_filename
 
@@ -21,50 +28,111 @@ HTTP_HEADERS = {
 }
 
 
-def _is_ssl_error(exc: Exception) -> bool:
-    msg = str(exc).lower()
-    return "certificate" in msg or "ssl" in msg
-
-
 def _looks_like_pdf_url(url: str) -> bool:
     return url.lower().split("?")[0].split("#")[0].endswith(".pdf")
 
 
+def _retryable_download_error(exc: Exception) -> bool:
+    """Retry only failures that can plausibly improve without changing input."""
+    if isinstance(exc, (UnsafeURLError, ValueError)):
+        return False
+    if isinstance(exc, (httpx.TimeoutException, httpx.NetworkError)):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        return status in {408, 425, 429, 500, 502, 503, 504}
+    return False
+
+
+def _download_document_once(url: str) -> bytes:
+    """One secure fetch attempt. Redirect targets are validated per hop."""
+    current_url = url
+    timeout = httpx.Timeout(DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS)
+    with httpx.Client(timeout=timeout, follow_redirects=False) as client:
+        for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
+            # Protect every hop, not only the original listing URL.
+            assert_public_http_url(current_url)
+            with client.stream("GET", current_url, headers=HTTP_HEADERS) as response:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("location")
+                    if not location:
+                        response.raise_for_status()
+                        raise RuntimeError("Redirect response did not include a Location header")
+                    if redirect_count >= MAX_DOWNLOAD_REDIRECTS:
+                        raise RuntimeError(
+                            f"Too many redirects (max {MAX_DOWNLOAD_REDIRECTS}) while downloading document"
+                        )
+                    next_url = urljoin(current_url, location)
+                    # Validate now as well as at the next loop's start so an
+                    # internal redirect is never accidentally requested.
+                    assert_public_http_url(next_url)
+                    current_url = next_url
+                    continue
+
+                response.raise_for_status()
+                declared_size = response.headers.get("content-length")
+                if declared_size:
+                    try:
+                        if int(declared_size) > MAX_DOCUMENT_BYTES:
+                            raise ValueError(
+                                f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit "
+                                f"(declared {declared_size} bytes)"
+                            )
+                    except ValueError as exc:
+                        # A malformed Content-Length is not a security signal;
+                        # stream accounting below remains authoritative. Keep
+                        # a real over-limit error visible to the caller.
+                        if "exceeds" in str(exc):
+                            raise
+
+                content = bytearray()
+                for chunk in response.iter_bytes():
+                    content.extend(chunk)
+                    if len(content) > MAX_DOCUMENT_BYTES:
+                        raise ValueError(
+                            f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit while streaming"
+                        )
+                return bytes(content)
+
+    # The loop either returns, raises, or reaches this impossible guard.
+    raise RuntimeError("Document download ended without a response")
+
+
 def download_document(url: str) -> bytes:
-    """Download a document from URL, retrying without SSL verify on bad certs."""
+    """Download an untrusted document within explicit safety limits.
+
+    httpx does not re-run our URL policy for redirects. Redirects therefore
+    have to be followed manually, with every next hop checked before a
+    request is made. TLS verification intentionally remains enabled: a bad
+    certificate is a failed source, not a reason to weaken transport
+    security for procurement documents.
+    """
     try:
         assert_public_http_url(url)
     except UnsafeURLError as e:
         logger.error(f"Download blocked ({ErrorType.SSRF_ERROR}): {e}")
         raise
-    last_error: Exception | None = None
-    for verify in (True, False):
+
+    for attempt in range(DOCUMENT_DOWNLOAD_MAX_RETRIES + 1):
         try:
-            response = httpx.get(
-                url,
-                headers=HTTP_HEADERS,
-                follow_redirects=True,
-                timeout=60,
-                verify=verify,
+            return _download_document_once(url)
+        except Exception as exc:
+            if not _retryable_download_error(exc) or attempt >= DOCUMENT_DOWNLOAD_MAX_RETRIES:
+                logger.error(
+                    f"Download failed for {url}: {exc} "
+                    f"error_type={ErrorType.INGESTION_ERROR}"
+                )
+                raise
+            # 1s, 2s, then give up. This is intentionally capped so a bad
+            # source cannot hold up the entire discovery run for minutes.
+            delay = 2 ** attempt
+            logger.warning(
+                f"Transient download failure (attempt {attempt + 1}/"
+                f"{DOCUMENT_DOWNLOAD_MAX_RETRIES + 1}); retrying in {delay}s: {exc}"
             )
-            response.raise_for_status()
-            if not verify:
-                logger.warning(
-                    f"  Downloaded with SSL verification disabled: {url[:80]}"
-                )
-            return response.content
-        except Exception as e:
-            last_error = e
-            if verify and _is_ssl_error(e):
-                logger.warning(
-                    f"  SSL verify failed for {url[:60]} — retrying without verification"
-                )
-                continue
-            logger.error(f"Download failed for {url}: {e} error_type={ErrorType.INGESTION_ERROR}")
-            raise
-    assert last_error is not None
-    logger.error(f"Download failed for {url}: {last_error} error_type={ErrorType.INGESTION_ERROR}")
-    raise last_error
+            time.sleep(delay)
+
+    raise RuntimeError("Document download retry loop ended unexpectedly")
 
 
 def extract_text_from_pdf(content: bytes) -> str:

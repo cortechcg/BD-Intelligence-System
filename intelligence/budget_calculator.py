@@ -1,180 +1,238 @@
-# intelligence/budget_calculator.py
-import json
+"""Evidence-bound internal budget preparation.
+
+This module deliberately does not ask an LLM to invent effort, day rates,
+workshops, overhead, contingency, or travel. A budget can be useful only when
+its numbers are traceable to an extracted ToR field or Cortech's maintained
+rate card. Missing inputs are returned explicitly for a human estimator.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any
+
 from loguru import logger
+
 from database.airtable_client import get_rate_card
-from config import CLAUDE_MODEL
-from utils.llm import complete, get_text
+
+
+BUDGET_COMPLETE = "COMPLETE"
+BUDGET_PARTIAL = "PARTIAL"
+BUDGET_INSUFFICIENT = "INSUFFICIENT DATA"
+
+
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _key(value: Any) -> str:
+    return " ".join(_text(value).casefold().split())
+
+
+def _positive_number(value: Any) -> float | None:
+    """Accept a finite positive number; zero/unknown/invalid are not estimates."""
+    if value in (None, ""):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or number <= 0:
+        return None
+    return number
+
+
+def _empty_budget(primary_location: str, missing_inputs: list[str], reason: str) -> dict:
+    return {
+        "status": BUDGET_INSUFFICIENT,
+        "currency": "USD",
+        "primary_location": primary_location,
+        "reason": reason,
+        "missing_inputs": missing_inputs,
+        "excluded_costs": [
+            "travel and logistics",
+            "data collection tools and materials",
+            "workshops and events",
+            "management overhead",
+            "contingency",
+            "taxes",
+        ],
+        "summary": {
+            "personnel_subtotal_usd": None,
+            "known_personnel_subtotal_usd": 0,
+            "grand_total_usd": None,
+        },
+        "personnel_breakdown": {},
+    }
+
+
+def _rate_lookup(rate_card: list[dict]) -> dict[tuple[str, str], dict]:
+    """Index only explicit, usable rate-card rows by level and location."""
+    rates: dict[tuple[str, str], dict] = {}
+    for row in rate_card or []:
+        if not isinstance(row, dict):
+            continue
+        level = _key(row.get("role_level"))
+        location = _key(row.get("location"))
+        day_rate = _positive_number(row.get("day_rate_usd"))
+        if not level or not location or day_rate is None:
+            continue
+        # The first row is retained deterministically. Conflicting rate-card
+        # rows must be cleaned by the owner instead of being averaged here.
+        rates.setdefault((level, location), {
+            "day_rate_usd": day_rate,
+            "per_diem_usd": _positive_number(row.get("per_diem_usd")),
+        })
+    return rates
 
 
 def calculate_budget(
     analysis: dict,
     matched_team: dict,
-    primary_location: str = "Nairobi"
+    primary_location: str = "Nairobi",
 ) -> dict:
+    """Calculate only a traceable personnel subtotal.
+
+    ``estimated_days_of_effort`` must have been explicitly extracted from the
+    tender for each role, and a matching Cortech rate-card row must exist for
+    its level and project location. ``matched_team`` remains part of the
+    public interface but does not supply a fabricated rate or effort value.
+
+    A full financial proposal is never claimed ready: the current data model
+    has no evidence-backed inputs for non-personnel costs. The returned
+    ``status`` and ``missing_inputs`` make that limitation operational.
     """
-    Calculate project budget based on:
-    - Matched team and their day rates from Airtable rate card
-    - Project duration from analysis
-    - Deliverables and estimated effort
-    """
-    rate_card = get_rate_card()
+    del matched_team  # Rates and effort must not be inferred from a CV match.
 
-    # Build rate lookup
-    rates = {}
-    per_diems = {}
-    for rate in rate_card:
-        key = f"{rate.get('role_level', '')}_{rate.get('location', '')}"
-        rates[key] = rate.get("day_rate_usd", 0)
-        per_diems[rate.get("location", "")] = rate.get("per_diem_usd", 0)
-
-    team_requirements = analysis.get("team_requirements", [])
-    duration_text = analysis.get("opportunity", {}).get("project_duration", "3 months")
-    deliverables = analysis.get("deliverables", [])
-
-    # Ask the model to estimate days of effort per role
-    prompt = f"""Calculate days of effort for each team role for this project.
-
-PROJECT DETAILS:
-Title: {analysis.get('opportunity', {}).get('title', '')}
-Duration: {duration_text}
-Location: {primary_location}
-
-DELIVERABLES:
-{json.dumps(deliverables, indent=2)}
-
-TEAM REQUIREMENTS:
-{json.dumps(team_requirements, indent=2)}
-
-For each role, estimate:
-- Input days (desk work, analysis, writing)
-- Field days (travel, workshops, community engagement)
-- Total days
-
-Return ONLY a JSON array:
-[
-  {{
-    "role": "Team Leader",
-    "level": "Senior",
-    "input_days": 15,
-    "field_days": 5,
-    "total_days": 20
-  }}
-]"""
-
-    response = complete(
-        model=CLAUDE_MODEL,
-        max_tokens=1000,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    effort_text = get_text(response).strip()
-    if effort_text.startswith("```"):
-        effort_text = effort_text.split("```json")[-1].split("```")[0]
+    analysis = analysis or {}
+    opportunity = analysis.get("opportunity") or {}
+    if not isinstance(opportunity, dict):
+        opportunity = {}
+    requirements = analysis.get("team_requirements") or []
+    if not isinstance(requirements, list) or not requirements:
+        return _empty_budget(
+            primary_location,
+            ["team_requirements with explicit estimated_days_of_effort"],
+            "No team effort requirements were extracted from the tender.",
+        )
 
     try:
-        effort_estimates = json.loads(effort_text)
-    except:
-        effort_estimates = []
+        rate_card = get_rate_card()
+    except Exception as exc:
+        # The Airtable client normally fails open, but protect this critical
+        # boundary so an unavailable rate card can never create default prices.
+        logger.warning(f"Rate-card lookup failed; budget remains incomplete: {exc}")
+        rate_card = []
+    rates = _rate_lookup(rate_card)
+    location_key = _key(primary_location)
 
-    # Calculate costs
-    personnel_costs = {}
-    total_personnel = 0
+    personnel: dict[str, dict] = {}
+    missing: list[str] = []
+    known_total = 0.0
+    complete_personnel = True
 
-    for effort in effort_estimates:
-        role = effort.get("role", "")
-        level = effort.get("level", "Mid")
-        total_days = effort.get("total_days", 10)
-        field_days = effort.get("field_days", 0)
+    for index, requirement in enumerate(requirements, start=1):
+        if not isinstance(requirement, dict):
+            complete_personnel = False
+            missing.append(f"valid team requirement #{index}")
+            continue
 
-        # Get day rate
-        rate_key = f"{level}_{primary_location}"
-        day_rate = rates.get(rate_key, rates.get(f"{level}_Nairobi", 1000))
-        per_diem = per_diems.get(primary_location, 150)
+        role = _text(requirement.get("role")) or f"Unspecified role #{index}"
+        level = _text(requirement.get("level"))
+        effort_days = _positive_number(requirement.get("estimated_days_of_effort"))
+        rate = rates.get((_key(level), location_key)) if level else None
 
-        person_cost = (total_days * day_rate) + (field_days * per_diem)
-        personnel_costs[role] = {
-            "days": total_days,
-            "field_days": field_days,
-            "day_rate_usd": day_rate,
-            "personnel_cost_usd": total_days * day_rate,
-            "per_diem_cost_usd": field_days * per_diem,
-            "total_cost_usd": person_cost,
+        line: dict[str, Any] = {
+            "role": role,
+            "level": level or None,
+            "estimated_days_of_effort": effort_days,
+            "day_rate_usd": rate["day_rate_usd"] if rate else None,
+            "personnel_cost_usd": None,
+            "status": "UNKNOWN",
+            "evidence": [],
         }
-        total_personnel += person_cost
+        if effort_days is None:
+            complete_personnel = False
+            missing.append(f"explicit estimated_days_of_effort for {role}")
+        else:
+            line["evidence"].append(
+                "team_requirements.estimated_days_of_effort"
+            )
 
-    # Standard additions
-    field_logistics = total_personnel * 0.12  # 12% for travel, accommodation
-    data_tools = 2500  # KoboToolbox, software, materials
-    reporting = total_personnel * 0.05  # 5% for report design, printing
-    management_overhead = total_personnel * 0.08  # 8% overhead
-    contingency = total_personnel * 0.05  # 5% contingency
+        if not level:
+            complete_personnel = False
+            missing.append(f"role level for {role}")
+        elif rate is None:
+            complete_personnel = False
+            missing.append(
+                f"rate-card day_rate_usd for {level} at {primary_location} ({role})"
+            )
+        else:
+            line["evidence"].append("Airtable RATE_CARDS.day_rate_usd")
 
-    total = (
-        total_personnel
-        + field_logistics
-        + data_tools
-        + reporting
-        + management_overhead
-        + contingency
-    )
+        if effort_days is not None and rate is not None:
+            cost = effort_days * rate["day_rate_usd"]
+            line["personnel_cost_usd"] = round(cost, 2)
+            line["status"] = "VERIFIED"
+            known_total += cost
+        elif effort_days is not None or rate is not None:
+            line["status"] = "PARTIAL"
 
-    # Workshop costs (separate)
-    workshop_costs = estimate_workshop_costs(deliverables, primary_location)
+        # Duplicate role labels are valid in poor-quality extractions. Keep
+        # both lines rather than silently overwrite a cost.
+        key = role
+        suffix = 2
+        while key in personnel:
+            key = f"{role} ({suffix})"
+            suffix += 1
+        personnel[key] = line
 
-    budget = {
-        "summary": {
-            "personnel_subtotal_usd": round(total_personnel),
-            "field_logistics_usd": round(field_logistics),
-            "data_tools_usd": round(data_tools),
-            "reporting_design_usd": round(reporting),
-            "management_overhead_usd": round(management_overhead),
-            "contingency_5pct_usd": round(contingency),
-            "core_budget_usd": round(total),
-            "workshop_costs_usd": round(workshop_costs["total"]),
-            "grand_total_usd": round(total + workshop_costs["total"]),
-        },
-        "personnel_breakdown": personnel_costs,
-        "workshop_breakdown": workshop_costs,
-        "currency": "USD",
-        "primary_location": primary_location,
+    # The supplied model does not contain verified inputs for non-personnel
+    # costs, so do not turn an accurate subtotal into a fake total.
+    non_personnel_missing = [
+        "travel/logistics assumptions or quotations",
+        "data-collection/tools assumptions or quotations",
+        "workshop/event assumptions or quotations",
+        "approved overhead, contingency, and tax treatment",
+    ]
+    missing.extend(non_personnel_missing)
+    status = BUDGET_PARTIAL if known_total > 0 else BUDGET_INSUFFICIENT
+    summary = {
+        "personnel_subtotal_usd": round(known_total, 2) if complete_personnel else None,
+        "known_personnel_subtotal_usd": round(known_total, 2),
+        "grand_total_usd": None,
     }
 
-    logger.success(f"Budget calculated: ${budget['summary']['grand_total_usd']:,}")
+    budget = {
+        "status": status,
+        "currency": "USD",
+        "primary_location": primary_location,
+        "reason": (
+            "Personnel costed from explicit ToR effort and rate-card inputs; "
+            "full financial proposal still needs non-personnel cost evidence."
+            if known_total > 0
+            else "No personnel amount could be calculated from verified effort and rate-card inputs."
+        ),
+        "missing_inputs": missing,
+        "excluded_costs": non_personnel_missing,
+        "summary": summary,
+        "personnel_breakdown": personnel,
+        "opportunity_budget_cap_usd": _positive_number(
+            opportunity.get("estimated_budget_usd")
+        ),
+    }
+    logger.info(
+        f"Budget {status}: known personnel subtotal ${known_total:,.2f}; "
+        f"{len(missing)} required input(s) unresolved"
+    )
     return budget
 
 
 def estimate_workshop_costs(deliverables: list, location: str) -> dict:
-    """Estimate workshop and event costs."""
-    # Count workshops in deliverables
-    workshop_count = sum(
-        1 for d in deliverables
-        if any(word in d.get("name", "").lower()
-               for word in ["workshop", "training", "roundtable", "session"])
-    )
-
-    workshop_count = max(workshop_count, 2)  # Minimum 2
-
-    # Location-based rates
-    venue_rates = {
-        "Nairobi": 400,
-        "Addis Ababa": 350,
-        "Mogadishu": 600,
-        "London": 800,
-    }
-    venue_day = venue_rates.get(location, 400)
-    catering_pp = 35
-    participants_avg = 25
-
-    workshop_total = workshop_count * (
-        venue_day
-        + (catering_pp * participants_avg)
-        + 200  # materials
-    )
-
+    """Compatibility shim: workshop cost is UNKNOWN without actual inputs."""
+    del deliverables, location
     return {
-        "workshop_count": workshop_count,
-        "avg_participants": participants_avg,
-        "venue_per_day_usd": venue_day,
-        "catering_per_person_usd": catering_pp,
-        "total": workshop_total,
+        "status": BUDGET_INSUFFICIENT,
+        "total": None,
+        "reason": "No evidence-backed workshop quantities or unit costs are available.",
     }
