@@ -19,10 +19,14 @@ from loguru import logger
 # slots (org_profile_and_track_record covers what would otherwise be
 # two separate PROPOSAL_STRUCTURE entries, etc.) — see proposal_writer.py.
 SECTION_ORDER = [
-    ("cover_letter", "Cover Letter"),
-    ("firm_profile", "Firm Profile"),
+    ("cover_letter", "Cover Letter / Letter of Interest"),
+    ("firm_profile", "Presentation of Cortech Consulting Group"),
+    ("understanding", "Our Understanding of the Assignment"),
+    ("approach_summary", "Proposed Technical Approach — Summary"),
     ("relevant_experience", "Relevant Experience"),
-    ("key_experts", "Proposed Key Experts"),
+    ("key_experts", "Resources in Staff"),
+    ("eligibility", "Eligibility"),
+    ("compliance_matrix", "Capability Matrix"),
     ("executive_summary", "Executive Summary"),
     ("org_profile_and_track_record", "Organisational Profile & Track Record"),
     ("introduction_and_framework", "Introduction, Background & Conceptual Framework"),

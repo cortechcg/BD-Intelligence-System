@@ -11,6 +11,7 @@ from utils.money_scrub import (
     find_monetary_amounts,
     strip_monetary_amounts,
 )
+from utils.prose import humanize_draft
 from intelligence.tender_reader import build_tor_brief, tender_documents_block
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import get_embedding, search_past_proposals, supabase
@@ -229,6 +230,14 @@ _EXEMPLAR_KEY_FOR = {
     "eoi_firm": "org_profile",
     "eoi_experience": "experience",
     "eoi_experts": "team",
+    "eoi_understanding": "understanding",
+    "eoi_approach": "methodology",
+    "eoi_eligibility": "org_profile",
+    "eoi_matrix": "experience",
+    "understanding": "understanding",
+    "approach_summary": "methodology",
+    "eligibility": "org_profile",
+    "compliance_matrix": "experience",
 }
 
 
@@ -336,6 +345,11 @@ MANDATORY WRITING STANDARDS:
   exactly — the prescribed structure always beats Cortech's house structure.
 - Professional development-consulting tone. No hollow phrases ("we are excited",
   "we believe", "our team is passionate", "this proposal aims", "we are pleased").
+- HUMAN PROSE ONLY. The output is a Word document a person wrote, not a chatbot.
+  Never output --- or any line that is only dashes, stars, or underscores.
+  Never use an em dash or en dash. Never start a line with a dash bullet
+  (- item). Use numbered lists (1. 2. 3.) or complete paragraphs. Hyphens
+  inside ordinary words and year ranges (south-central, 2024-2026) are allowed.
 """
 
 WINNING_STANDARD = """
@@ -353,18 +367,46 @@ response. The margin comes from four things, in this order:
    past assignment, a named expert, a named tool, or a stated procedure.
 4. Explicit scoring alignment — each scored criterion is addressed head-on,
    in proportion to its weight.
+If a paragraph could be pasted into a different ToR unchanged, it has failed
+— rewrite it against THIS assignment.
+"""
+
+EOI_WINNING_STANDARD = """
+WHAT MAKES THIS EXPRESSION OF INTEREST WIN SHORTLISTING:
+This is an EOI / REOI / pre-qualification, not a full technical proposal.
+A shortlisting panel compares firms on understanding, relevant experience,
+eligible team, and administrative completeness. The margin comes from:
+1. Demonstrated comprehension — the panel recognises THEIR assignment
+   (purpose, geography, target groups, named deliverables, constraints)
+   in the letter and the understanding section, using their own terms.
+2. Relevant experience that maps onto THIS ToR — each past assignment is
+   connected in one sentence to a named requirement, not listed as a
+   generic capability brochure.
+3. Eligible, available team — named experts tied to the personnel
+   criteria the REOI actually states; gaps marked honestly.
+4. Administrative completeness — every eligibility statement, form, and
+   annex the documents require is addressed so the file cannot be
+   rejected before it is scored.
+Do NOT write a full methodology, sampling design, Gantt chart, or
+financial offer unless the REOI explicitly asks for it. A 500–700 word
+approach SUMMARY that shows how THIS assignment would be delivered is
+required; a 10-page method chapter is not.
+If a paragraph could be pasted into a different EOI unchanged, it has
+failed — rewrite it against THIS assignment.
 """
 
 QUALITY_SUFFIX = (
     "\n\nFinish the entire section. Never end mid-sentence, mid-list, or mid-table. "
     "Explicitly satisfy the ToR evaluation criteria from your system context with "
-    "specific, evidence-based claims — not generic consulting language. "
+    "specific, evidence-based claims, not generic consulting language. "
     "Ground the content in the tender documents in your system context and use the "
-    "client's own terms. State no monetary amount of any kind."
+    "client's own terms. State no monetary amount of any kind. "
+    "Write human prose: no ---, no em dashes, no dash bullets. "
+    "Use numbered lists or paragraphs."
 )
 
 
-def _eval_criteria_block(analysis: dict) -> str:
+def _eval_criteria_block(analysis: dict, submission_type: str = "FULL_PROPOSAL") -> str:
     """
     Two separate lists, and conflating them loses bids.
 
@@ -380,30 +422,57 @@ def _eval_criteria_block(analysis: dict) -> str:
     framework = analysis.get("assignment_evaluation_framework") or []
 
     if criteria:
-        block = (
-            "HOW THIS PROPOSAL WILL BE SCORED (these decide the bid — every one "
-            "of them must be visibly and explicitly addressed, and where a "
-            "weight is given, depth should follow the weight):\n"
-            + json.dumps(criteria, indent=2)
-        )
+        if submission_type == "EOI":
+            block = (
+                "HOW THIS EOI WILL BE SHORTLISTED (these decide whether Cortech "
+                "reaches the RFP stage — every one of them must be visibly and "
+                "explicitly addressed, and where a weight is given, depth should "
+                "follow the weight):\n"
+                + json.dumps(criteria, indent=2)
+            )
+        else:
+            block = (
+                "HOW THIS PROPOSAL WILL BE SCORED (these decide the bid — every one "
+                "of them must be visibly and explicitly addressed, and where a "
+                "weight is given, depth should follow the weight):\n"
+                + json.dumps(criteria, indent=2)
+            )
     else:
-        block = (
-            "HOW THIS PROPOSAL WILL BE SCORED: no award criteria were extracted "
-            "from the ToR. Address the standard scoring dimensions explicitly — "
-            "technical quality and methodology, relevant experience, "
-            "understanding of the assignment, proposed team, and ability to "
-            "deliver within the required timeframe."
-        )
+        if submission_type == "EOI":
+            block = (
+                "HOW THIS EOI WILL BE SHORTLISTED: no shortlisting criteria were "
+                "extracted from the documents. Address the standard EOI dimensions "
+                "explicitly — similar experience, understanding of the assignment, "
+                "proposed team, eligibility/administrative completeness, and "
+                "ability to mobilise if invited to submit a full proposal."
+            )
+        else:
+            block = (
+                "HOW THIS PROPOSAL WILL BE SCORED: no award criteria were extracted "
+                "from the ToR. Address the standard scoring dimensions explicitly — "
+                "technical quality and methodology, relevant experience, "
+                "understanding of the assignment, proposed team, and ability to "
+                "deliver within the required timeframe."
+            )
 
     if framework:
-        block += (
-            "\n\nEVALUATION FRAMEWORK THE ASSIGNMENT MUST APPLY (this is the "
-            "subject matter of the methodology — the criteria and questions we "
-            "will assess the client's project against. Build the evaluation "
-            "matrix around these. Do NOT mistake them for the criteria our "
-            "proposal is scored on):\n"
-            + json.dumps(framework, indent=2)
-        )
+        if submission_type == "EOI":
+            block += (
+                "\n\nEVALUATION FRAMEWORK THE ASSIGNMENT ITSELF WILL APPLY "
+                "(context for the understanding and approach-summary sections "
+                "only — do not write a full evaluation matrix or methodology "
+                "chapter in this EOI):\n"
+                + json.dumps(framework, indent=2)
+            )
+        else:
+            block += (
+                "\n\nEVALUATION FRAMEWORK THE ASSIGNMENT MUST APPLY (this is the "
+                "subject matter of the methodology — the criteria and questions we "
+                "will assess the client's project against. Build the evaluation "
+                "matrix around these. Do NOT mistake them for the criteria our "
+                "proposal is scored on):\n"
+                + json.dumps(framework, indent=2)
+            )
     return block
 
 
@@ -636,8 +705,8 @@ def _build_guidance_block(
     parts = [
         COMPLETENESS_RULES,
         NO_MONETARY_RULE,
-        WINNING_STANDARD,
-        _eval_criteria_block(analysis),
+        EOI_WINNING_STANDARD if submission_type == "EOI" else WINNING_STANDARD,
+        _eval_criteria_block(analysis, submission_type),
     ]
     if tor_brief.strip():
         parts.append(tor_brief.strip())
@@ -673,7 +742,9 @@ def build_system_blocks(
     Returns a single guidance block when no tender text is available.
     """
     doc_block = tender_documents_block(tor_text)
-    tor_brief = build_tor_brief(tor_text, analysis, doc_block=doc_block)
+    tor_brief = build_tor_brief(
+        tor_text, analysis, doc_block=doc_block, submission_type=submission_type
+    )
     guidance = _build_guidance_block(
         analysis, extra_context, submission_type, tor_brief=tor_brief
     )
@@ -750,9 +821,10 @@ Red lines to avoid: {intel.get("red_lines", "None known")}
 def generate_quality_self_score(sections: dict, analysis: dict) -> dict:
     """
     One LLM call, evaluating the finished draft against the ToR's own
-    stated evaluation criteria — not invented generic categories.
+    stated evaluation / shortlisting criteria — not invented generic categories.
     """
     eval_criteria = analysis.get("evaluation_criteria", [])
+    is_eoi = sections.get("submission_type") == "EOI"
     combined = "\n\n".join(
         f"[{k}]\n{v}" for k, v in sections.items() if isinstance(v, str)
     )
@@ -761,13 +833,31 @@ def generate_quality_self_score(sections: dict, analysis: dict) -> dict:
         k for k, v in sections.items()
         if isinstance(v, str) and k not in ("submission_type",)
     ]
-    prompt = f"""Score this draft proposal against the evaluation criteria actually stated in the ToR — not generic categories.
+    stage = (
+        "Expression of Interest / shortlisting submission"
+        if is_eoi
+        else "technical proposal"
+    )
+    extra = (
+        "Score THIS STAGE only. Penalise a full methodology, work plan, or "
+        "financial offer unless the REOI asked for it. Penalise any paragraph "
+        "that could be pasted into a different client's EOI unchanged. Reward "
+        "named ToR locations, target groups, deliverables, and shortlisting "
+        "criteria addressed with evidence."
+        if is_eoi
+        else "Penalise any paragraph that could be pasted into a different "
+        "ToR unchanged. Reward the client's own vocabulary, annex-level "
+        "detail, and explicit mapping onto scored award criteria."
+    )
+    prompt = f"""Score this draft {stage} against the criteria the buyer will use at THIS stage — not generic categories.
 
-EVALUATION CRITERIA FROM THE TOR:
+{extra}
+
+CRITERIA FROM THE TENDER:
 {json.dumps(eval_criteria, indent=2)}
 
 DRAFT:
-{combined[:24000]}
+{combined[:40000]}
 
 Return ONLY valid JSON:
 {{
@@ -780,8 +870,8 @@ Return ONLY valid JSON:
 
     try:
         response = complete(
-            model=OPENAI_MODEL,
-            max_tokens=400,
+            model=OPENAI_MODEL_PROPOSAL,
+            max_tokens=600,
             messages=[{"role": "user", "content": prompt}],
         )
         return json.loads(get_text(response))
@@ -930,7 +1020,7 @@ def _generate_section(
 
         assembled += chunk
         if stop != "length" and not _looks_truncated(assembled):
-            return _enforce_no_monetary(section_name, assembled.strip())
+            return humanize_draft(_enforce_no_monetary(section_name, assembled.strip()))
         logger.warning(
             f"  [{section_name}] output truncated "
             f"(finish_reason={stop}, attempt={attempt + 1}/{max_attempts}) — continuing"
@@ -948,7 +1038,7 @@ def _generate_section(
             f"trimmed {len(assembled.strip()) - len(cleaned)} trailing chars "
             f"back to the last complete sentence"
         )
-    return _enforce_no_monetary(section_name, cleaned)
+    return humanize_draft(_enforce_no_monetary(section_name, cleaned))
 
 
 def _run_parallel_sections(jobs: dict) -> dict:
@@ -997,11 +1087,11 @@ def _repair_weakest_section(
     analysis: dict,
     system_blocks: list[dict],
 ) -> dict:
-    """One targeted rewrite of the weakest section when the self-score is below 80."""
+    """One targeted rewrite of the weakest section when the self-score is below 85."""
     score = sections.get("quality_score") or {}
     overall = score.get("overall_score")
     target = score.get("rewrite_section") or ""
-    if not isinstance(overall, (int, float)) or overall >= 80:
+    if not isinstance(overall, (int, float)) or overall >= 85:
         return sections
     if target in ("submission_type", "lightweight_reason", "quality_score"):
         return sections
@@ -1038,10 +1128,10 @@ def generate_eoi(
     tor_text: str = "",
 ) -> dict:
     """
-    Full Expression of Interest aligned to ToR evaluation/shortlisting
-    criteria. House style: letter of interest, firm presentation,
-    relevant experience table, resources in staff — complete prose,
-    not a profile dump.
+    Submission-ready Expression of Interest aligned to REOI / shortlisting
+    criteria. House backbone: letter of interest, firm presentation,
+    understanding of THIS assignment, approach summary (not a full method),
+    relevant experience, resources in staff, eligibility, criteria matrix.
 
     `tor_text` is the tender pack as extracted by processors.downloader.
     It is read before any section is written — see tender_reader.py.
@@ -1070,6 +1160,8 @@ def generate_eoi(
         if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
     }, indent=2)
 
+    eoi_criteria = _eval_criteria_block(analysis, "EOI")
+
     jobs = {
         "cover_letter": lambda: _generate_section(
             "eoi_cover",
@@ -1082,17 +1174,20 @@ ASSIGNMENT: {title}
 CLIENT: {client_name}
 
 This is an EOI / shortlisting submission, not a full technical proposal.
-Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
-- Addressed to the procurement committee named in the tender documents
-- A statement of interest that shows you have read the documents: name the
-  assignment's purpose, geography, and target groups in the client's own terms
+Do not write a methodology. Do write a finished letter of 5-6 paragraphs:
+- Addressed to the procurement committee / contact named in the tender documents
+- A statement of interest that proves the documents have been read: name the
+  assignment's purpose, geography, target groups, and at least one constraint
+  or named deliverable in the client's own terms
 - Two or three specific past assignments that match this ToR, evidenced by
   client, year, geography, and scale — never by contract value
-- Confirmation that Cortech can field a qualified team and will submit a
-  full technical and financial proposal if shortlisted
+- Confirmation that Cortech meets the eligibility conditions the documents
+  state and can field a qualified team
+- Confirmation that Cortech will submit a full technical and financial
+  proposal if shortlisted
 - Sign off: Daud Hussein Ibrahim, Director, Cortech Consulting Group
 
-{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
+{eoi_criteria}{QUALITY_SUFFIX}""",
         ),
         "firm_profile": lambda: _generate_section(
             "eoi_firm",
@@ -1104,13 +1199,58 @@ Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
 ASSIGNMENT: {title}
 CLIENT: {client_name}
 
-400-600 words covering history, registrations, geographic presence,
-thematic competence, and why the firm is qualified for THIS assignment.
-Map credentials to the shortlisting criteria the tender documents state.
-Use only facts from the CORTECH PROFILE. Complete every paragraph.
+500-700 words covering history, registrations (Kenya, Somalia, UK), geographic
+presence, thematic competence, tools, and why the firm is qualified for THIS
+assignment. Map credentials to the shortlisting criteria the tender documents
+state. Use only facts from the CORTECH PROFILE. Complete every paragraph.
 State no monetary amounts, including any typical budget range.
 
-{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
+{eoi_criteria}{QUALITY_SUFFIX}""",
+        ),
+        "understanding": lambda: _generate_section(
+            "eoi_understanding",
+            OPENAI_MODEL_PROPOSAL,
+            OPENAI_MAX_TOKENS,
+            system_blocks,
+            f"""Write 'Our Understanding of the Assignment' for this EOI.
+
+ASSIGNMENT: {title}
+CLIENT: {client_name}
+
+600-900 words. Reconstruct the assignment from the tender documents so a
+panel member who wrote the REOI recognises their own work:
+- The problem or decision the assignment exists to address
+- Purpose, users of the outputs, and what success looks like
+- Geography, target groups, timeframes, previous phases, partners
+- Constraints, access issues, and annex-level details a generic EOI would miss
+Use the client's own vocabulary. Do not write a methodology here.
+Do not invent facts the documents do not contain.
+
+{eoi_criteria}{QUALITY_SUFFIX}""",
+        ),
+        "approach_summary": lambda: _generate_section(
+            "eoi_approach",
+            OPENAI_MODEL_PROPOSAL,
+            OPENAI_MAX_TOKENS,
+            system_blocks,
+            f"""Write 'Proposed Technical Approach — A Summary' for this EOI.
+
+ASSIGNMENT: {title}
+CLIENT: {client_name}
+
+This is an EOI, NOT a full technical proposal. Write 500-800 words showing
+HOW this assignment would be delivered — enough for a shortlisting panel to
+see competence, not a method chapter:
+- Inception / mobilisation
+- Method family appropriate to what the client is buying (named in their terms)
+- Fieldwork footprint (locations the ToR names; do not invent sample sizes
+  the documents do not state)
+- Analysis, quality assurance, and named deliverables
+- How the proposed team maps onto the work
+Do NOT include a Gantt, a sampling formula, a full evaluation matrix, or any
+monetary amount unless the REOI explicitly requires it.
+
+{eoi_criteria}{QUALITY_SUFFIX}""",
         ),
         "relevant_experience": lambda: _generate_section(
             "eoi_experience",
@@ -1131,7 +1271,7 @@ connecting that assignment to THIS tender (geography, theme, method, or client t
 Follow the table with 2-3 paragraphs of narrative that explicitly address
 the experience-related shortlisting criteria in the tender documents.
 
-{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
+{eoi_criteria}{QUALITY_SUFFIX}""",
         ),
         "key_experts": lambda: _generate_section(
             "eoi_experts",
@@ -1151,10 +1291,67 @@ the recruitment profile in 3-4 complete sentences.
 Close with a short availability and commitment paragraph.
 State no fees, rates, or costs for any expert.
 
-{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}""",
+{eoi_criteria}{QUALITY_SUFFIX}""",
+        ),
+        "eligibility": lambda: _generate_section(
+            "eoi_eligibility",
+            OPENAI_MODEL_PROPOSAL,
+            4096,
+            system_blocks,
+            f"""Write the Eligibility section for this EOI.
+
+ASSIGNMENT: {title}
+CLIENT: {client_name}
+
+Address every eligibility and administrative requirement the tender documents
+state, in the client's order if they gave one. Typical coverage:
+- Legal registrations (Kenya, Somalia, United Kingdom — only if in CORTECH PROFILE)
+- Years in operation, similar-assignment experience
+- Local presence / ability to work in the named geography
+- Safeguarding, PSEA, child safeguarding, ISO — only if in CORTECH PROFILE
+- Conflict of interest / independence statement
+- Language of submission and any mandatory forms
+For each requirement: quote it, then evidence it. If a requirement cannot be
+evidenced from CORTECH PROFILE or the matched team, write [INSUFFICIENT EVIDENCE]
+rather than inventing a credential. State no monetary amounts.
+
+{eoi_criteria}{QUALITY_SUFFIX}""",
         ),
     }
     sections = _run_parallel_sections(jobs)
+    evidence_digest = "\n\n".join(
+        f"[{k}]\n{(sections.get(k) or '')[:2500]}"
+        for k in (
+            "cover_letter",
+            "firm_profile",
+            "understanding",
+            "approach_summary",
+            "relevant_experience",
+            "key_experts",
+            "eligibility",
+        )
+        if (sections.get(k) or "").strip()
+    )
+    sections["compliance_matrix"] = _generate_section(
+        "eoi_matrix",
+        OPENAI_MODEL_PROPOSAL,
+        OPENAI_MAX_TOKENS,
+        system_blocks,
+        f"""Write a capability / compliance matrix for this EOI.
+
+ASSIGNMENT: {title}
+
+A markdown table with exactly these columns:
+Criterion (verbatim from the tender) | Weight | How this EOI demonstrates it | Evidence location (section name)
+One row per shortlisting or evaluation criterion stated in the documents.
+Do not invent criteria. Do not merge rows. Cite the drafted sections below
+honestly — if a criterion is not evidenced, say so rather than fabricating.
+
+SECTIONS ALREADY DRAFTED:
+{evidence_digest}
+
+{eoi_criteria}{QUALITY_SUFFIX}""",
+    )
     sections["submission_type"] = "EOI"
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
     sections = _repair_weakest_section(sections, analysis, system_blocks)
