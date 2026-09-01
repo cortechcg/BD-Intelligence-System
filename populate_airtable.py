@@ -45,8 +45,8 @@ if missing:
     sys.exit(1)
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
-from config import OPENAI_MODEL, get_openai_api_key
-from utils.llm import complete, get_openai_client, get_text
+from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client, get_openai_api_key
+from utils.llm import complete, get_text
 import pdfplumber
 from docx import Document as DocxDocument
 from pyairtable import Api, retry_strategy
@@ -214,11 +214,11 @@ def prune_agent_logs(tables: dict, keep: int = 400) -> int:
 
 
 def get_llm_client():
-    """Initialize the OpenAI client used for extraction."""
+    """Initialize the Anthropic client used for extraction."""
     try:
-        return get_openai_client()
+        return get_anthropic_client()
     except ValueError:
-        console.print("[red]Missing OPENAI_API_KEY in .env[/red]")
+        console.print("[red]Missing ANTHROPIC_API_KEY in .env[/red]")
         sys.exit(1)
 
 
@@ -400,7 +400,7 @@ CV DOCUMENT (filename: {file_name}):
 
     try:
         response = complete(
-            model=OPENAI_MODEL,
+            model=CLAUDE_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -479,7 +479,7 @@ PROPOSAL DOCUMENT (filename: {file_name}):
 
     try:
         response = complete(
-            model=OPENAI_MODEL,
+            model=CLAUDE_MODEL,
             max_tokens=1200,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -771,6 +771,7 @@ def validate_environment() -> bool:
 
     # Check .env keys
     required_keys = [
+        "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
         "AIRTABLE_API_KEY",
         "AIRTABLE_BASE_ID",
@@ -783,9 +784,18 @@ def validate_environment() -> bool:
     ]
 
     for key in required_keys:
-        val = os.getenv(key) if key != "OPENAI_API_KEY" else get_openai_api_key()
+        if key == "ANTHROPIC_API_KEY":
+            val = get_anthropic_api_key()
+        elif key == "OPENAI_API_KEY":
+            val = get_openai_api_key()
+        else:
+            val = os.getenv(key)
         if not val:
             errors.append(f"Missing: {key}")
+        elif key == "ANTHROPIC_API_KEY" and not val.startswith("sk-ant-"):
+            errors.append(
+                f"{key} should start with sk-ant- (check for a pasted wrong key)"
+            )
         elif key == "OPENAI_API_KEY" and not val.startswith("sk-"):
             errors.append(
                 f"{key} should start with sk- (check for a pasted wrong key)"
@@ -795,12 +805,11 @@ def validate_environment() -> bool:
         else:
             console.print(f"  {key}: {'*' * 8}{val[-4:]}")
 
-    # Warn if shell env would have overridden .env before override=True fix
-    raw_env = os.environ.get("OPENAI_API_KEY")
-    cleaned = get_openai_api_key()
+    raw_env = os.environ.get("ANTHROPIC_API_KEY")
+    cleaned = get_anthropic_api_key()
     if raw_env and cleaned and raw_env.strip() != cleaned:
         warnings.append(
-            "OPENAI_API_KEY in the shell differed from .env — config now uses .env (override=True)"
+            "ANTHROPIC_API_KEY in the shell differed from .env — config now uses .env (override=True)"
         )
 
     for key in optional_keys:
@@ -838,28 +847,28 @@ def validate_environment() -> bool:
 
     # Probe with a short timeout — the shared client waits up to 180s
     # per attempt, which looked hung after "files found".
-    console.print("  Testing OpenAI API...")
+    console.print("  Testing Anthropic API...")
     try:
         complete(
-            model=OPENAI_MODEL,
+            model=CLAUDE_MODEL,
             max_tokens=10,
             messages=[{"role": "user", "content": "Hi"}],
             timeout=20.0,
             max_retries=0,
         )
-        console.print("  OpenAI API: OK")
+        console.print("  Anthropic API: OK")
     except Exception as e:
         err = str(e)
         if "401" in err or "authentication" in err.lower() or "invalid_api_key" in err:
             errors.append(
-                "OpenAI API rejected the key (401 invalid). "
-                "Create a fresh key at platform.openai.com → API Keys, "
-                "paste it in .env as OPENAI_API_KEY=sk-... (no quotes), "
+                "Anthropic API rejected the key (401 invalid). "
+                "Create a fresh key at console.anthropic.com → API Keys, "
+                "paste it in .env as ANTHROPIC_API_KEY=sk-ant-... (no quotes), "
                 "then open a new terminal and run again."
             )
         else:
-            errors.append(f"OpenAI API failed: {e}")
-        console.print(f"  OpenAI API failed: {e}")
+            errors.append(f"Anthropic API failed: {e}")
+        console.print(f"  Anthropic API failed: {e}")
 
     # Show results
     console.print()

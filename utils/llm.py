@@ -1,44 +1,19 @@
 # utils/llm.py
-"""OpenAI chat wrapper. Call sites must not import the OpenAI SDK."""
+"""Anthropic Messages wrapper. Call sites must not import the Anthropic SDK."""
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from openai import OpenAI
-
-from config import (
-    OPENAI_MAX_RETRIES,
-    OPENAI_TIMEOUT_SECONDS,
-    get_openai_api_key,
-)
-
-_CLIENT_CACHE: dict[str, OpenAI] = {}
+from config import get_anthropic_client
 
 
-def get_openai_client(*, timeout: float | None = None, max_retries: int | None = None) -> OpenAI:
-    """Shared OpenAI client — always uses the sanitized key from .env.
+def system_text(system: Any) -> str | None:
+    """Flatten a string or Anthropic-style text-block list into one string.
 
-    Cached per (api_key, timeout, retries) so repeated calls reuse one HTTP
-    pool; a rotated key in .env still produces a fresh client.
+    complete() passes system through to the API unchanged. This helper is
+    for tests and for any caller that needs a concatenated view.
     """
-    api_key = get_openai_api_key()
-    if not api_key:
-        raise ValueError(
-            "OPENAI_API_KEY is not set. Add it to .env and restart the terminal."
-        )
-    to = OPENAI_TIMEOUT_SECONDS if timeout is None else timeout
-    retries = OPENAI_MAX_RETRIES if max_retries is None else max_retries
-    cache_key = f"{api_key}:{to}:{retries}"
-    client = _CLIENT_CACHE.get(cache_key)
-    if client is None:
-        client = OpenAI(api_key=api_key, timeout=to, max_retries=retries)
-        _CLIENT_CACHE[cache_key] = client
-    return client
-
-
-def system_text(system: Any) -> Optional[str]:
-    """Flatten a string or Anthropic-style text-block list into one system prompt."""
     if system is None:
         return None
     if isinstance(system, str):
@@ -70,29 +45,33 @@ def complete(
     timeout: float | None = None,
     max_retries: int | None = None,
 ):
-    """One Chat Completions call. GPT-5 family uses max_completion_tokens."""
-    client = get_openai_client(timeout=timeout, max_retries=max_retries)
-    msgs: list[dict] = []
-    sys_prompt = system_text(system)
-    if sys_prompt:
-        msgs.append({"role": "system", "content": sys_prompt})
-    msgs.extend(messages)
-    return client.chat.completions.create(
-        model=model,
-        messages=msgs,
-        max_completion_tokens=max_tokens,
-    )
+    """One Anthropic Messages call. `system` may be a string or text-block list."""
+    client = get_anthropic_client(timeout=timeout, max_retries=max_retries)
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+    if system is not None:
+        kwargs["system"] = system
+    return client.messages.create(**kwargs)
 
 
 def get_text(response) -> str:
-    """Extract assistant text from an OpenAI Chat Completions response."""
-    choices = getattr(response, "choices", None) or []
-    if not choices:
-        # Leftover Anthropic-shaped objects (tests / old caches).
-        content = getattr(response, "content", None) or []
+    """Extract assistant text from an Anthropic (or leftover OpenAI) response."""
+    content = getattr(response, "content", None)
+    if content:
+        parts: list[str] = []
         for block in content:
             if getattr(block, "type", None) == "text":
-                return block.text or ""
+                parts.append(getattr(block, "text", None) or "")
+            elif isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text") or "")
+        if parts:
+            return "".join(parts)
+
+    choices = getattr(response, "choices", None) or []
+    if not choices:
         return ""
     message = choices[0].message
     content = getattr(message, "content", None)
@@ -114,11 +93,17 @@ def get_text(response) -> str:
 
 
 def finish_reason(response) -> str:
-    """OpenAI finish_reason, or Anthropic stop_reason if present."""
+    """Anthropic stop_reason, or OpenAI finish_reason if present.
+
+    Proposal continuation treats both ``max_tokens`` and ``length`` as a cap hit.
+    """
+    stop = getattr(response, "stop_reason", None)
+    if stop:
+        return stop
     choices = getattr(response, "choices", None) or []
     if choices:
         return getattr(choices[0], "finish_reason", None) or ""
-    return getattr(response, "stop_reason", None) or ""
+    return ""
 
 
 def output_tokens(response) -> int:
@@ -130,25 +115,28 @@ def cached_tokens(response) -> int:
     usage = getattr(response, "usage", None)
     if usage is None:
         return 0
+    cached = int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+    if cached:
+        return cached
     details = getattr(usage, "prompt_tokens_details", None)
     if details is None:
-        return int(getattr(usage, "cache_read_input_tokens", 0) or 0)
+        return 0
     return int(getattr(details, "cached_tokens", 0) or 0)
 
 
 def usage_totals(response) -> tuple[int, int]:
-    """(input_tokens, output_tokens) from OpenAI or Anthropic usage objects."""
+    """(input_tokens, output_tokens) from Anthropic or OpenAI usage objects."""
     usage = getattr(response, "usage", None)
     if usage is None:
         return 0, 0
     inp = int(
-        getattr(usage, "prompt_tokens", None)
-        or getattr(usage, "input_tokens", None)
+        getattr(usage, "input_tokens", None)
+        or getattr(usage, "prompt_tokens", None)
         or 0
     )
     out = int(
-        getattr(usage, "completion_tokens", None)
-        or getattr(usage, "output_tokens", None)
+        getattr(usage, "output_tokens", None)
+        or getattr(usage, "completion_tokens", None)
         or 0
     )
     return inp, out

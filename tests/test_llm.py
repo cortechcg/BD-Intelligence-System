@@ -19,21 +19,20 @@ def test_system_text_concatenates_blocks_and_drops_cache_control():
     assert system_text(None) is None
 
 
-def test_get_text_and_finish_reason_from_chat_completion_shape():
+def test_get_text_and_finish_reason_from_anthropic_shape():
     response = SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(content="hello"),
-                finish_reason="length",
-            )
+        content=[
+            SimpleNamespace(type="thinking", thinking="internal"),
+            SimpleNamespace(type="text", text="hello"),
         ],
+        stop_reason="max_tokens",
         usage=SimpleNamespace(
-            prompt_tokens=10,
-            completion_tokens=4,
-            prompt_tokens_details=SimpleNamespace(cached_tokens=3),
+            input_tokens=10,
+            output_tokens=4,
+            cache_read_input_tokens=3,
         ),
     )
     assert get_text(response) == "hello"
-    assert finish_reason(response) == "length"
+    assert finish_reason(response) == "max_tokens"
     assert usage_totals(response) == (10, 4)
     assert cached_tokens(response) == 3

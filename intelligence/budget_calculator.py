@@ -2,7 +2,7 @@
 import json
 from loguru import logger
 from database.airtable_client import get_rate_card
-from config import OPENAI_MODEL
+from config import CLAUDE_MODEL
 from utils.llm import complete, get_text
 
 
@@ -62,7 +62,7 @@ Return ONLY a JSON array:
 ]"""
 
     response = complete(
-        model=OPENAI_MODEL,
+        model=CLAUDE_MODEL,
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )

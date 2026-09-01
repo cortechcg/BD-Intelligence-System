@@ -17,7 +17,7 @@ from pathlib import Path
 from docx import Document
 from loguru import logger
 
-from config import OPENAI_MODEL_PROPOSAL
+from config import CLAUDE_MODEL_PROPOSAL
 from intelligence.proposal_writer import PROPOSAL_STRUCTURE
 from utils.llm import complete, get_text
 
@@ -181,7 +181,7 @@ Synthesize a written structure and style guide grounded in these REAL examples:
 Write as clear guidance for someone drafting a new {label.replace('_', ' ')} for Cortech, citing which real document(s) a pattern comes from where useful."""
 
         response = complete(
-            model=OPENAI_MODEL_PROPOSAL,
+            model=CLAUDE_MODEL_PROPOSAL,
             max_tokens=1800,
             messages=[{"role": "user", "content": prompt}],
         )
