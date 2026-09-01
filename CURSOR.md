@@ -3,7 +3,7 @@
 ## What this project is
 Autonomous business development pipeline for Cortech Consulting Group,
 an East Africa development-sector consultancy (4-8 core staff).
-Monitors tender portals, analyzes RFPs with OpenAI, matches internal
+Monitors tender portals, analyzes RFPs with Claude, matches internal
 consultant CVs, drafts proposals, emails the team for human review.
 Nothing submits to clients automatically — human approval required.
 
@@ -11,7 +11,8 @@ Nothing submits to clients automatically — human approval required.
 - Python 3.12 + virtualenv at ~/cortech-bd-agent/cortech/
 - Airtable (pyairtable) = human-facing CRM dashboard
 - Supabase (supabase-py + pgvector) = CV vector store + document cache
-- OpenAI API = all LLM calls (gpt-5.6-terra) + embeddings (text-embedding-3-small, 1536-dim)
+- Anthropic Claude = chat (claude-sonnet-5 analysis, claude-fable-5 proposals)
+- OpenAI API = embeddings only (text-embedding-3-small, 1536-dim)
 - Gmail SMTP = email reports
 
 ## Project structure
@@ -20,7 +21,7 @@ config.py                  ← all constants, CORTECH_PROFILE
 monitors/rss_monitor.py    ← RSS feeds + three-gate keyword filter
 monitors/scraper.py        ← Playwright browser scrapers
 processors/downloader.py   ← PDF/DOCX/HTML text extraction
-intelligence/analyzer.py   ← RFP → structured JSON via OpenAI
+intelligence/analyzer.py   ← RFP → structured JSON via Claude
 intelligence/cv_matcher.py ← Supabase pgvector semantic search
 intelligence/budget_calculator.py ← rate card × effort estimate
 intelligence/proposal_writer.py   ← full proposal generation
@@ -44,7 +45,8 @@ check_schema.py            ← schema diagnostic, run before bulk writes
 6. All field names are lowercase_with_underscores — exact match required
 
 ## Supabase critical rules
-1. OPENAI_API_KEY required for embeddings AND chat — text-embedding-3-small for vectors
+1. OPENAI_API_KEY required for embeddings — text-embedding-3-small for vectors
+   ANTHROPIC_API_KEY required for all chat / analysis / drafting
 2. Embedding model MUST be identical between embed_cvs.py and
    supabase_client.py — mixing models = silent garbage match results
 3. import os required at top of supabase_client.py
@@ -53,13 +55,13 @@ check_schema.py            ← schema diagnostic, run before bulk writes
 ## Pipeline flow (main.py process_opportunity)
 1. Fetch document text
 2. Store in Supabase cache (dedup on source_url)
-3. OpenAI analysis → structured JSON
+3. Claude analysis → structured JSON
 4. is_consultancy_contract gate — FALSE = save as NO-BID, return None
 5. Create Airtable OPPORTUNITIES record
 6. CV matching via Supabase pgvector
 7. Budget calculation via rate card
-8. Compliance matrix via OpenAI
-9. Proposal draft via OpenAI (section by section)
+8. Compliance matrix via Claude
+9. Proposal draft via Claude Fable 5 (section by section)
 10. Update Airtable status to Reviewing
 11. Send proposal email to full team
 
@@ -79,8 +81,8 @@ The LLM is_consultancy_contract gate does the real quality filtering.
 Do NOT make the RSS filter strict — it kills real opportunities.
 
 ## Models
-OPENAI_MODEL = "gpt-5.6-terra"            # analysis + extraction
-OPENAI_MODEL_PROPOSAL = "gpt-5.6-terra"  # proposal writing
+CLAUDE_MODEL = "claude-sonnet-5"            # analysis + extraction
+CLAUDE_MODEL_PROPOSAL = "claude-fable-5"    # proposal writing
 Both in config.py — never hardcode model strings in other files.
 Embeddings: text-embedding-3-small (unchanged).
 

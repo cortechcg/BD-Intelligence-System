@@ -92,7 +92,8 @@ Accounts needed, all free-tier-capable except where noted:
 
 | Service | Used for |
 |---|---|
-| [OpenAI Platform](https://platform.openai.com) | Chat (`gpt-5.6-terra`) + `text-embedding-3-small` embeddings |
+| [Anthropic](https://console.anthropic.com) | Chat: `claude-sonnet-5` (analysis) + `claude-fable-5` (proposals) |
+| [OpenAI Platform](https://platform.openai.com) | Embeddings only (`text-embedding-3-small`) |
 | [Supabase](https://supabase.com) | pgvector storage, semantic search |
 | [Airtable](https://airtable.com) | Human-facing CRM dashboard |
 | Gmail account | Primary outgoing email (app password, not your real password) |
@@ -127,7 +128,8 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 
 | Variable | Where to get it |
 |---|---|
-| `OPENAI_API_KEY` | platform.openai.com → API Keys — used for chat and embeddings |
+| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys — used for analysis and proposal drafting |
+| `OPENAI_API_KEY` | platform.openai.com → API Keys — used for embeddings only |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project → Settings → API. **Use the service role key**, not the anon key — this is server-side code, not a browser client. |
 | `AIRTABLE_API_KEY` | airtable.com/create/tokens — a personal access token scoped to the base below |
 | `AIRTABLE_BASE_ID` | Open the base in Airtable, the ID is in the URL (`app...`) |
@@ -137,10 +139,10 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `CHECK_INTERVAL_HOURS` | How often the main discovery pipeline runs, in hours. Defaults to `6`. |
 | `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
 | `FULL_DRAFT_FOR_WATCH` | `true` (current default) generates the full proposal even for WATCH-tier opportunities. Set to `false` for the lightweight cover-letter-only path. |
-| `OPENAI_TIMEOUT_SECONDS` / `OPENAI_MAX_RETRIES` | LLM call timeout (default 180s) and SDK retries (default 2). |
+| `ANTHROPIC_TIMEOUT_SECONDS` / `ANTHROPIC_MAX_RETRIES` | Claude call timeout (default 180s) and SDK retries (default 2). |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
-`python main.py` fails at startup if `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
+`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
 
 **`.env.example` is placeholders only.** If an older copy ever contained real keys, rotate them.
 
@@ -241,12 +243,13 @@ This is the step that actually matters. If you kept a secure backup of your real
 
 If you did **not** back it up, every credential needs to be regenerated or re-fetched from its source, one at a time, using the [Environment Variables Reference](#environment-variables-reference) table above:
 
-1. `OPENAI_API_KEY` — generate a fresh key at platform.openai.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
-2. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding and cached opportunity that isn't the point of this step.
-3. `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` — same logic: the base still exists in your Airtable account. Generate a new personal access token if the old one isn't recoverable, but point it at the *existing* base ID, findable in that base's URL.
-4. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
-5. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
-6. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
+1. `ANTHROPIC_API_KEY` — generate a fresh key at console.anthropic.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
+2. `OPENAI_API_KEY` — generate a fresh key at platform.openai.com. Needed for CV embeddings only.
+3. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding and cached opportunity that isn't the point of this step.
+4. `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` — same logic: the base still exists in your Airtable account. Generate a new personal access token if the old one isn't recoverable, but point it at the *existing* base ID, findable in that base's URL.
+5. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
+6. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
+7. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
 
 ### Step 4 — Verify you're connected to the *existing* cloud data, not empty new instances
 

@@ -2,27 +2,64 @@
 import os
 from dotenv import load_dotenv
 
-# override=True — a stale OPENAI_API_KEY exported in the shell must not
+# override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
 # silently beat an updated .env after the user rotates keys.
 # interpolate=False — $ in API keys must not be treated as variable expansion.
 _ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(_ENV_PATH, override=True, interpolate=False)
 
 
+def get_anthropic_api_key() -> str | None:
+    """Return a cleaned Anthropic API key from the environment."""
+    load_dotenv(_ENV_PATH, override=True, interpolate=False)
+    raw = os.getenv("ANTHROPIC_API_KEY") or ""
+    key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
+    return key or None
+
+
 def get_openai_api_key() -> str | None:
-    """Return a cleaned OpenAI API key from the environment."""
+    """Return a cleaned OpenAI API key from the environment (embeddings only)."""
     load_dotenv(_ENV_PATH, override=True, interpolate=False)
     raw = os.getenv("OPENAI_API_KEY") or ""
     key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
     return key or None
 
 
-# Hard wall-clock limit on any single LLM call. Without this the SDK
+# Hard wall-clock limit on any single Claude call. Without this the SDK
 # default can park the whole pipeline at "Analyzing..." for a long time
 # with no output — the run looks hung rather than slow. 180s is well
 # above a normal ToR analysis (10-25s) and still fails fast.
-OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "180"))
-OPENAI_MAX_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "2"))
+ANTHROPIC_TIMEOUT_SECONDS = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "180"))
+ANTHROPIC_MAX_RETRIES = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
+
+_CLIENT_CACHE: dict[str, object] = {}
+
+
+def get_anthropic_client(*, timeout: float | None = None, max_retries: int | None = None):
+    """Shared Anthropic client — always uses the sanitized key from .env.
+
+    Cached per (api_key, timeout, retries) so repeated calls reuse one HTTP
+    pool; a rotated key in .env still produces a fresh client.
+    """
+    import anthropic
+
+    api_key = get_anthropic_api_key()
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY is not set. Add it to .env and restart the terminal."
+        )
+    to = ANTHROPIC_TIMEOUT_SECONDS if timeout is None else timeout
+    retries = ANTHROPIC_MAX_RETRIES if max_retries is None else max_retries
+    cache_key = f"{api_key}:{to}:{retries}"
+    client = _CLIENT_CACHE.get(cache_key)
+    if client is None:
+        client = anthropic.Anthropic(
+            api_key=api_key,
+            timeout=to,
+            max_retries=retries,
+        )
+        _CLIENT_CACHE[cache_key] = client
+    return client
 
 
 # ── API KEYS ──────────────────────────────────────────────────
@@ -38,6 +75,7 @@ def _clean(name: str) -> str | None:
     return raw.strip().strip('"').strip("'").rstrip("/").strip() or None
 
 
+ANTHROPIC_API_KEY = get_anthropic_api_key()
 OPENAI_API_KEY = get_openai_api_key()
 AIRTABLE_API_KEY = _clean("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = _clean("AIRTABLE_BASE_ID")
@@ -85,22 +123,25 @@ TABLES = {
     "donor_intelligence": "DONOR_INTELLIGENCE",
 }
 
-# ── OPENAI SETTINGS ───────────────────────────────────────────
-# Two constants even when they share a string — never hardcode model IDs.
-OPENAI_MODEL = "gpt-5.6-terra"
-OPENAI_MODEL_PROPOSAL = "gpt-5.6-terra"
-OPENAI_MAX_TOKENS = 8192
+# ── CLAUDE SETTINGS ───────────────────────────────────────────
+# Two constants — never hardcode model IDs at call sites.
+CLAUDE_MODEL = "claude-sonnet-5"           # analysis + extraction
+CLAUDE_MODEL_PROPOSAL = "claude-fable-5"   # proposal / EOI writing
+CLAUDE_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
-# Update when OpenAI publishes new rates; these are not invoices.
-OPENAI_PRICING_PER_MTOK = {
-    OPENAI_MODEL: {"input": 2.00, "output": 12.00},
+# Update when Anthropic publishes new rates; these are not invoices.
+CLAUDE_PRICING_PER_MTOK = {
+    CLAUDE_MODEL: {"input": 2.00, "output": 10.00},
+    CLAUDE_MODEL_PROPOSAL: {"input": 10.00, "output": 50.00},
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes
 # are fail-open. IMAP/Gmail are optional source/channel credentials.
+# OPENAI_API_KEY remains required for embeddings (text-embedding-3-small).
 REQUIRED_ENV_VARS = (
+    "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
@@ -111,6 +152,8 @@ def validate_required_env() -> list[str]:
     """Return names of missing required vars. Raises SystemExit if any missing
     when called from main's entry point."""
     missing = []
+    if not ANTHROPIC_API_KEY:
+        missing.append("ANTHROPIC_API_KEY")
     if not OPENAI_API_KEY:
         missing.append("OPENAI_API_KEY")
     if not SUPABASE_URL:

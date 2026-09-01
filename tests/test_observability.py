@@ -1,5 +1,5 @@
 from utils.observability import estimate_cost_usd
-from config import OPENAI_MODEL
+from config import CLAUDE_MODEL
 
 
 def test_unknown_model_cost_is_none():
@@ -7,6 +7,6 @@ def test_unknown_model_cost_is_none():
 
 
 def test_known_model_cost_is_estimated_not_zero():
-    cost = estimate_cost_usd(OPENAI_MODEL, 1_000_000, 0)
+    cost = estimate_cost_usd(CLAUDE_MODEL, 1_000_000, 0)
     assert cost is not None
     assert cost == 2.00

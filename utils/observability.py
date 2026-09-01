@@ -70,10 +70,10 @@ def configure_logging() -> None:
 
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Optional[float]:
-    """ESTIMATED USD from config.OPENAI_PRICING_PER_MTOK. None if unknown."""
-    from config import OPENAI_PRICING_PER_MTOK
+    """ESTIMATED USD from config.CLAUDE_PRICING_PER_MTOK. None if unknown."""
+    from config import CLAUDE_PRICING_PER_MTOK
 
-    prices = OPENAI_PRICING_PER_MTOK.get(model)
+    prices = CLAUDE_PRICING_PER_MTOK.get(model)
     if not prices:
         return None
     inp = prices.get("input")
@@ -84,7 +84,7 @@ def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Opti
 
 
 def record_usage(response, model: str, stage: str = "") -> dict:
-    """Read OpenAI usage if present. Does not invent token counts."""
+    """Read Anthropic usage if present. Does not invent token counts."""
     from utils.llm import cached_tokens, usage_totals
 
     input_tokens, output_tokens = usage_totals(response)

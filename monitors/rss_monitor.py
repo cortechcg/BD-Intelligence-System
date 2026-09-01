@@ -5,7 +5,7 @@ from datetime import datetime
 from loguru import logger
 from database.supabase_client import check_opportunity_exists, store_opportunity
 from database.airtable_client import create_opportunity, log_agent_action
-from config import RSS_FEEDS, CORTECH_PROFILE, OPENAI_MODEL
+from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL
 import json
 from utils.llm import complete, get_text
 from utils.dates import parse_deadline
@@ -170,7 +170,7 @@ def extract_deadline_from_text(text: str) -> str:
         return parsed
     try:
         response = complete(
-            model=OPENAI_MODEL,
+            model=CLAUDE_MODEL,
             max_tokens=100,
             messages=[{
                 "role": "user",

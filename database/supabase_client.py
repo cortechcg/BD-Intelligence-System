@@ -1,7 +1,7 @@
 # database/supabase_client.py
 import os
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_MODEL
+from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL
 from loguru import logger
 import httpx
 import json
@@ -49,7 +49,7 @@ def get_embedding(text: str) -> list[float]:
 def summarize_for_embedding(text: str) -> str:
     """Summarize long text before embedding."""
     response = complete(
-        model=OPENAI_MODEL,
+        model=CLAUDE_MODEL,
         max_tokens=500,
         messages=[{
             "role": "user",

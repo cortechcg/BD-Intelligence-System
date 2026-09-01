@@ -22,7 +22,7 @@ import json
 
 from loguru import logger
 
-from config import OPENAI_MODEL_PROPOSAL
+from config import CLAUDE_MODEL_PROPOSAL
 from utils.llm import cached_tokens, complete, get_text, usage_totals
 from utils.money_scrub import strip_monetary_amounts
 
@@ -236,7 +236,7 @@ def build_tor_brief(
     prompt_template = _BRIEF_PROMPT_EOI if submission_type == "EOI" else _BRIEF_PROMPT
     try:
         response = complete(
-            model=OPENAI_MODEL_PROPOSAL,
+            model=CLAUDE_MODEL_PROPOSAL,
             # 8 headings, one of which reproduces a full scoring matrix
             # verbatim — 4096 hit the cap on a routine 8k-char tender and
             # truncated the brief mid-matrix.

@@ -4,7 +4,7 @@ import json
 
 from loguru import logger
 
-from config import OPENAI_MODEL
+from config import CLAUDE_MODEL
 from database.airtable_client import get_table
 from database.supabase_client import get_embedding, supabase
 from utils.llm import complete, get_text
@@ -47,7 +47,7 @@ Return ONLY valid JSON: {{"lessons": [...], "donor_preferences": [...]}}"""
 
         try:
             response = complete(
-                model=OPENAI_MODEL,
+                model=CLAUDE_MODEL,
                 max_tokens=600,
                 messages=[{"role": "user", "content": lesson_prompt}],
             )
