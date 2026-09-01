@@ -8,8 +8,8 @@ Never modify .env or expose API keys in any output.
 Always use typecast=True on every Airtable .create() and .update() call.
 Always wrap log_agent_action() in try/except — it must never raise.
 The discovered_at Airtable field is DATE type — send strftime("%Y-%m-%d") never .isoformat()
-Never hardcode model strings — always use CLAUDE_MODEL and CLAUDE_MODEL_PROPOSAL from config.py.
+Never hardcode model strings — always use OPENAI_MODEL and OPENAI_MODEL_PROPOSAL from config.py.
 When fixing bugs show exact lines to change, not the whole file unless asked.
 Run check_schema.py logic mentally before suggesting any Airtable field changes.
 The is_consultancy_contract gate in main.py must default to True when field is missing.
-quick_relevance_check() must be permissive — Claude's gate does real quality filtering.
+quick_relevance_check() must be permissive — the LLM consultancy gate does real quality filtering.

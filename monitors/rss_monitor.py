@@ -5,19 +5,18 @@ from datetime import datetime
 from loguru import logger
 from database.supabase_client import check_opportunity_exists, store_opportunity
 from database.airtable_client import create_opportunity, log_agent_action
-from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL, get_anthropic_client
+from config import RSS_FEEDS, CORTECH_PROFILE, OPENAI_MODEL
 import json
-from utils.claude_helpers import get_text
+from utils.llm import complete, get_text
 from utils.dates import parse_deadline
 from utils.errors import ErrorType
 from utils.untrusted import wrap_untrusted
 from utils.urls import UnsafeURLError, assert_public_http_url, canonicalize_url
 
-client = get_anthropic_client()
 # ── FILTER CONSTANTS ──────────────────────────────────────────────────────────
 
 # ONLY reject titles that are unambiguously staff vacancies.
-# Keep this list SHORT. Claude catches everything else via
+# Keep this list SHORT. The LLM catches everything else via
 # is_consultancy_contract. Over-blocking here kills real proposals.
 DEFINITE_STAFF_SIGNALS = [
     "we are hiring",
@@ -165,13 +164,13 @@ def quick_relevance_check(title: str, summary: str) -> bool:
     return False
 
 def extract_deadline_from_text(text: str) -> str:
-    """Deterministic parse first; Claude only if that returns nothing."""
+    """Deterministic parse first; LLM only if that returns nothing."""
     parsed = parse_deadline(text)
     if parsed:
         return parsed
     try:
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
+        response = complete(
+            model=OPENAI_MODEL,
             max_tokens=100,
             messages=[{
                 "role": "user",

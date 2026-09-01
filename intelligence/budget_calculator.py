@@ -1,12 +1,9 @@
 # intelligence/budget_calculator.py
-import anthropic
 import json
 from loguru import logger
 from database.airtable_client import get_rate_card
-from config import CLAUDE_MODEL, get_anthropic_client
-from utils.claude_helpers import get_text
-
-client = get_anthropic_client()
+from config import OPENAI_MODEL
+from utils.llm import complete, get_text
 
 
 def calculate_budget(
@@ -34,7 +31,7 @@ def calculate_budget(
     duration_text = analysis.get("opportunity", {}).get("project_duration", "3 months")
     deliverables = analysis.get("deliverables", [])
 
-    # Ask Claude to estimate days of effort per role
+    # Ask the model to estimate days of effort per role
     prompt = f"""Calculate days of effort for each team role for this project.
 
 PROJECT DETAILS:
@@ -64,8 +61,8 @@ Return ONLY a JSON array:
   }}
 ]"""
 
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
+    response = complete(
+        model=OPENAI_MODEL,
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )

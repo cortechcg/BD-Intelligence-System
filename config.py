@@ -2,55 +2,27 @@
 import os
 from dotenv import load_dotenv
 
-# override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
+# override=True — a stale OPENAI_API_KEY exported in the shell must not
 # silently beat an updated .env after the user rotates keys.
 # interpolate=False — $ in API keys must not be treated as variable expansion.
 _ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(_ENV_PATH, override=True, interpolate=False)
 
 
-def get_anthropic_api_key() -> str | None:
-    """Return a cleaned Anthropic API key from the environment."""
+def get_openai_api_key() -> str | None:
+    """Return a cleaned OpenAI API key from the environment."""
     load_dotenv(_ENV_PATH, override=True, interpolate=False)
-    raw = os.getenv("ANTHROPIC_API_KEY") or ""
+    raw = os.getenv("OPENAI_API_KEY") or ""
     key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
     return key or None
 
 
-# Hard wall-clock limit on any single Claude call. Without this the SDK
-# default (600s per attempt) applies, so one stalled connection parks the
-# whole pipeline at "Analyzing with Claude..." for up to half an hour with
-# no output — the run looks hung rather than slow. 180s is well above a
-# normal ToR analysis (10-25s) and still fails fast.
-ANTHROPIC_TIMEOUT_SECONDS = float(os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "180"))
-ANTHROPIC_MAX_RETRIES = int(os.getenv("ANTHROPIC_MAX_RETRIES", "2"))
-
-_CLIENT_CACHE: dict[str, object] = {}
-
-
-def get_anthropic_client():
-    """Shared Anthropic client — always uses the sanitized key from .env.
-
-    Cached per API key so repeated calls reuse one HTTP connection pool
-    instead of opening a new one per opportunity; a rotated key in .env
-    still produces a fresh client because the key is the cache key.
-    """
-    import anthropic
-
-    api_key = get_anthropic_api_key()
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY is not set. Add it to .env and restart the terminal."
-        )
-    client = _CLIENT_CACHE.get(api_key)
-    if client is None:
-        client = anthropic.Anthropic(
-            api_key=api_key,
-            timeout=ANTHROPIC_TIMEOUT_SECONDS,
-            max_retries=ANTHROPIC_MAX_RETRIES,
-        )
-        _CLIENT_CACHE[api_key] = client
-    return client
+# Hard wall-clock limit on any single LLM call. Without this the SDK
+# default can park the whole pipeline at "Analyzing..." for a long time
+# with no output — the run looks hung rather than slow. 180s is well
+# above a normal ToR analysis (10-25s) and still fails fast.
+OPENAI_TIMEOUT_SECONDS = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "180"))
+OPENAI_MAX_RETRIES = int(os.getenv("OPENAI_MAX_RETRIES", "2"))
 
 
 # ── API KEYS ──────────────────────────────────────────────────
@@ -66,7 +38,7 @@ def _clean(name: str) -> str | None:
     return raw.strip().strip('"').strip("'").rstrip("/").strip() or None
 
 
-ANTHROPIC_API_KEY = get_anthropic_api_key()
+OPENAI_API_KEY = get_openai_api_key()
 AIRTABLE_API_KEY = _clean("AIRTABLE_API_KEY")
 AIRTABLE_BASE_ID = _clean("AIRTABLE_BASE_ID")
 # Must be the bare project URL. supabase-py appends /rest/v1 itself, so a
@@ -113,23 +85,22 @@ TABLES = {
     "donor_intelligence": "DONOR_INTELLIGENCE",
 }
 
-# ── CLAUDE SETTINGS ───────────────────────────────────────────
-CLAUDE_MODEL = "claude-haiku-4-5"
-CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"
-CLAUDE_MAX_TOKENS = 8192
+# ── OPENAI SETTINGS ───────────────────────────────────────────
+# Two constants even when they share a string — never hardcode model IDs.
+OPENAI_MODEL = "gpt-5.6-terra"
+OPENAI_MODEL_PROPOSAL = "gpt-5.6-terra"
+OPENAI_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
-# Update when Anthropic publishes new rates; these are not invoices.
-CLAUDE_PRICING_PER_MTOK = {
-    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
-    CLAUDE_MODEL_PROPOSAL: {"input": 3.00, "output": 15.00},
+# Update when OpenAI publishes new rates; these are not invoices.
+OPENAI_PRICING_PER_MTOK = {
+    OPENAI_MODEL: {"input": 2.00, "output": 12.00},
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes
 # are fail-open. IMAP/Gmail are optional source/channel credentials.
 REQUIRED_ENV_VARS = (
-    "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
@@ -140,14 +111,12 @@ def validate_required_env() -> list[str]:
     """Return names of missing required vars. Raises SystemExit if any missing
     when called from main's entry point."""
     missing = []
-    if not ANTHROPIC_API_KEY:
-        missing.append("ANTHROPIC_API_KEY")
+    if not OPENAI_API_KEY:
+        missing.append("OPENAI_API_KEY")
     if not SUPABASE_URL:
         missing.append("SUPABASE_URL")
     if not SUPABASE_SERVICE_KEY:
         missing.append("SUPABASE_SERVICE_KEY")
-    if not _clean("OPENAI_API_KEY"):
-        missing.append("OPENAI_API_KEY")
     return missing
 
 
@@ -243,16 +212,10 @@ COMPETITIVE STRENGTHS:
 6. Rapid mobilization capacity
 """
 
-# Monitored sources are deliberately limited to three portals:
-# Assortis (via the ICA newsletter IMAP monitor), Somali Jobs (scraper),
-# and World Bank Procurement (RSS below).
-RSS_FEEDS = [
-    {
-        "name": "World Bank Procurement",
-        "url": "https://www.worldbank.org/en/projects-operations/products-and-services/brief/consulting-services-rss",
-        "filter_keywords": [],  # three-gate filter handles this
-    },
-]
+# Discovery is limited to two sources:
+# Assortis (ICA newsletter via IMAP) and Somali Jobs (Playwright scraper).
+# RSS is unused — keep the list empty so monitor_rss_feeds() is a no-op.
+RSS_FEEDS = []
 
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
 SOON_DEADLINE_DAYS = 7     # Flag as soon if deadline in N days

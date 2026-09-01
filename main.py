@@ -9,10 +9,10 @@ Entry points:
                                  a Google Drive folder with multiple annexes)
   python main.py               → continuous scheduler every CHECK_INTERVAL_HOURS
 
-Pipeline (runs for EVERY opportunity passing the RSS filter):
-  1.  RSS feed monitoring + three-gate keyword filter
+Pipeline (runs for every opportunity that passes the three-gate filter):
+  1.  Discovery: Assortis newsletter + Somali Jobs scraper
   2.  Document download and text extraction
-  3.  Claude analysis → structured JSON + is_consultancy_contract gate
+  3.  LLM analysis → structured JSON + is_consultancy_contract gate
   4.  Airtable opportunity record creation
   5.  CV semantic matching via Supabase pgvector
   6.  Budget calculation (rate card × effort estimate)
@@ -38,7 +38,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
-from config import MAX_OPPORTUNITIES_PER_RUN, require_env
+from config import MAX_OPPORTUNITIES_PER_RUN, RSS_FEEDS, require_env
 from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
@@ -170,7 +170,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         logger.warning(f"  Supabase cache write failed (non-fatal): {e}")
 
     # ── STEP 3: CLAUDE ANALYSIS ────────────────────────────────────────────
-    logger.info("  Step 2: Analyzing with Claude...")
+    logger.info("  Step 2: Analyzing...")
     analysis = analyze_rfp(full_text, opportunity_id=opp_id, title=title)
 
     if not analysis:
@@ -559,27 +559,27 @@ def run_pipeline() -> None:
     all_new: list[dict]              = []
     processed_opportunities: list[dict] = []
 
-    # ── SOURCE 1: RSS FEEDS ────────────────────────────────────────────────
-    logger.info("Checking RSS feeds...")
-    try:
-        rss_results = monitor_rss_feeds()
-        all_new.extend(rss_results)
-        logger.info(f"  RSS total: {len(rss_results)} passed filter")
-    except Exception as e:
-        logger.error(f"RSS monitor failed: {e}")
+    # ── SOURCE 1: RSS FEEDS (unused — RSS_FEEDS is empty) ─────────────────
+    if RSS_FEEDS:
+        logger.info("Checking RSS feeds...")
         try:
-            log_agent_action(
-                action_type="Error",
-                description=f"RSS monitor failed: {e}",
-                status="Error",
-                error_message=str(e),
-            )
-        except Exception:
-            pass
+            rss_results = monitor_rss_feeds()
+            all_new.extend(rss_results)
+            logger.info(f"  RSS total: {len(rss_results)} passed filter")
+        except Exception as e:
+            logger.error(f"RSS monitor failed: {e}")
+            try:
+                log_agent_action(
+                    action_type="Error",
+                    description=f"RSS monitor failed: {e}",
+                    status="Error",
+                    error_message=str(e),
+                )
+            except Exception:
+                pass
 
-    # ── SOURCE 2: NON-RSS SCRAPERS ─────────────────────────────────────────
-    # Somalia Jobs, DRC, Save the Children, CARE, GIZ, USAID, etc.
-    # Uses Playwright browser to handle JavaScript-rendered pages.
+    # ── SOURCE 2: SOMALI JOBS SCRAPER ──────────────────────────────────────
+    # https://www.somalijobs.com/tenders — Playwright for JS-rendered pages.
     logger.info("Running web scrapers...")
     try:
         scraped_results = scrape_non_rss_sources()

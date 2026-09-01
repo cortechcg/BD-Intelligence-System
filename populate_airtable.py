@@ -28,7 +28,7 @@ from io import BytesIO
 # ── DEPENDENCY CHECK ──────────────────────────────────────────────────────────
 # Check all required packages are installed before importing
 REQUIRED = [
-    "anthropic", "pyairtable", "supabase", "pdfplumber",
+    "openai", "pyairtable", "supabase", "pdfplumber",
     "docx", "rich", "loguru", "dotenv"
 ]
 
@@ -45,9 +45,8 @@ if missing:
     sys.exit(1)
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
-import anthropic
-from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client
-from utils.claude_helpers import get_text
+from config import OPENAI_MODEL, get_openai_api_key
+from utils.llm import complete, get_openai_client, get_text
 import pdfplumber
 from docx import Document as DocxDocument
 from pyairtable import Api, retry_strategy
@@ -214,12 +213,12 @@ def prune_agent_logs(tables: dict, keep: int = 400) -> int:
     return deleted
 
 
-def get_claude_client():
-    """Initialize Anthropic Claude client."""
+def get_llm_client():
+    """Initialize the OpenAI client used for extraction."""
     try:
-        return get_anthropic_client()
+        return get_openai_client()
     except ValueError:
-        console.print("[red]Missing ANTHROPIC_API_KEY in .env[/red]")
+        console.print("[red]Missing OPENAI_API_KEY in .env[/red]")
         sys.exit(1)
 
 
@@ -363,13 +362,13 @@ PROPOSAL_EXTRACTION_SCHEMA = """
   "methodology_approach": "string — 2-3 sentences summarizing the methodology used",
   "proposal_summary": "string — 4-5 sentence summary of this proposal's approach, key sections, and strengths. Focus on what makes it distinctive.",
   "key_sections_found": ["list of major sections found in this document"],
-  "writing_style_notes": "string — 2-3 sentences describing the writing style, tone, and structure for Claude to learn from"
+  "writing_style_notes": "string — 2-3 sentences describing the writing style, tone, and structure for the agent to learn from"
 }
 """
 
 
-def extract_cv_info(claude: anthropic.Anthropic, cv_text: str, file_name: str) -> dict:
-    """Use Claude to extract structured information from a CV."""
+def extract_cv_info(cv_text: str, file_name: str) -> dict:
+    """Use the LLM to extract structured information from a CV."""
 
     # Truncate if too long
     max_chars = 15000
@@ -400,8 +399,8 @@ CV DOCUMENT (filename: {file_name}):
 {cv_text}"""
 
     try:
-        response = claude.messages.create(
-            model=CLAUDE_MODEL,  # Fast + cheap for extraction
+        response = complete(
+            model=OPENAI_MODEL,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -440,16 +439,15 @@ CV DOCUMENT (filename: {file_name}):
             "extraction_error": str(e),
         }
     except Exception as e:
-        logger.error(f"Claude extraction failed for {file_name}: {e}")
+        logger.error(f"LLM extraction failed for {file_name}: {e}")
         raise
 
 
 def extract_proposal_info(
-    claude: anthropic.Anthropic,
     proposal_text: str,
     file_name: str
 ) -> dict:
-    """Use Claude to extract structured information from a proposal document."""
+    """Use the LLM to extract structured information from a proposal document."""
 
     # Truncate if too long — keep beginning and end (most important parts)
     max_chars = 20000
@@ -480,8 +478,8 @@ PROPOSAL DOCUMENT (filename: {file_name}):
 {proposal_text}"""
 
     try:
-        response = claude.messages.create(
-            model=CLAUDE_MODEL,
+        response = complete(
+            model=OPENAI_MODEL,
             max_tokens=1200,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -773,7 +771,7 @@ def validate_environment() -> bool:
 
     # Check .env keys
     required_keys = [
-        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
         "AIRTABLE_API_KEY",
         "AIRTABLE_BASE_ID",
     ]
@@ -785,12 +783,12 @@ def validate_environment() -> bool:
     ]
 
     for key in required_keys:
-        val = os.getenv(key) if key != "ANTHROPIC_API_KEY" else get_anthropic_api_key()
+        val = os.getenv(key) if key != "OPENAI_API_KEY" else get_openai_api_key()
         if not val:
             errors.append(f"Missing: {key}")
-        elif key == "ANTHROPIC_API_KEY" and not val.startswith("sk-ant-"):
+        elif key == "OPENAI_API_KEY" and not val.startswith("sk-"):
             errors.append(
-                f"{key} should start with sk-ant- (check for a pasted OpenAI or wrong key)"
+                f"{key} should start with sk- (check for a pasted wrong key)"
             )
         elif len(val) < 10:
             errors.append(f"Looks invalid: {key}")
@@ -798,11 +796,11 @@ def validate_environment() -> bool:
             console.print(f"  {key}: {'*' * 8}{val[-4:]}")
 
     # Warn if shell env would have overridden .env before override=True fix
-    raw_env = os.environ.get("ANTHROPIC_API_KEY")
-    cleaned = get_anthropic_api_key()
+    raw_env = os.environ.get("OPENAI_API_KEY")
+    cleaned = get_openai_api_key()
     if raw_env and cleaned and raw_env.strip() != cleaned:
         warnings.append(
-            "ANTHROPIC_API_KEY in the shell differed from .env — config now uses .env (override=True)"
+            "OPENAI_API_KEY in the shell differed from .env — config now uses .env (override=True)"
         )
 
     for key in optional_keys:
@@ -840,31 +838,28 @@ def validate_environment() -> bool:
 
     # Probe with a short timeout — the shared client waits up to 180s
     # per attempt, which looked hung after "files found".
-    console.print("  Testing Anthropic API...")
+    console.print("  Testing OpenAI API...")
     try:
-        probe = anthropic.Anthropic(
-            api_key=get_anthropic_api_key(),
+        complete(
+            model=OPENAI_MODEL,
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Hi"}],
             timeout=20.0,
             max_retries=0,
         )
-        probe.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=10,
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-        console.print("  Anthropic API: OK")
+        console.print("  OpenAI API: OK")
     except Exception as e:
         err = str(e)
-        if "401" in err or "authentication_error" in err:
+        if "401" in err or "authentication" in err.lower() or "invalid_api_key" in err:
             errors.append(
-                "Anthropic API rejected the key (401 invalid). "
-                "Create a fresh key at console.anthropic.com → API Keys, "
-                "paste it in .env as ANTHROPIC_API_KEY=sk-ant-... (no quotes), "
+                "OpenAI API rejected the key (401 invalid). "
+                "Create a fresh key at platform.openai.com → API Keys, "
+                "paste it in .env as OPENAI_API_KEY=sk-... (no quotes), "
                 "then open a new terminal and run again."
             )
         else:
-            errors.append(f"Anthropic API failed: {e}")
-        console.print(f"  Anthropic API failed: {e}")
+            errors.append(f"OpenAI API failed: {e}")
+        console.print(f"  OpenAI API failed: {e}")
 
     # Show results
     console.print()
@@ -970,7 +965,6 @@ def setup_folders() -> None:
 
 def run_cv_population(
     tables: dict,
-    claude: anthropic.Anthropic,
     interactive: bool = True
 ) -> dict:
     """Process all CV files and add to Airtable."""
@@ -1006,7 +1000,7 @@ def run_cv_population(
 
             # Extract with Claude
             with console.status("  Claude is reading the CV..."):
-                cv_info = extract_cv_info(claude, raw_text, cv_file.name)
+                cv_info = extract_cv_info(raw_text, cv_file.name)
                 time.sleep(0.5)  # Small delay to be nice to API
 
             # Show preview
@@ -1062,7 +1056,6 @@ def _already_in_airtable(file_path: Path, existing_norm: list[str]) -> bool:
 
 def run_proposal_population(
     tables: dict,
-    claude: anthropic.Anthropic,
     interactive: bool = True,
     only_file: str | None = None,
 ) -> dict:
@@ -1141,7 +1134,7 @@ def run_proposal_population(
                 )
             else:
                 with console.status("  Claude is analyzing the proposal..."):
-                    proposal_info = extract_proposal_info(claude, raw_text, prop_file.name)
+                    proposal_info = extract_proposal_info(raw_text, prop_file.name)
                     time.sleep(0.5)
 
             if interactive:
@@ -1353,7 +1346,7 @@ def main():
 
     # 4. Initialize clients
     tables = get_airtable_clients()
-    claude = get_claude_client()
+    get_llm_client()
 
     cv_results     = {"added": 0, "skipped": 0, "errors": 0}
     prop_results   = {"added": 0, "skipped": 0, "errors": 0}
@@ -1375,12 +1368,12 @@ def main():
 
     if choice in ("1", "4"):
         console.print("\n[bold blue]Processing CVs...[/bold blue]")
-        cv_results = run_cv_population(tables, claude, interactive)
+        cv_results = run_cv_population(tables, interactive)
 
     if choice in ("2", "4"):
         console.print("\n[bold blue]Processing Past Proposals...[/bold blue]")
         prop_results = run_proposal_population(
-            tables, claude, interactive, only_file=args.file
+            tables, interactive, only_file=args.file
         )
 
     # 6. Final summary

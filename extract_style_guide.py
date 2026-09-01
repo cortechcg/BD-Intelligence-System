@@ -2,7 +2,7 @@
 Reads every real past proposal/EOI in data/proposals/, extracts each
 document's ACTUAL heading structure (not a content summary — the
 structural skeleton), classifies each as EOI or full-proposal, and asks
-Claude to synthesize a written structure/style guide per type from the
+the LLM to synthesize a written structure/style guide per type from the
 aggregated real examples.
 
 Run manually when the corpus changes:
@@ -14,15 +14,12 @@ import os
 import re
 from pathlib import Path
 
-import anthropic
 from docx import Document
 from loguru import logger
 
-from config import CLAUDE_MODEL_PROPOSAL, get_anthropic_client
+from config import OPENAI_MODEL_PROPOSAL
 from intelligence.proposal_writer import PROPOSAL_STRUCTURE
-from utils.claude_helpers import get_text
-
-client = get_anthropic_client()
+from utils.llm import complete, get_text
 
 
 def extract_structure(docx_path: Path) -> dict:
@@ -183,8 +180,8 @@ Synthesize a written structure and style guide grounded in these REAL examples:
 
 Write as clear guidance for someone drafting a new {label.replace('_', ' ')} for Cortech, citing which real document(s) a pattern comes from where useful."""
 
-        response = client.messages.create(
-            model=CLAUDE_MODEL_PROPOSAL,
+        response = complete(
+            model=OPENAI_MODEL_PROPOSAL,
             max_tokens=1800,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -201,7 +198,7 @@ def main() -> None:
     parser.add_argument(
         "--compare",
         action="store_true",
-        help="Compare full-proposal corpus headings against PROPOSAL_STRUCTURE (no Claude calls)",
+        help="Compare full-proposal corpus headings against PROPOSAL_STRUCTURE (no LLM calls)",
     )
     args = parser.parse_args()
 

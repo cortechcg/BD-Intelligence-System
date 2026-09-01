@@ -37,7 +37,7 @@ Nothing in this pipeline submits to a client.
 | Path | Role |
 |---|---|
 | `main.py` | Orchestrator |
-| `config.py` | Constants, `CLAUDE_MODEL` / `CLAUDE_MODEL_PROPOSAL`, env validation |
+| `config.py` | Constants, `OPENAI_MODEL` / `OPENAI_MODEL_PROPOSAL`, env validation |
 | `monitors/` | Discovery |
 | `processors/downloader.py` | Fetch + extract |
 | `processors/document_quality.py` | Empty/corrupt rejection |

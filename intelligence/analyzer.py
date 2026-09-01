@@ -1,32 +1,31 @@
 # intelligence/analyzer.py
 """
-RFP/ToR analysis via Claude.
+RFP/ToR analysis via OpenAI.
 One public function:
   analyze_rfp() → structured JSON from full document text
 """
 
-import os
 import json
 from loguru import logger
 
-import anthropic
+import openai
 
 from config import (
-    ANTHROPIC_MAX_RETRIES,
-    CLAUDE_MODEL,
-    CLAUDE_MAX_TOKENS,
+    OPENAI_MAX_RETRIES,
+    OPENAI_MODEL,
+    OPENAI_MAX_TOKENS,
     CORTECH_PROFILE,
-    get_anthropic_client,
+    get_openai_api_key,
 )
 from database.airtable_client import log_agent_action
-from utils.claude_helpers import get_text
+from utils.llm import complete, get_text, usage_totals
 from utils.errors import ErrorType
 from utils.observability import record_usage
 from utils.untrusted import wrap_untrusted
 
 
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
-# Claude must return a JSON object matching this structure exactly.
+# The model must return a JSON object matching this structure exactly.
 # is_consultancy_contract is the most critical field — it gates the
 # entire downstream pipeline before any expensive work begins.
 
@@ -245,19 +244,18 @@ def analyze_rfp(
     tokens_used = 0
 
     try:
-        response = get_anthropic_client().messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
+        response = complete(
+            model=OPENAI_MODEL,
+            max_tokens=OPENAI_MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}]
         )
 
-        tokens_used = (
-            response.usage.input_tokens + response.usage.output_tokens
-        )
-        record_usage(response, CLAUDE_MODEL, stage="analyze_rfp")
+        inp, out = usage_totals(response)
+        tokens_used = inp + out
+        record_usage(response, OPENAI_MODEL, stage="analyze_rfp")
         response_text = get_text(response).strip()
 
-        # Strip markdown code fences if Claude added them
+        # Strip markdown code fences if the model added them
         if "```" in response_text:
             parts = response_text.split("```")
             for part in parts:
@@ -319,39 +317,38 @@ def analyze_rfp(
             pass
         return {}
 
-    except anthropic.APITimeoutError:
-        from config import ANTHROPIC_TIMEOUT_SECONDS
+    except openai.APITimeoutError:
+        from config import OPENAI_TIMEOUT_SECONDS
         logger.error(
-            f"  Analysis timed out after {ANTHROPIC_TIMEOUT_SECONDS:.0f}s "
-            f"(x{ANTHROPIC_MAX_RETRIES + 1} attempts) for '{title[:60]}' — "
+            f"  Analysis timed out after {OPENAI_TIMEOUT_SECONDS:.0f}s "
+            f"(x{OPENAI_MAX_RETRIES + 1} attempts) for '{title[:60]}' — "
             f"skipping. error_type={ErrorType.TIMEOUT_ERROR}. "
-            "Raise ANTHROPIC_TIMEOUT_SECONDS in .env if this recurs on large documents."
+            "Raise OPENAI_TIMEOUT_SECONDS in .env if this recurs on large documents."
         )
         return {}
 
-    except anthropic.RateLimitError:
+    except openai.RateLimitError:
         logger.error(
-            f"  Anthropic rate limit hit — waiting 60s "
+            f"  OpenAI rate limit hit — waiting 60s "
             f"error_type={ErrorType.RATE_LIMIT_ERROR}"
         )
         import time
         time.sleep(60)
         return {}
 
-    except anthropic.AuthenticationError:
+    except openai.AuthenticationError:
         suffix = "????"
         try:
-            from config import get_anthropic_api_key as _key
-            k = _key() or ""
+            k = get_openai_api_key() or ""
             if len(k) >= 4:
                 suffix = k[-4:]
         except Exception:
             pass
         logger.error(
-            f"  Anthropic rejected API key ending ...{suffix} (401 invalid). "
-            "Create a new key at https://console.anthropic.com/settings/keys "
-            "(API Console, not claude.ai), paste it in .env as "
-            f"ANTHROPIC_API_KEY=sk-ant-api03-... with no quotes, save, and rerun. "
+            f"  OpenAI rejected API key ending ...{suffix} (401 invalid). "
+            "Create a new key at https://platform.openai.com/api-keys "
+            "paste it in .env as "
+            f"OPENAI_API_KEY=sk-... with no quotes, save, and rerun. "
             f"error_type={ErrorType.AUTH_ERROR}"
         )
         return {}
