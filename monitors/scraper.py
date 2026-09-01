@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
 from monitors.rss_monitor import quick_relevance_check
+from utils.urls import canonicalize_url
 
 HTTP_HEADERS = {
     "User-Agent": (
@@ -278,7 +279,7 @@ def parse_tenders_from_html(
 
         found.append({
             "title":         title,
-            "source_url":    full_url,
+            "source_url":    canonicalize_url(full_url) or full_url,
             "summary":       summary,
             "source_portal": name,
             "published":     "",

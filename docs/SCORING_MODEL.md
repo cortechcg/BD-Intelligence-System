@@ -1,0 +1,37 @@
+# Scoring model 1.0.0
+
+Weights live in `intelligence/scoring_model.json`. Changing that file does **not** rewrite historical Airtable/Supabase records; each result stores `score_version` and the weights used.
+
+## Rule
+
+The official FIT, WIN PROBABILITY, and BID/WATCH/NO-BID are calculated in `intelligence/bid_scorer.py`. Claude's numbers are advisory (`llm_audit`).
+
+## Dimensions (kept separate)
+
+| Dimension | Meaning | Missing inputs |
+|---|---|---|
+| **FIT** | Geography, thematic, language, eligibility, team coverage | Factor dropped and remaining weights renormalized; if none usable, FIT is UNKNOWN |
+| **WIN PROBABILITY** | Derived from FIT + deadline feasibility + known-client name overlap + eligibility | Same; not a guess at P(win) from vibes |
+| **COMMERCIAL VALUE** | `estimated_budget_usd` if a positive number was extracted | `null` / UNKNOWN — not invented |
+| **STRATEGIC VALUE** | Core thematic + priority geography + name on the profile client list | UNKNOWN factors dropped |
+| **RISK** | Deadline pressure + team gaps + eligibility gaps (higher = riskier) | UNKNOWN dropped |
+| **Expected Value** | `P(win)×contract_value − pursuit_cost − risk_adjustment` | **INSUFFICIENT DATA** unless all three USD inputs exist. Pursuit cost is not known at analysis time, so EV is almost always INSUFFICIENT DATA. That is correct. |
+
+`known_client` is **name overlap with CORTECH_PROFILE**, labelled as such. It is not a verified current relationship.
+
+Eligibility: credentials not on the profile are UNKNOWN, not a fabricated fail. The scorer will not invent ISO/PSEA/registration the company does not list.
+
+## Recommendation thresholds (v1.0.0)
+
+- BID if FIT ≥ 70
+- WATCH if FIT ≥ 45 (or FIT is UNKNOWN)
+- NO-BID if FIT < 45
+- `is_consultancy_contract` remains a separate gate in `main.py` (default True)
+
+## Evidence labels
+
+Each factor has `status`: VERIFIED (extracted field matched a list), INFERRED (partial), UNKNOWN (not extracted / not guessed).
+
+## What this is not
+
+It is not a calibrated win-probability model. There is no historical win/loss regression yet. WIN PROBABILITY is a weighted heuristic on observed factors, 0–100, not a frequentist P(win).

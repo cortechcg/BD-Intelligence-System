@@ -19,6 +19,10 @@ from config import (
     get_anthropic_client,
 )
 from database.airtable_client import log_agent_action
+from utils.claude_helpers import get_text
+from utils.errors import ErrorType
+from utils.observability import record_usage
+from utils.untrusted import wrap_untrusted
 
 
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
@@ -97,14 +101,14 @@ ANALYSIS_SCHEMA = """
   "bid_analysis": {
     "is_consultancy_contract": "boolean — TRUE if a company/firm is being hired to deliver a product, study, evaluation, assessment, or service with defined deliverables and a scope of work. FALSE only if this is a pure individual staff vacancy with no deliverables (salaried employment). DEFAULT TO TRUE when in doubt.",
     "submission_type": "EOI or FULL_PROPOSAL — EOI if the document explicitly requests an Expression of Interest, REOI, pre-qualification, or shortlisting submission. FULL_PROPOSAL if it requests a Technical Proposal, RFP response, or doesn't specify a lighter stage. DEFAULT TO FULL_PROPOSAL WHEN GENUINELY AMBIGUOUS.",
-    "cortech_fit_score": "number 0-100",
-    "win_probability": "number 0-100",
-    "bid_recommendation": "BID/WATCH/NO-BID",
+    "cortech_fit_score": "number 0-100 — ADVISORY only; a downstream scoring engine recalculates the official fit score from extracted fields. Still fill this.",
+    "win_probability": "number 0-100 — ADVISORY only",
+    "bid_recommendation": "BID/WATCH/NO-BID — ADVISORY only",
     "effort_required": "Low/Medium/High",
     "key_strengths": ["list of Cortech advantages for this opportunity"],
     "key_gaps": ["list of gaps or weaknesses"],
     "recommended_external_partners": ["list of partner types if needed"],
-    "rationale": "2-3 sentence explanation of score and recommendation",
+    "rationale": "2-3 sentence explanation of extracted strengths/gaps — do NOT treat this as the final bid score",
     "priority": "HIGH/MEDIUM/LOW"
   }
 }
@@ -113,37 +117,16 @@ ANALYSIS_SCHEMA = """
 
 # ── MAIN ANALYSIS FUNCTION ────────────────────────────────────────────────────
 
-def analyze_rfp(
-    tor_text: str,
-    opportunity_id: str = None,
-    title: str = "Unknown",
-) -> dict:
-    """
-    Reads a full ToR/RFP document and extracts structured intelligence.
-
-    Returns a dict matching ANALYSIS_SCHEMA, or empty dict on failure.
-    The is_consultancy_contract field in bid_analysis is the critical
-    gate read by main.py before any further pipeline work begins.
-    """
-    logger.info(f"  Analyzing: {title[:60]}...")
-
-    # Truncate if too long — keep within safe token budget
-    max_chars = 120000  # ~30k tokens — enough for a ToR plus 2–3 annexes
-    if len(tor_text) > max_chars:
-        # Keep beginning and end — both contain critical information
-        half = max_chars // 2
-        tor_text = (
-            tor_text[:half]
-            + "\n\n[... MIDDLE SECTION TRUNCATED FOR TOKEN MANAGEMENT ...]\n\n"
-            + tor_text[-half:]
-        )
-
-    prompt = f"""You are an expert development-sector business analyst for
+def build_analysis_prompt(tor_text: str) -> str:
+    """User prompt for analyze_rfp. Document text is wrapped as untrusted data."""
+    return f"""You are an expert development-sector business analyst for
 Cortech Consulting Group. Analyze the document below and return a
 single valid JSON object. No preamble, no markdown, no explanation —
 only the JSON object.
 
-CORTECH PROFILE (use this to score fit):
+CORTECH PROFILE (use this to extract fit-relevant fields — geography,
+themes, languages, client, budget, deadline. Numeric scores you return
+are advisory; a separate scoring engine calculates the official score):
 {CORTECH_PROFILE}
 
 CRITICAL FILTER — READ THIS BEFORE ANYTHING ELSE:
@@ -183,13 +166,20 @@ be trimmed by a human reviewer in minutes; an EOI-only draft cannot be
 expanded into a full proposal under deadline pressure if a full one
 turns out to be needed.
 
-SCORING GUIDANCE for cortech_fit_score (0-100):
+SCORING GUIDANCE for advisory cortech_fit_score (0-100) — this is NOT
+the official score:
 - 85-100: Perfect match — all requirements met, strong track record,
           ideal geography, high win probability
 - 70-84:  Strong match — most requirements met, minor gaps fillable
 - 50-69:  Moderate match — some gaps but manageable with the right team
 - 30-49:  Weak match — significant gaps, high effort for uncertain win
 - 0-29:   Poor match — fundamental misalignment with Cortech's profile
+
+Extract project_location, thematic_areas, language_requirements,
+certifications, client, donor, submission_deadline, and
+estimated_budget_usd as accurately as the document supports.
+If a field is not in the document, use null / empty — do not guess.
+Copy facts; do not invent clients, countries, budgets, or credentials.
 
 SCHEMA — return a JSON object matching this exactly:
 {ANALYSIS_SCHEMA}
@@ -222,7 +212,35 @@ address the wrong target. If the ToR states no award criteria at all,
 return an empty evaluation_criteria list rather than filling it with the
 DAC criteria.
 
-{tor_text}"""
+{wrap_untrusted(tor_text)}"""
+
+
+def analyze_rfp(
+    tor_text: str,
+    opportunity_id: str = None,
+    title: str = "Unknown",
+) -> dict:
+    """
+    Reads a full ToR/RFP document and extracts structured intelligence.
+
+    Returns a dict matching ANALYSIS_SCHEMA, or empty dict on failure.
+    The is_consultancy_contract field in bid_analysis is the critical
+    gate read by main.py before any further pipeline work begins.
+    """
+    logger.info(f"  Analyzing: {title[:60]}...")
+
+    # Truncate if too long — keep within safe token budget
+    max_chars = 120000  # ~30k tokens — enough for a ToR plus 2–3 annexes
+    if len(tor_text) > max_chars:
+        # Keep beginning and end — both contain critical information
+        half = max_chars // 2
+        tor_text = (
+            tor_text[:half]
+            + "\n\n[... MIDDLE SECTION TRUNCATED FOR TOKEN MANAGEMENT ...]\n\n"
+            + tor_text[-half:]
+        )
+
+    prompt = build_analysis_prompt(tor_text)
 
     tokens_used = 0
 
@@ -236,7 +254,8 @@ DAC criteria.
         tokens_used = (
             response.usage.input_tokens + response.usage.output_tokens
         )
-        response_text = response.content[0].text.strip()
+        record_usage(response, CLAUDE_MODEL, stage="analyze_rfp")
+        response_text = get_text(response).strip()
 
         # Strip markdown code fences if Claude added them
         if "```" in response_text:
@@ -305,13 +324,16 @@ DAC criteria.
         logger.error(
             f"  Analysis timed out after {ANTHROPIC_TIMEOUT_SECONDS:.0f}s "
             f"(x{ANTHROPIC_MAX_RETRIES + 1} attempts) for '{title[:60]}' — "
-            "skipping. Raise ANTHROPIC_TIMEOUT_SECONDS in .env if this "
-            "recurs on large documents."
+            f"skipping. error_type={ErrorType.TIMEOUT_ERROR}. "
+            "Raise ANTHROPIC_TIMEOUT_SECONDS in .env if this recurs on large documents."
         )
         return {}
 
     except anthropic.RateLimitError:
-        logger.error("  Anthropic rate limit hit — waiting 60s")
+        logger.error(
+            f"  Anthropic rate limit hit — waiting 60s "
+            f"error_type={ErrorType.RATE_LIMIT_ERROR}"
+        )
         import time
         time.sleep(60)
         return {}
@@ -329,7 +351,8 @@ DAC criteria.
             f"  Anthropic rejected API key ending ...{suffix} (401 invalid). "
             "Create a new key at https://console.anthropic.com/settings/keys "
             "(API Console, not claude.ai), paste it in .env as "
-            "ANTHROPIC_API_KEY=sk-ant-api03-... with no quotes, save, and rerun."
+            f"ANTHROPIC_API_KEY=sk-ant-api03-... with no quotes, save, and rerun. "
+            f"error_type={ErrorType.AUTH_ERROR}"
         )
         return {}
 

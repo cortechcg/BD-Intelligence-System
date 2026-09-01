@@ -10,9 +10,13 @@
 ╚══════════════════════════════════════════════════════════════════╝
 """
 
+import argparse
 import os
 import sys
 import time
+from datetime import datetime
+from pathlib import Path
+
 import httpx
 from dotenv import load_dotenv
 from rich.console import Console
@@ -113,20 +117,35 @@ def store_single_embedding_row(
     return verified_id, action, duplicate_count
 
 # ── CLIENTS ───────────────────────────────────────────────────────────────────
-def get_clients():
-    from pyairtable import Api
+def get_supabase():
     from supabase import create_client
 
-    airtable_api   = Api(os.getenv("AIRTABLE_API_KEY"))
-    airtable_base  = airtable_api.base(os.getenv("AIRTABLE_BASE_ID"))
-    supabase_client = create_client(
+    return create_client(
         os.getenv("SUPABASE_URL"),
-        os.getenv("SUPABASE_SERVICE_KEY")
+        os.getenv("SUPABASE_SERVICE_KEY"),
     )
+
+
+def get_clients():
+    from pyairtable import Api, retry_strategy
+
+    # Do not retry 429 — urllib3 "too many 429" is what crashed this
+    # script while Airtable was already rate-limited.
+    retry = retry_strategy(
+        status_forcelist=(500, 502, 503, 504),
+        backoff_factor=0.5,
+        total=2,
+    )
+    airtable_api = Api(
+        os.getenv("AIRTABLE_API_KEY"),
+        timeout=(10, 20),
+        retry_strategy=retry,
+    )
+    airtable_base = airtable_api.base(os.getenv("AIRTABLE_BASE_ID"))
     return (
         airtable_base.table("CONSULTANTS"),
         airtable_base.table("PAST_PROPOSALS"),
-        supabase_client
+        get_supabase(),
     )
 
 
@@ -223,7 +242,7 @@ def embed_consultant_cv(
         )
 
         try:
-            consultant_table.update(airtable_id, {"embedding_id": embedding_id})
+            consultant_table.update(airtable_id, {"embedding_id": embedding_id}, typecast=True)
         except Exception as e:
             logger.warning(
                 f"Supabase row verified for {name}, but Airtable embedding_id "
@@ -308,31 +327,164 @@ def embed_proposal(
         return "failed"
 
 
+def read_docx_text(path: Path) -> str:
+    from docx import Document
+
+    doc = Document(str(path))
+    sections = []
+    for para in doc.paragraphs:
+        if para.text.strip():
+            sections.append(para.text.strip())
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if cells:
+                sections.append(" | ".join(cells))
+    return "\n".join(sections)
+
+
+def embed_proposal_from_file(
+    supabase,
+    path: Path,
+    *,
+    won: bool,
+    title: str,
+    client: str,
+    year: int,
+) -> str:
+    """Embed a local past-proposal file. Does not call Airtable."""
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        proposal_text = read_docx_text(path)
+    else:
+        proposal_text = path.read_text(encoding="utf-8", errors="ignore")
+
+    if len(proposal_text) < MIN_PROPOSAL_TEXT_CHARS:
+        logger.warning(f"No usable proposal text in {path.name}. Skipping.")
+        return "skipped"
+
+    lookup = f"local:{path.name}"
+    title = title or path.stem
+    metadata = {
+        "client": client,
+        "year": year,
+        "won": won,
+        "source_file": path.name,
+    }
+    embedding = get_embedding_openai(proposal_text)
+    embedding_id, action, duplicate_count = store_single_embedding_row(
+        supabase=supabase,
+        table_name="proposal_embeddings",
+        lookup_column="airtable_proposal_id",
+        lookup_value=lookup,
+        payload={
+            "airtable_proposal_id": lookup,
+            "project_title": title,
+            "won": won,
+            "content_chunk": proposal_text[:2000],
+            "embedding": embedding,
+            "metadata": metadata,
+        },
+    )
+    if duplicate_count:
+        logger.warning(
+            f"Repaired {duplicate_count} duplicate proposal embedding row(s) "
+            f"for {title}."
+        )
+    logger.success(f"Proposal embedding {action}: {title} ({embedding_id})")
+    console.print(
+        f"  [green]{action}[/green] {title} "
+        f"({table_count(supabase, 'proposal_embeddings')} proposal_embeddings rows)"
+    )
+    return "embedded"
+
+
 # ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
+    parser = argparse.ArgumentParser(
+        description="Embed CVs and past proposals into Supabase."
+    )
+    parser.add_argument(
+        "--file",
+        metavar="NAME",
+        help="Embed one file from data/proposals/ (no Airtable).",
+    )
+    parser.add_argument(
+        "--won",
+        action="store_true",
+        help="Mark the --file proposal as won.",
+    )
+    parser.add_argument(
+        "--title",
+        default="",
+        help="project_title for --file (defaults to filename).",
+    )
+    parser.add_argument(
+        "--client",
+        default="",
+        help="client metadata for --file.",
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=0,
+        help="year metadata for --file.",
+    )
+    parser.add_argument(
+        "--proposals-only",
+        action="store_true",
+        help="Skip CVs; embed past proposals from Airtable only.",
+    )
+    args = parser.parse_args()
+
     console.print("\n[bold blue]Cortech CV Embedder[/bold blue]")
-    console.print("[dim]Loading consultant CVs into Supabase vector store[/dim]\n")
 
-    # Check OpenAI key
     use_openai = bool(os.getenv("OPENAI_API_KEY"))
-
-    if use_openai:
-        console.print("  OpenAI API key found — using vector embeddings")
-    else:
+    if not use_openai:
         console.print(
             "  OPENAI_API_KEY is required — CV matching depends on "
             "1536-dimension vector embeddings"
         )
         sys.exit(1)
+    console.print("  OpenAI API key found — using vector embeddings")
 
-    # Check Supabase
     if not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_SERVICE_KEY"):
         console.print(
             "\n[yellow]Supabase not configured.[/yellow]\n"
             "   Add SUPABASE_URL and SUPABASE_SERVICE_KEY to .env\n"
-            "   Without Supabase, CV matching will not work.\n"
         )
         sys.exit(1)
+
+    if args.file:
+        proposals_dir = Path("data/proposals")
+        wanted = args.file.lower()
+        matches = [
+            p for p in proposals_dir.iterdir()
+            if p.is_file() and (
+                p.name.lower() == wanted or wanted in p.name.lower()
+            )
+        ]
+        if not matches:
+            console.print(f"[red]No file matching '{args.file}' in {proposals_dir}[/red]")
+            sys.exit(1)
+        path = matches[0]
+        console.print(f"  Embedding from disk: [cyan]{path.name}[/cyan]")
+        try:
+            status = embed_proposal_from_file(
+                get_supabase(),
+                path,
+                won=args.won,
+                title=args.title,
+                client=args.client,
+                year=args.year or datetime.now().year,
+            )
+        except Exception as e:
+            console.print(f"[red]Embedding failed: {e}[/red]")
+            sys.exit(1)
+        if status != "embedded":
+            sys.exit(1)
+        console.print("\n[bold green]Embedding complete![/bold green]")
+        return
 
     try:
         consultant_table, proposal_table, supabase = get_clients()
@@ -340,54 +492,66 @@ def main():
         console.print(f"[red]Connection failed: {e}[/red]")
         sys.exit(1)
 
-    # ── EMBED CVS ──────────────────────────────────────────────────────────────
-    console.print("[bold]Loading consultants from Airtable...[/bold]")
-    consultants = consultant_table.all()
-    console.print(f"Found [green]{len(consultants)}[/green] consultants\n")
-
     cv_counts = {"embedded": 0, "skipped": 0, "failed": 0}
-
-    for record in track(consultants, description="Embedding CVs..."):
-        status = embed_consultant_cv(
-            supabase, consultant_table, record, use_openai
-        )
-        cv_counts[status] += 1
-
-        time.sleep(0.3)  # Rate limit
-
-    # ── EMBED PROPOSALS ────────────────────────────────────────────────────────
     prop_counts = {"embedded": 0, "skipped": 0, "failed": 0}
 
-    if use_openai:
-        console.print("\n[bold]Loading past proposals from Airtable...[/bold]")
-        proposals = proposal_table.all()
-        console.print(f"Found [green]{len(proposals)}[/green] proposals\n")
+    if not args.proposals_only:
+        console.print("[bold]Loading consultants from Airtable...[/bold]")
+        try:
+            consultants = consultant_table.all()
+        except Exception as e:
+            console.print(
+                f"[red]Airtable CONSULTANTS list failed: {e}[/red]\n"
+                "  If this is a 429, embed one proposal from disk instead:\n"
+                "  [cyan]python embed_cvs.py --file \"the-new-filename.docx\" --won[/cyan]"
+            )
+            sys.exit(1)
+        console.print(f"Found [green]{len(consultants)}[/green] consultants\n")
 
-        for record in track(proposals, description="Embedding proposals..."):
-            status = embed_proposal(supabase, record, use_openai)
-            prop_counts[status] += 1
+        for record in track(consultants, description="Embedding CVs..."):
+            status = embed_consultant_cv(
+                supabase, consultant_table, record, use_openai
+            )
+            cv_counts[status] += 1
             time.sleep(0.3)
 
+    console.print("\n[bold]Loading past proposals from Airtable...[/bold]")
+    try:
+        proposals = proposal_table.all()
+    except Exception as e:
         console.print(
-            f"\n  Proposals: [green]{prop_counts['embedded']} embedded[/green] | "
-            f"[yellow]{prop_counts['skipped']} skipped[/yellow] | "
-            f"[red]{prop_counts['failed']} failed[/red]"
+            f"[red]Airtable PAST_PROPOSALS list failed: {e}[/red]\n"
+            "  Embed from disk instead:\n"
+            "  [cyan]python embed_cvs.py --file \"the-new-filename.docx\" --won[/cyan]"
         )
-        console.print(
-            f"  Supabase proposal_embeddings rows: "
-            f"[cyan]{table_count(supabase, 'proposal_embeddings')}[/cyan]"
-        )
+        sys.exit(1)
+    console.print(f"Found [green]{len(proposals)}[/green] proposals\n")
 
-    # ── SUMMARY ────────────────────────────────────────────────────────────────
+    for record in track(proposals, description="Embedding proposals..."):
+        status = embed_proposal(supabase, record, use_openai)
+        prop_counts[status] += 1
+        time.sleep(0.3)
+
     console.print(
-        f"\n  CVs: [green]{cv_counts['embedded']} embedded[/green] | "
-        f"[yellow]{cv_counts['skipped']} skipped[/yellow] | "
-        f"[red]{cv_counts['failed']} failed[/red]"
+        f"\n  Proposals: [green]{prop_counts['embedded']} embedded[/green] | "
+        f"[yellow]{prop_counts['skipped']} skipped[/yellow] | "
+        f"[red]{prop_counts['failed']} failed[/red]"
     )
     console.print(
-        f"  Supabase cv_embeddings rows: "
-        f"[cyan]{table_count(supabase, 'cv_embeddings')}[/cyan]"
+        f"  Supabase proposal_embeddings rows: "
+        f"[cyan]{table_count(supabase, 'proposal_embeddings')}[/cyan]"
     )
+
+    if not args.proposals_only:
+        console.print(
+            f"\n  CVs: [green]{cv_counts['embedded']} embedded[/green] | "
+            f"[yellow]{cv_counts['skipped']} skipped[/yellow] | "
+            f"[red]{cv_counts['failed']} failed[/red]"
+        )
+        console.print(
+            f"  Supabase cv_embeddings rows: "
+            f"[cyan]{table_count(supabase, 'cv_embeddings')}[/cyan]"
+        )
 
     if cv_counts["failed"] or prop_counts["failed"]:
         console.print("\n[bold red]Embedding finished with failures.[/bold red]")

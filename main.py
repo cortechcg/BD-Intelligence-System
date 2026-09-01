@@ -27,6 +27,7 @@ full proposal drafted. The human reviewer decides what to submit.
 
 import os
 import sys
+import json
 import uuid
 import schedule
 import time
@@ -37,12 +38,15 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
-from config import CORTECH_PROFILE, MAX_OPPORTUNITIES_PER_RUN
+from config import MAX_OPPORTUNITIES_PER_RUN, require_env
 from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
+from processors.document_quality import assess_extraction
 from intelligence.analyzer import analyze_rfp
+from intelligence.bid_scorer import apply_bid_intelligence
+from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
@@ -62,6 +66,17 @@ from reporting.email_report import (
     send_deadline_alert_email,
     get_urgency_level,
 )
+from utils.errors import ErrorType
+from utils.hashing import content_hash
+from utils.observability import (
+    configure_logging,
+    get_execution_id,
+    log_stage,
+    new_execution_id,
+    opportunity_usage,
+    reset_opportunity_usage,
+)
+from utils.urls import canonicalize_url
 
 console = Console()
 
@@ -95,7 +110,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     # Email-newsletter sources fetch and dedup on different URLs — the
     # newsletter rewrites its access tokens daily. See monitors/assortis_email.py.
     dedup_url  = raw_opportunity.get("dedup_url") or source_url
+    dedup_url  = canonicalize_url(dedup_url) or dedup_url
     opp_id     = str(uuid.uuid4())
+    reset_opportunity_usage()
 
     console.print(f"\n[bold blue]Processing:[/bold blue] {title[:70]}")
 
@@ -122,13 +139,28 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         full_text = fallback_text
     elif len(full_text) < MIN_FETCHED_CHARS:
         logger.warning(
-            f"  Insufficient text ({len(full_text)} chars) — skipping"
+            f"  Insufficient text ({len(full_text)} chars) — skipping "
+            f"error_type={ErrorType.DOCUMENT_ERROR}"
         )
+        log_stage("fetch", "error", error_type=ErrorType.DOCUMENT_ERROR, chars=len(full_text))
+        return None
+
+    min_quality = MIN_BLURB_CHARS if (
+        fallback_text and full_text == fallback_text
+    ) else MIN_FETCHED_CHARS
+    quality = assess_extraction(full_text, source=source_url, min_chars=min_quality)
+    if not quality["ok"]:
+        logger.error(
+            f"  Document quality check failed: {quality['reason']} "
+            f"error_type={quality['error_type']}"
+        )
+        log_stage("fetch", "error", error_type=quality["error_type"], reason=quality["reason"])
         return None
 
     console.print(
         f"  Extracted [green]{len(full_text):,}[/green] characters"
     )
+    log_stage("fetch", "ok", chars=len(full_text), content_sha256=content_hash(full_text)[:12])
 
     # ── STEP 2: CACHE IN SUPABASE ──────────────────────────────────────────
     # Keyed on dedup_url, which is what the monitors check against.
@@ -143,17 +175,32 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
 
     if not analysis:
         logger.error("  Analysis returned empty — skipping")
+        log_stage("analyze", "error", error_type=ErrorType.ANALYSIS_ERROR)
         return None
+
+    # Hybrid score: LLM numbers become llm_* audit fields; code calculates
+    # FIT / WIN / recommendation. Consultancy boolean is not overwritten.
+    analysis = apply_bid_intelligence(analysis)
 
     opportunity    = analysis.get("opportunity", {})
     bid_analysis   = analysis.get("bid_analysis", {})
+    intelligence   = analysis.get("bid_intelligence") or {}
     fit_score      = bid_analysis.get("cortech_fit_score", 0)
     win_prob       = bid_analysis.get("win_probability", 0)
     recommendation = bid_analysis.get("bid_recommendation") or "WATCH"
 
     console.print(
         f"  Score: [green]{fit_score}/100[/green] | "
-        f"Recommendation: [green]{recommendation}[/green]"
+        f"Recommendation: [green]{recommendation}[/green] "
+        f"[dim]({intelligence.get('score_version', '')})[/dim]"
+    )
+    log_stage(
+        "score",
+        "ok",
+        fit=fit_score,
+        win=win_prob,
+        recommendation=recommendation,
+        score_version=intelligence.get("score_version", ""),
     )
 
     # ── CONSULTANCY CONTRACT GATE ──────────────────────────────────────────
@@ -281,6 +328,25 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         except Exception as e:
             logger.warning(f"  Airtable matched_team update failed: {e}")
 
+        # Re-score now that team_capacity is known. Weights version is stored
+        # with the result so later weight changes do not rewrite this record.
+        analysis = apply_bid_intelligence(analysis, matched_team_result)
+        bid_analysis = analysis.get("bid_analysis") or {}
+        intelligence = analysis.get("bid_intelligence") or {}
+        fit_score = bid_analysis.get("cortech_fit_score", fit_score)
+        win_prob = bid_analysis.get("win_probability", win_prob)
+        recommendation = bid_analysis.get("bid_recommendation") or recommendation
+        try:
+            if airtable_record_id:
+                update_opportunity(airtable_record_id, {
+                    "relevance_score": fit_score,
+                    "win_probability": win_prob,
+                    "bid_recommendation": recommendation,
+                    "claude_analysis": str(analysis)[:50000],
+                })
+        except Exception as e:
+            logger.warning(f"  Airtable score refresh failed (non-fatal): {e}")
+
     # ── STEPS 6–7: BUDGET / DRAFT (branch on submission type) ───
     # `or`, not a .get() default: Claude returns an explicit null here for
     # anything it classified as a staff vacancy, and a null key is present,
@@ -335,10 +401,15 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         )
 
     # ── STEP 9: UPDATE AIRTABLE STATUS ────────────────────────────────────
+    matrix = build_compliance_matrix(
+        analysis, matched_team_result, proposal_sections
+    )
+    usage = opportunity_usage()
     try:
         if airtable_record_id:
             update_opportunity(airtable_record_id, {
                 "status": "Reviewing",
+                "compliance_matrix": json.dumps(matrix),
             })
     except Exception as e:
         logger.warning(f"  Airtable status update failed (non-fatal): {e}")
@@ -356,6 +427,16 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             "  [bold yellow]WATCH quick-flag sent — not a full draft[/bold yellow]"
         )
 
+    est_cost = usage.get("estimated_cost_usd") if usage.get("cost_known") else None
+    log_stage(
+        "opportunity",
+        "ok",
+        recommendation=recommendation,
+        estimated_cost_usd=est_cost if est_cost is not None else "UNKNOWN",
+        tokens_in=usage.get("input", 0),
+        tokens_out=usage.get("output", 0),
+    )
+
     return {
         "airtable_id":       airtable_record_id,
         "title":             title,
@@ -366,9 +447,13 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         "client":            opportunity.get("client", ""),
         "budget_cap":        opportunity.get("estimated_budget_usd", 0),
         "analysis":          analysis,
+        "bid_intelligence":  intelligence,
+        "compliance_matrix": matrix,
+        "execution_id":      get_execution_id(),
         "matched_team":      matched_team_result,
         "budget":            budget,
         "proposal_sections": proposal_sections,
+        "estimated_cost_usd": est_cost,
     }
 
 
@@ -387,6 +472,7 @@ def submit_single_url(url: str) -> None:
     full run.
     """
     console.print(Panel(f"Manual submission: {url}", style="bold cyan"))
+    new_execution_id()
 
     if check_opportunity_exists(url):
         console.print(
@@ -462,11 +548,13 @@ def run_pipeline() -> None:
     the full pipeline, sends individual proposal emails per opportunity,
     and sends a summary report at the end of each run.
     """
+    eid = new_execution_id()
     console.print(Panel.fit(
         f"[bold blue]Cortech BD Agent Running[/bold blue]\n"
-        f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
+        f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  execution_id={eid}[/dim]",
         border_style="blue",
     ))
+    log_stage("pipeline", "start", execution_id=eid)
 
     all_new: list[dict]              = []
     processed_opportunities: list[dict] = []
@@ -534,7 +622,9 @@ def run_pipeline() -> None:
     seen_urls: set[str] = set()
     unique_new: list[dict] = []
     for opp in all_new:
-        url = opp.get("dedup_url") or opp.get("source_url", "")
+        url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url", "")) or (
+            opp.get("dedup_url") or opp.get("source_url", "")
+        )
         if url and url not in seen_urls:
             seen_urls.add(url)
             unique_new.append(opp)
@@ -665,6 +755,7 @@ def run_assortis_check() -> None:
     draft that only lands in Airtable is a draft nobody reads.
     """
     logger.info("Checking Assortis/ICA newsletter...")
+    new_execution_id()
     opportunities = check_assortis_newsletter()
     drafted = 0
     for opp in opportunities:
@@ -709,6 +800,7 @@ def run_deadline_check() -> None:
     Active statuses verified from main.py + email_report.py: Reviewing
     (post-proposal), New, and Bidding — excludes Submitted/Won/Lost/No-bid.
     """
+    new_execution_id()
     from database.airtable_client import get_table
 
     table = get_table("opportunities")
@@ -794,6 +886,8 @@ def start_scheduler() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    require_env()
+    configure_logging()
     if "--submit-url" in sys.argv:
         idx = sys.argv.index("--submit-url")
         if idx + 1 >= len(sys.argv):

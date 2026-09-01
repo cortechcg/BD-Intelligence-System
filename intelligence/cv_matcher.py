@@ -1,15 +1,138 @@
 # intelligence/cv_matcher.py
-import anthropic
 import json
 from loguru import logger
 from database.supabase_client import search_consultants
 from database.airtable_client import get_all_consultants, log_agent_action
-from config import CLAUDE_MODEL, get_anthropic_client
 
-client = get_anthropic_client()
-from utils.claude_helpers import get_text
+def _as_list(value) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [str(v) for v in value if v]
 
-client = get_anthropic_client()
+
+def _overlap(required: list[str], have: list[str]) -> tuple[list[str], list[str]]:
+    have_l = [h.lower() for h in have]
+    hits, misses = [], []
+    for item in required:
+        needle = str(item).lower()
+        if any(needle in h or h in needle for h in have_l if h):
+            hits.append(item)
+        else:
+            misses.append(item)
+    return hits, misses
+
+
+def score_capability_match(requirement: dict, match: dict) -> dict:
+    """Semantic similarity plus explicit geography/language/years. Never infers education or certifications that are not on the CV metadata."""
+    requirement = requirement or {}
+    meta = match.get("metadata") or {}
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except (ValueError, TypeError):
+            meta = {}
+
+    semantic = match.get("similarity")
+    if semantic is None:
+        semantic = (match.get("similarity_score") or 0) / 100.0
+    try:
+        semantic = float(semantic)
+    except (TypeError, ValueError):
+        semantic = 0.0
+    if semantic > 1:
+        semantic = semantic / 100.0
+
+    evidence = [f"semantic similarity {round(semantic * 100)}%"]
+    gaps = []
+    unknown = []
+    parts = {"semantic": round(semantic * 100, 2)}
+
+    geo_req = _as_list(requirement.get("required_geographic_experience"))
+    geo_have = _as_list(meta.get("geographic_experience"))
+    if geo_req:
+        if geo_have:
+            hits, misses = _overlap(geo_req, geo_have)
+            parts["geography"] = round(100.0 * len(hits) / len(geo_req), 2) if geo_req else None
+            if hits:
+                evidence.append("geography: " + ", ".join(map(str, hits)))
+            if misses:
+                gaps.extend(f"geography:{m}" for m in misses)
+        else:
+            parts["geography"] = None
+            unknown.append("geographic_experience not on CV metadata")
+    else:
+        parts["geography"] = None
+
+    lang_req = _as_list(
+        requirement.get("required_languages")
+        or requirement.get("language_requirements")
+    )
+    lang_have = _as_list(meta.get("languages"))
+    if lang_req:
+        if lang_have:
+            hits, misses = _overlap(lang_req, lang_have)
+            parts["language"] = round(100.0 * len(hits) / len(lang_req), 2)
+            if hits:
+                evidence.append("languages: " + ", ".join(map(str, hits)))
+            if misses:
+                gaps.extend(f"language:{m}" for m in misses)
+        else:
+            parts["language"] = None
+            unknown.append("languages not on CV metadata")
+
+    years_need = requirement.get("years_experience_minimum")
+    years_have = meta.get("years_experience")
+    if years_need not in (None, "", 0):
+        try:
+            need_n = float(years_need)
+            if years_have in (None, ""):
+                parts["years"] = None
+                unknown.append("years_experience not on CV metadata")
+            else:
+                have_n = float(years_have)
+                parts["years"] = 100.0 if have_n >= need_n else round(100.0 * have_n / need_n, 2)
+                evidence.append(f"years_experience={have_n} (need {need_n})")
+                if have_n < need_n:
+                    gaps.append(f"years_experience:{have_n}<{need_n}")
+        except (TypeError, ValueError):
+            parts["years"] = None
+            unknown.append("years_experience unparseable")
+
+    education = requirement.get("required_education")
+    if education:
+        # Education is not stored on cv_embeddings.metadata — do not infer it.
+        parts["education"] = None
+        unknown.append("education not in CV metadata — not inferred")
+        gaps.append("education:UNKNOWN")
+
+    numeric = [v for v in (parts.get("semantic"), parts.get("geography"), parts.get("language"), parts.get("years")) if v is not None]
+    match_score = round(sum(numeric) / len(numeric), 2) if numeric else 0.0
+    if unknown and not gaps:
+        confidence = "INFERRED"
+    elif unknown:
+        confidence = "INFERRED"
+    else:
+        confidence = "VERIFIED"
+
+    why_bits = [evidence[0]]
+    if gaps:
+        why_bits.append("gaps: " + ", ".join(gaps))
+    if unknown:
+        why_bits.append("unknown: " + ", ".join(unknown))
+
+    return {
+        "match_score": match_score,
+        "why": "; ".join(why_bits),
+        "evidence": evidence,
+        "gaps": gaps,
+        "unknown": unknown,
+        "factors": parts,
+        "confidence": confidence,
+        "status": "PARTIAL" if gaps or unknown else "SATISFIED",
+    }
+
 
 # Human prerequisite — CONSULTANTS table must include and maintain:
 #   current_projects, available_from, availability_percentage, booked_until
@@ -76,6 +199,7 @@ def match_team_to_requirements(
 
         if matches:
             best_match = matches[0]
+            capability = score_capability_match(req, best_match)
             matched_team[role] = {
                 "consultant_name": best_match["consultant_name"],
                 "airtable_id": best_match["airtable_consultant_id"],
@@ -84,6 +208,7 @@ def match_team_to_requirements(
                 "metadata": best_match["metadata"],
                 "all_matches": matches,
                 "requirement": req,
+                "capability": capability,
             }
             logger.success(
                 f"  {role} → {best_match['consultant_name']} "
@@ -96,6 +221,14 @@ def match_team_to_requirements(
                 "airtable_id": None,
                 "similarity_score": 0,
                 "requirement": req,
+                "capability": {
+                    "match_score": 0,
+                    "why": "No CV in the corpus passed the semantic threshold",
+                    "evidence": [],
+                    "gaps": [role],
+                    "confidence": "VERIFIED",
+                    "status": "MISSING",
+                },
             }
             logger.warning(f"  {role} → NO MATCH FOUND — External recruitment needed")
 

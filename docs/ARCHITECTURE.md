@@ -1,0 +1,70 @@
+# Architecture (as implemented)
+
+This is the system after the P0/P1 pass. It is still a **single Python process** with Airtable + Supabase + Anthropic. There is no microservice mesh, no chatbot, no competitor graph.
+
+## Runtime
+
+```
+systemd timers (or python main.py --once)
+        │
+        ▼
+   main.run_pipeline()          execution_id set here
+        │
+        ├─ RSS (httpx timeout + URL canonicalization)
+        ├─ Playwright scraper (Somali Jobs)
+        └─ IMAP Assortis newsletter
+                │
+                ▼
+        process_opportunity()
+           1. fetch_and_extract (SSRF guard, quality gate)
+           2. store_opportunity (canonical URL upsert)
+           3. analyze_rfp (untrusted wrap + get_text)
+           4. apply_bid_intelligence()   ← deterministic scores
+           5. is_consultancy_contract (default True)
+           6. NO-BID gate uses CODE recommendation, not the LLM number
+           7. Airtable create (existing fields; scores are the code scores)
+           8. CV match + explicit capability overlay
+           9. apply_bid_intelligence() again with team coverage
+          10. budget / EOI or full proposal
+          11. compliance_matrix (SATISFIED/PARTIAL/MISSING/UNKNOWN)
+          12. email humans
+```
+
+Nothing in this pipeline submits to a client.
+
+## Modules that are real
+
+| Path | Role |
+|---|---|
+| `main.py` | Orchestrator |
+| `config.py` | Constants, `CLAUDE_MODEL` / `CLAUDE_MODEL_PROPOSAL`, env validation |
+| `monitors/` | Discovery |
+| `processors/downloader.py` | Fetch + extract |
+| `processors/document_quality.py` | Empty/corrupt rejection |
+| `intelligence/analyzer.py` | LLM structured extraction |
+| `intelligence/bid_scorer.py` | Deterministic FIT/WIN/STRATEGIC/RISK/EV |
+| `intelligence/scoring_model.json` | Versioned weights |
+| `intelligence/cv_matcher.py` | Semantic match + explicit capability score |
+| `intelligence/compliance.py` | Submission compliance matrix |
+| `intelligence/proposal_writer.py` | Drafting |
+| `database/` | Airtable CRM, Supabase vectors |
+| `utils/errors.py` | Error taxonomy used at call sites |
+| `utils/urls.py` | Canonicalization + SSRF guard |
+| `utils/untrusted.py` | Document-as-data wrapping |
+| `utils/observability.py` | execution_id, stage logs, ESTIMATED cost |
+
+## What is stored where
+
+- **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding. Dedup = exact canonical URL + (Assortis) title near-dup.
+- **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
+- **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model.
+
+## Scoring data flow
+
+LLM extracts locations, themes, languages, certs, client, deadline, budget, qualitative strengths/gaps.
+
+`bid_scorer.compute_bid_intelligence()` turns those fields + optional CV coverage into dimension scores using `scoring_model.json`. The LLM's own `cortech_fit_score` is kept as `llm_cortech_fit_score` for audit and is not the gate.
+
+## Not in this architecture
+
+Competitor intelligence, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed.

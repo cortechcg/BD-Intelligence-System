@@ -118,6 +118,48 @@ CLAUDE_MODEL = "claude-haiku-4-5"
 CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"
 CLAUDE_MAX_TOKENS = 8192
 
+# ESTIMATED list prices (USD per million tokens). Used only for observability.
+# If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
+# Update when Anthropic publishes new rates; these are not invoices.
+CLAUDE_PRICING_PER_MTOK = {
+    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
+    CLAUDE_MODEL_PROPOSAL: {"input": 3.00, "output": 15.00},
+}
+
+# Fail loud at process start. Airtable is intentionally omitted — CRM writes
+# are fail-open. IMAP/Gmail are optional source/channel credentials.
+REQUIRED_ENV_VARS = (
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_KEY",
+)
+
+
+def validate_required_env() -> list[str]:
+    """Return names of missing required vars. Raises SystemExit if any missing
+    when called from main's entry point."""
+    missing = []
+    if not ANTHROPIC_API_KEY:
+        missing.append("ANTHROPIC_API_KEY")
+    if not SUPABASE_URL:
+        missing.append("SUPABASE_URL")
+    if not SUPABASE_SERVICE_KEY:
+        missing.append("SUPABASE_SERVICE_KEY")
+    if not _clean("OPENAI_API_KEY"):
+        missing.append("OPENAI_API_KEY")
+    return missing
+
+
+def require_env() -> None:
+    missing = validate_required_env()
+    if missing:
+        raise SystemExit(
+            "Missing required environment variables: "
+            + ", ".join(missing)
+            + ". Copy .env.example to .env and fill in real values."
+        )
+
 # ── CORTECH PROFILE (injected into every prompt) ─────────────
 CORTECH_PROFILE = """
 Company: Cortech Consulting Group
