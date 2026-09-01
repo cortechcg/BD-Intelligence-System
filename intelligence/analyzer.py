@@ -24,6 +24,23 @@ from utils.observability import record_usage
 from utils.untrusted import wrap_untrusted
 
 
+def _normalize_opportunity(analysis: dict, fallback_title: str) -> None:
+    """JSON null for title/client must become a string before any slicing."""
+    opp = analysis.get("opportunity")
+    if not isinstance(opp, dict):
+        analysis["opportunity"] = {
+            "title": fallback_title or "Unknown Assignment",
+            "client": "Unknown Client",
+        }
+        return
+    title = opp.get("title")
+    if not isinstance(title, str) or not title.strip():
+        opp["title"] = (fallback_title or "").strip() or "Unknown Assignment"
+    client = opp.get("client")
+    if not isinstance(client, str) or not client.strip():
+        opp["client"] = "Unknown Client"
+
+
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
 # The model must return a JSON object matching this structure exactly.
 # is_consultancy_contract is the most critical field — it gates the
@@ -226,6 +243,7 @@ def analyze_rfp(
     The is_consultancy_contract field in bid_analysis is the critical
     gate read by main.py before any further pipeline work begins.
     """
+    title = title if isinstance(title, str) and title.strip() else "Unknown"
     logger.info(f"  Analyzing: {title[:60]}...")
 
     # Truncate if too long — keep within safe token budget
@@ -267,6 +285,7 @@ def analyze_rfp(
                     break
 
         analysis = json.loads(response_text)
+        _normalize_opportunity(analysis, title)
 
         score = (
             analysis

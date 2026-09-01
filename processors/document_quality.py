@@ -10,6 +10,20 @@ _MAX_REPLACEMENT_RATIO = 0.05
 _MAX_CONTROL_RATIO = 0.02
 
 
+def _is_google_access_wall(text: str) -> bool:
+    """True when extraction is a Drive/Docs login or 'you need access' page."""
+    lower = (text or "").lower()
+    if "accounts.google.com" in lower:
+        return True
+    if "google accounts" in lower and "sign in" in lower:
+        return True
+    if "you need access" in lower and "google" in lower:
+        return True
+    if "request access" in lower and ("google drive" in lower or "google docs" in lower):
+        return True
+    return False
+
+
 def assess_extraction(text: str, source: str = "", min_chars: int = MIN_USEFUL_CHARS) -> dict:
     """Return {ok, error_type, reason, chars}. ok=False means do not proceed."""
     raw = text or ""
@@ -59,6 +73,15 @@ def assess_extraction(text: str, source: str = "", min_chars: int = MIN_USEFUL_C
             "ok": False,
             "error_type": ErrorType.DOCUMENT_ERROR,
             "reason": "extracted text has almost no letters",
+            "chars": chars,
+            "source": source,
+        }
+
+    if _is_google_access_wall(sample):
+        return {
+            "ok": False,
+            "error_type": ErrorType.DOCUMENT_ERROR,
+            "reason": "extracted text is a Google sign-in / access-denied page, not the document",
             "chars": chars,
             "source": source,
         }

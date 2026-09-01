@@ -35,6 +35,18 @@ def test_accepts_real_prose():
     assert result["ok"] is True
 
 
+def test_rejects_google_access_wall():
+    wall = (
+        "Google Accounts\n"
+        "Sign in\n"
+        "accounts.google.com\n"
+        "You need access. Request access from the owner.\n"
+    ) * 8
+    result = assess_extraction(wall)
+    assert result["ok"] is False
+    assert "sign-in" in result["reason"] or "access" in result["reason"]
+
+
 def test_blurb_min_chars_override():
     blurb = "UNICEF Somalia MEL consultancy. Deadline 1 Dec 2026. " * 2
     assert len(blurb) < 200

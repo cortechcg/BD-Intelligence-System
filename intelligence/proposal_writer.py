@@ -85,6 +85,24 @@ RELEVANT PAST ASSIGNMENTS (use as references in proposal):
 """
 
 
+def _field_str(value, default: str) -> str:
+    """JSON null must not reach title[:n] — dict.get default only fires when the key is missing."""
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return default
+
+
+def _opportunity_fields(analysis: dict) -> tuple[dict, str, str, str, str]:
+    opportunity = analysis.get("opportunity")
+    if not isinstance(opportunity, dict):
+        opportunity = {}
+    title = _field_str(opportunity.get("title"), "Unknown Assignment")
+    client_name = _field_str(opportunity.get("client"), "Client")
+    donor = _field_str(opportunity.get("donor"), "")
+    deadline = _field_str(opportunity.get("submission_deadline"), "TBD")
+    return opportunity, title, client_name, donor, deadline
+
+
 def _past_work_query(analysis: dict) -> str:
     """
     Build the retrieval query from what makes THIS tender distinctive —
@@ -106,7 +124,7 @@ def _past_work_query(analysis: dict) -> str:
         or requirements.get("geographic_experience")
         or []
     )
-    parts = [opportunity.get("title", "")]
+    parts = [_field_str(opportunity.get("title"), "")]
     if themes:
         parts.append("Sector: " + ", ".join(str(t) for t in themes))
     if locations:
@@ -1136,10 +1154,7 @@ def generate_eoi(
     `tor_text` is the tender pack as extracted by processors.downloader.
     It is read before any section is written — see tender_reader.py.
     """
-    opportunity = analysis.get("opportunity", {})
-    title = opportunity.get("title", "Unknown Assignment")
-    client_name = opportunity.get("client", "Client")
-    donor = opportunity.get("donor", "")
+    opportunity, title, client_name, donor, _deadline = _opportunity_fields(analysis)
 
     extra_context = (
         get_relevant_lessons(client_name, donor)
@@ -1397,11 +1412,7 @@ def generate_proposal(
     internal review email in reporting/email_report.py.
     """
     recommendation = analysis.get("bid_analysis", {}).get("bid_recommendation", "WATCH")
-    opportunity = analysis.get("opportunity", {})
-    title = opportunity.get("title", "Unknown Assignment")
-    client_name = opportunity.get("client", "Client")
-    donor = opportunity.get("donor", "")
-    deadline = opportunity.get("submission_deadline", "TBD")
+    opportunity, title, client_name, donor, deadline = _opportunity_fields(analysis)
 
     extra_context = (
         get_relevant_lessons(client_name, donor)
