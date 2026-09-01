@@ -106,7 +106,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     a drafted proposal and team email. No score thresholds block this.
     The human reviewer makes the final call on what to submit.
     """
-    title      = raw_opportunity.get("title", "Unknown")
+    title      = raw_opportunity.get("title") or "Unknown"
+    if not isinstance(title, str):
+        title = "Unknown"
     source_url = raw_opportunity.get("source_url", "")
     # Email-newsletter sources fetch and dedup on different URLs — the
     # newsletter rewrites its access tokens daily. See monitors/assortis_email.py.
@@ -183,8 +185,10 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     # FIT / WIN / recommendation. Consultancy boolean is not overwritten.
     analysis = apply_bid_intelligence(analysis)
 
-    opportunity    = analysis.get("opportunity", {})
-    bid_analysis   = analysis.get("bid_analysis", {})
+    opportunity    = analysis.get("opportunity") or {}
+    if not isinstance(opportunity, dict):
+        opportunity = {}
+    bid_analysis   = analysis.get("bid_analysis") or {}
     intelligence   = analysis.get("bid_intelligence") or {}
     fit_score      = bid_analysis.get("cortech_fit_score", 0)
     win_prob       = bid_analysis.get("win_probability", 0)
@@ -263,7 +267,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             f"{title[:60]}"
         )
 
-    title = opportunity.get("title") or title
+    title = opportunity.get("title") or title or "Unknown"
+    if not isinstance(title, str):
+        title = "Unknown"
 
     # ── STEP 4: CREATE AIRTABLE OPPORTUNITY RECORD ─────────────────────────
     airtable_record_id = create_opportunity({

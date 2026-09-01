@@ -419,8 +419,12 @@ def send_proposal_email(opportunity_result: dict) -> None:
     - Full proposal draft sections
     - Clear call to action for human review before submission
     """
-    title       = opportunity_result.get("title", "Unknown")
-    client      = opportunity_result.get("client", "Unknown Client")
+    title       = opportunity_result.get("title") or "Unknown"
+    if not isinstance(title, str):
+        title = "Unknown"
+    client      = opportunity_result.get("client") or "Unknown Client"
+    if not isinstance(client, str):
+        client = "Unknown Client"
     deadline    = opportunity_result.get("deadline", "TBD")
     score       = opportunity_result.get("score", 0)
     source_url  = opportunity_result.get("source_url", "")

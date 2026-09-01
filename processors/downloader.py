@@ -273,18 +273,26 @@ def _download_gdrive_file(file_id: str) -> bytes:
             if content[:4] == b"%PDF" or content[:2] == b"PK":
                 return content
 
-    # Native Google Doc — export as DOCX
-    export_url = (
-        f"https://docs.google.com/document/d/{file_id}/export?format=docx"
-    )
-    try:
-        exported = download_document(export_url)
-        if exported[:2] == b"PK":
-            return exported
-    except Exception as e:
-        logger.warning(f"  Google Doc export failed for {file_id[:12]}: {e}")
+    # Native Google Doc — export as DOCX, then PDF. Never return the HTML
+    # wrapper: a 401/sign-in page was being extracted as a 200-char "ToR".
+    for fmt, magic in (("docx", b"PK"), ("pdf", b"%PDF")):
+        export_url = (
+            f"https://docs.google.com/document/d/{file_id}/export?format={fmt}"
+        )
+        try:
+            exported = download_document(export_url)
+            if exported[: len(magic)] == magic:
+                return exported
+        except Exception as e:
+            logger.warning(
+                f"  Google Doc {fmt} export failed for {file_id[:12]}: {e}"
+            )
 
-    return content
+    raise RuntimeError(
+        f"Could not download Drive file {file_id[:12]} as a document "
+        "(got a login/access page, not a PDF or DOCX). Share it as "
+        "'Anyone with the link can view' and retry."
+    )
 
 
 def _list_gdrive_folder_files(folder_id: str) -> list[tuple[str, str]]:

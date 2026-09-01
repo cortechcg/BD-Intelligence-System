@@ -1,5 +1,22 @@
+from intelligence.proposal_writer import _opportunity_fields
 from intelligence.tender_reader import _BRIEF_PROMPT, _BRIEF_PROMPT_EOI
 from reporting.docx_builder import SECTION_ORDER
+
+
+def test_null_title_is_safe_to_slice():
+    _, title, client, donor, deadline = _opportunity_fields({
+        "opportunity": {
+            "title": None,
+            "client": None,
+            "donor": None,
+            "submission_deadline": None,
+        }
+    })
+    assert title == "Unknown Assignment"
+    assert client == "Client"
+    assert donor == ""
+    assert deadline == "TBD"
+    assert title[:60] == title
 
 
 def test_eoi_brief_is_shortlisting_not_full_proposal():
