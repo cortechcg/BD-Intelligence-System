@@ -9,7 +9,9 @@ from database.supabase_client import store_document
 import re
 from urllib.parse import parse_qs, urlparse, urljoin
 
-MIN_USEFUL_CHARS = 200  # matches main.py's own "insufficient text" threshold
+from processors.document_quality import MIN_USEFUL_CHARS, assess_extraction
+from utils.errors import ErrorType
+from utils.urls import UnsafeURLError, assert_public_http_url, safe_filename
 
 HTTP_HEADERS = {
     "User-Agent": (
@@ -30,6 +32,11 @@ def _looks_like_pdf_url(url: str) -> bool:
 
 def download_document(url: str) -> bytes:
     """Download a document from URL, retrying without SSL verify on bad certs."""
+    try:
+        assert_public_http_url(url)
+    except UnsafeURLError as e:
+        logger.error(f"Download blocked ({ErrorType.SSRF_ERROR}): {e}")
+        raise
     last_error: Exception | None = None
     for verify in (True, False):
         try:
@@ -53,10 +60,10 @@ def download_document(url: str) -> bytes:
                     f"  SSL verify failed for {url[:60]} — retrying without verification"
                 )
                 continue
-            logger.error(f"Download failed for {url}: {e}")
+            logger.error(f"Download failed for {url}: {e} error_type={ErrorType.INGESTION_ERROR}")
             raise
     assert last_error is not None
-    logger.error(f"Download failed for {url}: {last_error}")
+    logger.error(f"Download failed for {url}: {last_error} error_type={ErrorType.INGESTION_ERROR}")
     raise last_error
 
 
@@ -71,7 +78,7 @@ def extract_text_from_pdf(content: bytes) -> str:
                     pages.append(text)
             return "\n\n".join(pages)
     except Exception as e:
-        logger.error(f"PDF extraction failed: {e}")
+        logger.error(f"PDF extraction failed: {e} error_type={ErrorType.DOCUMENT_ERROR}")
         return ""
 
 
@@ -92,7 +99,7 @@ def extract_text_from_docx(content: bytes) -> str:
 
         return "\n\n".join(paragraphs) + "\n\n" + "\n".join(tables_text)
     except Exception as e:
-        logger.error(f"DOCX extraction failed: {e}")
+        logger.error(f"DOCX extraction failed: {e} error_type={ErrorType.DOCUMENT_ERROR}")
         return ""
 
 
@@ -138,6 +145,12 @@ async def _fetch_rendered_html(url: str) -> str | None:
     pages, one layer deeper — the linked document page itself.
     """
     from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
+
+    try:
+        assert_public_http_url(url)
+    except UnsafeURLError as e:
+        logger.error(f"  Playwright blocked ({ErrorType.SSRF_ERROR}): {e}")
+        return None
 
     try:
         async with async_playwright() as p:
@@ -379,12 +392,26 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     from the extraction result so a Supabase hiccup can never discard a
     successful extraction.
     """
+    try:
+        assert_public_http_url(url)
+    except UnsafeURLError as e:
+        logger.error(f"Fetch blocked ({ErrorType.SSRF_ERROR}): {e}")
+        return ""
+
     if _is_gdrive_url(url):
         text = fetch_gdrive_and_extract(url)
+        quality = assess_extraction(text, source=url)
+        if text and not quality["ok"]:
+            logger.error(
+                f"  {quality['reason']} error_type={quality['error_type']}"
+            )
+            return ""
         if text:
             logger.success(f"Extracted {len(text)} chars from gdrive: {url[:60]}...")
         else:
-            logger.warning(f"No text extracted for {url[:60]}...")
+            logger.warning(
+                f"No text extracted for {url[:60]}... error_type={ErrorType.DOCUMENT_ERROR}"
+            )
         return text
 
     text = ""
@@ -430,6 +457,11 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     )
     if file_type == "html" and len(text) < MIN_USEFUL_CHARS and html_source:
         for pdf_url in _find_pdf_links(html_source, url):
+            try:
+                assert_public_http_url(pdf_url)
+            except UnsafeURLError as e:
+                logger.warning(f"  Skipping PDF link ({ErrorType.SSRF_ERROR}): {e}")
+                continue
             logger.info(f"  Following PDF link from page: {pdf_url[:70]}")
             try:
                 pdf_text, pdf_content = _extract_from_pdf_url(pdf_url)
@@ -449,13 +481,28 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     # ── STORE IN SUPABASE — isolated, never discards a good extraction ──
     if opportunity_id and file_type in ["pdf", "docx"] and text and content:
         try:
-            file_name = url.split("/")[-1] or f"document.{file_type}"
+            file_name = safe_filename(
+                url.split("/")[-1] or f"document.{file_type}",
+                default=f"document.{file_type}",
+            )
             store_document(opportunity_id, file_name, content, file_type)
         except Exception as e:
-            logger.warning(f"  Supabase document store failed (non-fatal): {e}")
+            logger.warning(
+                f"  Supabase document store failed (non-fatal): {e} "
+                f"error_type={ErrorType.STORAGE_ERROR}"
+            )
+
+    quality = assess_extraction(text, source=url)
+    if text and not quality["ok"]:
+        logger.error(
+            f"  {quality['reason']} error_type={quality['error_type']}"
+        )
+        return ""
 
     if text:
         logger.success(f"Extracted {len(text)} chars from {file_type}: {url[:60]}...")
     else:
-        logger.warning(f"No text extracted for {url[:60]}...")
+        logger.warning(
+            f"No text extracted for {url[:60]}... error_type={ErrorType.DOCUMENT_ERROR}"
+        )
     return text

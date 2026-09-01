@@ -47,6 +47,7 @@ if missing:
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
 import anthropic
 from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client
+from utils.claude_helpers import get_text
 import pdfplumber
 from docx import Document as DocxDocument
 from pyairtable import Api, retry_strategy
@@ -74,6 +75,7 @@ logger.add("populate_airtable.log", rotation="10 MB", level="DEBUG")
 DATA_DIR       = Path("./data")
 CVS_DIR        = DATA_DIR / "cvs"
 PROPOSALS_DIR  = DATA_DIR / "proposals"
+PENDING_DIR    = Path("./pending_proposals")
 
 SUPPORTED_EXTS = {".pdf", ".docx", ".doc", ".txt"}
 
@@ -124,11 +126,12 @@ def get_airtable_clients():
         console.print("[red]Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
         sys.exit(1)
 
-    # Same fail-fast retry as database/airtable_client.py. The old
-    # backoff_factor=5 × total=8 slept ~21 minutes per call with no
-    # output, which made this script look hung after "files found".
+    # Do NOT retry 429 here. urllib3 turning one 429 into "too many 429
+    # error responses" is what aborted populate after a health-check GET.
+    # 5xx still get two short retries. 429 is handled by _airtable_retry
+    # with a 30s cooldown so we wait instead of hammering.
     retry = retry_strategy(
-        status_forcelist=(429, 500, 502, 503, 504),
+        status_forcelist=(500, 502, 503, 504),
         backoff_factor=0.5,
         total=2,
     )
@@ -142,6 +145,73 @@ def get_airtable_clients():
         "opportunities":  base.table("OPPORTUNITIES"),
         "logs":           base.table("AGENT_LOGS"),
     }
+
+
+def _is_airtable_429(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "too many 429" in msg or "rate limit" in msg
+
+
+def _airtable_retry(label: str, fn, attempts: int = 3):
+    """Call fn(), waiting 30s/60s on 429 instead of failing immediately."""
+    last = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as e:
+            last = e
+            if not _is_airtable_429(e) or attempt == attempts:
+                raise
+            wait = 30 * attempt
+            console.print(
+                f"  [yellow]Airtable 429 on {label} — "
+                f"waiting {wait}s ({attempt}/{attempts})[/yellow]"
+            )
+            time.sleep(wait)
+    raise last
+
+
+def prune_agent_logs(tables: dict, keep: int = 400) -> int:
+    """Delete oldest AGENT_LOGS rows when the free-tier cap is close.
+
+    Operational logging only — safe to drop. A full base is the usual
+    cause of sustained 429s on every other table.
+    """
+    try:
+        records = _airtable_retry(
+            "AGENT_LOGS list",
+            lambda: tables["logs"].all(),
+        )
+    except Exception as e:
+        console.print(f"  [yellow]Could not list AGENT_LOGS: {e}[/yellow]")
+        return 0
+
+    count = len(records)
+    console.print(f"  AGENT_LOGS: {count} rows")
+    if count < 800:
+        return 0
+
+    records.sort(key=lambda r: r.get("createdTime") or "")
+    to_delete = [r["id"] for r in records[:-keep]]
+    console.print(
+        f"  [yellow]Near Airtable cap — deleting {len(to_delete)} oldest logs, "
+        f"keeping {keep}[/yellow]"
+    )
+    deleted = 0
+    for i in range(0, len(to_delete), 10):
+        batch = to_delete[i:i + 10]
+        try:
+            _airtable_retry(
+                "AGENT_LOGS delete",
+                lambda b=batch: tables["logs"].batch_delete(b),
+            )
+            deleted += len(batch)
+        except Exception as e:
+            console.print(f"  [yellow]Log prune stopped: {e}[/yellow]")
+            break
+        time.sleep(0.25)
+    console.print(f"  Pruned {deleted} AGENT_LOGS row(s)")
+    return deleted
 
 
 def get_claude_client():
@@ -336,7 +406,7 @@ CV DOCUMENT (filename: {file_name}):
             messages=[{"role": "user", "content": prompt}]
         )
 
-        text = response.content[0].text.strip()
+        text = get_text(response).strip()
 
         # Clean markdown if present
         if "```" in text:
@@ -416,7 +486,7 @@ PROPOSAL DOCUMENT (filename: {file_name}):
             messages=[{"role": "user", "content": prompt}]
         )
 
-        text = response.content[0].text.strip()
+        text = get_text(response).strip()
 
         if "```" in text:
             text = text.split("```json")[-1].split("```")[0].strip()
@@ -532,7 +602,10 @@ FULL CV CONTENT:
     }
 
     try:
-        result = tables["consultants"].create(record, typecast=True)
+        result = _airtable_retry(
+            "CONSULTANTS create",
+            lambda: tables["consultants"].create(record, typecast=True),
+        )
         return result["id"]
     except Exception as e:
         console.print(f"  [red]Airtable rejected this record: {e}[/red]")
@@ -540,22 +613,21 @@ FULL CV CONTENT:
         return None
 
 
-def add_proposal_to_airtable(
-    tables: dict,
+def _pending_path(file_name: str) -> Path:
+    return PENDING_DIR / f"{Path(file_name).stem}.json"
+
+
+def _proposal_airtable_record(
     proposal_info: dict,
     raw_proposal_text: str,
-    file_name: str
-) -> str | None:
-    """Add a single proposal record to Airtable."""
-
+    file_name: str,
+) -> dict:
     thematic = normalize_multiselect(
         proposal_info.get("thematic_areas", []), THEMATIC_OPTIONS
     )
     location = normalize_multiselect(
         proposal_info.get("location", []), GEOGRAPHY_OPTIONS
     )
-
-    # The full proposal text for style reference
     full_text = f"""
 PROPOSAL SUMMARY:
 {proposal_info.get('proposal_summary', '')}
@@ -572,8 +644,7 @@ KEY SECTIONS:
 FULL PROPOSAL TEXT:
 {raw_proposal_text[:15000]}
 """.strip()
-
-    record = {
+    return {
         "proposal_id": str(uuid.uuid4()),
         "project_title": proposal_info.get("project_title", file_name),
         "client": proposal_info.get("client", "Unknown"),
@@ -587,11 +658,54 @@ FULL PROPOSAL TEXT:
         "proposal_text": full_text,
     }
 
+
+def save_pending_proposal(
+    record: dict,
+    proposal_info: dict,
+    raw_proposal_text: str,
+    file_name: str,
+) -> Path:
+    """Keep the Claude extraction on disk so a 429 does not burn another call."""
+    PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    path = _pending_path(file_name)
+    path.write_text(json.dumps({
+        "file_name": file_name,
+        "record": record,
+        "proposal_info": proposal_info,
+        "raw_text": raw_proposal_text[:15000],
+    }, default=str, indent=2))
+    return path
+
+
+def add_proposal_to_airtable(
+    tables: dict,
+    proposal_info: dict,
+    raw_proposal_text: str,
+    file_name: str
+) -> str | None:
+    """Add a single proposal record to Airtable."""
+
+    record = _proposal_airtable_record(proposal_info, raw_proposal_text, file_name)
+
     try:
-        result = tables["past_proposals"].create(record, typecast=True)
+        result = _airtable_retry(
+            "PAST_PROPOSALS create",
+            lambda: tables["past_proposals"].create(record, typecast=True),
+        )
+        pending = _pending_path(file_name)
+        if pending.exists():
+            pending.unlink()
         return result["id"]
     except Exception as e:
+        path = save_pending_proposal(
+            record, proposal_info, raw_proposal_text, file_name
+        )
         console.print(f"  [red]Airtable rejected this record: {e}[/red]")
+        console.print(
+            f"  [yellow]Extraction saved to {path} — "
+            f"re-run python populate_airtable.py --retry-pending later, "
+            f"and python embed_cvs.py --file \"{file_name}\" now[/yellow]"
+        )
         logger.error(f"Failed to add proposal {proposal_info.get('project_title')}: {e}")
         return None
 
@@ -714,35 +828,15 @@ def validate_environment() -> bool:
         warnings.append(f"Proposals folder not found: {PROPOSALS_DIR}")
         console.print(f"  Proposals folder not found: {PROPOSALS_DIR}")
 
-    # Test Airtable connection — 429 is transient, wait and retry.
-    # Print first so a slow/rate-limited probe cannot look like a hang.
+    # Keys are already checked. A live GET here is what burned the rate
+    # limit and aborted the run — 429 means "too many requests just now",
+    # not a bad API key. Proceed; the first real write fails clearly if
+    # the base is actually down.
     console.print()
-    console.print("  Testing Airtable connection...")
-    airtable_ok = False
-    last_airtable_err = None
-    for attempt in range(1, 4):
-        try:
-            tables = get_airtable_clients()
-            tables["consultants"].all(max_records=1)
-            console.print("  Airtable connection: OK")
-            airtable_ok = True
-            break
-        except Exception as e:
-            last_airtable_err = e
-            err_text = str(e)
-            is_429 = "429" in err_text or "RetryError" in type(e).__name__
-            if not is_429:
-                break
-            wait = min(5 * attempt, 15)
-            console.print(
-                f"  [yellow]Airtable rate-limited (429) — "
-                f"waiting {wait}s then retrying ({attempt}/3)[/yellow]"
-            )
-            time.sleep(wait)
-
-    if not airtable_ok:
-        errors.append(f"Airtable connection failed: {last_airtable_err}")
-        console.print(f"  Airtable connection failed: {last_airtable_err}")
+    console.print(
+        "  Airtable keys present — skipping live ping "
+        "(a health-check GET is what triggered the 429 abort)"
+    )
 
     # Probe with a short timeout — the shared client waits up to 180s
     # per attempt, which looked hung after "files found".
@@ -996,16 +1090,22 @@ def run_proposal_population(
         return {"added": 0, "skipped": 0, "errors": 0}
 
     existing_norm: list[str] = []
-    try:
-        for rec in tables["past_proposals"].all(fields=["project_title"]):
-            title = (rec.get("fields") or {}).get("project_title")
-            if title:
-                existing_norm.append(_norm_title(title))
-        console.print(
-            f"  Airtable already has {len(existing_norm)} past proposal(s)"
-        )
-    except Exception as e:
-        logger.warning(f"Could not list existing proposals (will not skip): {e}")
+    if only_file:
+        console.print("  Skipping existing-title scan (single-file import)")
+    else:
+        try:
+            for rec in _airtable_retry(
+                "PAST_PROPOSALS list",
+                lambda: tables["past_proposals"].all(fields=["project_title"]),
+            ):
+                title = (rec.get("fields") or {}).get("project_title")
+                if title:
+                    existing_norm.append(_norm_title(title))
+            console.print(
+                f"  Airtable already has {len(existing_norm)} past proposal(s)"
+            )
+        except Exception as e:
+            logger.warning(f"Could not list existing proposals (will not skip): {e}")
 
     console.print(f"\n[bold blue]Found {len(prop_files)} proposal file(s)[/bold blue]")
 
@@ -1030,9 +1130,19 @@ def run_proposal_population(
 
             console.print(f"  Extracted [green]{len(raw_text):,}[/green] characters")
 
-            with console.status("  Claude is analyzing the proposal..."):
-                proposal_info = extract_proposal_info(claude, raw_text, prop_file.name)
-                time.sleep(0.5)
+            pending = _pending_path(prop_file.name)
+            if pending.exists():
+                saved = json.loads(pending.read_text())
+                proposal_info = saved.get("proposal_info") or {}
+                raw_text = saved.get("raw_text") or raw_text
+                console.print(
+                    "  [cyan]Reusing saved extraction "
+                    f"({pending.name}) — no Claude call[/cyan]"
+                )
+            else:
+                with console.status("  Claude is analyzing the proposal..."):
+                    proposal_info = extract_proposal_info(claude, raw_text, prop_file.name)
+                    time.sleep(0.5)
 
             if interactive:
                 show_proposal_preview(proposal_info, prop_file.name)
@@ -1073,6 +1183,35 @@ def run_proposal_population(
             logger.exception(f"Proposal processing error for {prop_file.name}")
             results["errors"] += 1
 
+    return results
+
+
+def retry_pending_proposals(tables: dict) -> dict:
+    """Push locally saved extractions to Airtable without calling Claude."""
+    PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    files = sorted(PENDING_DIR.glob("*.json"))
+    results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
+    if not files:
+        console.print(f"[yellow]No pending files in {PENDING_DIR}[/yellow]")
+        return results
+
+    console.print(f"\n[bold blue]Retrying {len(files)} pending proposal(s)[/bold blue]")
+    for path in files:
+        data = json.loads(path.read_text())
+        record = data.get("record") or {}
+        title = record.get("project_title") or path.stem
+        console.print(f"\n  {path.name}: [cyan]{title}[/cyan]")
+        try:
+            result = _airtable_retry(
+                "PAST_PROPOSALS create",
+                lambda r=record: tables["past_proposals"].create(r, typecast=True),
+            )
+            path.unlink()
+            console.print(f"  [green]Added ({result['id']})[/green]")
+            results["added"] += 1
+        except Exception as e:
+            console.print(f"  [red]Still failing: {e}[/red]")
+            results["errors"] += 1
     return results
 
 
@@ -1146,6 +1285,16 @@ def main():
         action="store_true",
         help="Save without prompting per record.",
     )
+    parser.add_argument(
+        "--prune-logs",
+        action="store_true",
+        help="Delete oldest AGENT_LOGS rows if the table is near the free-tier cap, then exit.",
+    )
+    parser.add_argument(
+        "--retry-pending",
+        action="store_true",
+        help="Push pending_proposals/*.json to Airtable (no Claude calls).",
+    )
     args = parser.parse_args()
     if args.file:
         args.proposals_only = True
@@ -1156,10 +1305,18 @@ def main():
         border_style="blue"
     ))
 
-    # 0. Setup folders
     setup_folders()
 
-    # 1. Validate environment
+    if args.prune_logs:
+        console.print("\n[bold blue]Pruning AGENT_LOGS...[/bold blue]")
+        prune_agent_logs(get_airtable_clients())
+        return
+
+    if args.retry_pending:
+        console.print("\n[bold blue]Retrying pending Airtable writes...[/bold blue]")
+        retry_pending_proposals(get_airtable_clients())
+        return
+
     if not validate_environment():
         console.print("\n[red]Fix the errors above and run again.[/red]")
         sys.exit(1)

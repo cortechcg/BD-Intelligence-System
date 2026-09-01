@@ -92,7 +92,7 @@ def update_opportunity(record_id: str, fields: dict) -> None:
         return
     try:
         table = get_table("opportunities")
-        table.update(record_id, fields)
+        table.update(record_id, fields, typecast=True)
     except Exception as e:
         _note_failure(e)
         logger.warning(f"Airtable update failed (non-fatal): {e}")
@@ -182,27 +182,50 @@ def log_agent_action(
     opportunity_id: str = None,
     tokens_used: int = 0,
     status: str = "Success",
-    error_message: str = None
+    error_message: str = None,
+    model: str = None,
+    estimated_cost_usd: float = None,
+    error_type: str = None,
 ) -> None:
     """Log every agent action for audit trail. Never raises — a logging
-    failure must not be allowed to crash the pipeline it's logging for."""
+    failure must not be allowed to crash the pipeline it's logging for.
+
+    Cost: only written when estimated_cost_usd is provided or a known
+    model + token count can ESTIMATE it. Never uses a fake blended $3/MTok.
+    """
     if _circuit_open():
         return
     try:
         table = get_table("logs")
-        cost_usd = (tokens_used / 1_000_000) * 3.00
+        from utils.observability import estimate_cost_usd, get_execution_id
 
-        table.create({
+        cost = estimated_cost_usd
+        if cost is None and tokens_used and model:
+            # Total tokens only — split unknown, so treat all as input (under-estimate, labeled).
+            cost = estimate_cost_usd(model, int(tokens_used), 0)
+        eid = get_execution_id()
+        desc = description or ""
+        if eid:
+            desc = f"[{eid[:8]}] {desc}"
+        if error_type:
+            desc = f"{desc} error_type={error_type}"
+        if len(desc) > 2000:
+            desc = desc[:2000] + "…"
+
+        payload = {
             "log_id": str(uuid.uuid4()),
             "timestamp": datetime.now().isoformat(),
             "action_type": action_type,
             "opportunity_id": opportunity_id or "",
-            "description": description,
+            "description": desc,
             "tokens_used": tokens_used,
-            "cost_usd": round(cost_usd, 4),
             "status": status,
-            "error_message": error_message or "",
-        }, typecast=True)
+            "error_message": (error_message or "")[:2000],
+        }
+        if cost is not None:
+            payload["cost_usd"] = round(cost, 4)
+
+        table.create(payload, typecast=True)
     except Exception as e:
         _note_failure(e)
         logger.warning(f"Agent log write failed (non-fatal, continuing): {e}")

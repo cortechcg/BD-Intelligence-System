@@ -6,6 +6,8 @@ from loguru import logger
 import httpx
 import json
 from typing import Optional
+from utils.claude_helpers import get_text
+from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 claude = get_anthropic_client()
@@ -55,7 +57,7 @@ def summarize_for_embedding(text: str) -> str:
             "content": f"Summarize this CV/document in 300 words, capturing key skills, experience, geographic focus, and thematic areas:\n\n{text[:4000]}"
         }]
     )
-    return response.content[0].text
+    return get_text(response)
 
 
 def upsert_cv_embedding(
@@ -200,11 +202,22 @@ def search_past_proposals(
 
 
 def check_opportunity_exists(source_url: str) -> bool:
-    """Check if we've already seen this opportunity (dedup)."""
-    result = supabase.table("opportunities_cache").select("id").eq(
-        "source_url", source_url
-    ).execute()
-    return len(result.data) > 0
+    """Check if we've already seen this opportunity (dedup).
+
+    Looks up both the raw URL and its canonical form so http/https,
+    trailing slashes, and tracking params cannot re-open the same listing.
+    """
+    try:
+        for key in url_identity_keys(source_url):
+            result = supabase.table("opportunities_cache").select("id").eq(
+                "source_url", key
+            ).execute()
+            if result.data:
+                return True
+        return False
+    except Exception as e:
+        logger.warning(f"Dedup lookup failed (fail-open, treating as new): {e}")
+        return False
 
 
 def find_similar_opportunity(
@@ -258,6 +271,9 @@ def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
         except Exception as e:
             logger.warning(f"Opportunity embedding failed (non-fatal): {e}")
 
+    store_url = canonicalize_url(source_url) or source_url
+    row["source_url"] = store_url
+
     result = supabase.table("opportunities_cache").upsert(
         row,
         on_conflict="source_url",
@@ -272,7 +288,9 @@ def store_document(
     file_type: str = "pdf"
 ) -> str:
     """Upload document to Supabase storage."""
-    storage_path = f"opportunities/{opportunity_id}/{file_name}"
+    file_name = safe_filename(file_name, default=f"document.{file_type}")
+    opp = safe_filename(str(opportunity_id), default="unknown")
+    storage_path = f"opportunities/{opp}/{file_name}"
 
     supabase.storage.from_("cortech-documents").upload(
         storage_path,

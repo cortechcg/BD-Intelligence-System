@@ -1,63 +1,68 @@
 # Cortech Consulting Group: EOI Structure & Style Guide
 
-*Based on analysis of 4 submitted documents*
+*Based on analysis of 7 real submitted documents*
 
-## 1. Core Structure — The Standard EOI Pattern
+## Two Distinct Document Families
 
-Three of the four documents (**Cortech Isebania**, **Cortech** [generic], **Cortech Nandi Hills**) share a clearly consistent skeleton. This is the default pattern to follow for a standard EOI submission:
+Cortech's EOIs are not one template but **two clearly different patterns**, chosen based on document length/formality. Identify which family fits before drafting.
 
-1. **Letter of interest**
-2. **Presentation of Cortech Consulting Group**
-3. **Relevant Experience of Completed Assignments**
-4. **Resources in Staff**
-5. *(Eligibility — only in one document, see variation note below)*
-6. **Registration and Business Information**
+### Family A: Full/Long-Form EOI (5,000–10,500 words)
+Used for: *EOI Apiculture.docx*, *EOI Cortech to Ministry of Agriculture and Livestock Development (1).docx*
 
-This 5-6 heading structure appears to be Cortech's house template for project-specific EOIs (Isebania and Nandi Hills are clearly the same template applied to different project sites, given near-identical word counts: 2361 vs 2355 words).
+This is the "complete capability submission" format — dense, comprehensive, ALL CAPS headings.
 
-## 2. The Fourth Document Is a Different Animal
+### Family B: Short-Form EOI (2,300–3,000 words)
+Used for: *Expresion of Interest - Cortech.docx*, *Cortech Nandi Hills.docx*, *Cortech Isebania.docx*
 
-**UNICEF CONCEPT NOTE BY CORTECH.docx** does not follow the EOI template at all — it uses a donor-mandated structure instead:
+This is a lean, five-to-six-section format — Title Case (sentence-style) headings, not all-caps.
 
-1. Section 1. Concept note overview
-2. Section 2. Programme Strategy
-3. Section 3. Expected results, performance indicators, activities, implementation period and budget
+There's also a **third, minimal pattern**: *EOI Cortech to Ministry of Agriculture and Livestock Development.docx* (1,026 words) — which uses Family A's headings and ALL CAPS style but compresses content drastically, suggesting Family A is a template that gets trimmed for smaller/faster opportunities.
 
-**Guidance:** This confirms Cortech adapts entirely to funder-specific templates when required (UNICEF's numbered "Section X." format) rather than forcing its own house style. If you're drafting for a client with a prescribed format (UNICEF, World Bank, etc.), **defer to their required structure** — do not force the standard 5-section Cortech pattern onto it.
+The *UNICEF Concept Note* is an outlier — it's not an EOI at all but a donor concept-note format (Section 1/2/3 structure), included here only to show Cortech adapts entirely when the client prescribes their own template.
 
-## 3. Honest Variation Within the Standard Template
+---
 
-Don't present the 5-section pattern as fixed — there's a real inconsistency:
+## Common Backbone Across ALL EOI Documents (Both Families)
 
-- **"Cortech.docx"** (the generic/master version, 3019 words) includes an **Eligibility** section between "Resources in Staff" and "Registration and Business Information" that is **absent** from both project-specific versions (Isebania, Nandi Hills).
-- This suggests Eligibility is treated as **optional/conditional** — likely included when the specific tender explicitly requires an eligibility statement, and dropped when project EOIs are adapted from the master template without that requirement.
-- **Recommendation:** Check the specific call for proposals/ToR for an eligibility requirement before deciding whether to include this section. Default to omitting it unless instructed otherwise, since 2 of 3 EOI documents skip it.
+Regardless of length, every genuine EOI (excluding the concept note) follows this skeleton:
 
-## 4. Capitalization Inconsistency (Don't "Fix" It Silently, But Be Aware)
+1. **Letter of Interest** — always first, always Heading 1, present in all 6 EOI documents
+2. **Organisation/Group Profile** — appears as "ORGANISATION PROFILE," "Presentation of Cortech Consulting GROUP," or similar in every document
+3. **Relevant Experience** — named variously (see below) but always present
+4. **Staff/Resourcing section** — "Resources in Staff," "RESOURCES IN STAFF – OVERALL ORGANISATIONAL ORGANOGRAM" — always present
+5. **Eligibility** — present in all documents except the two Nandi Hills/Isebania near-twins (where it's implied inside "Registration and Business Information" instead)
+6. **Closing/administrative section** — either "Registration and Business Information" (Family B) or "ANNEXES" (Family A)
 
-There's visible inconsistency in how "Group" is capitalized in heading 2 across documents:
-- "Presentation of Cortech Consulting **GROUP**" (Isebania, Nandi Hills — all caps)
-- "Presentation of Cortech Consulting **Group**" (generic Cortech.docx — title case)
+**Guidance:** Never omit Letter of Interest, an organisation-profile section, an experience section, and a staffing section — these four are non-negotiable across every real Cortech EOI.
 
-**Guidance:** Standardize on **Title Case** ("Presentation of Cortech Consulting Group") going forward, since it's more conventional and matches the company's formal name usage elsewhere. Treat the all-caps versions as inconsistencies to correct, not a deliberate style choice worth preserving.
+---
 
-## 5. Heading Style Conventions
+## Family A: Long-Form Structure (Detailed Order)
 
-- **No visible numbering scheme** (no "1.0", "1.1" etc.) in the three EOI documents — headings are plain text, Heading 1 level only, no sub-numbering shown in the extracted structure.
-- **UNICEF document uses explicit numbering** ("Section 1.", "Section 2.", "Section 3.") — again, this is donor-imposed, not a Cortech convention to replicate elsewhere.
-- All headings use **sentence case or title case phrasing**, not full caps (aside from the GROUP inconsistency noted above) — favor natural title case for new headings: e.g., "Relevant Experience of Completed Assignments," "Resources in Staff."
+Drawing from *EOI Apiculture.docx* (most complete) and the two Ministry of Agriculture documents:
 
-## 6. Inferring Content/Formatting from Heading Names
+```
+LETTER OF INTEREST
+[EOI SUBMISSION FORM]              ← only in Apiculture; a client-mandated form
+ORGANISATION PROFILE
+  [CORTECH CONSULTING GROUP]       ← sub-branding heading, Apiculture only
+  [ABOUT US]                       ← alternate label, Ministry (1) only
+  [ORGANISATIONAL PROFILE]         ← duplicate/nested label, Ministry short version
+CAPABILITY STATEMENT
+RESOURCES IN STAFF – OVERALL ORGANISATIONAL ORGANOGRAM
+TECHNICAL AND MANAGERIAL CAPACITY
+[PROPOSED TECHNICAL TEAM FOR THE CONSULTANCY]   ← Apiculture & short Ministry doc only
+CORPORATE VALUE PROPOSITION
+OUR UNDERSTANDING OF THE ASSIGNMENT
+PROPOSED TECHNICAL APPROACH [- A SUMMARY]
+RELEVANT CORPORATE EXPERIENCE                   ← absent from Ministry (1), oddly
+WHY CORTECH CONSULTING IS BEST POSITIONED FOR THIS ASSIGNMENT   ← absent from Ministry (1)
+CONCLUSION                                       ← absent from Ministry (1)
+CAPABILITY MATRIX DEMONSTRATING COMPLIANCE WITH THE EVALUATION CRITERIA AND TOR REQUIREMENTS
+ELIGIBILITY
+ANNEXES                                          ← absent from short Ministry doc
+```
 
-While tables aren't confirmed without opening the documents, heading names suggest likely internal formatting:
-- **"Resources in Staff"** — near-certainly contains a staff/CV table or matrix (names, roles, qualifications), standard for EOI staffing sections.
-- **"Relevant Experience of Completed Assignments"** — likely a table format (project name, client, value, dates, description) — this is near-universal for EOI experience sections and the heading phrasing implies a list/schedule rather than narrative prose.
-- **"Registration and Business Information"** — likely lists/tables of registration numbers, certificates, tax compliance, etc., not narrative.
-- **"Presentation of Cortech Consulting Group"** — likely narrative/prose (company background, mission, capacity) rather than tabular.
-- The UNICEF concept note's **Section 3** heading explicitly names "budget" and "performance indicators" — this section should be assumed tabular (results framework / budget table), consistent with UNICEF concept note templates generally.
+**Honest variation note:** *EOI Cortech to Ministry of Agriculture and Livestock Development (1).docx* drops "RELEVANT CORPORATE EXPERIENCE," the "WHY CORTECH" persuasion section, and "CONCLUSION" — likely because it's a shorter/different tender with tighter page limits, not because these are optional by design. If word count is constrained, these three are the first candidates to cut, based on precedent.
 
-## 7. Practical Drafting Checklist for a New Cortech EOI
-
-When starting a new project-specific EOI:
-
-1. **Confirm which template applies** — is this a standard tender EOI (use the 5-section pattern) or a donor-specific submission with its own mandated structure (follow the donor's
+**Structural logic:** The order always moves Letter → Profile → Capability/Staffing → Value Proposition → Understanding of Assignment → Technical Approach → Experience → Persuasive closing (Why Us/Conclusion) → Compliance Matrix → Eligibility → Ann

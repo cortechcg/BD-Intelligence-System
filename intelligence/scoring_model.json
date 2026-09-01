@@ -1,0 +1,65 @@
+{
+  "score_version": "1.0.0",
+  "notes": "Deterministic aggregation only. Changing weights does not rewrite historical stored scores — callers persist this score_version with the result. Lists mirror CORTECH_PROFILE; keep them aligned by hand.",
+  "typical_budget_usd": {"min": 1000, "max": 300000},
+  "languages": ["english", "somali", "swahili", "arabic", "french"],
+  "primary_geographies": ["somalia", "kenya", "ethiopia", "nairobi", "mogadishu", "addis ababa"],
+  "secondary_geographies": [
+    "sudan", "south sudan", "uganda", "tanzania", "malawi", "djibouti",
+    "kampala", "dar es salaam"
+  ],
+  "regional_geographies": [
+    "east africa", "horn of africa", "eastern africa", "igad", "sub-saharan africa", "africa"
+  ],
+  "core_thematics": [
+    "monitoring", "evaluation", "learning", "mel", "meal", "research",
+    "assessment", "documentation", "baseline", "endline", "capacity building",
+    "training", "community engagement", "participatory", "urban resilience",
+    "climate", "refugee", "displacement", "protection", "livelihoods",
+    "economic inclusion", "wash", "water", "sanitation", "hygiene",
+    "health", "nutrition", "policy", "advocacy"
+  ],
+  "known_clients": [
+    "world bank", "iom", "african union", "igad", "save the children",
+    "danish refugee council", "drc", "giz", "care international",
+    "welthungerhilfe", "danida", "arche nova", "unhcr", "un women",
+    "unicef", "c40 cities", "pastoralist girls initiative", "pgi",
+    "government of kenya", "federal government of somalia", "pacida",
+    "plan international", "alight", "heifer international", "action medeor",
+    "qatar red crescent", "qrc", "gain", "kenya red cross", "cewarn",
+    "government of ireland", "rlrp", "kusp", "aecf", "danish red cross",
+    "zizi afrique", "european union", "concern worldwide",
+    "norwegian refugee council", "grundfos", "dan church aid", "dca",
+    "tupado", "racida", "undp", "christian aid"
+  ],
+  "weights": {
+    "fit": {
+      "geography": 0.30,
+      "thematic": 0.30,
+      "language": 0.15,
+      "eligibility": 0.15,
+      "team_capacity": 0.10
+    },
+    "win_probability": {
+      "fit": 0.45,
+      "deadline_feasibility": 0.20,
+      "known_client": 0.20,
+      "eligibility": 0.15
+    },
+    "strategic_value": {
+      "core_thematic": 0.40,
+      "priority_geography": 0.30,
+      "known_client": 0.30
+    },
+    "risk": {
+      "deadline_pressure": 0.35,
+      "team_gaps": 0.30,
+      "eligibility_gaps": 0.35
+    }
+  },
+  "recommendation": {
+    "bid_min_fit": 70,
+    "watch_min_fit": 45,
+    "no_bid_if_ineligible": true
+  }
+}

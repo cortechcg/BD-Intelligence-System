@@ -155,7 +155,8 @@ def _build_past_work_context(analysis: dict | None = None) -> str:
                 outcome = "WON" if m.get("won") else "submitted"
                 lines.append(
                     f"{i}. {m.get('project_title', 'Untitled')} [{outcome}]\n"
-                    f"   Client: {meta.get('client', 'N/A')} | "
+                    f"   Source: proposal_embeddings | "
+                    f"Client: {meta.get('client', 'N/A')} | "
                     f"Year: {meta.get('year', 'N/A')} | "
                     f"Location: {', '.join(meta.get('location') or []) or 'N/A'}\n"
                     f"   Relevance: {m.get('similarity', 0):.2f}\n"
@@ -331,6 +332,10 @@ MANDATORY WRITING STANDARDS:
 - Be specific: geographies, sample sizes, tools, dates, named past assignments,
   named experts.
 - Do not invent evaluation criteria or requirements. Use what the tender states.
+- Do not invent projects, clients, CVs, staff names, statistics, contract
+  values, or credentials. If a claim is not in CORTECH PROFILE, the past-
+  assignment list, matched-team evidence, or the tender documents, write
+  [NOT VERIFIED] or [INSUFFICIENT EVIDENCE] instead of filling the gap.
 - Where the tender prescribes a structure, heading, or page limit, follow it
   exactly — the prescribed structure always beats Cortech's house structure.
 - Professional development-consulting tone. No hollow phrases ("we are excited",

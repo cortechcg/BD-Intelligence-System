@@ -691,3 +691,9 @@ TypeError: int() argument must be a string, a bytes-like object or a real number
 2026-08-06 13:39:20.897 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Enhancing Integrated Health, Nutrition, and WASH Services for Child Survival in Bu'aale District, Middle Juba Region
 2026-08-06 13:39:29.560 | DEBUG    | __main__:read_docx:201 - DOCX: WHH TECHNICAL PROPOSAL.docx → 42649 chars
 2026-08-06 13:39:39.417 | DEBUG    | __main__:extract_proposal_info:413 - Extracted proposal: Provision of Consultancy Services for Midline Evaluation in Kilifi and Tana River Counties
+2026-08-31 13:23:04.971 | DEBUG    | __main__:read_docx:281 - DOCX: Technical Proposal Cortech to Christian Aid.docx → 141556 chars
+2026-08-31 13:23:15.297 | DEBUG    | __main__:extract_proposal_info:493 - Extracted proposal: End-of-Project Evaluation of the Catalyzing Multilateral Development Banks Financing for Energy Access in Africa Project
+2026-08-31 13:24:56.732 | ERROR    | __main__:add_proposal_to_airtable:669 - Failed to add proposal End-of-Project Evaluation of the Catalyzing Multilateral Development Banks Financing for Energy Access in Africa Project: 429 Client Error: Too Many Requests for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS
+2026-08-31 13:42:15.495 | DEBUG    | __main__:read_docx:282 - DOCX: Technical Proposal ICPAC Final.docx → 340832 chars
+2026-08-31 13:42:25.936 | DEBUG    | __main__:extract_proposal_info:494 - Extracted proposal: Consulting Services to Design and Delivery of Community Based Anticipatory Action Pilot Project within Mandera and Moyale IGAD Clusters
+2026-08-31 13:44:04.248 | ERROR    | __main__:add_proposal_to_airtable:708 - Failed to add proposal Consulting Services to Design and Delivery of Community Based Anticipatory Action Pilot Project within Mandera and Moyale IGAD Clusters: 429 Client Error: Too Many Requests for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS

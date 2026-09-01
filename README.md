@@ -33,8 +33,8 @@ Cortech competes for consulting work advertised across dozens of tender portals,
 
 1. **Discover** — RSS feeds, Playwright-driven scrapers for JavaScript-heavy portals, and an IMAP-based check of the Assortis/ICA World daily newsletter.
 2. **Filter, for free** — before any paid API call, every posting passes a three-gate keyword check (staff-vacancy language, geography, thematic relevance) and a semantic near-duplicate check against everything already seen, catching the same tender posted on multiple portals under different URLs.
-3. **Analyze** — Claude reads the full document and returns a fit score, a BID / WATCH / NO-BID recommendation, whether it's genuinely a consultancy contract, and whether the client is asking for an Expression of Interest or a full Technical Proposal.
-4. **Match & price** — team CVs matched semantically against requirements (with live availability data), a budget built from the real rate card. Skipped entirely for EOI-stage and NO-BID opportunities to avoid spending on work that isn't needed yet.
+3. **Analyze** — Claude reads the full document (as untrusted data) and extracts structured fields. A **deterministic scorer** (`intelligence/bid_scorer.py`, weights in `intelligence/scoring_model.json`) calculates FIT / WIN / STRATEGIC / RISK and BID / WATCH / NO-BID. Claude's own numeric score is stored only as an audit field.
+4. **Match & price** — team CVs matched semantically against requirements, then checked for explicit geography/years (missing education is UNKNOWN, never inferred). A budget is built from the real rate card. Skipped entirely for EOI-stage and NO-BID opportunities to avoid spending on work that isn't needed yet.
 5. **Draft** — a strategy is decided once, then every section is drafted against it and against real past-proposal structure (extracted from 60+ real submissions, not an assumed template).
 6. **Review itself** — a self-assessment pass scores the draft against the ToR's actual stated evaluation criteria before anyone sees it.
 7. **Deliver** — a formatted `.docx` and an email land with the team, flagged by urgency and by anything the review pass caught.
@@ -52,8 +52,11 @@ cortech-bd-agent/
 │   ├── airtable_client.py       # CRM layer — human-facing records, NOT the source of truth for data
 │   └── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
 ├── intelligence/
-│   ├── analyzer.py               # Claude analysis: fit score, BID/WATCH/NO-BID, EOI vs full proposal
-│   ├── cv_matcher.py             # Semantic CV matching + live availability filtering
+│   ├── analyzer.py               # Claude extraction (advisory scores only)
+│   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
+│   ├── scoring_model.json        # score_version 1.0.0 — changing this does not rewrite old records
+│   ├── cv_matcher.py             # Semantic CV matching + explicit capability overlay
+│   ├── compliance.py             # SATISFIED/PARTIAL/MISSING/UNKNOWN matrix
 │   ├── budget_calculator.py     # Rate-card-based budget generation
 │   ├── proposal_writer.py       # Section generation, strategy, style-guide grounding, quality self-score
 │   └── learning.py               # Win/loss lesson extraction and retrieval
@@ -62,6 +65,9 @@ cortech-bd-agent/
 │   ├── scraper.py                # Playwright scrapers for JS-rendered portals
 │   └── assortis_email.py        # IMAP parsing of the ICA Daily Newsletter's Assortis section
 ├── processors/downloader.py     # Document fetch + text extraction (PDF/DOCX/HTML)
+├── processors/document_quality.py
+├── tests/                       # Unit tests — URL/dedup, dates, scoring, injection wrap
+├── docs/                        # CURRENT_STATE, ARCHITECTURE, SCORING_MODEL, SECURITY, audit
 ├── reporting/
 │   ├── email_report.py           # All outgoing email — Gmail SMTP first, Resend HTTP fallback
 │   └── docx_builder.py           # Renders finished sections into a formatted Word document
@@ -114,7 +120,7 @@ Fill in `.env` with real values — see [Environment Variables Reference](#envir
 python main.py --once
 ```
 
-Watch the output. A clean run should show discovery, filtering, and (if anything qualifies) analysis and drafting, ending in a "Pipeline Complete" summary panel. If it errors immediately, it's almost always a missing or malformed `.env` value — `get_anthropic_client()` in `config.py` fails loudly and specifically if `ANTHROPIC_API_KEY` is missing, which is deliberate.
+Watch the output. A clean run should show discovery, filtering, and (if anything qualifies) analysis and drafting, ending in a "Pipeline Complete" summary panel. If it errors immediately, it's almost always a missing or malformed `.env` value — `require_env()` and `get_anthropic_client()` fail loudly if required keys are missing, which is deliberate.
 
 ---
 
@@ -128,11 +134,17 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `AIRTABLE_API_KEY` | airtable.com/create/tokens — a personal access token scoped to the base below |
 | `AIRTABLE_BASE_ID` | Open the base in Airtable, the ID is in the URL (`app...`) |
 | `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` | Google Account → Security → 2-Step Verification → App Passwords. **Not your real Gmail password** — this won't work with one. |
-| `RESEND_API_KEY` / `EMAIL_SENDER` | resend.com → API Keys, and a verified sending domain/address. `EMAIL_SENDER` isn't currently listed in `.env.example` but is required by `_send_via_resend()` — add it manually. |
+| `RESEND_API_KEY` / `EMAIL_SENDER` | resend.com → API Keys, and a verified sending domain/address. Listed in `.env.example`. |
 | `IMAP_HOST` / `IMAP_PORT` / `IMAP_USERNAME` / `IMAP_PASSWORD` | Whatever mail provider hosts the inbox receiving the ICA newsletter — likely different credentials than `GMAIL_ADDRESS` above, do not assume they're interchangeable |
 | `CHECK_INTERVAL_HOURS` | How often the main discovery pipeline runs, in hours. Defaults to `6`. |
 | `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
-| `ALWAYS_FULL_PROPOSAL` | `true` (current default) generates the full 10-section proposal even for WATCH-tier opportunities. Set to `false` to bring back the lightweight cover-letter-only path for uncertain fits. |
+| `FULL_DRAFT_FOR_WATCH` | `true` (current default) generates the full proposal even for WATCH-tier opportunities. Set to `false` for the lightweight cover-letter-only path. |
+| `ANTHROPIC_TIMEOUT_SECONDS` / `ANTHROPIC_MAX_RETRIES` | Claude call timeout (default 180s) and SDK retries (default 2). |
+| `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
+
+`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
+
+**`.env.example` is placeholders only.** If an older copy ever contained real keys, rotate them.
 
 **None of these are recoverable from git.** `.env` is deliberately excluded from version control — see [Disaster Recovery](#disaster-recovery--rebuilding-from-zero).
 
@@ -147,6 +159,7 @@ python main.py --submit-url "<url>"       # Manually process one specific tender
 python main.py --run-assortis             # Manually trigger just the newsletter check
 python main.py --run-deadline-check       # Manually trigger just the deadline-escalation check
 python main.py --run-winloss              # Manually trigger just the win/loss lesson extraction
+python -m pytest tests/ -q                # Unit tests (no live APIs)
 ```
 
 `--submit-url` bypasses the free discovery filters (a human explicitly chose this URL) but still respects exact-URL dedup — resubmitting the same URL warns rather than silently reprocessing, and proceeds anyway since it was a deliberate choice.
@@ -197,7 +210,9 @@ These have each caused real, confirmed production failures. Documented here spec
 - **Never write `dict.get(key, default)[some_slice]`.** `.get()` only substitutes the default when the key is *missing* — if the key exists but its value is `None`, `.get()` returns `None`, and slicing it crashes with `'NoneType' object is not subscriptable`. Use `(dict.get(key) or default)[slice]` instead. This has also regressed once.
 - **Railway SMTP is blocked at the platform level** (irrelevant now that this runs locally, but relevant again if ever redeployed to a similar host) — `email_report.py` tries Gmail SMTP first, falls back to Resend's HTTP API. Both paths need real, working credentials for delivery to succeed; a failure in one silently masks whether the other is even configured.
 - **`.env` must never be committed.** It was tracked in git history for a period early in this project before being corrected — if that history was ever shared or the repo was ever public, treat every credential used at that time as compromised and rotate it, regardless of whether this has already been done.
-- **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug, and touching it should be a conscious decision (see `ALWAYS_FULL_PROPOSAL` and the NO-BID gate in `main.py`).
+- **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug. The NO-BID label now comes from the deterministic scorer, not from Claude's integer.
+- **Claude's `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting Claude to return a different number.
+- **`.env.example` must never contain live keys.**
 
 ---
 

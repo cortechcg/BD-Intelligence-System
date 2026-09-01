@@ -4,6 +4,7 @@ import json
 from loguru import logger
 from database.airtable_client import get_rate_card
 from config import CLAUDE_MODEL, get_anthropic_client
+from utils.claude_helpers import get_text
 
 client = get_anthropic_client()
 
@@ -69,7 +70,7 @@ Return ONLY a JSON array:
         messages=[{"role": "user", "content": prompt}]
     )
 
-    effort_text = response.content[0].text.strip()
+    effort_text = get_text(response).strip()
     if effort_text.startswith("```"):
         effort_text = effort_text.split("```json")[-1].split("```")[0]
 
