@@ -5,11 +5,42 @@ from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL
 from loguru import logger
 import httpx
 import json
-from typing import Optional
+from typing import Optional, cast
 from utils.llm import complete, get_text
 from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+_supabase_client: Client | None = None
+
+
+def get_supabase() -> Client:
+    """Create the Supabase client only when a storage operation needs it.
+
+    Importing the orchestrator must not make network-client construction the
+    accidental configuration validator. The CLI's ``require_env`` remains the
+    normal fail-loud boundary; direct library use gets an equally explicit
+    error at the storage boundary.
+    """
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_SERVICE_KEY are required before "
+                "using Supabase storage. Configure .env and call require_env() "
+                "at an application entry point."
+            )
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    return _supabase_client
+
+
+class _SupabaseProxy:
+    """Compatibility proxy for existing modules that import ``supabase``."""
+
+    def __getattr__(self, name):
+        return getattr(get_supabase(), name)
+
+
+# Keep the public name for proposal/learning modules while deferring creation.
+supabase = cast(Client, _SupabaseProxy())
 
 
 def get_embedding(text: str) -> list[float]:

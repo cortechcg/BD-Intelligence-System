@@ -21,11 +21,12 @@ systemd timers (or python main.py --once)
            3. analyze_rfp (untrusted wrap + get_text)
            4. apply_bid_intelligence()   ← deterministic scores
            5. is_consultancy_contract (default True)
-           6. NO-BID gate uses CODE recommendation, not the LLM number
+           6. NO-BID draft gate uses CODE recommendation, not the LLM number;
+              record remains New for human confirmation
            7. Airtable create (existing fields; scores are the code scores)
            8. CV match + explicit capability overlay
            9. apply_bid_intelligence() again with team coverage
-          10. budget / EOI or full proposal
+          10. evidence-bound personnel costing / EOI or full proposal
           11. compliance_matrix (SATISFIED/PARTIAL/MISSING/UNKNOWN)
           12. email humans
 ```
@@ -55,7 +56,7 @@ Nothing in this pipeline submits to a client.
 
 ## What is stored where
 
-- **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding. Dedup = exact canonical URL + (Assortis) title near-dup.
+- **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding. Dedup = exact canonical URL + (Assortis) title near-dup. The Supabase client is created lazily at first storage use, after configuration validation at the entry point.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
 - **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model.
 
@@ -64,6 +65,16 @@ Nothing in this pipeline submits to a client.
 LLM extracts locations, themes, languages, certs, client, deadline, budget, qualitative strengths/gaps.
 
 `bid_scorer.compute_bid_intelligence()` turns those fields + optional CV coverage into dimension scores using `scoring_model.json`. The LLM's own `cortech_fit_score` is kept as `llm_cortech_fit_score` for audit and is not the gate.
+
+## Financial preparation
+
+`budget_calculator.calculate_budget()` no longer calls an LLM or applies default
+rates/percentages. It costs a role only when both `estimated_days_of_effort`
+was explicitly extracted from the ToR and an exact `role_level` + location rate
+exists in Airtable `RATE_CARDS`. It reports a verified personnel subtotal when
+possible, but keeps `grand_total_usd` `null` until evidence for travel, tools,
+workshops, overhead, contingency, and taxes is provided. The review email shows
+the missing-input list instead of a made-up zero-dollar budget.
 
 ## Not in this architecture
 

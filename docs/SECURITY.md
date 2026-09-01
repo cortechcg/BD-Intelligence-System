@@ -22,11 +22,18 @@ This is prompt-injection *mitigation*, not a proof against every jailbreak. A de
 
 ## SSRF / downloads
 
-`utils.urls.assert_public_http_url()` blocks non-http(s), localhost, link-local/metadata IPs, RFC1918 literals, and userinfo. Applied in `download_document`, `fetch_and_extract`, Playwright fallback, RSS feed fetch, and followed PDF links.
+`utils.urls.assert_public_http_url()` blocks non-http(s), localhost, link-local/metadata IPs, RFC1918 literals, and userinfo. Applied in `download_document`, `fetch_and_extract`, Playwright fallback, RSS feed fetch, and followed PDF links. `download_document()` follows redirects manually and applies the same public-URL check to every redirect target before requesting it. It accepts at most five redirects and 25 MiB by default; both are environment-configurable. Transient network/timeouts and selected 408/425/429/5xx responses retry at most twice with 1s/2s backoff. Unsafe URLs, oversize documents, and other client errors do not retry.
+
+TLS certificates are always verified. A source with a broken certificate fails visibly rather than triggering an insecure retry.
 
 Not solved: DNS rebinding (resolve to public, then to 127.0.0.1). Would need a pin-IP transport.
 
-SSL verification may still be disabled on retry for broken procurement-site certificates (pre-existing, logged).
+## Outbound review email
+
+Titles, client names, source URLs, CV matches, model-generated prose, and
+budget explanations are HTML-escaped before insertion into an HTML email.
+Email subjects strip CR/LF characters. This prevents scraped or model-returned
+text from altering the rendered review email or injecting a second header.
 
 ## Path traversal
 

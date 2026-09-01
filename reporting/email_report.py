@@ -4,6 +4,8 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import base64
+import html
+import math
 import os
 import smtplib
 import ssl
@@ -11,6 +13,25 @@ import httpx
 from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx
+
+
+def _html(value) -> str:
+    """Render operational data as text, never as HTML supplied by a source."""
+    return html.escape(str(value or ""), quote=True)
+
+
+def _usd(value) -> str:
+    """Format a known finite number; invalid/missing values remain UNKNOWN."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "UNKNOWN"
+    return f"${number:,.0f}" if math.isfinite(number) else "UNKNOWN"
+
+
+def _subject_text(value) -> str:
+    """Prevent untrusted titles from injecting a second mail header."""
+    return " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
 
 
 def _get_recipients() -> list[str]:
@@ -456,19 +477,21 @@ def send_proposal_email(opportunity_result: dict) -> None:
     bid_analysis   = analysis.get("bid_analysis", {})
     key_strengths  = bid_analysis.get("key_strengths", [])
     key_gaps       = bid_analysis.get("key_gaps", [])
-    budget_summary = budget.get("summary", {})
+    budget_summary = budget.get("summary", {}) if isinstance(budget, dict) else {}
     team_matches   = matched.get("matched_team", {})
-    budget_total   = budget_summary.get("grand_total_usd", 0)
-    budget_cap_str = f"${budget_cap:,.0f}" if budget_cap else "Not specified"
+    budget_status  = budget.get("status", "UNKNOWN") if isinstance(budget, dict) else "UNKNOWN"
+    budget_reason  = budget.get("reason", "No budget basis was supplied.") if isinstance(budget, dict) else "No budget basis was supplied."
+    budget_missing = budget.get("missing_inputs", []) if isinstance(budget, dict) else []
+    budget_cap_str = _usd(budget_cap) if budget_cap else "Not specified"
     urgency        = get_urgency_level(str(deadline))
     quality        = proposal.get("quality_score", {}) if isinstance(proposal.get("quality_score"), dict) else {}
     quality_line   = ""
     if quality.get("overall_score") is not None:
         quality_line = (
             f"<p style='margin:8px 0 0;font-size:13px;color:#555'>"
-            f"Self-assessed: <strong>{quality['overall_score']}/100</strong> — "
-            f"weakest: {quality.get('weakest_criterion', 'N/A')}. "
-            f"{quality.get('one_improvement', '')}"
+            f"Self-assessed: <strong>{_html(quality['overall_score'])}/100</strong> — "
+            f"weakest: {_html(quality.get('weakest_criterion', 'N/A'))}. "
+            f"{_html(quality.get('one_improvement', ''))}"
             f"</p>"
         )
 
@@ -481,38 +504,21 @@ def send_proposal_email(opportunity_result: dict) -> None:
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
         <tr>
-            <td style="padding:8px;border:1px solid #ddd">{role}</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{name}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(role)}</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{_html(name)}</td>
             <td style="padding:8px;border:1px solid #ddd;color:{color};font-weight:bold">{score_pct}% match</td>
-            <td style="padding:8px;border:1px solid #ddd">{avail}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(avail)}</td>
         </tr>"""
 
     # ── STRENGTHS / GAPS ───────────────────────────────────────────────────
     strengths_html = "".join(
-        f"<li style='margin-bottom:4px'>{s}</li>"
+        f"<li style='margin-bottom:4px'>{_html(s)}</li>"
         for s in key_strengths[:5]
     )
     gaps_html = "".join(
-        f"<li style='margin-bottom:4px'>{g}</li>"
+        f"<li style='margin-bottom:4px'>{_html(g)}</li>"
         for g in key_gaps[:5]
     )
-
-    # ── BUDGET TABLE ───────────────────────────────────────────────────────
-    budget_rows_html = ""
-    for line, details in [
-        ("Personnel", f"${budget_summary.get('personnel_subtotal_usd', 0):,.0f}"),
-        ("Field & Logistics", f"${budget_summary.get('field_logistics_usd', 0):,.0f}"),
-        ("Data & Tools", f"${budget_summary.get('data_tools_usd', 0):,.0f}"),
-        ("Reporting & Design", f"${budget_summary.get('reporting_design_usd', 0):,.0f}"),
-        ("Management Overhead", f"${budget_summary.get('management_overhead_usd', 0):,.0f}"),
-        ("Contingency (5%)", f"${budget_summary.get('contingency_5pct_usd', 0):,.0f}"),
-        ("Workshop Costs", f"${budget_summary.get('workshop_costs_usd', 0):,.0f}"),
-    ]:
-        budget_rows_html += f"""
-        <tr>
-            <td style="padding:8px;border:1px solid #ddd">{line}</td>
-            <td style="padding:8px;border:1px solid #ddd;text-align:right">{details}</td>
-        </tr>"""
 
     # ── PROPOSAL SECTIONS ──────────────────────────────────────────────────
     def section_block(heading: str, content: str) -> str:
@@ -521,7 +527,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         # Convert newlines to paragraphs for HTML. Skip markdown rules and
         # table separators so "---" never appears in the emailed draft.
         paragraphs = "".join(
-            f"<p style='margin:0 0 10px;line-height:1.6'>{p.strip()}</p>"
+            f"<p style='margin:0 0 10px;line-height:1.6'>{_html(p.strip())}</p>"
             for p in content.split("\n")
             if p.strip()
             and not set(p.strip()) <= set("-*_= ")
@@ -620,30 +626,23 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if is_lightweight
         else "Draft Technical Proposal"
     )
+    budget_missing_html = "".join(
+        f"<li>{_html(item)}</li>" for item in budget_missing[:12]
+    ) or "<li>No missing-input detail was recorded.</li>"
+    known_personnel = budget_summary.get("known_personnel_subtotal_usd")
+    known_personnel_line = (
+        f"<p>Verified personnel subtotal only: <strong>{_usd(known_personnel)}</strong>.</p>"
+        if known_personnel not in (None, 0, 0.0)
+        else ""
+    )
     budget_block = "" if is_eoi else f"""
-    <!-- BUDGET TABLE -->
-    <div style="margin-bottom:24px">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                   border-bottom:2px solid #1F3864;padding-bottom:6px">
-            Budget Draft
-        </h3>
-        <table style="width:50%;border-collapse:collapse;font-size:13px">
-            <tr style="background:#1F3864;color:white">
-                <th style="padding:8px;text-align:left">Line Item</th>
-                <th style="padding:8px;text-align:right">Amount</th>
-            </tr>
-            {budget_rows_html}
-            <tr style="background:#1F3864;color:white;font-weight:bold">
-                <td style="padding:8px">TOTAL</td>
-                <td style="padding:8px;text-align:right">
-                    ${budget_total:,.0f}
-                </td>
-            </tr>
-        </table>
-        <p style="font-size:12px;color:#666;margin:8px 0 0">
-            Verify against the budget cap before submission.
-            Adjust line items as needed.
-        </p>
+    <!-- BUDGET STATUS -->
+    <div style="margin-bottom:24px;background:#fff3cd;padding:14px 16px;border-left:4px solid #f0a500">
+        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px">Budget validation required</h3>
+        <p><strong>Status:</strong> {_html(budget_status)}. {_html(budget_reason)}</p>
+        {known_personnel_line}
+        <p style="margin-bottom:4px"><strong>Inputs still required before a financial submission:</strong></p>
+        <ul style="margin-top:4px">{budget_missing_html}</ul>
     </div>
 """
 
@@ -659,23 +658,23 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 border-radius:8px 8px 0 0">
         <h1 style="margin:0;font-size:22px">{header_title}</h1>
         <p style="margin:8px 0 0;opacity:0.85;font-size:14px">
-            {header_subtitle}
+            {_html(header_subtitle)}
         </p>
     </div>
 
     <!-- OPPORTUNITY SUMMARY -->
     <div style="background:#f8f9fa;padding:20px;
                 border-left:4px solid #1F3864;margin-bottom:0">
-        <h2 style="margin:0 0 12px;color:#1F3864;font-size:18px">{title}</h2>
+        <h2 style="margin:0 0 12px;color:#1F3864;font-size:18px">{_html(title)}</h2>
         <table style="width:100%;border-collapse:collapse">
             <tr>
                 <td style="padding:4px 12px 4px 0;width:50%">
-                    <strong>Client:</strong> {client}
+                    <strong>Client:</strong> {_html(client)}
                 </td>
                 <td style="padding:4px 0">
                     <strong>Deadline:</strong>
                     <span style="color:{urgency.get('color', '#dc3545')};font-weight:bold">
-                        {deadline} {urgency.get('prefix', '')}
+                        {_html(deadline)} {_html(urgency.get('prefix', ''))}
                     </span>
                 </td>
             </tr>
@@ -685,7 +684,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                     <span style="color:{score_color};font-weight:bold;font-size:16px">
                         {score}/100
                     </span>
-                    ({recommendation})
+                    ({_html(recommendation)})
                 </td>
                 <td style="padding:4px 0">
                     <strong>Budget Cap:</strong> {budget_cap_str}
@@ -697,7 +696,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             <tr>
                 <td colspan="2" style="padding:8px 0 4px">
                     <strong>TOR / Source:</strong>
-                    <a href="{source_url}" style="color:#1F3864">{source_url}</a>
+                    <a href="{_html(source_url)}" style="color:#1F3864">{_html(source_url)}</a>
                 </td>
             </tr>
         </table>
@@ -757,7 +756,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <p style="font-size:12px;color:#999;margin:0">
             Generated by Cortech BD Intelligence Agent •
             This is a draft — human review and approval required before any submission •
-            <a href="{source_url}" style="color:#1F3864">View original TOR</a>
+            <a href="{_html(source_url)}" style="color:#1F3864">View original TOR</a>
         </p>
     </div>
 
@@ -768,19 +767,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
     # ── SUBJECT LINE ───────────────────────────────────────────────────────
     if is_lightweight:
         subject = (
-            f"QUICK FLAG: {title[:50]} | "
+            f"QUICK FLAG: {_subject_text(title)[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | WATCH"
         )
     elif is_eoi:
         subject = (
-            f"{doc_label}: {title[:50]} | "
+            f"{doc_label}: {_subject_text(title)[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
     else:
         subject = (
-            f"{doc_label}: {title[:50]} | "
+            f"{doc_label}: {_subject_text(title)[:50]} | "
             f"Deadline: {str(deadline)[:10]} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )

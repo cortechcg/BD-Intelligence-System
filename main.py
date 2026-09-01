@@ -235,6 +235,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         )
 
     # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
+    # The recommendation saves paid drafting effort, but it is not a final
+    # business decision. The CRM item remains New for a human to confirm or
+    # override; no automated process marks it as a final no-bid.
     if recommendation == "NO-BID" and not force:
         rationale = bid_analysis.get(
             "rationale",
@@ -256,10 +259,16 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
                 "key_strengths":      "\n".join(bid_analysis.get("key_strengths", [])),
                 "key_gaps":           "\n".join(bid_analysis.get("key_gaps", [])),
                 "claude_analysis":    str(analysis)[:50000],
-                "status":             "No-bid",
+                "status":             "New",
             })
         except Exception:
             pass
+        log_stage(
+            "opportunity",
+            "skipped",
+            recommendation="NO-BID",
+            decision_state="HUMAN_REVIEW_REQUIRED",
+        )
         return None
     elif recommendation == "NO-BID" and force:
         logger.warning(
