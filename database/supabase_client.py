@@ -1,16 +1,15 @@
 # database/supabase_client.py
 import os
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL, get_anthropic_client
+from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, OPENAI_MODEL
 from loguru import logger
 import httpx
 import json
 from typing import Optional
-from utils.claude_helpers import get_text
+from utils.llm import complete, get_text
 from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-claude = get_anthropic_client()
 
 
 def get_embedding(text: str) -> list[float]:
@@ -48,9 +47,9 @@ def get_embedding(text: str) -> list[float]:
 
 
 def summarize_for_embedding(text: str) -> str:
-    """Summarize long text before embedding. Reuses the module-level client."""
-    response = claude.messages.create(
-        model=CLAUDE_MODEL,
+    """Summarize long text before embedding."""
+    response = complete(
+        model=OPENAI_MODEL,
         max_tokens=500,
         messages=[{
             "role": "user",

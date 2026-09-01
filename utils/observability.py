@@ -70,10 +70,10 @@ def configure_logging() -> None:
 
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Optional[float]:
-    """ESTIMATED USD from config.CLAUDE_PRICING_PER_MTOK. None if unknown."""
-    from config import CLAUDE_PRICING_PER_MTOK
+    """ESTIMATED USD from config.OPENAI_PRICING_PER_MTOK. None if unknown."""
+    from config import OPENAI_PRICING_PER_MTOK
 
-    prices = CLAUDE_PRICING_PER_MTOK.get(model)
+    prices = OPENAI_PRICING_PER_MTOK.get(model)
     if not prices:
         return None
     inp = prices.get("input")
@@ -84,10 +84,11 @@ def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Opti
 
 
 def record_usage(response, model: str, stage: str = "") -> dict:
-    """Read Anthropic usage if present. Does not invent token counts."""
-    usage = getattr(response, "usage", None)
-    input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage is not None else 0
-    output_tokens = int(getattr(usage, "output_tokens", 0) or 0) if usage is not None else 0
+    """Read OpenAI usage if present. Does not invent token counts."""
+    from utils.llm import cached_tokens, usage_totals
+
+    input_tokens, output_tokens = usage_totals(response)
+    cached = cached_tokens(response)
     cost = estimate_cost_usd(model, input_tokens, output_tokens) if (input_tokens or output_tokens) else None
 
     bucket = _opp_tokens.get()
@@ -103,6 +104,7 @@ def record_usage(response, model: str, stage: str = "") -> dict:
         "model": model,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
+        "cached_tokens": cached,
         "estimated_cost_usd": cost,
         "cost_basis": "ESTIMATED" if cost is not None else "UNKNOWN",
     }
@@ -112,7 +114,7 @@ def record_usage(response, model: str, stage: str = "") -> dict:
         estimated_cost_usd=round(cost, 6) if cost is not None else "",
     ).info(
         f"llm_usage stage={payload['stage']} model={model} "
-        f"in={input_tokens} out={output_tokens} "
+        f"in={input_tokens} out={output_tokens} cached={cached} "
         f"est_cost_usd={cost if cost is not None else 'UNKNOWN'}"
     )
     return payload

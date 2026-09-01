@@ -1,12 +1,11 @@
 # intelligence/proposal_writer.py
-import anthropic
 import copy
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from loguru import logger
-from utils.claude_helpers import get_text
+from utils.llm import cached_tokens, complete, finish_reason, get_text, output_tokens, usage_totals
 from utils.money_scrub import (
     contains_monetary_amount,
     find_monetary_amounts,
@@ -16,15 +15,12 @@ from intelligence.tender_reader import build_tor_brief, tender_documents_block
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import get_embedding, search_past_proposals, supabase
 from config import (
-    CLAUDE_MODEL,
-    CLAUDE_MODEL_PROPOSAL,
-    CLAUDE_MAX_TOKENS,
+    OPENAI_MODEL,
+    OPENAI_MODEL_PROPOSAL,
+    OPENAI_MAX_TOKENS,
     CORTECH_PROFILE,
     FULL_DRAFT_FOR_WATCH,
-    get_anthropic_client,
 )
-
-client = get_anthropic_client()
 
 
 # This is Cortech's exact proposal structure (from the DRC template)
@@ -753,7 +749,7 @@ Red lines to avoid: {intel.get("red_lines", "None known")}
 
 def generate_quality_self_score(sections: dict, analysis: dict) -> dict:
     """
-    One Claude call, evaluating the finished draft against the ToR's own
+    One LLM call, evaluating the finished draft against the ToR's own
     stated evaluation criteria — not invented generic categories.
     """
     eval_criteria = analysis.get("evaluation_criteria", [])
@@ -783,8 +779,8 @@ Return ONLY valid JSON:
 }}"""
 
     try:
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
+        response = complete(
+            model=OPENAI_MODEL,
             max_tokens=400,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -795,13 +791,11 @@ Return ONLY valid JSON:
 
 
 def _log_cache_usage(response, section_name: str) -> None:
-    """Log prompt-cache stats — verify cache_read > 0 on calls 2+ during testing."""
-    usage = response.usage
-    creation = getattr(usage, "cache_creation_input_tokens", 0) or 0
-    read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    """Log prompt-cache stats — OpenAI reports cached prompt tokens when present."""
+    inp, out = usage_totals(response)
+    cached = cached_tokens(response)
     logger.info(
-        f"  [{section_name}] cache_creation={creation} cache_read={read} "
-        f"input={usage.input_tokens} output={usage.output_tokens}"
+        f"  [{section_name}] cached={cached} input={inp} output={out}"
     )
 
 
@@ -844,9 +838,9 @@ def _enforce_no_monetary(section_name: str, text: str) -> str:
         f"({', '.join(found[:5])}{'…' if len(found) > 5 else ''}) — rewriting"
     )
     try:
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=CLAUDE_MAX_TOKENS,
+        response = complete(
+            model=OPENAI_MODEL,
+            max_tokens=OPENAI_MAX_TOKENS,
             messages=[{
                 "role": "user",
                 "content": f"{_MONEY_REWRITE_INSTRUCTION}\n\nSECTION:\n{text}",
@@ -911,7 +905,7 @@ def _generate_section(
                 f"({spent}/{total_budget} tokens) — trimming to a clean close"
             )
             break
-        response = client.messages.create(
+        response = complete(
             model=model,
             max_tokens=remaining,
             system=system,
@@ -920,8 +914,8 @@ def _generate_section(
         label = section_name if attempt == 0 else f"{section_name}+cont{attempt}"
         _log_cache_usage(response, label)
         chunk = get_text(response)
-        spent += getattr(response.usage, "output_tokens", 0) or 0
-        stop = getattr(response, "stop_reason", None)
+        spent += output_tokens(response)
+        stop = finish_reason(response)
 
         # A continuation that answers "there is nothing left to continue" is
         # telling us the section was already finished. Take the answer, drop
@@ -935,11 +929,11 @@ def _generate_section(
             break
 
         assembled += chunk
-        if stop != "max_tokens" and not _looks_truncated(assembled):
+        if stop != "length" and not _looks_truncated(assembled):
             return _enforce_no_monetary(section_name, assembled.strip())
         logger.warning(
             f"  [{section_name}] output truncated "
-            f"(stop_reason={stop}, attempt={attempt + 1}/{max_attempts}) — continuing"
+            f"(finish_reason={stop}, attempt={attempt + 1}/{max_attempts}) — continuing"
         )
         messages = [
             {"role": "user", "content": user_prompt},
@@ -1029,8 +1023,8 @@ CURRENT DRAFT:
 Rewrite the complete section from start to finish, working from the tender documents in your system context. Keep accurate facts (names, dates, sample sizes, past assignments, named experts). Strengthen alignment with the evaluation criteria and with the client's own terminology. Finish every sentence and every subsection. Do not leave headings without body text.{QUALITY_SUFFIX}"""
     sections[target] = _generate_section(
         f"{target}_repair",
-        CLAUDE_MODEL_PROPOSAL,
-        CLAUDE_MAX_TOKENS,
+        OPENAI_MODEL_PROPOSAL,
+        OPENAI_MAX_TOKENS,
         system_blocks,
         user_prompt,
     )
@@ -1079,7 +1073,7 @@ def generate_eoi(
     jobs = {
         "cover_letter": lambda: _generate_section(
             "eoi_cover",
-            CLAUDE_MODEL_PROPOSAL,
+            OPENAI_MODEL_PROPOSAL,
             4096,
             system_blocks,
             f"""Write a complete Expression of Interest cover letter for Cortech Consulting Group.
@@ -1102,8 +1096,8 @@ Do not write a methodology. Do write a finished letter of 4-5 paragraphs:
         ),
         "firm_profile": lambda: _generate_section(
             "eoi_firm",
-            CLAUDE_MODEL_PROPOSAL,
-            CLAUDE_MAX_TOKENS,
+            OPENAI_MODEL_PROPOSAL,
+            OPENAI_MAX_TOKENS,
             system_blocks,
             f"""Write the 'Presentation of Cortech Consulting Group' section for this EOI.
 
@@ -1120,8 +1114,8 @@ State no monetary amounts, including any typical budget range.
         ),
         "relevant_experience": lambda: _generate_section(
             "eoi_experience",
-            CLAUDE_MODEL_PROPOSAL,
-            CLAUDE_MAX_TOKENS,
+            OPENAI_MODEL_PROPOSAL,
+            OPENAI_MAX_TOKENS,
             system_blocks,
             f"""Write the 'Relevant Experience of Completed Assignments' section for this EOI.
 
@@ -1141,7 +1135,7 @@ the experience-related shortlisting criteria in the tender documents.
         ),
         "key_experts": lambda: _generate_section(
             "eoi_experts",
-            CLAUDE_MODEL_PROPOSAL,
+            OPENAI_MODEL_PROPOSAL,
             4096,
             system_blocks,
             f"""Write the 'Resources in Staff' section for this EOI.
@@ -1226,11 +1220,11 @@ def generate_proposal(
         sections = {
             "cover_letter": generate_cover_letter(
                 title, client_name, deadline, analysis, system_blocks,
-                model=CLAUDE_MODEL,
+                model=OPENAI_MODEL,
             ),
             "executive_summary": generate_executive_summary(
                 analysis, matched_team_result, system_blocks,
-                model=CLAUDE_MODEL,
+                model=OPENAI_MODEL,
             ),
             "lightweight": True,
             "lightweight_reason": "WATCH recommendation — quick flag, not a full draft",
@@ -1298,7 +1292,7 @@ def generate_cover_letter(
     deadline: str,
     analysis: dict,
     system_blocks: list[dict],
-    model: str = CLAUDE_MODEL_PROPOSAL,
+    model: str = OPENAI_MODEL_PROPOSAL,
 ) -> str:
     """Generate professional cover letter."""
     strengths = analysis.get("bid_analysis", {}).get("key_strengths", [])
@@ -1341,7 +1335,7 @@ def generate_executive_summary(
     analysis: dict,
     matched_team_result: dict,
     system_blocks: list[dict],
-    model: str = CLAUDE_MODEL_PROPOSAL,
+    model: str = OPENAI_MODEL_PROPOSAL,
 ) -> str:
     """
     Generate executive summary.
@@ -1428,7 +1422,7 @@ State no costs, day rates, or budget figures — the financial proposal covers t
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "methodology", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "methodology", OPENAI_MODEL_PROPOSAL, OPENAI_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
@@ -1475,7 +1469,7 @@ State no fees, day rates, or personnel costs.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "team_section", CLAUDE_MODEL_PROPOSAL, 4096, system_blocks, user_prompt,
+        "team_section", OPENAI_MODEL_PROPOSAL, 4096, system_blocks, user_prompt,
     )
 
 
@@ -1505,7 +1499,7 @@ Professional. 500-700 words. Do not stop after a heading such as "GANTT CHART".
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "work_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "work_plan", OPENAI_MODEL_PROPOSAL, OPENAI_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
@@ -1541,7 +1535,7 @@ Professional development sector language. 400-550 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "risk_register", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "risk_register", OPENAI_MODEL_PROPOSAL, OPENAI_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
@@ -1578,8 +1572,8 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
 
     return _generate_section(
         "org_profile_and_track_record",
-        CLAUDE_MODEL_PROPOSAL,
-        CLAUDE_MAX_TOKENS,
+        OPENAI_MODEL_PROPOSAL,
+        OPENAI_MAX_TOKENS,
         system_blocks,
         user_prompt,
     )
@@ -1627,8 +1621,8 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
 
     return _generate_section(
         "introduction_and_framework",
-        CLAUDE_MODEL_PROPOSAL,
-        CLAUDE_MAX_TOKENS,
+        OPENAI_MODEL_PROPOSAL,
+        OPENAI_MAX_TOKENS,
         system_blocks,
         user_prompt,
     )
@@ -1671,7 +1665,7 @@ Professional development consulting tone. Complete both sections — do not stop
 inside the triangulation paragraph. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "analysis_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "analysis_plan", OPENAI_MODEL_PROPOSAL, OPENAI_MAX_TOKENS, system_blocks, user_prompt,
     )
 
 
@@ -1702,5 +1696,5 @@ and do-no-harm principles. Complete both sections in full.
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "qa_and_ethics", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "qa_and_ethics", OPENAI_MODEL_PROPOSAL, OPENAI_MAX_TOKENS, system_blocks, user_prompt,
     )

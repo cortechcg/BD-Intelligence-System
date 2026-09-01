@@ -2,15 +2,12 @@
 """Poll Airtable for Won/Lost outcomes and store lessons in Supabase for retrieval."""
 import json
 
-import anthropic
 from loguru import logger
 
-from config import CLAUDE_MODEL, get_anthropic_client
+from config import OPENAI_MODEL
 from database.airtable_client import get_table
 from database.supabase_client import get_embedding, supabase
-from utils.claude_helpers import get_text
-
-anthropic_client = get_anthropic_client()
+from utils.llm import complete, get_text
 
 
 def process_win_loss_outcomes() -> None:
@@ -49,8 +46,8 @@ Be concrete — not "improve methodology" but a specific, named requirement.
 Return ONLY valid JSON: {{"lessons": [...], "donor_preferences": [...]}}"""
 
         try:
-            response = anthropic_client.messages.create(
-                model=CLAUDE_MODEL,
+            response = complete(
+                model=OPENAI_MODEL,
                 max_tokens=600,
                 messages=[{"role": "user", "content": lesson_prompt}],
             )
@@ -78,6 +75,6 @@ Return ONLY valid JSON: {{"lessons": [...], "donor_preferences": [...]}}"""
                 "lessons": lessons,
                 "embedding": embedding,
             }).execute()
-            logger.success(f"Recorded {outcome} lesson for: {client}")
+            logger.success(f"Stored win/loss lesson for {opp_id} ({outcome})")
         except Exception as e:
-            logger.warning(f"Win/loss Supabase insert failed for {opp_id}: {e}")
+            logger.warning(f"Could not store win/loss lesson for {opp_id}: {e}")

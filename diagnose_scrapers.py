@@ -17,46 +17,6 @@ SOURCES_TO_CHECK = [
         "name": "Somalia Jobs Tenders",
         "url":  "https://www.somalijobs.com/tenders",
     },
-    {
-        "name": "DRC Procurement",
-        "url":  "https://pro.drc.ngo/suppliers/open-procurements/",
-    },
-    {
-        "name": "Save the Children",
-        "url":  "https://www.savethechildren.net/procurement",
-    },
-    {
-        "name": "CARE International",
-        "url":  "https://www.care.org/about-us/procurement/",
-    },
-    {
-        "name": "Welthungerhilfe",
-        "url":  "https://www.welthungerhilfe.org/our-work/procurement/",
-    },
-    {
-        "name": "NRC Tenders",
-        "url":  "https://www.nrc.no/about-nrc/procurements/",
-    },
-    {
-        "name": "LWF Tenders",
-        "url":  "https://www.lutheranworld.org/procurement",
-    },
-    {
-        "name": "GIZ Tenders",
-        "url":  "https://www.giz.de/en/html/tenders.html",
-    },
-    {
-        "name": "USAID Business Forecast",
-        "url":  "https://www.usaid.gov/business-forecast",
-    },
-    {
-        "name": "IGAD Procurement",
-        "url":  "https://igad.int/procurements/",
-    },
-    {
-        "name": "Kenya Government PPIP",
-        "url":  "https://tenders.go.ke/website/tenders/index",
-    },
 ]
 
 

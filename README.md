@@ -33,7 +33,7 @@ Cortech competes for consulting work advertised across dozens of tender portals,
 
 1. **Discover** — RSS feeds, Playwright-driven scrapers for JavaScript-heavy portals, and an IMAP-based check of the Assortis/ICA World daily newsletter.
 2. **Filter, for free** — before any paid API call, every posting passes a three-gate keyword check (staff-vacancy language, geography, thematic relevance) and a semantic near-duplicate check against everything already seen, catching the same tender posted on multiple portals under different URLs.
-3. **Analyze** — Claude reads the full document (as untrusted data) and extracts structured fields. A **deterministic scorer** (`intelligence/bid_scorer.py`, weights in `intelligence/scoring_model.json`) calculates FIT / WIN / STRATEGIC / RISK and BID / WATCH / NO-BID. Claude's own numeric score is stored only as an audit field.
+3. **Analyze** — the LLM reads the full document (as untrusted data) and extracts structured fields. A **deterministic scorer** (`intelligence/bid_scorer.py`, weights in `intelligence/scoring_model.json`) calculates FIT / WIN / STRATEGIC / RISK and BID / WATCH / NO-BID. The model's own numeric score is stored only as an audit field.
 4. **Match & price** — team CVs matched semantically against requirements, then checked for explicit geography/years (missing education is UNKNOWN, never inferred). A budget is built from the real rate card. Skipped entirely for EOI-stage and NO-BID opportunities to avoid spending on work that isn't needed yet.
 5. **Draft** — a strategy is decided once, then every section is drafted against it and against real past-proposal structure (extracted from 60+ real submissions, not an assumed template).
 6. **Review itself** — a self-assessment pass scores the draft against the ToR's actual stated evaluation criteria before anyone sees it.
@@ -52,7 +52,7 @@ cortech-bd-agent/
 │   ├── airtable_client.py       # CRM layer — human-facing records, NOT the source of truth for data
 │   └── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
 ├── intelligence/
-│   ├── analyzer.py               # Claude extraction (advisory scores only)
+│   ├── analyzer.py               # LLM extraction (advisory scores only)
 │   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
 │   ├── scoring_model.json        # score_version 1.0.0 — changing this does not rewrite old records
 │   ├── cv_matcher.py             # Semantic CV matching + explicit capability overlay
@@ -71,7 +71,7 @@ cortech-bd-agent/
 ├── reporting/
 │   ├── email_report.py           # All outgoing email — Gmail SMTP first, Resend HTTP fallback
 │   └── docx_builder.py           # Renders finished sections into a formatted Word document
-├── utils/claude_helpers.py      # get_text() — safe response parsing, use everywhere a Claude call is made
+├── utils/llm.py                 # OpenAI client, complete(), get_text() — use everywhere an LLM call is made
 ├── extract_style_guide.py       # One-time script: derives real structure/style guides from data/proposals/
 ├── populate_airtable.py         # One-time/occasional onboarding: loads real CVs and past proposals
 ├── check_schema.py              # Diagnostic: validates Airtable field names against what the code expects
@@ -92,8 +92,7 @@ Accounts needed, all free-tier-capable except where noted:
 
 | Service | Used for |
 |---|---|
-| [Anthropic Console](https://console.anthropic.com) | Claude API — analysis, drafting, review |
-| [OpenAI Platform](https://platform.openai.com) | `text-embedding-3-small` — CV/opportunity/lesson embeddings |
+| [OpenAI Platform](https://platform.openai.com) | Chat (`gpt-5.6-terra`) + `text-embedding-3-small` embeddings |
 | [Supabase](https://supabase.com) | pgvector storage, semantic search |
 | [Airtable](https://airtable.com) | Human-facing CRM dashboard |
 | Gmail account | Primary outgoing email (app password, not your real password) |
@@ -120,7 +119,7 @@ Fill in `.env` with real values — see [Environment Variables Reference](#envir
 python main.py --once
 ```
 
-Watch the output. A clean run should show discovery, filtering, and (if anything qualifies) analysis and drafting, ending in a "Pipeline Complete" summary panel. If it errors immediately, it's almost always a missing or malformed `.env` value — `require_env()` and `get_anthropic_client()` fail loudly if required keys are missing, which is deliberate.
+Watch the output. A clean run should show discovery, filtering, and (if anything qualifies) analysis and drafting, ending in a "Pipeline Complete" summary panel. If it errors immediately, it's almost always a missing or malformed `.env` value — `require_env()` fails loudly if required keys are missing, which is deliberate.
 
 ---
 
@@ -128,8 +127,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 
 | Variable | Where to get it |
 |---|---|
-| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys → Create Key |
-| `OPENAI_API_KEY` | platform.openai.com → API Keys |
+| `OPENAI_API_KEY` | platform.openai.com → API Keys — used for chat and embeddings |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project → Settings → API. **Use the service role key**, not the anon key — this is server-side code, not a browser client. |
 | `AIRTABLE_API_KEY` | airtable.com/create/tokens — a personal access token scoped to the base below |
 | `AIRTABLE_BASE_ID` | Open the base in Airtable, the ID is in the URL (`app...`) |
@@ -139,10 +137,10 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `CHECK_INTERVAL_HOURS` | How often the main discovery pipeline runs, in hours. Defaults to `6`. |
 | `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
 | `FULL_DRAFT_FOR_WATCH` | `true` (current default) generates the full proposal even for WATCH-tier opportunities. Set to `false` for the lightweight cover-letter-only path. |
-| `ANTHROPIC_TIMEOUT_SECONDS` / `ANTHROPIC_MAX_RETRIES` | Claude call timeout (default 180s) and SDK retries (default 2). |
+| `OPENAI_TIMEOUT_SECONDS` / `OPENAI_MAX_RETRIES` | LLM call timeout (default 180s) and SDK retries (default 2). |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
-`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
+`python main.py` fails at startup if `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
 
 **`.env.example` is placeholders only.** If an older copy ever contained real keys, rotate them.
 
@@ -206,12 +204,12 @@ systemctl --user list-timers --all
 
 These have each caused real, confirmed production failures. Documented here specifically so they don't get silently reintroduced by a future Cursor session working from a stale file:
 
-- **Always use `get_text(response)` from `utils/claude_helpers.py`, never `response.content[0].text` directly.** A response that leads with a thinking block breaks the naive pattern with `'ThinkingBlock' object has no attribute 'text'`. This exact bug has been fixed and has **regressed twice** in this project's history, each time because a file got regenerated from an outdated base.
+- **Always use `get_text(response)` from `utils/llm.py`**, never `choices[0].message.content` scattered across call sites. All chat goes through `complete()`.
 - **Never write `dict.get(key, default)[some_slice]`.** `.get()` only substitutes the default when the key is *missing* — if the key exists but its value is `None`, `.get()` returns `None`, and slicing it crashes with `'NoneType' object is not subscriptable`. Use `(dict.get(key) or default)[slice]` instead. This has also regressed once.
 - **Railway SMTP is blocked at the platform level** (irrelevant now that this runs locally, but relevant again if ever redeployed to a similar host) — `email_report.py` tries Gmail SMTP first, falls back to Resend's HTTP API. Both paths need real, working credentials for delivery to succeed; a failure in one silently masks whether the other is even configured.
 - **`.env` must never be committed.** It was tracked in git history for a period early in this project before being corrected — if that history was ever shared or the repo was ever public, treat every credential used at that time as compromised and rotate it, regardless of whether this has already been done.
 - **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug. The NO-BID label now comes from the deterministic scorer, not from Claude's integer.
-- **Claude's `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting Claude to return a different number.
+- **The LLM `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting the model to return a different number.
 - **`.env.example` must never contain live keys.**
 
 ---
@@ -243,13 +241,12 @@ This is the step that actually matters. If you kept a secure backup of your real
 
 If you did **not** back it up, every credential needs to be regenerated or re-fetched from its source, one at a time, using the [Environment Variables Reference](#environment-variables-reference) table above:
 
-1. `ANTHROPIC_API_KEY` — generate a fresh key at console.anthropic.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
-2. `OPENAI_API_KEY` — same, at platform.openai.com.
-3. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding and cached opportunity that isn't the point of this step.
-4. `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` — same logic: the base still exists in your Airtable account. Generate a new personal access token if the old one isn't recoverable, but point it at the *existing* base ID, findable in that base's URL.
-5. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
-6. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
-7. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
+1. `OPENAI_API_KEY` — generate a fresh key at platform.openai.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
+2. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding and cached opportunity that isn't the point of this step.
+3. `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` — same logic: the base still exists in your Airtable account. Generate a new personal access token if the old one isn't recoverable, but point it at the *existing* base ID, findable in that base's URL.
+4. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
+5. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
+6. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
 
 ### Step 4 — Verify you're connected to the *existing* cloud data, not empty new instances
 

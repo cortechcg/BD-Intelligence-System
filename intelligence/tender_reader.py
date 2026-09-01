@@ -22,8 +22,8 @@ import json
 
 from loguru import logger
 
-from config import CLAUDE_MODEL_PROPOSAL, get_anthropic_client
-from utils.claude_helpers import get_text
+from config import OPENAI_MODEL_PROPOSAL
+from utils.llm import cached_tokens, complete, get_text, usage_totals
 from utils.money_scrub import strip_monetary_amounts
 
 # Below this, whatever we fetched is a listing blurb, not the tender pack.
@@ -147,7 +147,7 @@ def build_tor_brief(tor_text: str, analysis: dict, doc_block: str = None) -> str
     Read the tender documents and return the compliance brief that every
     section writer receives.
 
-    This is deliberately the first Claude call of the drafting stage: it
+    This is deliberately the first LLM call of the drafting stage: it
     reads the documents, and because it sends the document block on its own
     it also writes that block into the prompt cache, so the section calls
     that follow read it from cache instead of re-uploading the pack.
@@ -179,17 +179,13 @@ def build_tor_brief(tor_text: str, analysis: dict, doc_block: str = None) -> str
     )
 
     try:
-        response = get_anthropic_client().messages.create(
-            model=CLAUDE_MODEL_PROPOSAL,
+        response = complete(
+            model=OPENAI_MODEL_PROPOSAL,
             # 8 headings, one of which reproduces a full scoring matrix
             # verbatim — 4096 hit the cap on a routine 8k-char tender and
             # truncated the brief mid-matrix.
             max_tokens=8192,
-            system=[{
-                "type": "text",
-                "text": block,
-                "cache_control": {"type": "ephemeral"},
-            }],
+            system=block,
             messages=[{
                 "role": "user",
                 "content": _BRIEF_PROMPT.format(analysis_json=slim_analysis),
@@ -208,14 +204,11 @@ def build_tor_brief(tor_text: str, analysis: dict, doc_block: str = None) -> str
     if not brief:
         return ""
 
-    usage = getattr(response, "usage", None)
-    if usage is not None:
-        logger.info(
-            f"  [tor_brief] cache_creation="
-            f"{getattr(usage, 'cache_creation_input_tokens', 0) or 0} "
-            f"cache_read={getattr(usage, 'cache_read_input_tokens', 0) or 0} "
-            f"input={usage.input_tokens} output={usage.output_tokens}"
-        )
+    inp, out = usage_totals(response)
+    logger.info(
+        f"  [tor_brief] cached={cached_tokens(response)} "
+        f"input={inp} output={out}"
+    )
 
     logger.success(f"  Tender documents read — {len(brief):,}-char compliance brief")
     return (
