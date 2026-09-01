@@ -50,6 +50,7 @@ from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
+from reporting.docx_builder import SECTION_ORDER
 from intelligence.learning import process_win_loss_outcomes
 from database.supabase_client import (
     check_opportunity_exists,
@@ -357,9 +358,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     budget = {}
 
     if submission_type == "EOI":
-        logger.info("  Submission type: EOI — lightweight path")
+        logger.info("  Submission type: EOI — full shortlisting draft")
         console.print(
-            "  [cyan]EOI submission — skipping budget[/cyan]"
+            "  [cyan]EOI submission — writing a complete shortlisting draft (budget skipped)[/cyan]"
         )
         logger.info("  Step 4: Skipping budget (EOI stage)")
         logger.info("  Step 5: Reading the tender documents, then writing the EOI...")
@@ -522,8 +523,20 @@ def submit_single_url(url: str) -> None:
     sections = result.get("proposal_sections", {})
     _skip_keys = {"lightweight", "lightweight_reason", "submission_type", "quality_score"}
     with open(out_path, "w") as f:
+        written = set()
+        for key, heading in SECTION_ORDER:
+            content = sections.get(key)
+            if key in _skip_keys or not isinstance(content, str) or not content.strip():
+                continue
+            f.write(f"## {heading}\n\n{content}\n\n")
+            written.add(key)
         for section_name, content in sections.items():
-            if section_name in _skip_keys or not isinstance(content, str):
+            if (
+                section_name in written
+                or section_name in _skip_keys
+                or not isinstance(content, str)
+                or not content.strip()
+            ):
                 continue
             f.write(
                 f"## {section_name.replace('_', ' ').title()}\n\n{content}\n\n"

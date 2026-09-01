@@ -514,10 +514,17 @@ def send_proposal_email(opportunity_result: dict) -> None:
     def section_block(heading: str, content: str) -> str:
         if not content:
             return ""
-        # Convert newlines to paragraphs for HTML
+        # Convert newlines to paragraphs for HTML. Skip markdown rules and
+        # table separators so "---" never appears in the emailed draft.
         paragraphs = "".join(
             f"<p style='margin:0 0 10px;line-height:1.6'>{p.strip()}</p>"
-            for p in content.split("\n") if p.strip()
+            for p in content.split("\n")
+            if p.strip()
+            and not set(p.strip()) <= set("-*_= ")
+            and not (
+                p.strip().startswith("|")
+                and set(p.strip().replace(" ", "")) <= set("|:-")
+            )
         )
         return f"""
         <div style="margin-bottom:24px">
@@ -534,10 +541,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
     if is_eoi:
         proposal_html = (
-            section_block("Cover Letter", proposal.get("cover_letter", ""))
-            + section_block("Firm Profile", proposal.get("firm_profile", ""))
+            section_block("Cover Letter / Letter of Interest", proposal.get("cover_letter", ""))
+            + section_block("Presentation of Cortech Consulting Group", proposal.get("firm_profile", ""))
+            + section_block("Our Understanding of the Assignment", proposal.get("understanding", ""))
+            + section_block("Proposed Technical Approach — Summary", proposal.get("approach_summary", ""))
             + section_block("Relevant Experience", proposal.get("relevant_experience", ""))
-            + section_block("Proposed Key Experts", proposal.get("key_experts", ""))
+            + section_block("Resources in Staff", proposal.get("key_experts", ""))
+            + section_block("Eligibility", proposal.get("eligibility", ""))
+            + section_block("Capability Matrix", proposal.get("compliance_matrix", ""))
         )
     elif not is_lightweight:
         proposal_html += (
@@ -567,7 +578,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
         else "PROPOSAL DRAFT READY FOR REVIEW"
     )
     header_subtitle = (
-        "EOI-stage submission — review and submit as Expression of Interest, not a full technical proposal"
+        "EOI-stage submission — a complete shortlisting draft. Review and submit "
+        "as an Expression of Interest, not a full technical proposal unless shortlisted."
         if is_eoi
         else proposal.get(
             "lightweight_reason",
@@ -579,8 +591,10 @@ def send_proposal_email(opportunity_result: dict) -> None:
     action_banner = (
         """<div style="background:#e8f4fd;padding:14px 20px;border-left:4px solid #2e86c1">
         <strong>EOI STAGE:</strong> This document asks for an Expression of Interest only.
-        Review the draft below, confirm team availability, then submit as an EOI —
-        not a full technical/financial proposal unless shortlisted.
+        The draft below is a complete shortlisting file (understanding, approach
+        summary, experience, team, eligibility, criteria matrix) — not a full
+        technical/financial proposal. Review, confirm team availability, then submit
+        as an EOI unless you have been invited to the next stage.
         </div>"""
         if is_eoi
         else f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
