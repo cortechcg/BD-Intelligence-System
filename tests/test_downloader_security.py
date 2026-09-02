@@ -1,7 +1,21 @@
 import pytest
+import ipaddress
+from io import BytesIO
+from zipfile import ZipFile
 
 from processors import downloader
+from utils import urls
 from utils.urls import UnsafeURLError
+
+
+@pytest.fixture(autouse=True)
+def _public_dns(monkeypatch):
+    """Keep downloader security tests network-free while exercising DNS policy."""
+    monkeypatch.setattr(
+        urls,
+        "resolve_host_addresses",
+        lambda host: {ipaddress.ip_address("93.184.216.34")},
+    )
 
 
 class _Response:
@@ -76,6 +90,18 @@ def test_download_allows_checked_public_redirect(monkeypatch):
     ]
 
 
+def test_download_rejects_https_to_http_redirect_downgrade(monkeypatch):
+    _install_client(
+        monkeypatch,
+        [_Response(302, {"location": "http://procurement.example/insecure"})],
+    )
+
+    with pytest.raises(UnsafeURLError, match="downgrade"):
+        downloader.download_document("https://procurement.example/tender")
+
+    assert _Client.requested_urls == ["https://procurement.example/tender"]
+
+
 def test_download_stops_when_stream_exceeds_configured_limit(monkeypatch):
     _install_client(monkeypatch, [_Response(200, {}, [b"abc", b"def"])])
     monkeypatch.setattr(downloader, "MAX_DOCUMENT_BYTES", 5)
@@ -116,3 +142,24 @@ def test_download_does_not_retry_invalid_or_oversized_input(monkeypatch):
     with pytest.raises(ValueError, match="too large"):
         downloader.download_document("https://procurement.example/tender")
     assert len(attempts) == 1
+
+
+def test_drive_folder_and_html_extraction_obey_resource_caps(monkeypatch):
+    folder_html = "".join(
+        f'<a href="https://drive.google.com/file/d/id{i}/view">Annex {i}</a>'
+        for i in range(3)
+    ) + ("x" * 250)
+    monkeypatch.setattr(downloader, "download_document", lambda url: folder_html.encode())
+    monkeypatch.setattr(downloader, "MAX_GDRIVE_FILES", 2)
+    assert len(downloader._list_gdrive_folder_files("folder")) == 2
+
+    monkeypatch.setattr(downloader, "MAX_EXTRACTED_TEXT_CHARS", 10)
+    assert len(downloader.extract_text_from_html("<p>abcdefghijklmnopqrstuvwxyz</p>")) == 10
+
+
+def test_docx_zip_expansion_is_bounded_before_python_docx_parses_it(monkeypatch):
+    payload = BytesIO()
+    with ZipFile(payload, "w") as archive:
+        archive.writestr("word/document.xml", "x" * 32)
+    monkeypatch.setattr(downloader, "MAX_DOCUMENT_UNCOMPRESSED_BYTES", 16)
+    assert downloader.extract_text_from_docx(payload.getvalue()) == ""

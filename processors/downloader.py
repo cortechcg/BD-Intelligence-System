@@ -4,6 +4,7 @@ import httpx
 import pdfplumber
 from docx import Document as DocxDocument
 from io import BytesIO
+from zipfile import ZipFile
 from loguru import logger
 from database.supabase_client import store_document
 import re
@@ -15,10 +16,14 @@ from config import (
     DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS,
     DOCUMENT_DOWNLOAD_MAX_RETRIES,
     MAX_DOCUMENT_BYTES,
+    MAX_DOCUMENT_UNCOMPRESSED_BYTES,
     MAX_DOWNLOAD_REDIRECTS,
+    MAX_EXTRACTED_TEXT_CHARS,
+    MAX_GDRIVE_FILES,
 )
 from utils.errors import ErrorType
-from utils.urls import UnsafeURLError, assert_public_http_url, safe_filename
+from utils.browser_security import install_browser_request_guard
+from utils.urls import UnsafeURLError, assert_public_http_url, assert_safe_redirect, safe_filename
 
 HTTP_HEADERS = {
     "User-Agent": (
@@ -51,7 +56,7 @@ def _download_document_once(url: str) -> bytes:
     with httpx.Client(timeout=timeout, follow_redirects=False) as client:
         for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
             # Protect every hop, not only the original listing URL.
-            assert_public_http_url(current_url)
+            assert_public_http_url(current_url, resolve=True)
             with client.stream("GET", current_url, headers=HTTP_HEADERS) as response:
                 if response.status_code in {301, 302, 303, 307, 308}:
                     location = response.headers.get("location")
@@ -65,7 +70,7 @@ def _download_document_once(url: str) -> bytes:
                     next_url = urljoin(current_url, location)
                     # Validate now as well as at the next loop's start so an
                     # internal redirect is never accidentally requested.
-                    assert_public_http_url(next_url)
+                    assert_safe_redirect(current_url, next_url)
                     current_url = next_url
                     continue
 
@@ -108,7 +113,7 @@ def download_document(url: str) -> bytes:
     security for procurement documents.
     """
     try:
-        assert_public_http_url(url)
+        assert_public_http_url(url, resolve=True)
     except UnsafeURLError as e:
         logger.error(f"Download blocked ({ErrorType.SSRF_ERROR}): {e}")
         raise
@@ -140,11 +145,19 @@ def extract_text_from_pdf(content: bytes) -> str:
     try:
         with pdfplumber.open(BytesIO(content)) as pdf:
             pages = []
+            chars = 0
             for page in pdf.pages:
                 text = page.extract_text()
                 if text:
-                    pages.append(text)
-            return "\n\n".join(pages)
+                    remaining = MAX_EXTRACTED_TEXT_CHARS - chars
+                    if remaining <= 0:
+                        break
+                    pages.append(text[:remaining])
+                    chars += len(pages[-1])
+                    if chars >= MAX_EXTRACTED_TEXT_CHARS:
+                        logger.warning("PDF extracted text reached configured character cap")
+                        break
+            return "\n\n".join(pages)[:MAX_EXTRACTED_TEXT_CHARS]
     except Exception as e:
         logger.error(f"PDF extraction failed: {e} error_type={ErrorType.DOCUMENT_ERROR}")
         return ""
@@ -153,19 +166,44 @@ def extract_text_from_pdf(content: bytes) -> str:
 def extract_text_from_docx(content: bytes) -> str:
     """Extract text from DOCX bytes."""
     try:
+        # DOCX is a ZIP container. A 25 MiB download can otherwise inflate to
+        # gigabytes of XML before python-docx reaches our text-character cap.
+        with ZipFile(BytesIO(content)) as archive:
+            uncompressed = sum(info.file_size for info in archive.infolist())
+        if uncompressed > MAX_DOCUMENT_UNCOMPRESSED_BYTES:
+            raise ValueError(
+                "DOCX uncompressed content exceeds configured safety limit "
+                f"({uncompressed} bytes)"
+            )
         doc = DocxDocument(BytesIO(content))
-        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        parts = []
+        chars = 0
 
-        tables_text = []
+        def append_text(value: str) -> bool:
+            nonlocal chars
+            if not value or not value.strip() or chars >= MAX_EXTRACTED_TEXT_CHARS:
+                return chars < MAX_EXTRACTED_TEXT_CHARS
+            remaining = MAX_EXTRACTED_TEXT_CHARS - chars
+            parts.append(value[:remaining])
+            chars += len(parts[-1])
+            return chars < MAX_EXTRACTED_TEXT_CHARS
+
+        for paragraph in doc.paragraphs:
+            if not append_text(paragraph.text):
+                break
         for table in doc.tables:
             for row in table.rows:
                 row_text = " | ".join(
                     cell.text.strip() for cell in row.cells if cell.text.strip()
                 )
-                if row_text:
-                    tables_text.append(row_text)
+                if not append_text(row_text):
+                    break
+            if chars >= MAX_EXTRACTED_TEXT_CHARS:
+                break
 
-        return "\n\n".join(paragraphs) + "\n\n" + "\n".join(tables_text)
+        if chars >= MAX_EXTRACTED_TEXT_CHARS:
+            logger.warning("DOCX extracted text reached configured character cap")
+        return "\n\n".join(parts)
     except Exception as e:
         logger.error(f"DOCX extraction failed: {e} error_type={ErrorType.DOCUMENT_ERROR}")
         return ""
@@ -203,7 +241,7 @@ def extract_text_from_html(html: str) -> str:
         tag.decompose()
     text = soup.get_text(separator="\n")
     lines = [line.strip() for line in text.splitlines() if line.strip()]
-    return "\n".join(lines)
+    return "\n".join(lines)[:MAX_EXTRACTED_TEXT_CHARS]
 
 
 async def _fetch_rendered_html(url: str) -> str | None:
@@ -215,7 +253,7 @@ async def _fetch_rendered_html(url: str) -> str | None:
     from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
 
     try:
-        assert_public_http_url(url)
+        assert_public_http_url(url, resolve=True)
     except UnsafeURLError as e:
         logger.error(f"  Playwright blocked ({ErrorType.SSRF_ERROR}): {e}")
         return None
@@ -226,9 +264,12 @@ async def _fetch_rendered_html(url: str) -> str | None:
                 headless=True,
                 args=["--no-sandbox", "--disable-dev-shm-usage"],
             )
-            context = await browser.new_context(ignore_https_errors=True)
+            # Do not weaken TLS for untrusted tender sources. A bad certificate
+            # is a failed source, not a reason to accept tampered content.
+            context = await browser.new_context()
             page = await context.new_page()
             try:
+                await install_browser_request_guard(page)
                 await page.goto(url, wait_until="domcontentloaded", timeout=45000)
                 await page.wait_for_timeout(5000)
                 return await page.content()
@@ -404,7 +445,12 @@ def _list_gdrive_folder_files(folder_id: str) -> list[tuple[str, str]]:
                 files.append((file_id, f"file_{file_id[:8]}"))
 
     files.sort(key=lambda item: item[1].lower())
-    return files
+    if len(files) > MAX_GDRIVE_FILES:
+        logger.warning(
+            f"Drive folder has {len(files)} files; limiting this opportunity to "
+            f"the first {MAX_GDRIVE_FILES}"
+        )
+    return files[:MAX_GDRIVE_FILES]
 
 
 def fetch_gdrive_and_extract(url: str) -> str:
@@ -434,6 +480,7 @@ def fetch_gdrive_and_extract(url: str) -> str:
         return ""
 
     parts: list[str] = []
+    total_chars = 0
     for file_id, filename in items:
         logger.info(f"  Downloading Drive file: {filename}")
         try:
@@ -448,9 +495,13 @@ def fetch_gdrive_and_extract(url: str) -> str:
             )
             continue
         logger.success(f"  Extracted {len(text):,} chars from {filename}")
-        parts.append(
-            f"\n\n===== SOURCE FILE: {filename} =====\n\n{text.strip()}\n"
-        )
+        remaining = MAX_EXTRACTED_TEXT_CHARS - total_chars
+        if remaining <= 0:
+            logger.warning("Drive annex pack reached configured combined text cap")
+            break
+        part = f"\n\n===== SOURCE FILE: {filename} =====\n\n{text.strip()}\n"
+        parts.append(part[:remaining])
+        total_chars += len(parts[-1])
 
     combined = "".join(parts).strip()
     if combined:
@@ -469,7 +520,7 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     successful extraction.
     """
     try:
-        assert_public_http_url(url)
+        assert_public_http_url(url, resolve=True)
     except UnsafeURLError as e:
         logger.error(f"Fetch blocked ({ErrorType.SSRF_ERROR}): {e}")
         return ""
@@ -534,7 +585,7 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
     if file_type == "html" and len(text) < MIN_USEFUL_CHARS and html_source:
         for pdf_url in _find_pdf_links(html_source, url):
             try:
-                assert_public_http_url(pdf_url)
+                assert_public_http_url(pdf_url, resolve=True)
             except UnsafeURLError as e:
                 logger.warning(f"  Skipping PDF link ({ErrorType.SSRF_ERROR}): {e}")
                 continue

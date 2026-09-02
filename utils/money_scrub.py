@@ -1,6 +1,6 @@
 # utils/money_scrub.py
 """
-Deterministic guarantee that no monetary figure reaches a drafted proposal.
+Deterministic guard that no identifiable monetary amount reaches a drafted proposal.
 
 Cortech submits the technical proposal and the financial proposal as
 separate envelopes, and many procurement rules disqualify a bid outright
@@ -10,11 +10,11 @@ financial proposal totals $139,090 USD" and experience tables with a
 "Value" column — so every generated section is also scrubbed here before
 it can reach a .docx or an email.
 
-Scope: figures only. A number needs a currency marker next to it to be
-treated as money, so sample sizes ("1,200 households"), percentages,
-years, and page counts survive untouched. Amounts spelled out entirely
-in words ("one hundred thousand dollars") are not detected by regex —
-the prompt-level rule in intelligence/proposal_writer.py covers those.
+Amounts need a currency marker next to them to be treated as money, so sample
+sizes ("1,200 households"), percentages, years, and page counts survive
+untouched. Both numeric and bounded natural-language number phrases are
+supported; a phrase such as "one hundred participants" remains untouched
+because it has no currency marker.
 """
 import re
 
@@ -25,10 +25,24 @@ _CODES = (
     r"AED|SAR|QAR|CHF|SEK|NOK|DKK|CAD|AUD|JPY|CNY|INR|XOF|XAF|NGN|GHS|"
     r"EGP|MWK|ZMW|MZN|BWP"
 )
-_WORDS = r"dollars?|shillings?|euros?|pounds? sterling|pounds?|birr|francs?"
+_WORDS = (
+    r"(?:US\s+)?dollars?|(?:Kenyan|Kenya|Tanzanian|Ugandan|Somali|Somalia)\s+shillings?|"
+    r"shillings?|euros?|pounds? sterling|pounds?|birr|francs?"
+)
 _SYMBOLS = r"US\$|\$|€|£|¥|₦|₹|KSh\.?|Ksh\.?|Sh\.?"
 _SCALE = r"(?:\s*(?:million|billion|trillion|thousand|mn|bn|m|k))?"
 _NUM = r"\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
+
+# The longest accepted phrase is deliberately bounded. It recognizes ordinary
+# English tender/proposal amounts without treating arbitrary prose containing a
+# number word as a monetary expression.
+_NUMBER_WORD = (
+    r"zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|"
+    r"twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|"
+    r"hundred|thousand|million|billion|trillion"
+)
+_WORD_NUMBER = rf"(?:{_NUMBER_WORD})(?:[\s-]+(?:and[\s-]+)?(?:{_NUMBER_WORD})){{0,11}}"
 
 # "$139,090", "USD 139,090", "KES 3.5M", "€1 200", "$139,090 USD" — the
 # optional trailing code matters: without it a table cell reading
@@ -36,8 +50,13 @@ _NUM = r"\d{1,3}(?:[,\s]\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?"
 _PREFIXED = rf"(?:{_CODES}|{_SYMBOLS})\s*(?:{_NUM}){_SCALE}(?:\s*(?:{_CODES}))?"
 # "139,090 USD", "3.5 million shillings", "45,000 EUR"
 _SUFFIXED = rf"(?:{_NUM}){_SCALE}\s*(?:{_CODES}|{_WORDS})\b"
+_WORD_PREFIXED = rf"(?:{_CODES}|{_SYMBOLS})\s*(?:{_WORD_NUMBER})\b"
+_WORD_SUFFIXED = rf"(?:{_WORD_NUMBER})\s*(?:{_CODES}|{_WORDS})\b"
 
-_AMOUNT_RE = re.compile(rf"(?<![\w.]){_PREFIXED}|(?<![\w.]){_SUFFIXED}", re.IGNORECASE)
+_AMOUNT_RE = re.compile(
+    rf"(?<![\w.])(?:{_PREFIXED}|{_SUFFIXED}|{_WORD_PREFIXED}|{_WORD_SUFFIXED})",
+    re.IGNORECASE,
+)
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 

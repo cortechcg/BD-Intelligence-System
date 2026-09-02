@@ -45,6 +45,18 @@ def _positive_int_env(name: str, default: int) -> int:
     return value
 
 
+def _nonnegative_int_env(name: str, default: int) -> int:
+    """Read a non-negative integer setting (zero is a valid hard stop)."""
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a non-negative integer, got {raw!r}") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative integer, got {value}")
+    return value
+
+
 # Download limits are deliberately finite: tender URLs are untrusted and a
 # malformed or hostile endpoint must not exhaust the agent's memory or disk.
 DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS = _positive_int_env(
@@ -53,6 +65,13 @@ DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS = _positive_int_env(
 MAX_DOCUMENT_BYTES = _positive_int_env("MAX_DOCUMENT_BYTES", 25 * 1024 * 1024)
 MAX_DOWNLOAD_REDIRECTS = _positive_int_env("MAX_DOWNLOAD_REDIRECTS", 5)
 DOCUMENT_DOWNLOAD_MAX_RETRIES = _positive_int_env("DOCUMENT_DOWNLOAD_MAX_RETRIES", 2)
+# Google Drive folders are untrusted annex containers. Keep one listing from
+# expanding an opportunity into an unbounded document/parse workload.
+MAX_GDRIVE_FILES = _positive_int_env("MAX_GDRIVE_FILES", 25)
+MAX_EXTRACTED_TEXT_CHARS = _positive_int_env("MAX_EXTRACTED_TEXT_CHARS", 120_000)
+MAX_DOCUMENT_UNCOMPRESSED_BYTES = _positive_int_env(
+    "MAX_DOCUMENT_UNCOMPRESSED_BYTES", 100 * 1024 * 1024
+)
 
 _CLIENT_CACHE: dict[str, object] = {}
 
@@ -284,14 +303,14 @@ RSS_FEEDS = []
 
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
 SOON_DEADLINE_DAYS = 7     # Flag as soon if deadline in N days
-CHECK_INTERVAL_HOURS = int(os.getenv("CHECK_INTERVAL_HOURS", "6"))  # polling interval for continuous (non --once) mode
+CHECK_INTERVAL_HOURS = _positive_int_env("CHECK_INTERVAL_HOURS", 6)
 
 # Hard ceiling on how many opportunities one run will draft for. Each one
 # costs up to ~10 Claude calls, so an unbounded run over a big discovery
 # batch takes hours and a lot of credit. Nothing is lost by capping: an
 # opportunity is only written to Supabase once it has been processed, so
 # whatever is deferred here is rediscovered on the next run.
-MAX_OPPORTUNITIES_PER_RUN = int(os.getenv("MAX_OPPORTUNITIES_PER_RUN", "15"))
+MAX_OPPORTUNITIES_PER_RUN = _nonnegative_int_env("MAX_OPPORTUNITIES_PER_RUN", 15)
 
 # WATCH-rated opportunities used to get a two-section quick flag (cover
 # letter + executive summary) instead of a draft. A WATCH is a mid-scoring

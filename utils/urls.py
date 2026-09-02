@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import socket
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from utils.errors import ErrorType
@@ -22,18 +23,6 @@ TRACKING_QUERY_KEYS = {
     "yclid",
     "igshid",
 }
-
-_PRIVATE_NETWORKS = [
-    ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-]
 
 _BLOCKED_HOSTS = {
     "localhost",
@@ -105,7 +94,45 @@ def url_identity_keys(url: str) -> list[str]:
     return keys
 
 
-def _host_is_blocked(host: str) -> bool:
+def _ip_is_public(ip: ipaddress._BaseAddress) -> bool:
+    """Return whether an address is globally routable enough to fetch.
+
+    ``is_private`` alone is not sufficient: it misses multicast, unspecified,
+    documentation, carrier-grade NAT, and several IPv4-mapped IPv6 forms on
+    different Python versions. A fetcher has no business connecting to any
+    address that the standard library does not classify as global.
+    """
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        return _ip_is_public(mapped)
+    return bool(ip.is_global)
+
+
+def resolve_host_addresses(host: str) -> set[ipaddress._BaseAddress]:
+    """Resolve a hostname for fetch-time SSRF validation.
+
+    This is intentionally a small, injectable boundary: tests can provide a
+    deterministic resolver and all network fetchers use the same policy. DNS
+    answers are checked immediately before each request/navigation, reducing
+    (but not fully eliminating) DNS-rebinding TOCTOU risk.
+    """
+    try:
+        results = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise UnsafeURLError(f"could not resolve host: {host}") from exc
+
+    addresses: set[ipaddress._BaseAddress] = set()
+    for _family, _socktype, _proto, _canonname, sockaddr in results:
+        try:
+            addresses.add(ipaddress.ip_address(sockaddr[0]))
+        except ValueError as exc:
+            raise UnsafeURLError(f"resolver returned invalid address for {host}") from exc
+    if not addresses:
+        raise UnsafeURLError(f"host resolved to no addresses: {host}")
+    return addresses
+
+
+def _host_is_blocked(host: str, *, resolve: bool = False) -> bool:
     if not host:
         return True
     if host in _BLOCKED_HOSTS:
@@ -113,28 +140,36 @@ def _host_is_blocked(host: str) -> bool:
     try:
         ip = ipaddress.ip_address(host)
     except ValueError:
-        return False
-    return any(ip in net for net in _PRIVATE_NETWORKS)
+        if not resolve:
+            return False
+        return any(not _ip_is_public(ip) for ip in resolve_host_addresses(host))
+    return not _ip_is_public(ip)
 
 
-def assert_public_http_url(url: str) -> str:
+def assert_public_http_url(url: str, *, resolve: bool = False) -> str:
     """Raise UnsafeURLError if this URL must not be fetched by the downloader.
 
-    DNS rebinding after this check is not fully solved here (would need
-    a pin-the-resolved-IP httpx transport). This blocks the obvious cases:
-    non-http schemes, localhost, link-local/metadata, and literal private IPs.
+    With ``resolve=True`` the current DNS answers are also checked before a
+    fetch/navigation. Fetchers must use that mode for every hop. This cannot
+    fully pin a later HTTP-client/browser lookup against DNS rebinding, but it
+    blocks literal, numeric-alias, and currently-resolved private destinations.
     """
     raw = (url or "").strip()
     if not raw:
         raise UnsafeURLError("empty URL")
 
-    parsed = urlparse(raw)
+    try:
+        parsed = urlparse(raw)
+        # Accessing .port validates malformed/non-numeric port syntax.
+        _ = parsed.port
+    except ValueError as exc:
+        raise UnsafeURLError("malformed URL port") from exc
     scheme = (parsed.scheme or "").lower()
     if scheme not in {"http", "https"}:
         raise UnsafeURLError(f"blocked scheme: {scheme or 'none'}")
 
     host = (parsed.hostname or "").lower()
-    if _host_is_blocked(host):
+    if _host_is_blocked(host, resolve=resolve):
         raise UnsafeURLError(f"blocked host: {host}")
 
     # Userinfo in a tender URL is unusual and is a credential-smuggling vector.
@@ -142,6 +177,18 @@ def assert_public_http_url(url: str) -> str:
         raise UnsafeURLError("URL must not contain userinfo")
 
     return raw
+
+
+def assert_safe_redirect(source_url: str, target_url: str) -> str:
+    """Validate a redirect target and reject HTTPS-to-HTTP downgrade hops."""
+    try:
+        source_scheme = (urlparse((source_url or "").strip()).scheme or "").lower()
+        target_scheme = (urlparse((target_url or "").strip()).scheme or "").lower()
+    except ValueError as exc:
+        raise UnsafeURLError("malformed redirect URL") from exc
+    if source_scheme == "https" and target_scheme == "http":
+        raise UnsafeURLError("blocked HTTPS-to-HTTP redirect downgrade")
+    return assert_public_http_url(target_url, resolve=True)
 
 
 _UNSAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")

@@ -116,6 +116,11 @@ cp .env.example .env
 
 Fill in `.env` with real values — see [Environment Variables Reference](#environment-variables-reference) below for where each one comes from. Then:
 
+Before the first production run, open the Supabase SQL Editor and apply
+`supabase_migration_opportunity_state.sql`. It creates the ownership-bound
+lease ledger used for retryable opportunity processing; without it the agent
+fails open (never drops a tender), but cannot provide cross-process deduplication.
+
 ```bash
 python main.py --once
 ```
@@ -137,10 +142,10 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `RESEND_API_KEY` / `EMAIL_SENDER` | resend.com → API Keys, and a verified sending domain/address. Listed in `.env.example`. |
 | `IMAP_HOST` / `IMAP_PORT` / `IMAP_USERNAME` / `IMAP_PASSWORD` | Whatever mail provider hosts the inbox receiving the ICA newsletter — likely different credentials than `GMAIL_ADDRESS` above, do not assume they're interchangeable |
 | `CHECK_INTERVAL_HOURS` | How often the main discovery pipeline runs, in hours. Defaults to `6`. |
-| `HEALTHCHECK_URL` | Optional. A Healthchecks.io-style ping URL for dead-man's-switch monitoring. Safe to leave blank — every call site checks for this being empty first. |
+| `HEALTHCHECK_URL` | Optional. A public Healthchecks.io-style ping URL for the **full discovery pipeline**. It receives one bounded HTTPS ping only after `--once` / scheduled discovery completes; an unhandled discovery failure sends its `/fail` endpoint. It is not pulsed by deadline alerts or manual submits, so those cannot mask a missed discovery run. Leave blank to disable. |
 | `FULL_DRAFT_FOR_WATCH` | `true` (current default) generates the full proposal even for WATCH-tier opportunities. Set to `false` for the lightweight cover-letter-only path. |
 | `ANTHROPIC_TIMEOUT_SECONDS` / `ANTHROPIC_MAX_RETRIES` | Claude call timeout (default 180s) and SDK retries (default 2). |
-| `DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` / `MAX_DOCUMENT_BYTES` / `MAX_DOWNLOAD_REDIRECTS` / `DOCUMENT_DOWNLOAD_MAX_RETRIES` | Limits for untrusted document downloads. Defaults: 60 seconds, 25 MiB, 5 redirects, and 2 transient retries. |
+| `DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` / `MAX_DOCUMENT_BYTES` / `MAX_DOWNLOAD_REDIRECTS` / `DOCUMENT_DOWNLOAD_MAX_RETRIES` / `MAX_GDRIVE_FILES` / `MAX_EXTRACTED_TEXT_CHARS` / `MAX_DOCUMENT_UNCOMPRESSED_BYTES` | Limits for untrusted document downloads and Drive annex packs. Defaults: 60 seconds, 25 MiB, 5 redirects, 2 transient retries, 25 Drive files, 120,000 extracted characters, and 100 MiB expanded DOCX content. |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
 `python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
@@ -264,7 +269,7 @@ This validates the Airtable base's field names against what the code expects —
 
 ### Step 5 — Only run the SQL migrations if Supabase itself needed to be recreated from scratch
 
-If Step 4 confirms you're connected to the real, existing Supabase project, **skip this step** — the schema and all embedded data are already there. Only run `supabase_migration_semantic_dedup.sql` and `supabase_migration_win_loss.sql` in the SQL Editor if you genuinely had to create a brand-new Supabase project (i.e., the old one is truly gone, not just temporarily unreachable).
+If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; the older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
 
 ### Step 6 — Recreate the systemd timers
 

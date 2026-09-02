@@ -6,6 +6,7 @@ All results pass through the same three-gate filter as RSS entries.
 """
 
 import asyncio
+from urllib.parse import urljoin
 
 import httpx
 from playwright.async_api import async_playwright, TimeoutError as PlaywrightTimeout
@@ -13,7 +14,14 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
 from monitors.rss_monitor import quick_relevance_check
-from utils.urls import canonicalize_url
+from utils.browser_security import install_browser_request_guard
+from config import MAX_DOCUMENT_BYTES, MAX_DOWNLOAD_REDIRECTS
+from utils.urls import (
+    UnsafeURLError,
+    assert_public_http_url,
+    assert_safe_redirect,
+    canonicalize_url,
+)
 
 HTTP_HEADERS = {
     "User-Agent": (
@@ -53,21 +61,49 @@ SCRAPE_SOURCES = [
 # ── PAGE FETCHERS ─────────────────────────────────────────────────────────────
 
 async def fetch_with_httpx(url: str, timeout_ms: int) -> str | None:
-    """Fast static fetch — sufficient for most procurement list pages."""
+    """Fast static fetch with the same per-hop SSRF policy as downloads."""
+    current_url = url
     try:
         async with httpx.AsyncClient(
-            follow_redirects=True,
+            # Redirect targets are untrusted and must be checked before a
+            # socket is opened. httpx's automatic redirect follower cannot do
+            # that for us.
+            follow_redirects=False,
             timeout=timeout_ms / 1000,
             headers=HTTP_HEADERS,
         ) as client:
-            response = await client.get(url)
-            # Many NGO portals return 404 for legacy URLs but still serve HTML
-            if len(response.text) >= MIN_USEFUL_HTML_CHARS:
-                return response.text
-            logger.debug(
-                f"  httpx returned thin page ({response.status_code}, "
-                f"{len(response.text)} chars): {url}"
-            )
+            for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
+                assert_public_http_url(current_url, resolve=True)
+                async with client.stream("GET", current_url) as response:
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        location = response.headers.get("location")
+                        if not location:
+                            response.raise_for_status()
+                            raise RuntimeError("Redirect response did not include a Location header")
+                        if redirect_count >= MAX_DOWNLOAD_REDIRECTS:
+                            raise RuntimeError("Too many redirects while fetching a scraper page")
+                        next_url = urljoin(current_url, location)
+                        assert_safe_redirect(current_url, next_url)
+                        current_url = next_url
+                        continue
+
+                    # Many NGO portals return 404 for legacy URLs but still
+                    # serve useful HTML, so preserve that legacy behavior.
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > MAX_DOCUMENT_BYTES:
+                            raise ValueError("Scraper page exceeds configured byte limit")
+                    text = body.decode(response.encoding or "utf-8", errors="replace")
+                    if len(text) >= MIN_USEFUL_HTML_CHARS:
+                        return text
+                    logger.debug(
+                        f"  httpx returned thin page ({response.status_code}, "
+                        f"{len(text)} chars): {url}"
+                    )
+                    return None
+    except (UnsafeURLError, ValueError) as e:
+        logger.warning(f"  Static scraper fetch blocked: {e}")
     except Exception as e:
         logger.debug(f"  httpx fetch failed for {url}: {e}")
     return None
@@ -127,6 +163,7 @@ async def fetch_with_browser(
     """
     page = await browser.new_page()
     try:
+        await install_browser_request_guard(page)
         await page.set_extra_http_headers(HTTP_HEADERS)
         await page.goto(url, wait_until="commit", timeout=timeout_ms)
         if wait_for:
