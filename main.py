@@ -31,6 +31,8 @@ import json
 import uuid
 import schedule
 import time
+from contextvars import ContextVar
+from dataclasses import dataclass
 from datetime import datetime
 
 from loguru import logger
@@ -54,6 +56,9 @@ from reporting.docx_builder import SECTION_ORDER
 from intelligence.learning import process_win_loss_outcomes
 from database.supabase_client import (
     check_opportunity_exists,
+    claim_opportunity_processing,
+    complete_opportunity_processing,
+    fail_opportunity_processing,
     store_opportunity,
 )
 from database.airtable_client import (
@@ -78,6 +83,7 @@ from utils.observability import (
     reset_opportunity_usage,
 )
 from utils.urls import canonicalize_url
+from utils.healthcheck import ping_healthcheck
 
 console = Console()
 
@@ -89,11 +95,136 @@ MIN_FETCHED_CHARS = 200
 MIN_BLURB_CHARS = 40
 
 
+@dataclass
+class _ExecutionBudget:
+    limit: int
+    used: int = 0
+
+
+_execution_budget: ContextVar[_ExecutionBudget | None] = ContextVar(
+    "execution_budget", default=None
+)
+_pipeline_outcome: ContextVar[str] = ContextVar(
+    "pipeline_outcome", default="retryable"
+)
+
+
+def _start_execution_budget() -> _ExecutionBudget:
+    """Start a per-command hard cap at the actual processing boundary."""
+    budget = _ExecutionBudget(limit=max(0, int(MAX_OPPORTUNITIES_PER_RUN)))
+    _execution_budget.set(budget)
+    return budget
+
+
+def _remaining_execution_budget() -> int:
+    budget = _execution_budget.get()
+    if budget is None:
+        return max(0, int(MAX_OPPORTUNITIES_PER_RUN))
+    return max(0, budget.limit - budget.used)
+
+
+def _reserve_processing_slot() -> bool:
+    """Reserve one opportunity attempt; no command can exceed its cap."""
+    budget = _execution_budget.get()
+    if budget is None:
+        # ``process_opportunity`` is also a public library entry point. Give a
+        # caller that did not establish a run context the same hard ceiling
+        # rather than silently creating an unbounded alternate path.
+        budget = _start_execution_budget()
+    if budget.used >= budget.limit:
+        return False
+    budget.used += 1
+    return True
+
+
+def _run_monitored(name: str, callback, *, heartbeat: bool = False):
+    """Report a *full discovery* completion, never incidental job liveness.
+
+    One HEALTHCHECK_URL represents the configured discovery pipeline. Deadline
+    alerts, manual submits, and maintenance jobs must not make a failed
+    discovery run look healthy merely because they happened to succeed.
+    """
+    try:
+        result = callback()
+    except BaseException:
+        if heartbeat:
+            ping_healthcheck(failed=True)
+        logger.exception(f"{name} run failed")
+        raise
+    if heartbeat:
+        ping_healthcheck(failed=False)
+    return result
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SINGLE OPPORTUNITY PIPELINE
 # ══════════════════════════════════════════════════════════════════════════════
 
 def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | None:
+    """Claim a retryable workflow lease, then run one opportunity pipeline.
+
+    ``opportunities_cache`` is a successful-content cache, never the source of
+    truth for whether processing is complete. A failed fetch/analysis/draft
+    releases this lease and is therefore retryable on the next execution.
+    """
+    raw_opportunity = raw_opportunity or {}
+    title = raw_opportunity.get("title") or "Unknown"
+    if not isinstance(title, str):
+        title = "Unknown"
+    source_url = raw_opportunity.get("source_url", "")
+    dedup_url = raw_opportunity.get("dedup_url") or source_url
+    dedup_url = canonicalize_url(dedup_url) or dedup_url
+
+    claim_token = claim_opportunity_processing(dedup_url, title, force=force)
+    if not claim_token:
+        logger.info(f"Opportunity already completed or actively claimed: {title[:60]}")
+        return None
+    # Do not let completed/actively-claimed duplicates consume a run slot.
+    # If local capacity was exhausted between discovery and the atomic claim,
+    # release this lease so another run can process it normally.
+    if not _reserve_processing_slot():
+        fail_opportunity_processing(dedup_url, claim_token, "deferred: processing cap reached")
+        logger.info(
+            f"Processing cap reached ({MAX_OPPORTUNITIES_PER_RUN}); deferring "
+            f"'{title[:60]}'"
+        )
+        return None
+
+    token = _pipeline_outcome.set("retryable")
+    try:
+        result = _process_opportunity_pipeline(raw_opportunity, force=force)
+        outcome = _pipeline_outcome.get()
+    except BaseException as exc:
+        fail_opportunity_processing(dedup_url, claim_token, f"unhandled pipeline error: {exc}")
+        raise
+    finally:
+        _pipeline_outcome.reset(token)
+
+    if result:
+        cache_text = result.pop("_cache_text", "")
+        cache_title = result.get("title") or title
+        # Durable completion precedes semantic-cache indexing. If the process
+        # dies between them, exact dedup is still correct; the reverse order
+        # would let a half-finished cache row suppress a retry semantically.
+        if not complete_opportunity_processing(dedup_url, claim_token):
+            logger.warning("Completion state was not persisted; leaving opportunity retryable")
+            return result
+        try:
+            store_opportunity(dedup_url, cache_title, cache_text)
+        except Exception as exc:
+            logger.warning(f"Supabase successful-content cache write failed: {exc}")
+        return result
+
+    if outcome == "terminal":
+        # A confirmed staff vacancy or deterministic NO-BID is intentionally
+        # terminal, unlike an infrastructure/analysis failure.
+        complete_opportunity_processing(dedup_url, claim_token)
+    else:
+        fail_opportunity_processing(dedup_url, claim_token, "pipeline did not complete")
+    return None
+
+
+def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) -> dict | None:
     """
     Runs the full pipeline for one opportunity.
 
@@ -115,7 +246,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     dedup_url  = raw_opportunity.get("dedup_url") or source_url
     dedup_url  = canonicalize_url(dedup_url) or dedup_url
     opp_id     = str(uuid.uuid4())
-    reset_opportunity_usage()
+    reset_opportunity_usage(opp_id)
 
     console.print(f"\n[bold blue]Processing:[/bold blue] {title[:70]}")
 
@@ -165,14 +296,10 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     )
     log_stage("fetch", "ok", chars=len(full_text), content_sha256=content_hash(full_text)[:12])
 
-    # ── STEP 2: CACHE IN SUPABASE ──────────────────────────────────────────
-    # Keyed on dedup_url, which is what the monitors check against.
-    try:
-        store_opportunity(dedup_url, title, full_text)
-    except Exception as e:
-        logger.warning(f"  Supabase cache write failed (non-fatal): {e}")
-
-    # ── STEP 3: CLAUDE ANALYSIS ────────────────────────────────────────────
+    # ── STEP 2: CLAUDE ANALYSIS ────────────────────────────────────────────
+    # The raw document is cached only after this opportunity completes. A
+    # pre-analysis cache write used to make transient analysis failures look
+    # permanently processed to future discovery runs.
     logger.info("  Step 2: Analyzing...")
     analysis = analyze_rfp(full_text, opportunity_id=opp_id, title=title)
 
@@ -223,6 +350,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             f"  [red]Staff vacancy — stopping pipeline[/red]\n"
             f"  [dim]{rationale[:100]}[/dim]"
         )
+        _pipeline_outcome.set("terminal")
         return None
     elif not is_consultancy and force:
         logger.warning(
@@ -269,6 +397,7 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             recommendation="NO-BID",
             decision_state="HUMAN_REVIEW_REQUIRED",
         )
+        _pipeline_outcome.set("terminal")
         return None
     elif recommendation == "NO-BID" and force:
         logger.warning(
@@ -469,7 +598,13 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         "matched_team":      matched_team_result,
         "budget":            budget,
         "proposal_sections": proposal_sections,
+        # Exact provider-call records and aggregate measured/unknown usage for
+        # this opportunity; never a guessed section token constant.
+        "llm_usage": usage,
         "estimated_cost_usd": est_cost,
+        # Private handoff to the outer state wrapper. It is removed before
+        # email/reporting callers receive the result.
+        "_cache_text": full_text,
     }
 
 
@@ -489,6 +624,7 @@ def submit_single_url(url: str) -> None:
     """
     console.print(Panel(f"Manual submission: {url}", style="bold cyan"))
     new_execution_id()
+    _start_execution_budget()
 
     if check_opportunity_exists(url):
         console.print(
@@ -568,7 +704,7 @@ def submit_single_url(url: str) -> None:
 # PIPELINE RUNNER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def run_pipeline() -> None:
+def _run_pipeline() -> None:
     """
     Main pipeline execution — called by scheduler and --once flag.
 
@@ -577,6 +713,7 @@ def run_pipeline() -> None:
     and sends a summary report at the end of each run.
     """
     eid = new_execution_id()
+    _start_execution_budget()
     console.print(Panel.fit(
         f"[bold blue]Cortech BD Agent Running[/bold blue]\n"
         f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  execution_id={eid}[/dim]",
@@ -774,7 +911,12 @@ def run_pipeline() -> None:
         pass
 
 
-def run_assortis_check() -> None:
+def run_pipeline() -> None:
+    """Public, monitored full-discovery command."""
+    return _run_monitored("pipeline", _run_pipeline, heartbeat=True)
+
+
+def _run_assortis_check() -> None:
     """
     Runs independently of run_pipeline() — the newsletter arrives on
     its own schedule, not the general discovery cycle's.
@@ -784,7 +926,15 @@ def run_assortis_check() -> None:
     """
     logger.info("Checking Assortis/ICA newsletter...")
     new_execution_id()
+    _start_execution_budget()
     opportunities = check_assortis_newsletter()
+    remaining = _remaining_execution_budget()
+    if len(opportunities) > remaining:
+        logger.warning(
+            f"Assortis run capped at {remaining} of {len(opportunities)} "
+            "opportunities; remainder will be rediscovered/retried next run"
+        )
+        opportunities = opportunities[:remaining]
     drafted = 0
     for opp in opportunities:
         try:
@@ -821,7 +971,12 @@ def run_assortis_check() -> None:
     )
 
 
-def run_deadline_check() -> None:
+def run_assortis_check() -> None:
+    """Public, monitored newsletter-only command with the same hard cap."""
+    return _run_monitored("assortis", _run_assortis_check)
+
+
+def _run_deadline_check() -> None:
     """
     Independent of run_pipeline() — checks OPPORTUNITIES already in
     Airtable for approaching deadlines and sends an escalation digest.
@@ -861,6 +1016,10 @@ def run_deadline_check() -> None:
         logger.info("Deadline check: nothing urgent")
 
 
+def run_deadline_check() -> None:
+    return _run_monitored("deadline", _run_deadline_check)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CONTINUOUS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -896,7 +1055,9 @@ def start_scheduler() -> None:
     schedule.every().day.at("11:45").do(run_assortis_check)
 
     schedule.every().day.at("08:00").do(run_deadline_check)
-    schedule.every().day.at("08:15").do(process_win_loss_outcomes)
+    schedule.every().day.at("08:15").do(
+        lambda: _run_monitored("winloss", process_win_loss_outcomes)
+    )
 
     logger.info(
         f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours, "
@@ -921,7 +1082,7 @@ if __name__ == "__main__":
         if idx + 1 >= len(sys.argv):
             print("Usage: python main.py --submit-url <url>")
             sys.exit(1)
-        submit_single_url(sys.argv[idx + 1])
+        _run_monitored("manual_submission", lambda: submit_single_url(sys.argv[idx + 1]))
     elif "--once" in sys.argv:
         run_pipeline()
     # The systemd timers (see README) invoke these three individually.
@@ -933,6 +1094,6 @@ if __name__ == "__main__":
     elif "--run-deadline-check" in sys.argv:
         run_deadline_check()
     elif "--run-winloss" in sys.argv:
-        process_win_loss_outcomes()
+        _run_monitored("winloss", process_win_loss_outcomes)
     else:
-        start_scheduler()
+        _run_monitored("scheduler", start_scheduler)

@@ -11,6 +11,8 @@ import asyncio
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 from bs4 import BeautifulSoup
 from loguru import logger
+from utils.browser_security import install_browser_request_guard
+from utils.urls import UnsafeURLError, assert_public_http_url
 
 SOURCES_TO_CHECK = [
     {
@@ -31,6 +33,11 @@ async def diagnose_source(browser, source: dict) -> None:
     print(f"{'='*60}")
 
     try:
+        # This diagnostic loads URLs configured by a developer, but its page
+        # still follows arbitrary portal redirects and subresources. Use the
+        # production browser policy rather than creating a privileged bypass.
+        assert_public_http_url(url, resolve=True)
+        await install_browser_request_guard(page)
         await page.set_extra_http_headers({
             "User-Agent": (
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
@@ -109,7 +116,7 @@ async def diagnose_source(browser, source: dict) -> None:
             if classes:
                 print(f"  <{tag.name} class='{' '.join(classes)}'>")
 
-    except PWTimeout:
+    except (PWTimeout, UnsafeURLError):
         print(f"TIMEOUT — page took too long to load")
     except Exception as e:
         print(f"ERROR — {e}")

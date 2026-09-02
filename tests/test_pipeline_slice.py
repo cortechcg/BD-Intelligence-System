@@ -37,6 +37,9 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
     updates = []
     stored = []
     monkeypatch.setattr(main, "fetch_and_extract", lambda *args, **kwargs: "Terms of Reference " * 30)
+    monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
+    monkeypatch.setattr(main, "complete_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "fail_opportunity_processing", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "store_opportunity", lambda *args: stored.append(args) or "cache-id")
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: _high_fit_analysis())
     monkeypatch.setattr(main, "create_opportunity", lambda payload: "airtable-id")
@@ -80,6 +83,9 @@ def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
         "certifications": [],
     }
     monkeypatch.setattr(main, "fetch_and_extract", lambda *args, **kwargs: "Terms of Reference " * 30)
+    monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
+    monkeypatch.setattr(main, "complete_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "fail_opportunity_processing", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "store_opportunity", lambda *args: "cache-id")
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: analysis)
     monkeypatch.setattr(main, "create_opportunity", lambda payload: saved.append(payload) or "airtable-id")

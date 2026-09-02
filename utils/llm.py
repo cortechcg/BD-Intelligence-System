@@ -44,8 +44,14 @@ def complete(
     max_tokens: int = 8192,
     timeout: float | None = None,
     max_retries: int | None = None,
+    stage: str = "",
 ):
-    """One Anthropic Messages call. `system` may be a string or text-block list."""
+    """One Anthropic Messages call with provider-bound usage recording.
+
+    Recording here is the lowest reliable common boundary: every Anthropic
+    request, including retries/continuations, is counted exactly once from the
+    provider response rather than from guessed section-level token totals.
+    """
     client = get_anthropic_client(timeout=timeout, max_retries=max_retries)
     kwargs: dict[str, Any] = {
         "model": model,
@@ -54,7 +60,13 @@ def complete(
     }
     if system is not None:
         kwargs["system"] = system
-    return client.messages.create(**kwargs)
+    response = client.messages.create(**kwargs)
+    # Local import avoids a module-import cycle: observability reads helpers
+    # from this module when it processes the provider response.
+    from utils.observability import record_usage
+
+    record_usage(response, model, stage=stage)
+    return response
 
 
 def get_text(response) -> str:

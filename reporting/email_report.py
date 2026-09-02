@@ -7,12 +7,14 @@ import base64
 import html
 import math
 import os
+import re
 import smtplib
 import ssl
 import httpx
 from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx
+from utils.urls import UnsafeURLError, assert_public_http_url
 
 
 def _html(value) -> str:
@@ -32,6 +34,29 @@ def _usd(value) -> str:
 def _subject_text(value) -> str:
     """Prevent untrusted titles from injecting a second mail header."""
     return " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
+
+
+def _safe_color(value, default: str = "#666666") -> str:
+    """Allow only literal CSS colours controlled by this application."""
+    candidate = str(value or "")
+    return candidate if re.fullmatch(r"#[0-9A-Fa-f]{6}", candidate) else default
+
+
+def _safe_href(value) -> str:
+    """Return a safe public HTTP(S) href or an inert empty target."""
+    try:
+        return _html(assert_public_http_url(str(value or "")))
+    except UnsafeURLError:
+        return ""
+
+
+def _number(value, default: float = 0) -> float:
+    """Keep external/Airtable values out of numeric HTML/style decisions."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
 
 
 def _get_recipients() -> list[str]:
@@ -196,14 +221,14 @@ def send_deadline_alert_email(urgent: list[dict]) -> None:
     rows_html = ""
     for opp in sorted_opps:
         urgency = opp.get("urgency", {})
-        color = urgency.get("color", "#666666")
+        color = _safe_color(urgency.get("color"), "#666666")
         rows_html += f"""
         <tr style="border-left:4px solid {color}">
-            <td style="padding:10px;border:1px solid #ddd;font-weight:bold">{opp.get('title', '')}</td>
-            <td style="padding:10px;border:1px solid #ddd">{opp.get('client', '')}</td>
-            <td style="padding:10px;border:1px solid #ddd">{str(opp.get('deadline', ''))[:10]}</td>
+            <td style="padding:10px;border:1px solid #ddd;font-weight:bold">{_html(opp.get('title', ''))}</td>
+            <td style="padding:10px;border:1px solid #ddd">{_html(opp.get('client', ''))}</td>
+            <td style="padding:10px;border:1px solid #ddd">{_html(str(opp.get('deadline', ''))[:10])}</td>
             <td style="padding:10px;border:1px solid #ddd;color:{color};font-weight:bold">
-                {urgency.get('prefix', urgency.get('level', ''))}
+                {_html(urgency.get('prefix', urgency.get('level', '')))}
             </td>
         </tr>"""
 
@@ -320,25 +345,25 @@ def build_html_report(stats: dict, new_opportunities: list[dict]) -> str:
     for opp in stats.get("urgent", []):
         urgent_html += f"""
         <tr style="background:#fff3cd">
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{opp['title']}</td>
-            <td style="padding:8px;border:1px solid #ddd">{opp['client']}</td>
-            <td style="padding:8px;border:1px solid #ddd;color:red;font-weight:bold">{opp['days_left']} days</td>
-            <td style="padding:8px;border:1px solid #ddd">{opp['score']}/100</td>
-            <td style="padding:8px;border:1px solid #ddd">{opp['status']}</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{_html(opp.get('title', ''))}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(opp.get('client', ''))}</td>
+            <td style="padding:8px;border:1px solid #ddd;color:red;font-weight:bold">{_html(opp.get('days_left', ''))} days</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(opp.get('score', ''))}/100</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(opp.get('status', ''))}</td>
         </tr>"""
 
     new_opps_html = ""
     for opp in new_opportunities[:10]:
-        score = opp.get("relevance_score", 0)
+        score = _number(opp.get("relevance_score", 0))
         color = "#d4edda" if score >= 70 else "#fff3cd" if score >= 50 else "#f8d7da"
         rec = opp.get("bid_recommendation", "N/A")
         new_opps_html += f"""
         <tr style="background:{color}">
-            <td style="padding:8px;border:1px solid #ddd">{opp.get('title', '')[:50]}</td>
-            <td style="padding:8px;border:1px solid #ddd">{opp.get('client', '')}</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{score}/100</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{rec}</td>
-            <td style="padding:8px;border:1px solid #ddd">{opp.get('submission_deadline', 'TBD')[:10]}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(str(opp.get('title', ''))[:50])}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(opp.get('client', ''))}</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{_html(score)}/100</td>
+            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{_html(rec)}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(str(opp.get('submission_deadline', 'TBD'))[:10])}</td>
         </tr>"""
 
     html = f"""
@@ -447,7 +472,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     if not isinstance(client, str):
         client = "Unknown Client"
     deadline    = opportunity_result.get("deadline", "TBD")
-    score       = opportunity_result.get("score", 0)
+    score       = _number(opportunity_result.get("score", 0))
     source_url  = opportunity_result.get("source_url", "")
     budget_cap  = opportunity_result.get("budget_cap", 0)
     proposal    = opportunity_result.get("proposal_sections", {})
@@ -498,8 +523,10 @@ def send_proposal_email(opportunity_result: dict) -> None:
     # ── TEAM TABLE ─────────────────────────────────────────────────────────
     team_rows_html = ""
     for role, match in team_matches.items():
+        if not isinstance(match, dict):
+            continue
         name  = match.get("consultant_name", "TBD")
-        score_pct = match.get("similarity_score", 0)
+        score_pct = _number(match.get("similarity_score", 0))
         avail = match.get("availability_flag", "Unknown")
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
@@ -673,7 +700,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 </td>
                 <td style="padding:4px 0">
                     <strong>Deadline:</strong>
-                    <span style="color:{urgency.get('color', '#dc3545')};font-weight:bold">
+                    <span style="color:{_safe_color(urgency.get('color'), '#dc3545')};font-weight:bold">
                         {_html(deadline)} {_html(urgency.get('prefix', ''))}
                     </span>
                 </td>
@@ -682,7 +709,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 <td style="padding:4px 12px 4px 0">
                     <strong>Fit Score:</strong>
                     <span style="color:{score_color};font-weight:bold;font-size:16px">
-                        {score}/100
+                        {_html(score)}/100
                     </span>
                     ({_html(recommendation)})
                 </td>
@@ -696,7 +723,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             <tr>
                 <td colspan="2" style="padding:8px 0 4px">
                     <strong>TOR / Source:</strong>
-                    <a href="{_html(source_url)}" style="color:#1F3864">{_html(source_url)}</a>
+                    <a href="{_safe_href(source_url)}" style="color:#1F3864">{_html(source_url)}</a>
                 </td>
             </tr>
         </table>
@@ -756,7 +783,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <p style="font-size:12px;color:#999;margin:0">
             Generated by Cortech BD Intelligence Agent •
             This is a draft — human review and approval required before any submission •
-            <a href="{_html(source_url)}" style="color:#1F3864">View original TOR</a>
+            <a href="{_safe_href(source_url)}" style="color:#1F3864">View original TOR</a>
         </p>
     </div>
 
@@ -765,22 +792,23 @@ def send_proposal_email(opportunity_result: dict) -> None:
     """
 
     # ── SUBJECT LINE ───────────────────────────────────────────────────────
+    safe_deadline_subject = _subject_text(deadline)[:10]
     if is_lightweight:
         subject = (
             f"QUICK FLAG: {_subject_text(title)[:50]} | "
-            f"Deadline: {str(deadline)[:10]} | "
+            f"Deadline: {safe_deadline_subject} | "
             f"Score: {score}/100 | WATCH"
         )
     elif is_eoi:
         subject = (
             f"{doc_label}: {_subject_text(title)[:50]} | "
-            f"Deadline: {str(deadline)[:10]} | "
+            f"Deadline: {safe_deadline_subject} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
     else:
         subject = (
             f"{doc_label}: {_subject_text(title)[:50]} | "
-            f"Deadline: {str(deadline)[:10]} | "
+            f"Deadline: {safe_deadline_subject} | "
             f"Score: {score}/100 | REVIEW REQUIRED"
         )
 
