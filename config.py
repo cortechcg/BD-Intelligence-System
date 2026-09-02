@@ -1,5 +1,7 @@
 # config.py
 import os
+import threading
+from contextlib import contextmanager
 from dotenv import load_dotenv
 
 # override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
@@ -74,6 +76,30 @@ MAX_DOCUMENT_UNCOMPRESSED_BYTES = _positive_int_env(
 )
 
 _CLIENT_CACHE: dict[str, object] = {}
+_ANTHROPIC_CONSTRUCTION_LOCK = threading.RLock()
+
+
+@contextmanager
+def _without_anthropic_api_key_for_client_construction():
+    """Hide the env key briefly while constructing an explicitly keyed client.
+
+    The project always passes its sanitized ``.env`` key as ``api_key=``. Newer
+    Anthropic SDKs nevertheless inspect ``ANTHROPIC_API_KEY`` a second time
+    solely to warn when a developer has an unrelated local SDK profile (for
+    example, a Codex/federated profile). Temporarily removing the duplicate
+    environment value prevents that misleading warning; it cannot affect
+    authentication because the constructor receives the key explicitly.
+
+    ``os.environ`` is process-wide, so serialize the very short construction
+    window. The value is restored even if the SDK raises.
+    """
+    with _ANTHROPIC_CONSTRUCTION_LOCK:
+        environment_value = os.environ.pop("ANTHROPIC_API_KEY", None)
+        try:
+            yield
+        finally:
+            if environment_value is not None:
+                os.environ["ANTHROPIC_API_KEY"] = environment_value
 
 
 def get_anthropic_client(*, timeout: float | None = None, max_retries: int | None = None):
@@ -94,11 +120,15 @@ def get_anthropic_client(*, timeout: float | None = None, max_retries: int | Non
     cache_key = f"{api_key}:{to}:{retries}"
     client = _CLIENT_CACHE.get(cache_key)
     if client is None:
-        client = anthropic.Anthropic(
-            api_key=api_key,
-            timeout=to,
-            max_retries=retries,
-        )
+        # Suppress the SDK's profile/federation shadow warning. This program
+        # deliberately uses the explicitly passed project API key, never a
+        # machine-wide Anthropic profile.
+        with _without_anthropic_api_key_for_client_construction():
+            client = anthropic.Anthropic(
+                api_key=api_key,
+                timeout=to,
+                max_retries=retries,
+            )
         _CLIENT_CACHE[cache_key] = client
     return client
 
