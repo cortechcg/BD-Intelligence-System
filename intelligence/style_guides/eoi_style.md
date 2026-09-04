@@ -1,68 +1,43 @@
-# Cortech Consulting Group: EOI Structure & Style Guide
+# Cortech Consulting Group — EOI Structure & Style Guide
 
-*Based on analysis of 7 real submitted documents*
-
-## Two Distinct Document Families
-
-Cortech's EOIs are not one template but **two clearly different patterns**, chosen based on document length/formality. Identify which family fits before drafting.
-
-### Family A: Full/Long-Form EOI (5,000–10,500 words)
-Used for: *EOI Apiculture.docx*, *EOI Cortech to Ministry of Agriculture and Livestock Development (1).docx*
-
-This is the "complete capability submission" format — dense, comprehensive, ALL CAPS headings.
-
-### Family B: Short-Form EOI (2,300–3,000 words)
-Used for: *Expresion of Interest - Cortech.docx*, *Cortech Nandi Hills.docx*, *Cortech Isebania.docx*
-
-This is a lean, five-to-six-section format — Title Case (sentence-style) headings, not all-caps.
-
-There's also a **third, minimal pattern**: *EOI Cortech to Ministry of Agriculture and Livestock Development.docx* (1,026 words) — which uses Family A's headings and ALL CAPS style but compresses content drastically, suggesting Family A is a template that gets trimmed for smaller/faster opportunities.
-
-The *UNICEF Concept Note* is an outlier — it's not an EOI at all but a donor concept-note format (Section 1/2/3 structure), included here only to show Cortech adapts entirely when the client prescribes their own template.
+*Synthesized from 8 actual submitted documents. One of the eight (UNICEF Concept Note, 849 words) is a different document type and is treated separately.*
 
 ---
 
-## Common Backbone Across ALL EOI Documents (Both Families)
+## 1. Two Distinct EOI Templates Are In Use
 
-Regardless of length, every genuine EOI (excluding the concept note) follows this skeleton:
+Cortech's actual submissions fall into **two clear families**, and the first decision when drafting a new EOI is which one applies:
 
-1. **Letter of Interest** — always first, always Heading 1, present in all 6 EOI documents
-2. **Organisation/Group Profile** — appears as "ORGANISATION PROFILE," "Presentation of Cortech Consulting GROUP," or similar in every document
-3. **Relevant Experience** — named variously (see below) but always present
-4. **Staff/Resourcing section** — "Resources in Staff," "RESOURCES IN STAFF – OVERALL ORGANISATIONAL ORGANOGRAM" — always present
-5. **Eligibility** — present in all documents except the two Nandi Hills/Isebania near-twins (where it's implied inside "Registration and Business Information" instead)
-6. **Closing/administrative section** — either "Registration and Business Information" (Family B) or "ANNEXES" (Family A)
+### Template A — Long-form EOI (5,900–10,500 words)
+Used in: *EOI Apiculture*, *EOI Cortech to SODMA*, both *Ministry of Agriculture and Livestock Development* EOIs.
 
-**Guidance:** Never omit Letter of Interest, an organisation-profile section, an experience section, and a staffing section — these four are non-negotiable across every real Cortech EOI.
+### Template B — Short-form EOI (2,300–3,000 words)
+Used in: *Expresion of Interest - Cortech*, *- Cortech Nandi Hills*, *- Cortech Isebania*.
+
+The two templates differ in length, section count, **and capitalization convention** (see §3). Note: even the "short" MoALD EOI (1,026 words) uses the Template A heading structure, so the choice appears to be driven by tender formality rather than strictly by length.
 
 ---
 
-## Family A: Long-Form Structure (Detailed Order)
+## 2. Canonical Section Order
 
-Drawing from *EOI Apiculture.docx* (most complete) and the two Ministry of Agriculture documents:
+### Template A — Long-form order (grounded in 4 documents)
 
-```
-LETTER OF INTEREST
-[EOI SUBMISSION FORM]              ← only in Apiculture; a client-mandated form
-ORGANISATION PROFILE
-  [CORTECH CONSULTING GROUP]       ← sub-branding heading, Apiculture only
-  [ABOUT US]                       ← alternate label, Ministry (1) only
-  [ORGANISATIONAL PROFILE]         ← duplicate/nested label, Ministry short version
-CAPABILITY STATEMENT
-RESOURCES IN STAFF – OVERALL ORGANISATIONAL ORGANOGRAM
-TECHNICAL AND MANAGERIAL CAPACITY
-[PROPOSED TECHNICAL TEAM FOR THE CONSULTANCY]   ← Apiculture & short Ministry doc only
-CORPORATE VALUE PROPOSITION
-OUR UNDERSTANDING OF THE ASSIGNMENT
-PROPOSED TECHNICAL APPROACH [- A SUMMARY]
-RELEVANT CORPORATE EXPERIENCE                   ← absent from Ministry (1), oddly
-WHY CORTECH CONSULTING IS BEST POSITIONED FOR THIS ASSIGNMENT   ← absent from Ministry (1)
-CONCLUSION                                       ← absent from Ministry (1)
-CAPABILITY MATRIX DEMONSTRATING COMPLIANCE WITH THE EVALUATION CRITERIA AND TOR REQUIREMENTS
-ELIGIBILITY
-ANNEXES                                          ← absent from short Ministry doc
-```
+The following sequence appears consistently, with the sections marked ● present in **all four** Template A documents:
 
-**Honest variation note:** *EOI Cortech to Ministry of Agriculture and Livestock Development (1).docx* drops "RELEVANT CORPORATE EXPERIENCE," the "WHY CORTECH" persuasion section, and "CONCLUSION" — likely because it's a shorter/different tender with tighter page limits, not because these are optional by design. If word count is constrained, these three are the first candidates to cut, based on precedent.
-
-**Structural logic:** The order always moves Letter → Profile → Capability/Staffing → Value Proposition → Understanding of Assignment → Technical Approach → Experience → Persuasive closing (Why Us/Conclusion) → Compliance Matrix → Eligibility → Ann
+1. ● **LETTER OF INTEREST** — always first, in every document across both templates
+2. *(Apiculture only)* EOI SUBMISSION FORM — include only if the tender provides a mandatory form
+3. ● **ORGANISATION PROFILE** — always immediately followed by a company-identity heading, though the label varies: "CORTECH CONSULTING GROUP" (Apiculture), "CORPORATE PROFILE" + "PRESENTATION OF CORTECH CONSULTING LLC" (SODMA), "ABOUT US" (MoALD long), "ORGANISATIONAL PROFILE" (MoALD short). **This label is inconsistent across real documents — pick one; "ABOUT US" or the company name are both precedented.**
+4. ● **CAPABILITY STATEMENT**
+5. ● **RESOURCES IN STAFF** — often extended: "– OVERALL ORGANISATIONAL ORGANOGRAM" (Apiculture, MoALD long) or "– ORGANOGRAM AND TEAM COMPOSITION" (SODMA). The organogram reference implies a **chart/graphic belongs in this section**.
+6. ● **TECHNICAL AND MANAGERIAL CAPACITY**
+7. **PROPOSED TECHNICAL TEAM FOR THE CONSULTANCY** — Apiculture and MoALD short only; SODMA folds team into the Resources section instead
+8. ● **CORPORATE VALUE PROPOSITION**
+9. ● **OUR UNDERSTANDING OF THE ASSIGNMENT** — *SODMA places this earlier (right after Corporate Profile, before the capability sections). This is a real variation: the "understanding + approach" block can lead or follow the capability block.*
+10. **PROPOSED TECHNICAL APPROACH** — wording varies: "PROPOSED TECHNICAL APPROACH" (Apiculture, MoALD short), "…– A SUMMARY" (MoALD long), "PROPOSED IMPLEMENTATION APPROACH – A TECHNICAL SUMMARY" (SODMA)
+11. **RELEVANT CORPORATE EXPERIENCE** — Apiculture, SODMA, MoALD short (absent from MoALD long)
+12. *(SODMA only — optional enrichment sections)*: QUALITY ASSURANCE APPROACH, RISK MANAGEMENT, DELIVERABLE ALIGNMENT MATRIX, COMMITMENT TO REPRODUCIBILITY, INTEROPERABILITY AND SUSTAINABILITY. Use these when the ToR is technically demanding.
+13. **WHY CORTECH CONSULTING IS BEST POSITIONED FOR THIS ASSIGNMENT** — 3 of 4 docs (not MoALD long)
+14. **CONCLUSION** — Apiculture and MoALD short only; SODMA and MoALD long skip it
+15. ● **CAPABILITY MATRIX DEMONSTRATING COMPLIANCE WITH THE EVALUATION CRITERIA AND TOR REQUIREMENTS** — this exact long heading appears verbatim in all four Template A documents. It is clearly a house-standard section and, given the name "matrix," is **presented as a table mapping evaluation criteria to Cortech's evidence**.
+16. ● **ELIGIBILITY** — always near the end, always after the capability matrix
+17. **ANNEXES** — "ANNEXES" (Apiculture, MoALD long) or itemized "ANNEX I: REG

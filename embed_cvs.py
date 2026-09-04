@@ -11,11 +11,15 @@
 """
 
 import argparse
+import errno
 import os
+import socket
+import ssl
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 import httpx
 from dotenv import load_dotenv
@@ -29,6 +33,211 @@ console = Console()
 EMBEDDING_MODEL = "text-embedding-3-small"
 MIN_CV_TEXT_CHARS = 50
 MIN_PROPOSAL_TEXT_CHARS = 100
+
+# Per-record retries after a transient error (same consultant, not the next one).
+TRANSIENT_BACKOFFS = (5.0, 15.0, 45.0)
+# Airtable .all() is a long call — wait longer, and never urllib3-hammer 429s.
+AIRTABLE_LIST_BACKOFFS = (15.0, 45.0, 90.0)
+CIRCUIT_BREAKER_THRESHOLD = 3
+CIRCUIT_BREAKER_PAUSE_SECONDS = 45.0
+# urllib3 must not auto-retry 429 — that already hammered Airtable in this project.
+AIRTABLE_RETRY_STATUS_FORCELIST = (500, 502, 503, 504)
+
+_TRANSIENT_MESSAGE_MARKERS = (
+    "temporary failure in name resolution",
+    "name or service not known",
+    "nodename nor servname provided",
+    "getaddrinfo failed",
+    "handshake operation timed out",
+    "the handshake operation timed out",
+    "ssl handshake timeout",
+    "connection timed out",
+    "connect timeout",
+    "read timeout",
+    "write timeout",
+    "pool timeout",
+    "too many requests",
+    "error code: 429",
+    "status code 429",
+    "429 too many requests",
+    "errno -3",
+    "[errno -3]",
+)
+
+
+def _walk_exceptions(exc: BaseException):
+    """Yield exc and nested cause/context/reason exceptions without loops."""
+    seen: set[int] = set()
+    stack: list[BaseException] = [exc]
+    while stack:
+        current = stack.pop()
+        if current is None or id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        if current.__cause__ is not None:
+            stack.append(current.__cause__)
+        if current.__context__ is not None:
+            stack.append(current.__context__)
+        reason = getattr(current, "reason", None)
+        if isinstance(reason, BaseException):
+            stack.append(reason)
+        original = getattr(current, "original_error", None)
+        if isinstance(original, BaseException):
+            stack.append(original)
+        for arg in getattr(current, "args", ()):
+            if isinstance(arg, BaseException):
+                stack.append(arg)
+
+
+def _http_status_code(exc: BaseException) -> int | None:
+    for attr in ("status_code", "status"):
+        value = getattr(exc, attr, None)
+        if isinstance(value, int) and value > 0:
+            return value
+    response = getattr(exc, "response", None)
+    if response is not None:
+        value = getattr(response, "status_code", None)
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def _is_transient_one(exc: BaseException) -> bool:
+    status = _http_status_code(exc)
+    if status == 429:
+        return True
+    if status is not None and 400 <= status < 500:
+        return False
+
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return False
+
+    if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError)):
+        return True
+
+    if isinstance(exc, socket.gaierror):
+        return True
+
+    if isinstance(exc, socket.timeout):
+        return True
+
+    if isinstance(exc, TimeoutError):
+        return True
+
+    if isinstance(exc, ConnectionError):
+        return True
+
+    if isinstance(exc, ssl.SSLError):
+        msg = str(exc).lower()
+        return any(token in msg for token in ("timed out", "timeout", "handshake"))
+
+    if isinstance(exc, OSError) and getattr(exc, "errno", None) in (
+        -3,
+        getattr(errno, "EAI_AGAIN", -3),
+        errno.ETIMEDOUT,
+        errno.ECONNRESET,
+        errno.ENETUNREACH,
+        errno.EHOSTUNREACH,
+    ):
+        return True
+
+    try:
+        import requests
+
+        if isinstance(exc, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+            return True
+    except ImportError:
+        pass
+
+    msg = str(exc).lower()
+    return any(marker in msg for marker in _TRANSIENT_MESSAGE_MARKERS)
+
+
+def is_transient_network_error(exc: BaseException) -> bool:
+    """True for DNS/SSL/timeout/429 blips; False for auth, schema, and other bugs."""
+    top_status = _http_status_code(exc)
+    if top_status == 429:
+        return True
+    if top_status is not None and 400 <= top_status < 500:
+        return False
+    return any(_is_transient_one(err) for err in _walk_exceptions(exc))
+
+
+def _format_wait_seconds(seconds: float) -> str:
+    if seconds == int(seconds):
+        return str(int(seconds))
+    return str(seconds)
+
+
+def announce_network_wait(seconds: float, label: str) -> None:
+    msg = f"Network error — waiting {_format_wait_seconds(seconds)}s then retrying {label}"
+    console.print(f"[yellow]{msg}[/yellow]")
+    logger.warning(msg)
+
+
+def retry_on_transient(
+    operation: Callable,
+    *,
+    label: str,
+    backoffs: tuple[float, ...] = TRANSIENT_BACKOFFS,
+    sleep_fn=None,
+):
+    """
+    Run operation(); on a transient network error wait and retry the same work.
+
+    Permanent errors raise immediately. Exhausted retries re-raise the last
+    transient error so the caller can count a failure.
+    """
+    if sleep_fn is None:
+        sleep_fn = time.sleep
+    last_transient: Exception | None = None
+    attempts = (0.0,) + backoffs
+    for attempt, wait in enumerate(attempts):
+        if wait:
+            announce_network_wait(wait, label)
+            sleep_fn(wait)
+        try:
+            return operation()
+        except Exception as exc:
+            if not is_transient_network_error(exc):
+                raise
+            last_transient = exc
+            logger.warning(
+                f"Transient network error for {label} "
+                f"(attempt {attempt + 1}/{len(attempts)}): {exc}"
+            )
+    assert last_transient is not None
+    raise last_transient
+
+
+class NetworkCircuit:
+    """Pause once after N consecutive record-level transient failures."""
+
+    def __init__(
+        self,
+        threshold: int = CIRCUIT_BREAKER_THRESHOLD,
+        pause_seconds: float = CIRCUIT_BREAKER_PAUSE_SECONDS,
+        sleep_fn=time.sleep,
+    ):
+        self.threshold = threshold
+        self.pause_seconds = pause_seconds
+        self.sleep_fn = sleep_fn
+        self.consecutive = 0
+
+    def note_success(self) -> None:
+        self.consecutive = 0
+
+    def note_transient_failure(self) -> None:
+        self.consecutive += 1
+        if self.consecutive < self.threshold:
+            return
+        announce_network_wait(
+            self.pause_seconds,
+            f"after {self.consecutive} consecutive failures",
+        )
+        self.sleep_fn(self.pause_seconds)
+        self.consecutive = 0
 
 
 def text_field(fields: dict, candidates: list[str], default: str = "") -> str:
@@ -51,8 +260,42 @@ def list_field(fields: dict, key: str) -> list:
 
 
 def table_count(supabase, table_name: str) -> int:
-    result = supabase.table(table_name).select("id", count="exact").limit(1).execute()
-    return result.count if result.count is not None else len(result.data or [])
+    def _count():
+        result = supabase.table(table_name).select("id", count="exact").limit(1).execute()
+        return result.count if result.count is not None else len(result.data or [])
+
+    return retry_on_transient(_count, label=f"{table_name} count")
+
+
+def existing_embedding_row_id(
+    supabase,
+    table_name: str,
+    lookup_column: str,
+    lookup_value: str,
+) -> str:
+    """Return an existing embedding row id, or '' if none."""
+
+    def _lookup():
+        existing = supabase.table(table_name).select("id").eq(
+            lookup_column, lookup_value
+        ).execute()
+        rows = existing.data or []
+        if not rows:
+            return ""
+        return rows[0].get("id") or ""
+
+    return retry_on_transient(
+        _lookup, label=f"existing {table_name} row for {lookup_value}"
+    )
+
+
+def fetch_airtable_all(table, label: str) -> list:
+    """List an Airtable table with long waits on 429/DNS — not urllib3 429 retries."""
+    return retry_on_transient(
+        table.all,
+        label=label,
+        backoffs=AIRTABLE_LIST_BACKOFFS,
+    )
 
 
 def store_single_embedding_row(
@@ -132,7 +375,7 @@ def get_clients():
     # Do not retry 429 — urllib3 "too many 429" is what crashed this
     # script while Airtable was already rate-limited.
     retry = retry_strategy(
-        status_forcelist=(500, 502, 503, 504),
+        status_forcelist=AIRTABLE_RETRY_STATUS_FORCELIST,
         backoff_factor=0.5,
         total=2,
     )
@@ -183,7 +426,9 @@ def embed_consultant_cv(
     supabase,
     consultant_table,
     consultant_record: dict,
-    use_openai: bool = True
+    use_openai: bool = True,
+    force: bool = False,
+    circuit: NetworkCircuit | None = None,
 ) -> str:
     """Embed a consultant CV and store one verified row in Supabase pgvector."""
 
@@ -210,6 +455,25 @@ def embed_consultant_cv(
         logger.error("OPENAI_API_KEY is required to create CV vector embeddings.")
         return "failed"
 
+    if not force:
+        try:
+            existing_id = existing_embedding_row_id(
+                supabase,
+                "cv_embeddings",
+                "airtable_consultant_id",
+                airtable_id,
+            )
+        except Exception as e:
+            logger.error(f"Embedding failed for {name}: {e}")
+            if circuit is not None and is_transient_network_error(e):
+                circuit.note_transient_failure()
+            return "failed"
+        if existing_id:
+            logger.info(f"Already embedded, skipping {name} ({existing_id})")
+            if circuit is not None:
+                circuit.note_success()
+            return "skipped"
+
     metadata = {
         "thematic_expertise": list_field(fields, "thematic_expertise"),
         "geographic_experience": list_field(fields, "geographic_experience"),
@@ -223,9 +487,9 @@ def embed_consultant_cv(
         "key_skills": fields.get("key_skills", ""),
     }
 
-    try:
+    def _embed_and_store():
         embedding = get_embedding_openai(cv_text)
-        embedding_id, action, duplicate_count = store_single_embedding_row(
+        return store_single_embedding_row(
             supabase=supabase,
             table_name="cv_embeddings",
             lookup_column="airtable_consultant_id",
@@ -241,8 +505,18 @@ def embed_consultant_cv(
             },
         )
 
+    try:
+        embedding_id, action, duplicate_count = retry_on_transient(
+            _embed_and_store, label=name
+        )
+
         try:
-            consultant_table.update(airtable_id, {"embedding_id": embedding_id}, typecast=True)
+            retry_on_transient(
+                lambda: consultant_table.update(
+                    airtable_id, {"embedding_id": embedding_id}, typecast=True
+                ),
+                label=f"{name} (Airtable embedding_id)",
+            )
         except Exception as e:
             logger.warning(
                 f"Supabase row verified for {name}, but Airtable embedding_id "
@@ -254,17 +528,23 @@ def embed_consultant_cv(
                 f"Repaired {duplicate_count} duplicate CV embedding row(s) for {name}."
             )
         logger.success(f"CV embedding {action}: {name} ({embedding_id})")
+        if circuit is not None:
+            circuit.note_success()
         return "embedded"
 
     except Exception as e:
         logger.error(f"Embedding failed for {name}: {e}")
+        if circuit is not None and is_transient_network_error(e):
+            circuit.note_transient_failure()
         return "failed"
 
 
 def embed_proposal(
     supabase,
     proposal_record: dict,
-    use_openai: bool = True
+    use_openai: bool = True,
+    force: bool = False,
+    circuit: NetworkCircuit | None = None,
 ) -> str:
     """Embed a past proposal for style reference search."""
 
@@ -289,6 +569,25 @@ def embed_proposal(
         logger.error("OPENAI_API_KEY is required to create proposal embeddings.")
         return "failed"
 
+    if not force:
+        try:
+            existing_id = existing_embedding_row_id(
+                supabase,
+                "proposal_embeddings",
+                "airtable_proposal_id",
+                airtable_id,
+            )
+        except Exception as e:
+            logger.error(f"Proposal embedding failed for {title}: {e}")
+            if circuit is not None and is_transient_network_error(e):
+                circuit.note_transient_failure()
+            return "failed"
+        if existing_id:
+            logger.info(f"Already embedded, skipping {title} ({existing_id})")
+            if circuit is not None:
+                circuit.note_success()
+            return "skipped"
+
     metadata = {
         "client": fields.get("client", ""),
         "year": fields.get("year", 0),
@@ -297,9 +596,9 @@ def embed_proposal(
         "location": list_field(fields, "location"),
     }
 
-    try:
+    def _embed_and_store():
         embedding = get_embedding_openai(proposal_text)
-        embedding_id, action, duplicate_count = store_single_embedding_row(
+        return store_single_embedding_row(
             supabase=supabase,
             table_name="proposal_embeddings",
             lookup_column="airtable_proposal_id",
@@ -314,16 +613,25 @@ def embed_proposal(
             },
         )
 
+    try:
+        embedding_id, action, duplicate_count = retry_on_transient(
+            _embed_and_store, label=title
+        )
+
         if duplicate_count:
             logger.warning(
                 f"Repaired {duplicate_count} duplicate proposal embedding row(s) "
                 f"for {title}."
             )
         logger.success(f"Proposal embedding {action}: {title} ({embedding_id})")
+        if circuit is not None:
+            circuit.note_success()
         return "embedded"
 
     except Exception as e:
         logger.error(f"Proposal embedding failed for {title}: {e}")
+        if circuit is not None and is_transient_network_error(e):
+            circuit.note_transient_failure()
         return "failed"
 
 
@@ -371,20 +679,26 @@ def embed_proposal_from_file(
         "won": won,
         "source_file": path.name,
     }
-    embedding = get_embedding_openai(proposal_text)
-    embedding_id, action, duplicate_count = store_single_embedding_row(
-        supabase=supabase,
-        table_name="proposal_embeddings",
-        lookup_column="airtable_proposal_id",
-        lookup_value=lookup,
-        payload={
-            "airtable_proposal_id": lookup,
-            "project_title": title,
-            "won": won,
-            "content_chunk": proposal_text[:2000],
-            "embedding": embedding,
-            "metadata": metadata,
-        },
+
+    def _embed_and_store():
+        embedding = get_embedding_openai(proposal_text)
+        return store_single_embedding_row(
+            supabase=supabase,
+            table_name="proposal_embeddings",
+            lookup_column="airtable_proposal_id",
+            lookup_value=lookup,
+            payload={
+                "airtable_proposal_id": lookup,
+                "project_title": title,
+                "won": won,
+                "content_chunk": proposal_text[:2000],
+                "embedding": embedding,
+                "metadata": metadata,
+            },
+        )
+
+    embedding_id, action, duplicate_count = retry_on_transient(
+        _embed_and_store, label=title
     )
     if duplicate_count:
         logger.warning(
@@ -434,6 +748,11 @@ def main():
         "--proposals-only",
         action="store_true",
         help="Skip CVs; embed past proposals from Airtable only.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-embed even when a cv_embeddings / proposal_embeddings row already exists.",
     )
     args = parser.parse_args()
 
@@ -494,11 +813,12 @@ def main():
 
     cv_counts = {"embedded": 0, "skipped": 0, "failed": 0}
     prop_counts = {"embedded": 0, "skipped": 0, "failed": 0}
+    circuit = NetworkCircuit()
 
     if not args.proposals_only:
         console.print("[bold]Loading consultants from Airtable...[/bold]")
         try:
-            consultants = consultant_table.all()
+            consultants = fetch_airtable_all(consultant_table, "CONSULTANTS list")
         except Exception as e:
             console.print(
                 f"[red]Airtable CONSULTANTS list failed: {e}[/red]\n"
@@ -510,14 +830,20 @@ def main():
 
         for record in track(consultants, description="Embedding CVs..."):
             status = embed_consultant_cv(
-                supabase, consultant_table, record, use_openai
+                supabase,
+                consultant_table,
+                record,
+                use_openai,
+                force=args.force,
+                circuit=circuit,
             )
             cv_counts[status] += 1
-            time.sleep(0.3)
+            if status == "embedded":
+                time.sleep(0.3)
 
     console.print("\n[bold]Loading past proposals from Airtable...[/bold]")
     try:
-        proposals = proposal_table.all()
+        proposals = fetch_airtable_all(proposal_table, "PAST_PROPOSALS list")
     except Exception as e:
         console.print(
             f"[red]Airtable PAST_PROPOSALS list failed: {e}[/red]\n"
@@ -528,9 +854,16 @@ def main():
     console.print(f"Found [green]{len(proposals)}[/green] proposals\n")
 
     for record in track(proposals, description="Embedding proposals..."):
-        status = embed_proposal(supabase, record, use_openai)
+        status = embed_proposal(
+            supabase,
+            record,
+            use_openai,
+            force=args.force,
+            circuit=circuit,
+        )
         prop_counts[status] += 1
-        time.sleep(0.3)
+        if status == "embedded":
+            time.sleep(0.3)
 
     console.print(
         f"\n  Proposals: [green]{prop_counts['embedded']} embedded[/green] | "
@@ -553,8 +886,18 @@ def main():
             f"[cyan]{table_count(supabase, 'cv_embeddings')}[/cyan]"
         )
 
-    if cv_counts["failed"] or prop_counts["failed"]:
-        console.print("\n[bold red]Embedding finished with failures.[/bold red]")
+    failed_parts = []
+    if cv_counts["failed"]:
+        failed_parts.append(f"{cv_counts['failed']} CV(s)")
+    if prop_counts["failed"]:
+        failed_parts.append(f"{prop_counts['failed']} proposal(s)")
+    if failed_parts:
+        console.print(
+            f"\n[bold red]{' and '.join(failed_parts)} failed after retries.[/bold red]\n"
+            "  Re-run: [cyan]python embed_cvs.py[/cyan]\n"
+            "  Already-embedded CVs will be skipped; only remaining failures retry.\n"
+            "  Use [cyan]python embed_cvs.py --force[/cyan] to re-embed everything."
+        )
         sys.exit(1)
 
     console.print("\n[bold green]Embedding complete![/bold green]")
