@@ -697,3 +697,219 @@ TypeError: int() argument must be a string, a bytes-like object or a real number
 2026-08-31 13:42:15.495 | DEBUG    | __main__:read_docx:282 - DOCX: Technical Proposal ICPAC Final.docx → 340832 chars
 2026-08-31 13:42:25.936 | DEBUG    | __main__:extract_proposal_info:494 - Extracted proposal: Consulting Services to Design and Delivery of Community Based Anticipatory Action Pilot Project within Mandera and Moyale IGAD Clusters
 2026-08-31 13:44:04.248 | ERROR    | __main__:add_proposal_to_airtable:708 - Failed to add proposal Consulting Services to Design and Delivery of Community Based Anticipatory Action Pilot Project within Mandera and Moyale IGAD Clusters: 429 Client Error: Too Many Requests for url: https://api.airtable.com/v0/app2zoGNoagY5eLht/PAST_PROPOSALS
+2026-09-02 13:24:09.207 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=9 out=10 cached=0 est_cost_usd=0.00011800000000000001
+2026-09-04 11:28:19.749 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=9 out=10 cached=0 est_cost_usd=0.00011800000000000001
+2026-09-04 11:28:37.436 | DEBUG    | __main__:read_docx:283 - DOCX: 20241003_Cortech Consulting Group_Technical Proposal_TDH.docx → 17673 chars
+2026-09-04 11:28:47.145 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7249 out=939 cached=0 est_cost_usd=0.023888
+2026-09-04 11:28:47.145 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End of Project Evaluation for 'Scaling Up of Activities Related to the Prevention and Treatment of Malnourished Children <5y, Pregnant & Lactating Women in the Three Sub Counties of Garissa County Affected by Drought'
+2026-09-04 11:37:24.125 | DEBUG    | __main__:read_pdf:252 - PDF: 20250317_Cortech Consulting_ Somali EAC Intergration Proposal.pdf → 25298 chars
+2026-09-04 11:37:35.492 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=8625 out=913 cached=0 est_cost_usd=0.02638
+2026-09-04 11:37:35.492 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Proposal for Supporting Somalia's Integration into the East Africa Community
+2026-09-04 11:37:42.528 | DEBUG    | __main__:read_docx:283 - DOCX: Annex 1 - Inv for Proposals CPD 2026 2030 - UNFPA Somalia.docx → 45378 chars
+2026-09-04 11:37:54.867 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7486 out=1006 cached=0 est_cost_usd=0.025032
+2026-09-04 11:37:54.867 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Integrated Reproductive Health and Gender-Based Violence Response and Empowerment Programme for Women and Girls in Conflict-Affected Areas of Hirshabelle and South West States, Somalia
+2026-09-04 11:39:18.379 | DEBUG    | __main__:read_pdf:252 - PDF: Cortech-Technical Proposal.pdf → 481145 chars
+2026-09-04 11:39:29.924 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=8572 out=1029 cached=0 est_cost_usd=0.027434
+2026-09-04 11:39:29.924 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Independent Evaluation of the Sida-Funded Sub-Saharan Africa Energy Access Programme (REACT SSA) Implemented by AECF
+2026-09-04 11:41:52.148 | DEBUG    | __main__:read_docx:283 - DOCX: DRC TECHNICAL PROPOSAL.docx → 38516 chars
+2026-09-04 11:42:05.722 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7655 out=1200 cached=0 est_cost_usd=0.02731
+2026-09-04 11:42:05.723 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal DRC TECHNICAL PROPOSAL.docx: Unterminated string starting at: line 36 column 3 (char 2188)
+2026-09-04 11:42:21.954 | DEBUG    | __main__:read_docx:283 - DOCX: EOI Apiculture.docx → 106344 chars
+2026-09-04 11:42:33.326 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7494 out=949 cached=0 est_cost_usd=0.024478
+2026-09-04 11:42:33.326 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consulting Services for Business Accelerator for Apiculture Value Chain for NAVCDP
+2026-09-04 11:42:38.222 | DEBUG    | __main__:read_docx:283 - DOCX: EOI Cortech to Ministry of Agriculture and Livestock Development (1).docx → 71550 chars
+2026-09-04 11:42:49.868 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7338 out=1117 cached=0 est_cost_usd=0.025846
+2026-09-04 11:42:49.868 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Business Accelerator for Mango and Avocado Value Chains (NAVCDP)
+2026-09-04 11:43:01.547 | DEBUG    | __main__:read_docx:283 - DOCX: EOI Cortech to Ministry of Agriculture and Livestock Development.docx → 12674 chars
+2026-09-04 11:43:14.026 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=5369 out=1200 cached=0 est_cost_usd=0.022737999999999998
+2026-09-04 11:43:14.027 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal EOI Cortech to Ministry of Agriculture and Livestock Development.docx: Unterminated string starting at: line 47 column 26 (char 2870)
+2026-09-04 11:43:42.647 | DEBUG    | __main__:read_docx:283 - DOCX: EOI Cortech to SODMA.docx → 79247 chars
+2026-09-04 11:43:56.342 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7918 out=1106 cached=0 est_cost_usd=0.026896
+2026-09-04 11:43:56.343 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Design and Development of a Practical Impact-Based Forecasting Framework and Prototype System for Climate Risks in Somalia
+2026-09-04 11:45:03.537 | DEBUG    | __main__:read_pdf:252 - PDF: EOI_SFERE_CORTECH.pdf → 331750 chars
+2026-09-04 11:45:15.012 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7597 out=939 cached=0 est_cost_usd=0.024583999999999998
+2026-09-04 11:45:15.012 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy to conduct pre-feasibility and feasibility studies for the proposed TVET Phase IV Project
+2026-09-04 11:45:35.086 | DEBUG    | __main__:read_docx:283 - DOCX: Expresion of Interest - Cortech Isebania.docx → 28490 chars
+2026-09-04 11:45:47.123 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7570 out=1035 cached=0 est_cost_usd=0.02549
+2026-09-04 11:45:47.123 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy Services for Supervision of Construction of Intake Improvement Works for Migori & Isebania Towns Water Supply System and Ugunja Last Mile Connectivity Project
+2026-09-04 11:45:52.588 | DEBUG    | __main__:read_docx:283 - DOCX: Expresion of Interest - Cortech Nandi Hills.docx → 28459 chars
+2026-09-04 11:46:03.904 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7589 out=977 cached=0 est_cost_usd=0.024948
+2026-09-04 11:46:03.904 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy Services for Supervision of Construction Works for Last Mile Connectivity for Nandi Hills, Kilgoris and Lolgorian Towns Water Supply Project
+2026-09-04 11:46:46.590 | DEBUG    | __main__:read_docx:283 - DOCX: Expresion of Interest - Cortech.docx → 42338 chars
+2026-09-04 11:46:56.707 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7454 out=909 cached=0 est_cost_usd=0.023998
+2026-09-04 11:46:56.707 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consulting Services for the Development of Guidelines for Harmonized Licensing Procedures and Fees for the County Governments (KUSP II)
+2026-09-04 11:47:02.823 | DEBUG    | __main__:read_docx:283 - DOCX: Funding Proposal - HIDIG Relief and Development Organization.docx → 29879 chars
+2026-09-04 11:47:13.664 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7763 out=1037 cached=0 est_cost_usd=0.025896
+2026-09-04 11:47:13.665 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Roots of Resilience: Community-Led Prevention of Violent Extremism in Baay and Bakool, Somalia
+2026-09-04 11:47:26.182 | DEBUG    | __main__:read_docx:283 - DOCX: RACIDA TECHNICAL PROPOSAL.docx → 26066 chars
+2026-09-04 11:47:42.022 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7739 out=1075 cached=0 est_cost_usd=0.026228
+2026-09-04 11:47:42.022 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for Endline Evaluation in Mandera Under RACIDA’s IRR Project
+2026-09-04 11:48:17.062 | DEBUG    | __main__:read_docx:283 - DOCX: RfP_UNICEF.docx → 25457 chars
+2026-09-04 11:48:29.701 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7183 out=1063 cached=0 est_cost_usd=0.024995999999999997
+2026-09-04 11:48:29.701 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Institutional Consultancy to Undertake Assessment of Out of School Children (OOSC) and Adolescents in Dadaab, Kakuma and Kalobeyei Settlement Areas
+2026-09-04 11:49:29.266 | DEBUG    | __main__:read_docx:283 - DOCX: SRDI PROPOSAL UN WOMEN.docx → 165902 chars
+2026-09-04 11:49:40.843 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7993 out=919 cached=0 est_cost_usd=0.025176
+2026-09-04 11:49:40.843 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal SRDI PROPOSAL UN WOMEN.docx: Expecting ',' delimiter: line 10 column 441 (char 899)
+2026-09-04 11:52:54.744 | DEBUG    | __main__:read_docx:283 - DOCX: TECHNICAL PROPOSAL 1.docx → 42743 chars
+2026-09-04 11:53:05.487 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7545 out=964 cached=0 est_cost_usd=0.02473
+2026-09-04 11:53:05.488 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for PDM/Final Evaluation of QRCS's Project in Somalia
+2026-09-04 11:54:05.452 | DEBUG    | __main__:read_docx:283 - DOCX: TECHNICAL PROPOSAL 2.docx → 27614 chars
+2026-09-04 11:54:16.620 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7717 out=974 cached=0 est_cost_usd=0.025174000000000002
+2026-09-04 11:54:16.620 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for Post Distribution Monitoring of Unconditional Cash Under RACIDA's IRR Project
+2026-09-04 11:54:57.371 | DEBUG    | __main__:read_docx:283 - DOCX: TECHNICAL PROPOSAL CEF-RFP-01.docx → 77485 chars
+2026-09-04 11:55:08.455 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7424 out=1034 cached=0 est_cost_usd=0.025188000000000002
+2026-09-04 11:55:08.455 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility (CEF-RFP-01)
+2026-09-04 11:56:09.774 | DEBUG    | __main__:read_docx:283 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-09-04 11:56:19.536 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7611 out=827 cached=0 est_cost_usd=0.023492
+2026-09-04 11:56:19.536 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Agritech Landscape Study in Kenya (AYuTe Africa Challenge)
+2026-09-04 11:57:28.442 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Approach and Methodology.docx → 194203 chars
+2026-09-04 11:57:38.706 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7106 out=969 cached=0 est_cost_usd=0.023902
+2026-09-04 11:57:38.707 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Community-Based Anticipatory Action (AA) Pilot within the Mandera and Moyale Cross-Border Clusters
+2026-09-04 11:59:17.494 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal - 10.docx → 54329 chars
+2026-09-04 11:59:28.973 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7589 out=885 cached=0 est_cost_usd=0.024028
+2026-09-04 11:59:28.973 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: External Audit Services for External Offices
+2026-09-04 11:59:55.100 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal - Audit.docx → 54329 chars
+2026-09-04 12:00:04.813 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7590 out=852 cached=0 est_cost_usd=0.0237
+2026-09-04 12:00:04.813 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: External Audit Services for External Offices
+2026-09-04 12:00:11.973 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal - Internal Audit.docx → 40258 chars
+2026-09-04 12:00:23.449 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=8532 out=1000 cached=0 est_cost_usd=0.027063999999999998
+2026-09-04 12:00:23.450 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Internal Audit of QRCS Somalia Office
+2026-09-04 12:01:17.008 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal - PRF 29110 18 Nov 2025.docx → 37199 chars
+2026-09-04 12:01:29.706 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7665 out=988 cached=0 est_cost_usd=0.02521
+2026-09-04 12:01:29.706 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation of the Continuity in Crisis Project
+2026-09-04 12:02:57.488 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal - PRF29115 18 Nov 2025.docx → 33712 chars
+2026-09-04 12:03:08.792 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7709 out=1079 cached=0 est_cost_usd=0.026208000000000002
+2026-09-04 12:03:08.792 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End-Term Evaluation of the Resilience, Health and Rights Project
+2026-09-04 12:03:45.648 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 11.docx → 97040 chars
+2026-09-04 12:03:58.490 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7463 out=1006 cached=0 est_cost_usd=0.024986
+2026-09-04 12:03:58.490 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Final Evaluation - Improving Food Security and Strengthening Resilience of Smallholder Farmer Families in Hiiraan, Somalia (SOM 6000220)
+2026-09-04 12:04:40.968 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 13.docx → 68955 chars
+2026-09-04 12:04:52.970 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7730 out=1024 cached=0 est_cost_usd=0.0257
+2026-09-04 12:04:52.971 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation of the project titled "Promoting the Resilience and Peaceful Co-existence of Communities Affected by the Climate Crisis"
+2026-09-04 12:05:50.931 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 14.docx → 112697 chars
+2026-09-04 12:06:06.598 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7483 out=938 cached=0 est_cost_usd=0.024346
+2026-09-04 12:06:06.598 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Development and Institutionalization of a Gender Index for GVRC under the Accelerate Project
+2026-09-04 12:06:58.651 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 15.docx → 82976 chars
+2026-09-04 12:07:13.330 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7527 out=983 cached=0 est_cost_usd=0.024883999999999996
+2026-09-04 12:07:13.330 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Kenya Livestock Marketing and Resilience Project (KLMP) Annual Outcome Monitoring Survey Consultancy for FY26
+2026-09-04 12:07:26.793 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 3.docx → 84650 chars
+2026-09-04 12:07:40.291 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7429 out=1172 cached=0 est_cost_usd=0.026578
+2026-09-04 12:07:40.291 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Behavioral and Social Drivers (BeSD) Survey Amongst Cross-Border Communities in Fafi, Dadaab and Hulugho Sub Counties, Garissa County
+2026-09-04 12:08:20.292 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 31 Jan 2026.docx → 161325 chars
+2026-09-04 12:08:31.945 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7702 out=925 cached=0 est_cost_usd=0.024654000000000002
+2026-09-04 12:08:31.946 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy for School Safety and Learning Continuity - Climate Smart Education Systems Initiative (CSESI) Somalia
+2026-09-04 12:08:48.459 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 4.docx → 83677 chars
+2026-09-04 12:08:59.959 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7419 out=1105 cached=0 est_cost_usd=0.025888
+2026-09-04 12:08:59.960 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy for Training IIW-SS Investees on Sexual and Gender-Based Violence and Harassment (SGBVH), Safeguarding, and Referral Mechanisms
+2026-09-04 12:09:11.831 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 5.docx → 160857 chars
+2026-09-04 12:09:22.572 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7464 out=1063 cached=0 est_cost_usd=0.025557999999999997
+2026-09-04 12:09:22.572 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Feasibility Study for the NURTURE (Nutrition, Health and Resilience for Vulnerable Communities) Project
+2026-09-04 12:10:22.486 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 6.docx → 212882 chars
+2026-09-04 12:10:33.555 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=6950 out=916 cached=0 est_cost_usd=0.023059999999999997
+2026-09-04 12:10:33.556 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy to Develop a CEWARN Regional Strategy Framework for Integrating Climate Security into National Peace and Security Policies
+2026-09-04 12:11:08.937 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 7.docx → 73572 chars
+2026-09-04 12:11:21.604 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7620 out=1097 cached=0 est_cost_usd=0.02621
+2026-09-04 12:11:21.605 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation for the Sustainable Food Systems Project (SUSTFARM+) in Western Kenya Counties of Kakamega, Bungoma and Siaya
+2026-09-04 12:11:30.628 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal 9.docx → 50394 chars
+2026-09-04 12:11:40.570 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7233 out=927 cached=0 est_cost_usd=0.023736
+2026-09-04 12:11:40.570 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: External Audit Services - QRCS Somalia Office
+2026-09-04 12:11:56.927 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal ACEF.docx → 65953 chars
+2026-09-04 12:12:09.095 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7645 out=1075 cached=0 est_cost_usd=0.02604
+2026-09-04 12:12:09.096 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Final Evaluation of the Finance for Inclusive Growth (FIG) Somalia Programme
+2026-09-04 12:13:50.631 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal CARE.docx → 89725 chars
+2026-09-04 12:14:02.610 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7579 out=912 cached=0 est_cost_usd=0.024278
+2026-09-04 12:14:02.611 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Third Party Monitoring Consultancy for the Girls' Education Accelerator (GEA) Program
+2026-09-04 12:14:08.053 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to Christian Aid.docx → 141556 chars
+2026-09-04 12:14:19.796 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7713 out=1177 cached=0 est_cost_usd=0.027196
+2026-09-04 12:14:19.796 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End-of-Project Evaluation of the Catalyzing Multilateral Development Banks Financing for Energy Access in Africa Project
+2026-09-04 12:14:46.552 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to FIPS.docx → 232433 chars
+2026-09-04 12:14:58.361 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7579 out=1200 cached=0 est_cost_usd=0.027157999999999998
+2026-09-04 12:14:58.362 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal Technical Proposal Cortech to FIPS.docx: Unterminated string starting at: line 43 column 26 (char 2951)
+2026-09-04 12:15:34.675 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to GIZ.docx → 106296 chars
+2026-09-04 12:15:44.540 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7578 out=968 cached=0 est_cost_usd=0.024835999999999997
+2026-09-04 12:15:44.540 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Strengthening Climate-Resilient and Competitive Agricultural Development through Policy Support and Quality Assurance in Somalia (SPQA-II Project)
+2026-09-04 12:15:57.178 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to ILO.docx → 163185 chars
+2026-09-04 12:16:09.017 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7289 out=958 cached=0 est_cost_usd=0.024158
+2026-09-04 12:16:09.017 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Baseline Tracer Study for the ILO PROSPECTS Partnership Programme in Garissa and Turkana Counties, Kenya
+2026-09-04 12:16:27.804 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to Kituo Cha Sheria.docx → 100266 chars
+2026-09-04 12:16:39.331 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7472 out=971 cached=0 est_cost_usd=0.024654000000000002
+2026-09-04 12:16:39.332 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Refugee Labour Market Study and Strategic Advocacy Support
+2026-09-04 12:18:07.211 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to SOS CV Somalia.docx → 257990 chars
+2026-09-04 12:18:19.985 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7584 out=1200 cached=0 est_cost_usd=0.027167999999999998
+2026-09-04 12:18:19.985 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal Technical Proposal Cortech to SOS CV Somalia.docx: Unterminated string starting at: line 45 column 26 (char 3109)
+2026-09-04 12:18:54.723 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Cortech to Save the Children (ENDLINE EVALUTION).docx → 150378 chars
+2026-09-04 12:19:05.787 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7403 out=988 cached=0 est_cost_usd=0.024686
+2026-09-04 12:19:05.787 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation of Localization Practice Phase II: Strengthening Local and National Actors in Child Protection Coordination and Advocacy in Somalia
+2026-09-04 12:19:56.327 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal Forms 27 Jan 2026.docx → 328236 chars
+2026-09-04 12:20:07.213 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7038 out=940 cached=0 est_cost_usd=0.023476
+2026-09-04 12:20:07.213 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Community Early Warning and Disaster Risk Reduction (DRR) Training Support
+2026-09-04 12:20:16.800 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal GAIN.docx → 35298 chars
+2026-09-04 12:20:27.687 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7923 out=991 cached=0 est_cost_usd=0.025755999999999998
+2026-09-04 12:20:27.688 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Data Collection on Child and Adolescent Centred Nutrition Indicators (CAN-I) in Kenya
+2026-09-04 12:21:26.041 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-09-04 12:21:37.541 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7484 out=953 cached=0 est_cost_usd=0.024498
+2026-09-04 12:21:37.542 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-09-04 12:21:58.053 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal ICPAC Final.docx → 340832 chars
+2026-09-04 12:22:06.530 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal IGAD.docx → 117302 chars
+2026-09-04 12:22:18.458 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7592 out=1089 cached=0 est_cost_usd=0.026074
+2026-09-04 12:22:18.459 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II)
+2026-09-04 12:24:10.598 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal IOM 18 Nov 2025.docx → 78269 chars
+2026-09-04 12:24:24.430 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7659 out=1200 cached=0 est_cost_usd=0.027318
+2026-09-04 12:24:24.430 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal Technical Proposal IOM 18 Nov 2025.docx: Unterminated string starting at: line 17 column 5 (char 2083)
+2026-09-04 12:25:16.537 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal IOM.docx → 78269 chars
+2026-09-04 12:25:29.151 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7650 out=993 cached=0 est_cost_usd=0.02523
+2026-09-04 12:25:29.152 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Clan Dynamics in Baidoa Research Study
+2026-09-04 12:25:59.139 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal KENHA.docx → 53120 chars
+2026-09-04 12:26:12.362 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=8208 out=1200 cached=0 est_cost_usd=0.028415999999999997
+2026-09-04 12:26:12.363 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal Technical Proposal KENHA.docx: Unterminated string starting at: line 32 column 26 (char 2673)
+2026-09-04 12:27:23.322 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal SCI.docx → 81483 chars
+2026-09-04 12:27:34.492 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7628 out=959 cached=0 est_cost_usd=0.024846
+2026-09-04 12:27:34.493 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation of the SOM_DANIDA SPA 2022–2025 Programme (Lot HUM and Lot CIV)
+2026-09-04 12:27:43.477 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal ZIZI Afrique.docx → 71728 chars
+2026-09-04 12:27:55.274 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7659 out=1095 cached=0 est_cost_usd=0.026268
+2026-09-04 12:27:55.274 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy Services to Develop a Comprehensive M&E Framework and Document Key Achievements and Impact Stories under the Unlocking Data Initiative
+2026-09-04 12:28:53.065 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal _Cortech_9_April.docx → 62781 chars
+2026-09-04 12:29:03.375 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7864 out=917 cached=0 est_cost_usd=0.024897999999999997
+2026-09-04 12:29:03.376 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Consultancy for Development of a Comprehensive Digital Governance Policy & SOP Framework
+2026-09-04 12:29:35.930 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal for LLINs.docx → 56884 chars
+2026-09-04 12:29:47.747 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7531 out=993 cached=0 est_cost_usd=0.024992
+2026-09-04 12:29:47.747 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: LLINs Ownership and Use Assessment in Somalia and Somaliland
+2026-09-04 12:31:01.530 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal to PACIDA.docx → 45640 chars
+2026-09-04 12:31:13.623 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7585 out=1066 cached=0 est_cost_usd=0.02583
+2026-09-04 12:31:13.623 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for Final Evaluation - Emergency Relief and Anticipatory Humanitarian Action for Victims of Climate-Related Disasters in Somalia, Northern Kenya, and Southern Ethiopia
+2026-09-04 12:31:22.266 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal to WHH 2.docx → 66528 chars
+2026-09-04 12:31:34.003 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7576 out=1130 cached=0 est_cost_usd=0.026452
+2026-09-04 12:31:34.003 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project in Kenya's Arid Marsabit County (SIAGER Food Systems Initiative)
+2026-09-04 12:31:46.189 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal, CORTEC.docx → 15294 chars
+2026-09-04 12:32:00.089 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=5971 out=1200 cached=0 est_cost_usd=0.023941999999999998
+2026-09-04 12:32:00.089 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal Technical Proposal, CORTEC.docx: Unterminated string starting at: line 19 column 5 (char 2111)
+2026-09-04 12:32:34.480 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal-Kenya Survey CORTEC.docx → 12158 chars
+2026-09-04 12:32:44.652 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=4823 out=870 cached=0 est_cost_usd=0.018346
+2026-09-04 12:32:44.652 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Survey of Applicable Expert Remuneration Fees in Comparable Organizations in Kenya
+2026-09-04 12:33:11.342 | DEBUG    | __main__:read_pdf:252 - PDF: Technical Proposal_ Research and Learning for Pathway to Prosperity Project (8).pdf → 223122 chars
+2026-09-04 12:33:21.595 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7514 out=894 cached=0 est_cost_usd=0.023968
+2026-09-04 12:33:21.596 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Research and Learning for the Pathway to Prosperity Project
+2026-09-04 12:33:58.942 | DEBUG    | __main__:read_pdf:252 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
+2026-09-04 12:34:08.010 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7802 out=820 cached=0 est_cost_usd=0.023804
+2026-09-04 12:34:08.010 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for Improved Service Delivery in Rural Areas of Kenya
+2026-09-04 12:34:40.853 | DEBUG    | __main__:read_docx:283 - DOCX: Technical Proposal_Somalia EIE Consultancy (3).docx → 104394 chars
+2026-09-04 12:34:51.320 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7661 out=875 cached=0 est_cost_usd=0.024072000000000003
+2026-09-04 12:34:51.320 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Somalia Education in Emergencies Anticipatory Action Consultancy – Education Cannot Wait Pilot Programme
+2026-09-04 12:35:06.452 | DEBUG    | __main__:read_docx:283 - DOCX: Technicap Proposal Concern WorldWide 6 November 2025.docx → 73335 chars
+2026-09-04 12:35:18.307 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7533 out=1149 cached=0 est_cost_usd=0.026556
+2026-09-04 12:35:18.308 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Endline Evaluation of the EU–NEGAAD Project: Supporting Climate Adaptation and Durable Solutions for Displacement-Affected Communities (DACs) in the Shabelle River Basin, Afgoye District
+2026-09-04 12:35:26.563 | DEBUG    | __main__:read_docx:283 - DOCX: Tehnical Proposal KRCS.docx → 60375 chars
+2026-09-04 12:35:38.127 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7760 out=963 cached=0 est_cost_usd=0.02515
+2026-09-04 12:35:38.127 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End-Term Evaluation of the Youth Social and Economic Empowerment Project (YSEEP) in Mombasa County
+2026-09-04 12:36:15.199 | DEBUG    | __main__:read_docx:283 - DOCX: Tehnical Proposal KRCS2.docx → 58491 chars
+2026-09-04 12:36:26.178 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7716 out=1000 cached=0 est_cost_usd=0.025432
+2026-09-04 12:36:26.179 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: End-Term Evaluation for Prevention and Awareness-Raising on Gender-Based Violence (GBV) in Samburu, Bungoma and Kilifi Counties, Kenya
+2026-09-04 12:37:09.574 | DEBUG    | __main__:read_docx:283 - DOCX: UK PACT Project Technical Proposal Template.docx → 51438 chars
+2026-09-04 12:37:21.923 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7468 out=1200 cached=0 est_cost_usd=0.026935999999999998
+2026-09-04 12:37:21.923 | ERROR    | __main__:extract_proposal_info:506 - JSON parse error for proposal UK PACT Project Technical Proposal Template.docx: Unterminated string starting at: line 11 column 23 (char 942)
+2026-09-04 12:37:50.282 | DEBUG    | __main__:read_docx:283 - DOCX: UNICEF CONCEPT NOTE BY CORTECH.docx → 69049 chars
+2026-09-04 12:38:00.786 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=8318 out=962 cached=0 est_cost_usd=0.026256
+2026-09-04 12:38:00.786 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Enhancing Integrated Health, Nutrition, and WASH Services for Child Survival in Bu'aale District, Middle Juba Region
+2026-09-04 12:38:16.548 | DEBUG    | __main__:read_docx:283 - DOCX: WHH TECHNICAL PROPOSAL.docx → 42649 chars
+2026-09-04 12:38:28.719 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7658 out=1006 cached=0 est_cost_usd=0.025376
+2026-09-04 12:38:28.719 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for Midline Evaluation in Kilifi and Tana River Counties
