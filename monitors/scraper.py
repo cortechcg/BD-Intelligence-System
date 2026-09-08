@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
 from monitors.rss_monitor import quick_relevance_check
-from utils.browser_security import install_browser_request_guard
+from utils.browser_security import install_browser_request_guard, launch_chromium
 from config import MAX_DOCUMENT_BYTES, MAX_DOWNLOAD_REDIRECTS
 from utils.urls import (
     UnsafeURLError,
@@ -329,38 +329,41 @@ def parse_tenders_from_html(
 
 async def scrape_one_source(browser, source: dict) -> list[dict]:
     """Fetch, parse, dedupe, and filter a single scrape source."""
-    name = source["name"]
+    name = source.get("name", "unknown")
     logger.info(f"  Scraping: {name}")
+    try:
+        html = await fetch_page_content(
+            browser,
+            source["url"],
+            source.get("wait_for"),
+            source.get("timeout", DEFAULT_TIMEOUT_MS),
+            needs_browser=source.get("needs_browser", False),
+            post_load_wait_ms=source.get("post_load_wait_ms", 2000),
+            scroll_selector=source.get("scroll_selector"),
+        )
 
-    html = await fetch_page_content(
-        browser,
-        source["url"],
-        source.get("wait_for"),
-        source.get("timeout", DEFAULT_TIMEOUT_MS),
-        needs_browser=source.get("needs_browser", False),
-        post_load_wait_ms=source.get("post_load_wait_ms", 2000),
-        scroll_selector=source.get("scroll_selector"),
-    )
+        if not html:
+            logger.warning(f"  No HTML returned for {name} — skipping")
+            return []
 
-    if not html:
-        logger.warning(f"  No HTML returned for {name} — skipping")
+        raw_items = parse_tenders_from_html(html, source)
+        logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
+
+        passed: list[dict] = []
+        filtered = 0
+        for item in raw_items:
+            if check_opportunity_exists(item["source_url"]):
+                continue
+            if not quick_relevance_check(item["title"], item["summary"]):
+                filtered += 1
+                continue
+            passed.append(item)
+
+        logger.info(f"  {name}: {len(passed)} passed filter | {filtered} rejected")
+        return passed
+    except Exception as e:
+        logger.error(f"  Scraper failed for {name} (non-fatal): {e}")
         return []
-
-    raw_items = parse_tenders_from_html(html, source)
-    logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
-
-    passed: list[dict] = []
-    filtered = 0
-    for item in raw_items:
-        if check_opportunity_exists(item["source_url"]):
-            continue
-        if not quick_relevance_check(item["title"], item["summary"]):
-            filtered += 1
-            continue
-        passed.append(item)
-
-    logger.info(f"  {name}: {len(passed)} passed filter | {filtered} rejected")
-    return passed
 
 
 async def run_all_scrapers_async() -> list[dict]:
@@ -369,25 +372,22 @@ async def run_all_scrapers_async() -> list[dict]:
     Each source gets its own tab — parallel, efficient, one browser launch.
     """
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-blink-features=AutomationControlled",
-            ],
-        )
+        browser = await launch_chromium(p)
 
         results = await asyncio.gather(
             *[
                 scrape_one_source(browser, source)
                 for source in SCRAPE_SOURCES
             ],
+            return_exceptions=True,
         )
         await browser.close()
 
     all_passed: list[dict] = []
     for batch in results:
+        if isinstance(batch, Exception):
+            logger.error(f"  Scraper source crashed (non-fatal): {batch}")
+            continue
         all_passed.extend(batch)
     return all_passed
 

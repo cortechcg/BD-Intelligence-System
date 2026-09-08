@@ -60,3 +60,25 @@ def test_workshop_compatibility_api_refuses_to_guess_costs():
     result = budget_calculator.estimate_workshop_costs([], "Nairobi")
     assert result["status"] == budget_calculator.BUDGET_INSUFFICIENT
     assert result["total"] is None
+
+
+def test_budget_survives_missing_analysis_fields_and_rate_card_errors(monkeypatch):
+    monkeypatch.setattr(
+        budget_calculator,
+        "get_rate_card",
+        lambda: (_ for _ in ()).throw(RuntimeError("429")),
+    )
+
+    empty = budget_calculator.calculate_budget(None, None, "Nairobi")
+    assert empty["status"] == budget_calculator.BUDGET_INSUFFICIENT
+    assert empty["summary"]["grand_total_usd"] is None
+
+    partial = budget_calculator.calculate_budget(
+        {"team_requirements": [{"role": "Lead"}]},
+        {},
+        "Nairobi",
+    )
+    assert partial["status"] == budget_calculator.BUDGET_INSUFFICIENT
+    assert partial["personnel_breakdown"]["Lead"]["day_rate_usd"] is None
+    assert partial["summary"]["grand_total_usd"] is None
+    assert partial["missing_inputs"]
