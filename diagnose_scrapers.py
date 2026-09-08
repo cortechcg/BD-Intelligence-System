@@ -11,7 +11,7 @@ import asyncio
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 from bs4 import BeautifulSoup
 from loguru import logger
-from utils.browser_security import install_browser_request_guard
+from utils.browser_security import install_browser_request_guard, launch_chromium
 from utils.urls import UnsafeURLError, assert_public_http_url
 
 SOURCES_TO_CHECK = [
@@ -44,8 +44,12 @@ async def diagnose_source(browser, source: dict) -> None:
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             )
         })
-        await page.goto(url, wait_until="domcontentloaded", timeout=20000)
-        await page.wait_for_timeout(3000)
+        await page.goto(url, wait_until="commit", timeout=45000)
+        try:
+            await page.wait_for_selector('a[href*="/tenders/"]', timeout=20000)
+        except PWTimeout:
+            pass
+        await page.wait_for_timeout(8000)
 
         html  = await page.content()
         soup  = BeautifulSoup(html, "lxml")
@@ -126,10 +130,7 @@ async def diagnose_source(browser, source: dict) -> None:
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage"],
-        )
+        browser = await launch_chromium(p)
         for source in SOURCES_TO_CHECK:
             await diagnose_source(browser, source)
         await browser.close()

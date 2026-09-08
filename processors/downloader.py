@@ -22,7 +22,7 @@ from config import (
     MAX_GDRIVE_FILES,
 )
 from utils.errors import ErrorType
-from utils.browser_security import install_browser_request_guard
+from utils.browser_security import install_browser_request_guard, launch_chromium
 from utils.urls import UnsafeURLError, assert_public_http_url, assert_safe_redirect, safe_filename
 
 HTTP_HEADERS = {
@@ -260,17 +260,14 @@ async def _fetch_rendered_html(url: str) -> str | None:
 
     try:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
+            browser = await launch_chromium(p)
             # Do not weaken TLS for untrusted tender sources. A bad certificate
             # is a failed source, not a reason to accept tampered content.
             context = await browser.new_context()
             page = await context.new_page()
             try:
                 await install_browser_request_guard(page)
-                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                await page.goto(url, wait_until="commit", timeout=45000)
                 await page.wait_for_timeout(5000)
                 return await page.content()
             except PlaywrightTimeout:

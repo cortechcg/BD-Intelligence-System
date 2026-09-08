@@ -758,7 +758,7 @@ def populate_rate_cards(tables: dict) -> int:
         try:
             rate["rate_id"] = str(uuid.uuid4())
             rate["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-            tables["rate_cards"].create(rate)
+            tables["rate_cards"].create(rate, typecast=True)
             added += 1
             time.sleep(0.25)  # stay under Airtable's ~5 req/s limit
         except Exception as e:

@@ -269,6 +269,10 @@ def analyze_rfp(
     title = title if isinstance(title, str) and title.strip() else "Unknown"
     logger.info(f"  Analyzing: {title[:60]}...")
 
+    if not isinstance(tor_text, str) or not tor_text.strip():
+        logger.error(f"  Empty document — refusing analysis for '{title[:60]}'")
+        return {}
+
     # Truncate if too long — keep within safe token budget
     max_chars = 120000  # ~30k tokens — enough for a ToR plus 2–3 annexes
     if len(tor_text) > max_chars:
@@ -309,23 +313,25 @@ def analyze_rfp(
                     break
 
         analysis = json.loads(response_text)
+        if not isinstance(analysis, dict):
+            logger.error(
+                f"  Analysis JSON was {type(analysis).__name__}, not an object "
+                f"— refusing '{title[:60]}'"
+            )
+            return {}
         _normalize_opportunity(analysis, title)
 
-        score = (
-            analysis
-            .get("bid_analysis", {})
-            .get("cortech_fit_score", 0)
-        )
-        is_contract = (
-            analysis
-            .get("bid_analysis", {})
-            .get("is_consultancy_contract", True)
-        )
-        submission_type = (
-            analysis
-            .get("bid_analysis", {})
-            .get("submission_type", "FULL_PROPOSAL")
-        )
+        bid_analysis = analysis.get("bid_analysis")
+        if not isinstance(bid_analysis, dict):
+            bid_analysis = {}
+            analysis["bid_analysis"] = bid_analysis
+        # Fail open: a missing boolean must never look like a staff vacancy.
+        if "is_consultancy_contract" not in bid_analysis:
+            bid_analysis["is_consultancy_contract"] = True
+
+        score = bid_analysis.get("cortech_fit_score", 0)
+        is_contract = bid_analysis.get("is_consultancy_contract", True)
+        submission_type = bid_analysis.get("submission_type", "FULL_PROPOSAL")
 
         logger.success(
             f"  Analysis complete — score: {score}/100 | "

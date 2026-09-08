@@ -384,8 +384,8 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
                 "relevance_score":    fit_score,
                 "win_probability":    win_prob,
                 "bid_recommendation": "NO-BID",
-                "key_strengths":      "\n".join(bid_analysis.get("key_strengths", [])),
-                "key_gaps":           "\n".join(bid_analysis.get("key_gaps", [])),
+                "key_strengths":      "\n".join(bid_analysis.get("key_strengths") or []),
+                "key_gaps":           "\n".join(bid_analysis.get("key_gaps") or []),
                 "claude_analysis":    str(analysis)[:50000],
                 "status":             "New",
             })
@@ -420,17 +420,19 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         "estimated_budget_usd": opportunity.get("estimated_budget_usd", 0),
         "location": opportunity.get("project_location", []),
         "thematic_areas": (
-            analysis.get("requirements", {}).get("thematic_areas", [])
+            (analysis.get("requirements") or {}).get("thematic_areas") or []
+            if isinstance(analysis.get("requirements") or {}, dict)
+            else []
         ),
         "relevance_score": fit_score,
         "win_probability": win_prob,
         "bid_recommendation": recommendation,
         "claude_analysis": str(analysis)[:50000],  # Airtable long-text limit
         "key_strengths": "\n".join(
-            bid_analysis.get("key_strengths", [])
+            bid_analysis.get("key_strengths") or []
         ),
         "key_gaps": "\n".join(
-            bid_analysis.get("key_gaps", [])
+            bid_analysis.get("key_gaps") or []
         ),
         "status": "New",
     })
@@ -496,7 +498,7 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
     # `or`, not a .get() default: Claude returns an explicit null here for
     # anything it classified as a staff vacancy, and a null key is present,
     # so the default never fires.
-    submission_type = analysis.get("bid_analysis", {}).get(
+    submission_type = (analysis.get("bid_analysis") or {}).get(
         "submission_type"
     ) or "FULL_PROPOSAL"
     budget = {}
@@ -520,8 +522,12 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         logger.info("  Submission type: Full technical proposal")
 
         logger.info("  Step 4: Calculating budget...")
-        project_locations = opportunity.get("project_location", [])
-        primary_location  = project_locations[0] if project_locations else "Nairobi"
+        project_locations = opportunity.get("project_location") or []
+        if isinstance(project_locations, str):
+            project_locations = [project_locations]
+        elif not isinstance(project_locations, list):
+            project_locations = []
+        primary_location = project_locations[0] if project_locations else "Nairobi"
 
         try:
             budget = calculate_budget(
@@ -1075,6 +1081,20 @@ def start_scheduler() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
+    # --help must not fall through to start_scheduler(), which fires a full
+    # discovery run immediately (emails + Airtable + Claude).
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print(
+            "Cortech BD Intelligence Agent\n"
+            "\n"
+            "  python main.py --once                  Run the full discovery pipeline once\n"
+            "  python main.py --submit-url <url>      Process one URL immediately\n"
+            "  python main.py --run-assortis          Check the ICA/Assortis newsletter once\n"
+            "  python main.py --run-deadline-check    Send deadline escalation digest\n"
+            "  python main.py --run-winloss           Extract win/loss lessons\n"
+            "  python main.py                         Continuous scheduler (legacy)\n"
+        )
+        sys.exit(0)
     require_env()
     configure_logging()
     if "--submit-url" in sys.argv:
