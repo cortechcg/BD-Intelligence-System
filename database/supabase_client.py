@@ -17,6 +17,67 @@ _supabase_client: Client | None = None
 # remain finite so the next scheduler run can reclaim stranded work.
 PROCESSING_LEASE_SECONDS = 30 * 60
 
+# None = not probed this process. False = table/RPC confirmed missing.
+# A missing ledger must never look like "every URL is new".
+_opportunity_ledger_available: bool | None = None
+
+_LEDGER_MISSING_MESSAGE = (
+    "CRITICAL: opportunity_processing is missing in this Supabase project. "
+    "Bulk discovery will not treat URLs as new and will skip drafting until "
+    "supabase_migration_opportunity_state.sql is applied. "
+    "Manual python main.py --submit-url still works."
+)
+
+
+def _is_missing_processing_ledger(exc: Exception) -> bool:
+    """True for PostgREST/Postgres 'relation or RPC does not exist' errors."""
+    msg = str(exc)
+    compact = msg.lower()
+    if "pgrst205" in compact or "pgrst202" in compact:
+        return True
+    if "42p01" in compact:
+        return True
+    if "opportunity_processing" in compact and (
+        "schema cache" in compact
+        or "does not exist" in compact
+        or "could not find" in compact
+    ):
+        return True
+    return False
+
+
+def _mark_opportunity_ledger_unavailable(exc: Exception) -> None:
+    global _opportunity_ledger_available
+    _opportunity_ledger_available = False
+    logger.error(f"{_LEDGER_MISSING_MESSAGE} Cause: {exc}")
+
+
+def reset_opportunity_ledger_status() -> None:
+    """Test helper — do not use to override a confirmed-missing production ledger."""
+    global _opportunity_ledger_available
+    _opportunity_ledger_available = None
+
+
+def opportunity_ledger_available() -> bool:
+    """Probe once: can we read opportunity_processing?
+
+    Missing table/RPC → False (fail closed for bulk discovery).
+    Transient probe errors are not cached as missing.
+    """
+    global _opportunity_ledger_available
+    if _opportunity_ledger_available is not None:
+        return _opportunity_ledger_available
+    try:
+        supabase.table("opportunity_processing").select("source_url").limit(1).execute()
+        _opportunity_ledger_available = True
+        return True
+    except Exception as e:
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+            return False
+        logger.warning(f"opportunity_processing probe failed (not treating as missing): {e}")
+        return True
+
 
 def get_supabase() -> Client:
     """Create the Supabase client only when a storage operation needs it.
@@ -262,8 +323,13 @@ def check_opportunity_exists(source_url: str) -> bool:
                 return True
         return False
     except Exception as e:
-        # Failing open causes an occasional repeat, never permanent loss. The
-        # atomic claim below still protects configured deployments from races.
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+            # Not "new". Discovery must not enqueue every Somali Jobs URL.
+            return True
+        # Transient lookup errors still fail open (occasional repeat, not a
+        # permanent 37-draft storm). The atomic claim still races-protects a
+        # configured deployment.
         logger.warning(f"Completion-state lookup failed (retryable/fail-open): {e}")
         return False
 
@@ -277,13 +343,21 @@ def claim_opportunity_processing(
 ) -> str | None:
     """Atomically claim a retryable opportunity-processing lease.
 
-    Requires ``supabase_migration_opportunity_state.sql``. If the migration is
-    absent/unavailable we fail open rather than letting a storage outage lose a
-    tender; callers retain in-process deduplication and do not cache failure as
-    completion.
+    Requires ``supabase_migration_opportunity_state.sql``. A missing table or
+    RPC is not a storage blip: fail-opening would draft every discovered URL as
+    new. Bulk callers (``force=False``) are refused. Manual ``--submit-url``
+    passes ``force=True`` and may still proceed.
     """
+    global _opportunity_ledger_available
     canonical = canonicalize_url(source_url) or source_url
     if not canonical:
+        return None
+    if not force and _opportunity_ledger_available is False:
+        logger.error(
+            "Refusing bulk claim: opportunity_processing ledger is missing. "
+            "Apply supabase_migration_opportunity_state.sql. "
+            f"Skipped: {canonical[:80]}"
+        )
         return None
     claim_token = str(uuid.uuid4())
     try:
@@ -294,6 +368,7 @@ def claim_opportunity_processing(
             "p_force": bool(force),
             "p_claim_token": claim_token,
         }).execute()
+        _opportunity_ledger_available = True
         row = (result.data or [{}])[0]
         if not row.get("acquired"):
             return None
@@ -306,9 +381,18 @@ def claim_opportunity_processing(
             return None
         return claim_token
     except Exception as e:
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+            if force:
+                logger.error(
+                    "Manual submit proceeding without processing ledger "
+                    f"for {canonical[:80]}"
+                )
+                return claim_token
+            return None
         logger.warning(
-            "Opportunity-state claim unavailable (fail-open; migration/storage "
-            f"needs attention): {e}"
+            "Opportunity-state claim unavailable (fail-open; transient storage "
+            f"error): {e}"
         )
         return claim_token
 
@@ -328,9 +412,12 @@ def complete_opportunity_processing(source_url: str, claim_token: str) -> bool:
         data = result.data
         return bool(data[0] if isinstance(data, list) and data else data)
     except Exception as e:
-        # Do not turn a delivered proposal into an exception. A future run may
-        # reprocess it, which is safer than silently declaring completion.
-        logger.warning(f"Could not persist opportunity completion state: {e}")
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+        else:
+            # Do not turn a delivered proposal into an exception. A future run may
+            # reprocess it, which is safer than silently declaring completion.
+            logger.warning(f"Could not persist opportunity completion state: {e}")
         return False
 
 
@@ -348,7 +435,10 @@ def fail_opportunity_processing(source_url: str, claim_token: str, error: str = 
         data = result.data
         return bool(data[0] if isinstance(data, list) and data else data)
     except Exception as e:
-        logger.warning(f"Could not persist retryable opportunity failure: {e}")
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+        else:
+            logger.warning(f"Could not persist retryable opportunity failure: {e}")
         return False
 
 

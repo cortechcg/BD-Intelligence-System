@@ -59,6 +59,7 @@ from database.supabase_client import (
     claim_opportunity_processing,
     complete_opportunity_processing,
     fail_opportunity_processing,
+    opportunity_ledger_available,
     store_opportunity,
 )
 from database.airtable_client import (
@@ -801,6 +802,20 @@ def _run_pipeline() -> None:
             unique_new.append(opp)
     all_new = unique_new
 
+    if all_new and not opportunity_ledger_available():
+        logger.error(
+            f"Skipping {len(all_new)} bulk discoveries: opportunity_processing "
+            "ledger is missing. Apply supabase_migration_opportunity_state.sql. "
+            "Use python main.py --submit-url for a one-off."
+        )
+        console.print(
+            "[red]opportunity_processing table missing in Supabase — "
+            "refusing to draft bulk discoveries as new. "
+            "Apply supabase_migration_opportunity_state.sql. "
+            "Manual --submit-url still works.[/red]"
+        )
+        all_new = []
+
     total = len(all_new)
     console.print(
         f"\n[bold]Found {total} new opportunit"
@@ -852,20 +867,20 @@ def _run_pipeline() -> None:
                 except Exception as email_err:
                     logger.error(
                         f"Proposal email failed for "
-                        f"'{result.get('title', 'Unknown')[:50]}': {email_err}"
+                        f"'{(result.get('title') or 'Unknown')[:50]}': {email_err}"
                     )
 
         except Exception as e:
             logger.error(
                 f"Pipeline error for "
-                f"'{opp.get('title', 'Unknown')[:60]}': {e}"
+                f"'{(opp.get('title') or 'Unknown')[:60]}': {e}"
             )
             try:
                 log_agent_action(
                     action_type="Error",
                     description=(
                         f"Pipeline exception: "
-                        f"{opp.get('title', 'Unknown')[:50]}"
+                        f"{(opp.get('title') or 'Unknown')[:50]}"
                     ),
                     status="Error",
                     error_message=str(e),
@@ -934,6 +949,13 @@ def _run_assortis_check() -> None:
     new_execution_id()
     _start_execution_budget()
     opportunities = check_assortis_newsletter()
+    if opportunities and not opportunity_ledger_available():
+        logger.error(
+            f"Skipping {len(opportunities)} Assortis discoveries: "
+            "opportunity_processing ledger is missing. "
+            "Apply supabase_migration_opportunity_state.sql."
+        )
+        opportunities = []
     remaining = _remaining_execution_budget()
     if len(opportunities) > remaining:
         logger.warning(
@@ -952,19 +974,19 @@ def _run_assortis_check() -> None:
                 except Exception as email_err:
                     logger.error(
                         f"Proposal email failed for "
-                        f"'{result.get('title', 'Unknown')[:50]}': {email_err}"
+                        f"'{(result.get('title') or 'Unknown')[:50]}': {email_err}"
                     )
         except Exception as e:
             logger.error(
                 f"Assortis pipeline error for "
-                f"'{opp.get('title', 'Unknown')[:60]}': {e}"
+                f"'{(opp.get('title') or 'Unknown')[:60]}': {e}"
             )
             try:
                 log_agent_action(
                     action_type="Error",
                     description=(
                         f"Assortis pipeline exception: "
-                        f"{opp.get('title', 'Unknown')[:50]}"
+                        f"{(opp.get('title') or 'Unknown')[:50]}"
                     ),
                     status="Error",
                     error_message=str(e),

@@ -58,7 +58,7 @@ Nothing in this pipeline submits to a client.
 
 - **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding. Dedup = exact canonical URL + (Assortis) title near-dup. The Supabase client is created lazily at first storage use, after configuration validation at the entry point.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
-- **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model.
+- **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model. If 429s persist, bulk-delete AGENT_LOGS in the Airtable UI (or `python populate_airtable.py --prune-logs`); do not invent a second log system.
 
 ## Scoring data flow
 

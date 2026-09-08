@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from loguru import logger
 
 from utils.errors import ErrorType
@@ -42,24 +45,76 @@ _BROWSER_LAUNCH_ARGS = [
     "--disable-blink-features=AutomationControlled",
 ]
 
+_SYSTEM_CHROME_CANDIDATES = (
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+)
+
+
+def _playwright_browsers_path_is_usable() -> bool:
+    """Cursor often sets PLAYWRIGHT_BROWSERS_PATH to an empty sandbox cache."""
+    path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if path is None:
+        return True
+    if not str(path).strip():
+        return False
+    root = Path(path)
+    if not root.is_dir():
+        return False
+    try:
+        for child in root.iterdir():
+            if "chrom" in child.name.lower():
+                return True
+    except OSError:
+        return False
+    return False
+
+
+def _sanitize_playwright_browsers_path() -> None:
+    """Unset a broken PLAYWRIGHT_BROWSERS_PATH so system Chrome can be found."""
+    if _playwright_browsers_path_is_usable():
+        return
+    logger.warning(
+        "PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it "
+        "so Playwright can fall back to system Chrome"
+    )
+    os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+
+
+def _system_chrome_launch_attempts() -> list[dict]:
+    attempts: list[dict] = []
+    seen: set[str] = set()
+    for exe in _SYSTEM_CHROME_CANDIDATES:
+        if exe in seen:
+            continue
+        if os.path.isfile(exe) and os.access(exe, os.X_OK):
+            seen.add(exe)
+            attempts.append({"executable_path": exe})
+    return attempts
+
 
 async def launch_chromium(playwright):
     """Launch Chromium, falling back to a system Chrome/Chromium install.
 
     Playwright's bundled browser is not published for every Linux distro
-    (Ubuntu 26.04 currently rejects ``playwright install chromium``). The
-    BD agent host has Google Chrome installed; use that rather than
-    returning zero tenders.
+    (Ubuntu 26.04 currently rejects ``playwright install chromium``). Cursor
+    also sets PLAYWRIGHT_BROWSERS_PATH to an empty cache. Unset that, then
+    try bundled Chromium, then the Chrome/Chromium channels, then known
+    system binaries so systemd and Cursor both work.
     """
+    _sanitize_playwright_browsers_path()
     last_error = None
     attempts = (
         {},
         {"channel": "chrome"},
         {"channel": "chromium"},
+        *_system_chrome_launch_attempts(),
     )
     for extra in attempts:
         kwargs = {"headless": True, "args": _BROWSER_LAUNCH_ARGS, **extra}
-        channel = extra.get("channel", "bundled")
+        channel = extra.get("executable_path") or extra.get("channel", "bundled")
         try:
             browser = await playwright.chromium.launch(**kwargs)
             logger.debug(f"Playwright Chromium launched via {channel}")

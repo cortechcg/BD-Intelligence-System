@@ -152,9 +152,15 @@ def filter_by_availability(matches: list[dict]) -> list[dict]:
         if not consultant:
             match["availability_flag"] = "Unknown"
             continue
-        pct = consultant.get("availability_percentage", 100)
+        pct = consultant.get("availability_percentage")
+        if pct is None:
+            pct = 100
+        try:
+            pct = float(pct)
+        except (TypeError, ValueError):
+            pct = 100
         match["availability_percent"] = pct
-        match["current_project_count"] = consultant.get("current_projects", 0)
+        match["current_project_count"] = consultant.get("current_projects") or 0
         match["availability_flag"] = (
             "Available" if pct >= 50 else
             "Partially" if pct >= 20 else
@@ -177,17 +183,25 @@ def match_team_to_requirements(
 
     logger.info(f"Matching team for {len(team_requirements)} roles...")
 
-    for req in team_requirements:
-        role = req.get("role", "Unknown")
-        level = req.get("level", "Senior")
+    for req in team_requirements or []:
+        if not isinstance(req, dict):
+            continue
+        role = req.get("role") or "Unknown"
+        level = req.get("level") or "Senior"
+        skills = req.get("required_skills") or []
+        geo = req.get("required_geographic_experience") or []
+        if isinstance(skills, str):
+            skills = [skills]
+        if isinstance(geo, str):
+            geo = [geo]
 
         # Build semantic search query from requirements
         search_query = f"""
         {level} {role}
-        Skills required: {', '.join(req.get('required_skills', []))}
-        Geographic experience needed: {', '.join(req.get('required_geographic_experience', []))}
-        Years experience: {req.get('years_experience_minimum', 0)}+
-        Education: {req.get('required_education', '')}
+        Skills required: {', '.join(str(s) for s in skills)}
+        Geographic experience needed: {', '.join(str(g) for g in geo)}
+        Years experience: {req.get('years_experience_minimum') or 0}+
+        Education: {req.get('required_education') or ''}
         """
 
         # Search CV database
@@ -198,21 +212,28 @@ def match_team_to_requirements(
         )
 
         if matches:
-            best_match = matches[0]
+            best_match = matches[0] if isinstance(matches[0], dict) else {}
             capability = score_capability_match(req, best_match)
+            try:
+                similarity = float(best_match.get("similarity") or 0)
+            except (TypeError, ValueError):
+                similarity = 0.0
+            if similarity > 1:
+                similarity = similarity / 100.0
+            name = best_match.get("consultant_name") or "Unknown"
             matched_team[role] = {
-                "consultant_name": best_match["consultant_name"],
-                "airtable_id": best_match["airtable_consultant_id"],
-                "role_title": best_match["role_title"],
-                "similarity_score": round(best_match["similarity"] * 100),
-                "metadata": best_match["metadata"],
+                "consultant_name": name,
+                "airtable_id": best_match.get("airtable_consultant_id"),
+                "role_title": best_match.get("role_title") or "",
+                "similarity_score": round(similarity * 100),
+                "metadata": best_match.get("metadata") or {},
                 "all_matches": matches,
                 "requirement": req,
                 "capability": capability,
             }
             logger.success(
-                f"  {role} → {best_match['consultant_name']} "
-                f"(score: {round(best_match['similarity'] * 100)}%)"
+                f"  {role} → {name} "
+                f"(score: {round(similarity * 100)}%)"
             )
         else:
             gaps.append(role)

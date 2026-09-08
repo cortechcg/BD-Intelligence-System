@@ -935,7 +935,7 @@ def show_cv_preview(cv_info: dict, file_name: str) -> None:
     table.add_row("Geographic Exp.", ", ".join(cv_info.get("geographic_experience", [])))
     table.add_row("Languages", ", ".join(cv_info.get("languages", [])))
     table.add_row("Tools", ", ".join(cv_info.get("tools", [])))
-    table.add_row("Education", cv_info.get("education", "—")[:80])
+    table.add_row("Education", (cv_info.get("education") or "—")[:80])
 
     console.print(table)
 
@@ -947,7 +947,7 @@ def show_proposal_preview(proposal_info: dict, file_name: str) -> None:
     table.add_column("Field", style="bold cyan", width=25)
     table.add_column("Extracted Value", style="white")
 
-    table.add_row("Title", proposal_info.get("project_title", "—")[:60])
+    table.add_row("Title", (proposal_info.get("project_title") or "—")[:60])
     table.add_row("Client", proposal_info.get("client", "—"))
     table.add_row("Donor", proposal_info.get("donor", "—"))
     table.add_row("Year", str(proposal_info.get("year", "—")))
@@ -955,7 +955,7 @@ def show_proposal_preview(proposal_info: dict, file_name: str) -> None:
     table.add_row("Value (USD)", f"${proposal_info.get('contract_value_usd', 0):,}")
     table.add_row("Thematic Areas", ", ".join(proposal_info.get("thematic_areas", [])))
     table.add_row("Location", ", ".join(proposal_info.get("location", [])))
-    table.add_row("Methodology", proposal_info.get("methodology_approach", "—")[:80])
+    table.add_row("Methodology", (proposal_info.get("methodology_approach") or "—")[:80])
 
     console.print(table)
 

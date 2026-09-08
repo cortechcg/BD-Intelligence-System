@@ -213,9 +213,13 @@ def monitor_rss_feeds() -> list[dict]:
             passed_count = 0
 
             for entry in feed.entries:
-                title = entry.get("title", "")
-                summary = entry.get("summary", "")
-                link = entry.get("link", "")
+                title = entry.get("title") or ""
+                if not isinstance(title, str):
+                    title = ""
+                summary = entry.get("summary") or ""
+                if not isinstance(summary, str):
+                    summary = ""
+                link = entry.get("link") or ""
 
                 if not link:
                     continue

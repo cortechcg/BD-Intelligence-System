@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from monitors.scraper import parse_tenders_from_html, scrape_one_source, SCRAPE_SOURCES
 from utils.browser_security import launch_chromium
@@ -60,3 +61,23 @@ def test_launch_chromium_falls_back_to_system_chrome():
     assert browser == "ok-browser"
     assert attempts[0] == "bundled"
     assert "chrome" in attempts
+
+
+def test_launch_chromium_unsets_broken_playwright_cache(monkeypatch, tmp_path):
+    empty = tmp_path / "empty-playwright-cache"
+    empty.mkdir()
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(empty))
+
+    class _Chromium:
+        async def launch(self, **kwargs):
+            if kwargs.get("channel") == "chrome":
+                return "ok-browser"
+            raise RuntimeError("bundled chromium missing")
+
+    class _Playwright:
+        def __init__(self):
+            self.chromium = _Chromium()
+
+    browser = asyncio.run(launch_chromium(_Playwright()))
+    assert browser == "ok-browser"
+    assert "PLAYWRIGHT_BROWSERS_PATH" not in os.environ
