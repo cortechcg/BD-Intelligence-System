@@ -32,6 +32,23 @@ Eligibility: credentials not on the profile are UNKNOWN, not a fabricated fail. 
 
 Each factor has `status`: VERIFIED (extracted field matched a list), INFERRED (partial), UNKNOWN (not extracted / not guessed).
 
+## Capability matching (person-level)
+
+`intelligence/cv_matcher.py` scores each ToR role independently of the bid FIT number.
+
+| Factor | Source | Missing input |
+|---|---|---|
+| Semantic | pgvector similarity | Treated as 0 if the search row has no score |
+| Geography | role `required_geographic_experience`, else opportunity locations | UNKNOWN — not inferred |
+| Sector | role thematic/sector, else opportunity `thematic_areas`, vs CV `thematic_expertise` | UNKNOWN — not inferred |
+| Language | role languages, else opportunity `language_requirements` | UNKNOWN — not inferred |
+| Years | `years_experience_minimum` vs CV `years_experience` | UNKNOWN — not inferred |
+| Skills | `required_skills` vs CV `key_skills` / `tools` | UNKNOWN — not inferred |
+| Availability | live Airtable `availability_status` (optional `availability_percentage`) | UNKNOWN — **not** assumed Available / 100% |
+| Education | ToR `required_education` | Always UNKNOWN — education is not on CV embedding metadata |
+
+MATCH SCORE is the mean of factors that have a number. WHY / EVIDENCE / GAPS travel with each role and a team `capability_summary`. Busy consultants stay in the list. Missing credentials are never invented.
+
 ## What this is not
 
 It is not a calibrated win-probability model. There is no historical win/loss regression yet. WIN PROBABILITY is a weighted heuristic on observed factors, 0–100, not a frequentist P(win).

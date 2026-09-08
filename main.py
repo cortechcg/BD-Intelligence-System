@@ -49,7 +49,7 @@ from processors.document_quality import assess_extraction
 from intelligence.analyzer import analyze_rfp
 from intelligence.bid_scorer import apply_bid_intelligence
 from intelligence.compliance import build_compliance_matrix
-from intelligence.cv_matcher import match_team_to_requirements, filter_by_availability
+from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
 from reporting.docx_builder import SECTION_ORDER
@@ -455,19 +455,23 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
     team_requirements = analysis.get("team_requirements", [])
 
     if team_requirements:
+        reqs = analysis.get("requirements") or {}
+        if not isinstance(reqs, dict):
+            reqs = {}
         matched_team_result = match_team_to_requirements(
             team_requirements,
             opportunity_id=opp_id,
             opportunity_title=title,
+            opportunity_context={
+                "thematic_areas": reqs.get("thematic_areas") or [],
+                "language_requirements": reqs.get("language_requirements") or [],
+                "geographic_experience": (
+                    reqs.get("geographic_experience")
+                    or opportunity.get("project_location")
+                    or []
+                ),
+            },
         )
-        team = matched_team_result.get("matched_team", {})
-        if team:
-            for role, match in team.items():
-                match["_sort_role"] = role
-            reordered = filter_by_availability(list(team.values()))
-            matched_team_result["matched_team"] = {
-                m.pop("_sort_role"): m for m in reordered
-            }
         try:
             if airtable_record_id:
                 update_opportunity(airtable_record_id, {
