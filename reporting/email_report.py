@@ -526,8 +526,12 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if not isinstance(match, dict):
             continue
         name  = match.get("consultant_name", "TBD")
-        score_pct = _number(match.get("similarity_score", 0))
-        avail = match.get("availability_flag", "Unknown")
+        capability = match.get("capability") if isinstance(match.get("capability"), dict) else {}
+        cap_score = capability.get("match_score")
+        score_pct = _number(
+            cap_score if cap_score is not None else match.get("similarity_score", 0)
+        )
+        avail = match.get("availability_flag") or "Unknown"
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
         <tr>

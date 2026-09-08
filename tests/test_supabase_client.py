@@ -67,3 +67,77 @@ def test_pgrst205_bulk_claim_is_refused_manual_submit_still_proceeds(monkeypatch
         url, "Tender", force=True
     )
     assert isinstance(token, str) and token
+
+
+class _RpcResult:
+    def __init__(self, data):
+        self.data = data
+
+
+class _ClaimLedger:
+    def __init__(self, behavior="ok"):
+        self.behavior = behavior
+        self.calls = []
+
+    def rpc(self, name, params):
+        self.calls.append((name, params))
+
+        class _Call:
+            def execute(_self, ledger=self, rpc_name=name, rpc_params=params):
+                if rpc_name != "claim_opportunity_processing":
+                    raise AssertionError(rpc_name)
+                token = rpc_params["p_claim_token"]
+                if ledger.behavior == "ok":
+                    return _RpcResult([{
+                        "acquired": True,
+                        "state": "processing",
+                        "attempt_count": 1,
+                        "claim_token": token,
+                    }])
+                if ledger.behavior == "busy":
+                    return _RpcResult([{
+                        "acquired": False,
+                        "state": "processing",
+                        "attempt_count": 1,
+                        "claim_token": "",
+                    }])
+                return _RpcResult([{
+                    "acquired": True,
+                    "state": "processing",
+                    "attempt_count": 1,
+                    "claim_token": "someone-elses-lease",
+                }])
+
+        return _Call()
+
+
+def test_claim_succeeds_when_ledger_echoes_token(monkeypatch):
+    supabase_client.reset_opportunity_ledger_status()
+    ledger = _ClaimLedger("ok")
+    monkeypatch.setattr(supabase_client, "supabase", ledger)
+    token = supabase_client.claim_opportunity_processing(
+        "https://www.somalijobs.com/tenders/3/eval",
+        "Endline",
+    )
+    assert isinstance(token, str) and token
+    assert ledger.calls[0][0] == "claim_opportunity_processing"
+    assert ledger.calls[0][1]["p_force"] is False
+    assert supabase_client._opportunity_ledger_available is True
+
+
+def test_claim_refuses_active_lease_and_token_mismatch(monkeypatch):
+    supabase_client.reset_opportunity_ledger_status()
+    busy = _ClaimLedger("busy")
+    monkeypatch.setattr(supabase_client, "supabase", busy)
+    assert supabase_client.claim_opportunity_processing(
+        "https://www.somalijobs.com/tenders/4/eval",
+        "Taken",
+    ) is None
+
+    supabase_client.reset_opportunity_ledger_status()
+    mismatch = _ClaimLedger("mismatch")
+    monkeypatch.setattr(supabase_client, "supabase", mismatch)
+    assert supabase_client.claim_opportunity_processing(
+        "https://www.somalijobs.com/tenders/5/eval",
+        "Mismatch",
+    ) is None

@@ -24,7 +24,7 @@ systemd timers (or python main.py --once)
            6. NO-BID draft gate uses CODE recommendation, not the LLM number;
               record remains New for human confirmation
            7. Airtable create (existing fields; scores are the code scores)
-           8. CV match + explicit capability overlay
+           8. CV match + geography/sector/language/availability overlay
            9. apply_bid_intelligence() again with team coverage
           10. evidence-bound personnel costing / EOI or full proposal
           11. compliance_matrix (SATISFIED/PARTIAL/MISSING/UNKNOWN)
@@ -45,7 +45,7 @@ Nothing in this pipeline submits to a client.
 | `intelligence/analyzer.py` | LLM structured extraction |
 | `intelligence/bid_scorer.py` | Deterministic FIT/WIN/STRATEGIC/RISK/EV |
 | `intelligence/scoring_model.json` | Versioned weights |
-| `intelligence/cv_matcher.py` | Semantic match + explicit capability score |
+| `intelligence/cv_matcher.py` | Semantic match + explicit geography/sector/language/years/skills/availability overlay |
 | `intelligence/compliance.py` | Submission compliance matrix |
 | `intelligence/proposal_writer.py` | Drafting |
 | `database/` | Airtable CRM, Supabase vectors |
