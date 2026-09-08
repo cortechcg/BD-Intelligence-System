@@ -191,6 +191,10 @@ Unit files live in `~/.config/systemd/user/` — **outside this repository**, so
 systemctl --user list-timers --all
 ```
 
+Playwright: the host must have Google Chrome at `/usr/bin/google-chrome` (or `google-chrome-stable`). **Do not set `PLAYWRIGHT_BROWSERS_PATH` to an empty cache** in the unit `Environment=` — Cursor sandboxes do that and bundled Chromium then fails. `launch_chromium` unsets a broken path and falls back to system Chrome so systemd and Cursor both work.
+
+**If Airtable starts returning 429s while timers run:** the usual cause is `AGENT_LOGS` hitting the free-tier 1,000-record cap. Pipeline writes already fail-open (circuit breaker, no urllib3 hammering). Operational logs are safe to **bulk-delete in the Airtable UI** (AGENT_LOGS only — not OPPORTUNITIES). Optionally: `python populate_airtable.py --prune-logs` (stops on the first 429; do not retry in a loop).
+
 ---
 
 ## Data Stores at a Glance

@@ -191,6 +191,7 @@ def test_assortis_processing_boundary_obeys_every_cap(monkeypatch, cap, expected
     monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", cap)
     monkeypatch.setattr(main, "check_assortis_newsletter", lambda: [{"id": i} for i in range(3)])
     monkeypatch.setattr(main, "process_opportunity", lambda opp: processed.append(opp) or None)
+    monkeypatch.setattr(main, "opportunity_ledger_available", lambda: True)
     monkeypatch.setattr(main, "ping_healthcheck", lambda **kwargs: True)
     main.run_assortis_check()
     assert len(processed) == expected
@@ -204,6 +205,7 @@ def test_normal_pipeline_cap_limits_actual_processing(monkeypatch, cap, expected
     monkeypatch.setattr(main, "scrape_non_rss_sources", lambda: [{"source_url": f"https://x.test/{i}"} for i in range(3)])
     monkeypatch.setattr(main, "check_assortis_newsletter", lambda: [])
     monkeypatch.setattr(main, "process_opportunity", lambda opp: processed.append(opp) or None)
+    monkeypatch.setattr(main, "opportunity_ledger_available", lambda: True)
     monkeypatch.setattr(main, "send_report", lambda **kwargs: None)
     monkeypatch.setattr(main, "ping_healthcheck", lambda **kwargs: True)
     main.run_pipeline()

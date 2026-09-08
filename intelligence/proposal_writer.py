@@ -182,7 +182,7 @@ def _build_past_work_context(analysis: dict | None = None) -> str:
                 )
             logger.info(
                 f"  Past-work evidence: {len(matches)} assignments matched, "
-                f"top = {matches[0].get('project_title', '')[:60]}"
+                f"top = {(matches[0].get('project_title') or '')[:60]}"
             )
             return strip_monetary_amounts("\n\n".join(lines))[0]
 
@@ -205,7 +205,7 @@ def _build_past_work_context(analysis: dict | None = None) -> str:
             f"{i}. {w.get('project_title', 'Untitled')}\n"
             f"   Client: {w.get('client', 'N/A')} | "
             f"Year: {w.get('year', 'N/A')}\n"
-            f"   Description: {w.get('methodology_approach', '')[:200]}"
+            f"   Description: {(w.get('methodology_approach') or '')[:200]}"
         )
     return strip_monetary_amounts("\n\n".join(lines))[0]
 
@@ -1196,6 +1196,7 @@ def _log_proposal_usage(
     measured split, unknown-call count, and call count instead of inventing a
     section-level constant. Detailed model/request/stage records are emitted at
     the provider-call boundary by ``utils.llm.complete``.
+    ``log_agent_action`` is wrapped so a CRM 429 cannot abort drafting.
     """
     usage = opportunity_usage()
     input_tokens = max(0, int(usage.get("input") or 0) - int(before.get("input") or 0))
@@ -1208,18 +1209,21 @@ def _log_proposal_usage(
             0.0,
             float(usage.get("estimated_cost_usd") or 0) - float(before.get("estimated_cost_usd") or 0),
         )
-    log_agent_action(
-        action_type="Proposal",
-        description=(
-            f"{action_description}; measured_input_tokens={input_tokens}; "
-            f"measured_output_tokens={output_tokens}; provider_calls={calls}; "
-            f"unknown_usage_calls={unknown}"
-        ),
-        opportunity_id=opportunity_id,
-        tokens_used=input_tokens + output_tokens,
-        estimated_cost_usd=cost,
-        status="Success" if not unknown else "Success (usage partially unknown)",
-    )
+    try:
+        log_agent_action(
+            action_type="Proposal",
+            description=(
+                f"{action_description}; measured_input_tokens={input_tokens}; "
+                f"measured_output_tokens={output_tokens}; provider_calls={calls}; "
+                f"unknown_usage_calls={unknown}"
+            ),
+            opportunity_id=opportunity_id,
+            tokens_used=input_tokens + output_tokens,
+            estimated_cost_usd=cost,
+            status="Success" if not unknown else "Success (usage partially unknown)",
+        )
+    except Exception:
+        pass
 
 
 def _repair_weakest_section(
@@ -1278,6 +1282,8 @@ def generate_eoi(
     """
     ensure_opportunity_usage(opportunity_id or "")
     usage_before = opportunity_usage()
+    analysis = analysis or {}
+    matched_team_result = matched_team_result or {}
     opportunity, title, client_name, donor, _deadline = _opportunity_fields(analysis)
 
     extra_context = (
@@ -1293,10 +1299,10 @@ def generate_eoi(
         role: {
             "name": m.get("consultant_name"),
             "score": m.get("similarity_score"),
-            "justification": m.get("justification", ""),
+            "justification": m.get("justification") or "",
         }
-        for role, m in matched_team_result.get("matched_team", {}).items()
-        if m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
+        for role, m in (matched_team_result.get("matched_team") or {}).items()
+        if isinstance(m, dict) and m.get("consultant_name") != "EXTERNAL RECRUITMENT NEEDED"
     }, indent=2)
 
     eoi_criteria = _eval_criteria_block(analysis, "EOI")
@@ -1531,7 +1537,11 @@ def generate_proposal(
     """
     ensure_opportunity_usage(opportunity_id or "")
     usage_before = opportunity_usage()
-    recommendation = analysis.get("bid_analysis", {}).get("bid_recommendation", "WATCH")
+    analysis = analysis or {}
+    matched_team_result = matched_team_result or {}
+    recommendation = (analysis.get("bid_analysis") or {}).get(
+        "bid_recommendation"
+    ) or "WATCH"
     opportunity, title, client_name, donor, deadline = _opportunity_fields(analysis)
 
     extra_context = (
@@ -1615,7 +1625,7 @@ def generate_cover_letter(
     model: str = CLAUDE_MODEL_PROPOSAL,
 ) -> str:
     """Generate professional cover letter."""
-    strengths = analysis.get("bid_analysis", {}).get("key_strengths", [])
+    strengths = (analysis.get("bid_analysis") or {}).get("key_strengths") or []
 
     user_prompt = f"""Write a professional cover letter for Cortech Consulting Group's technical proposal.
 
@@ -1664,14 +1674,21 @@ def generate_executive_summary(
     value-for-money statement, which is exactly the disclosure a technical
     proposal must not make. Delivery assurance replaces it.
     """
-    opportunity = analysis.get("opportunity", {})
+    analysis = analysis or {}
+    opportunity = analysis.get("opportunity") or {}
+    matched_team_result = matched_team_result or {}
+    locations = opportunity.get("project_location") or []
+    if isinstance(locations, str):
+        locations = [locations]
+    elif not isinstance(locations, list):
+        locations = []
 
     user_prompt = f"""Write a comprehensive executive summary for a technical proposal.
 
-ASSIGNMENT: {opportunity.get('title', '')}
-CLIENT: {opportunity.get('client', '')}
-DURATION: {opportunity.get('project_duration', '')}
-LOCATION: {', '.join(opportunity.get('project_location', []))}
+ASSIGNMENT: {opportunity.get('title') or ''}
+CLIENT: {opportunity.get('client') or ''}
+DURATION: {opportunity.get('project_duration') or ''}
+LOCATION: {', '.join(str(loc) for loc in locations)}
 
 TEAM COVERAGE: {matched_team_result.get('coverage_percent', 0)}% internal match
 
@@ -1753,8 +1770,8 @@ def generate_team_section(
     analysis: dict | None = None,
 ) -> str:
     """Generate team composition section."""
-    team = matched_team_result.get("matched_team", {})
-    gaps = matched_team_result.get("gaps", [])
+    team = (matched_team_result or {}).get("matched_team") or {}
+    gaps = (matched_team_result or {}).get("gaps") or []
     analysis = analysis or {}
 
     team_list = []
