@@ -15,7 +15,7 @@ Updated: 2026-09-08. This is an implementation inventory, not a roadmap.
 | Bid intelligence | `scoring_model.json` + deterministic `bid_scorer.py` | FIT/WIN heuristic/strategic/risk/EV separated; LLM numbers are audit-only. |
 | Capability | Semantic CV retrieval plus explicit geography/sector/language/years/skills overlay and live Airtable availability | Missing CV evidence and missing availability stay UNKNOWN — not inferred as a match or as 100% free. |
 | Financial preparation | Explicit ToR effort × exact Airtable rate-card row only | Never a complete financial proposal without non-personnel cost evidence. |
-| Proposal | Tender-aware drafting, style guides, past-proposal retrieval, review email/docx | No automated claim-to-chunk verification. |
+| Proposal | Tender-aware drafting, style guides, past-proposal retrieval, claim-to-chunk grounding, review email/docx | Named past-work claims must match a retrieved chunk or they are tagged [NOT VERIFIED]. |
 | Compliance | CV/financial/attachments/award-criterion status matrix | Award criteria are not programmatically proven satisfied. |
 | Human control | Review email and Airtable record; no external submission | NO-BID is a recommendation on a `New` record, not final automation. |
 | Outcome learning | Won/Lost lesson extraction and vector storage | Lessons are not yet model features. |
@@ -42,6 +42,5 @@ set, or full provenance chain from source page to generated proposal claim.
 
 ## Verification
 
-The local network-free suite passes 146 tests, including capability-matching
-fixtures and a mocked opportunity-processing claim/dedup path. There has been
+The local network-free suite includes claim-grounding fixtures. There has been
 no live `--once` or `--run-assortis` execution as part of this update.

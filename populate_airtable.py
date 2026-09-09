@@ -46,7 +46,8 @@ if missing:
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
 from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client, get_openai_api_key
-from utils.llm import complete, get_text
+from utils.llm import complete
+from utils.claude_helpers import get_text
 from utils.untrusted import wrap_untrusted
 import pdfplumber
 from docx import Document as DocxDocument

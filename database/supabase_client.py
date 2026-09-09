@@ -7,7 +7,8 @@ import httpx
 import json
 import uuid
 from typing import Optional, cast
-from utils.llm import complete, get_text
+from utils.llm import complete
+from utils.claude_helpers import get_text
 from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 from utils.untrusted import wrap_untrusted
 
@@ -262,7 +263,7 @@ def search_past_proposals(
 
     try:
         rows = supabase.table("proposal_embeddings").select(
-            "project_title,content_chunk,metadata,won,embedding"
+            "id,airtable_proposal_id,project_title,content_chunk,metadata,won,embedding"
         ).execute().data
     except Exception as e:
         logger.warning(f"Past-proposal search: fetch failed ({e})")
@@ -284,6 +285,8 @@ def search_past_proposals(
         if similarity < match_threshold:
             continue
         scored.append({
+            "id": row.get("id"),
+            "airtable_proposal_id": row.get("airtable_proposal_id"),
             "project_title": row.get("project_title"),
             "content_chunk": row.get("content_chunk"),
             "metadata": row.get("metadata") or {},
