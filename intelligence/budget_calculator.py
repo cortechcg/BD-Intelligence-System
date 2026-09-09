@@ -14,6 +14,7 @@ from typing import Any
 from loguru import logger
 
 from database.airtable_client import get_rate_card
+from utils.claude_helpers import get_text  # noqa: F401 — guard against content[0].text regressions
 
 
 BUDGET_COMPLETE = "COMPLETE"

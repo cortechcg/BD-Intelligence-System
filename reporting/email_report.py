@@ -519,6 +519,20 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"{_html(quality.get('one_improvement', ''))}"
             f"</p>"
         )
+    grounding = proposal.get("claim_grounding") if isinstance(proposal.get("claim_grounding"), dict) else {}
+    grounding_line = ""
+    if grounding:
+        nv = int(grounding.get("not_verified") or 0)
+        ver = int(grounding.get("verified") or 0)
+        ins = int(grounding.get("insufficient_evidence") or 0)
+        color = "#dc3545" if nv else "#555"
+        grounding_line = (
+            f"<p style='margin:8px 0 0;font-size:13px;color:{color}'>"
+            f"Claim grounding: {ver} verified, {nv} not verified, "
+            f"{ins} insufficient evidence. "
+            f"Unverified past-work sentences are tagged [NOT VERIFIED] in the draft."
+            f"</p>"
+        )
 
     # ── TEAM TABLE ─────────────────────────────────────────────────────────
     team_rows_html = ""
@@ -722,7 +736,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 </td>
             </tr>
             <tr>
-                <td colspan="2">{quality_line}</td>
+                <td colspan="2">{quality_line}{grounding_line}</td>
             </tr>
             <tr>
                 <td colspan="2" style="padding:8px 0 4px">

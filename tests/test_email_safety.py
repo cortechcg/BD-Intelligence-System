@@ -28,13 +28,23 @@ def test_incomplete_budget_is_not_rendered_as_a_fake_zero_total_and_html_is_esca
             "missing_inputs": ["day rate <required>"],
             "summary": {"known_personnel_subtotal_usd": 0},
         },
-        "proposal_sections": {"cover_letter": "Do not render <iframe>content</iframe>."},
+        "proposal_sections": {
+            "cover_letter": "Do not render <iframe>content</iframe>.",
+            "claim_grounding": {
+                "verified": 2,
+                "not_verified": 1,
+                "insufficient_evidence": 0,
+                "claims": [],
+            },
+        },
     })
 
     assert "Budget validation required" in sent["content"]
     assert "TOTAL" not in sent["content"]
     assert "$0" not in sent["content"]
     assert "&lt;iframe&gt;content&lt;/iframe&gt;" in sent["content"]
+    assert "Claim grounding:" in sent["content"]
+    assert "1 not verified" in sent["content"]
     assert "<script>x</script>" not in sent["content"]
     assert "\r" not in sent["subject"]
     assert "\n" not in sent["subject"]

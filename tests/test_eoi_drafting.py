@@ -85,6 +85,7 @@ def test_generate_proposal_null_fields_dry_path(monkeypatch):
     monkeypatch.setattr(proposal_writer, "_repair_weakest_section", lambda s, *a, **k: s)
     monkeypatch.setattr(proposal_writer, "_final_money_audit", lambda s: None)
     monkeypatch.setattr(proposal_writer, "_log_proposal_usage", lambda *a, **k: None)
+    monkeypatch.setattr(proposal_writer, "load_past_work_matches", lambda *a, **k: [])
 
     sections = generate_proposal(
         {
@@ -97,6 +98,7 @@ def test_generate_proposal_null_fields_dry_path(monkeypatch):
     assert sections["cover_letter"] == "letter"
     assert sections["executive_summary"] == "summary"
     assert sections["lightweight"] is True
+    assert "claim_grounding" in sections
 
 
 def test_executive_summary_null_location_does_not_crash(monkeypatch):

@@ -16,6 +16,7 @@ from utils.untrusted import wrap_untrusted
 from utils.prose import humanize_draft
 from utils.observability import ensure_opportunity_usage, opportunity_usage
 from intelligence.tender_reader import build_tor_brief, tender_documents_block
+from intelligence.grounding import ground_sections
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import get_embedding, search_past_proposals, supabase
 from config import (
@@ -135,6 +136,17 @@ def _past_work_query(analysis: dict) -> str:
     return ". ".join(p for p in parts if p)
 
 
+def load_past_work_matches(analysis: dict | None = None) -> list[dict]:
+    """Semantic past-assignment hits for this tender, or [] if none."""
+    if not analysis:
+        return []
+    try:
+        return search_past_proposals(_past_work_query(analysis), match_count=8) or []
+    except Exception as e:
+        logger.warning(f"Relevance search over past proposals failed: {e}")
+        return []
+
+
 def _build_past_work_context(analysis: dict | None = None) -> str:
     """
     Assemble the past-assignment evidence the proposal will cite, ranked by
@@ -154,38 +166,33 @@ def _build_past_work_context(analysis: dict | None = None) -> str:
     contract_value_usd is never surfaced here — the drafted proposal must
     state no amounts.
     """
-    if analysis:
-        try:
-            matches = search_past_proposals(_past_work_query(analysis), match_count=8)
-        except Exception as e:
-            logger.warning(f"Relevance search over past proposals failed: {e}")
-            matches = []
-
-        if matches:
-            lines = [
-                "RELEVANT PAST ASSIGNMENTS — ranked by similarity to THIS tender.",
-                "Cite from this list only. Do not cite an assignment that is not "
-                "here, and do not invent contract values, dates or clients.",
-                "",
-            ]
-            for i, m in enumerate(matches, 1):
-                meta = m.get("metadata") or {}
-                outcome = "WON" if m.get("won") else "submitted"
-                lines.append(
-                    f"{i}. {m.get('project_title', 'Untitled')} [{outcome}]\n"
-                    f"   Source: proposal_embeddings | "
-                    f"Client: {meta.get('client', 'N/A')} | "
-                    f"Year: {meta.get('year', 'N/A')} | "
-                    f"Location: {', '.join(meta.get('location') or []) or 'N/A'}\n"
-                    f"   Relevance: {m.get('similarity', 0):.2f}\n"
-                    f"   Detail: {(m.get('content_chunk') or '')[:400]}"
-                )
-            logger.info(
-                f"  Past-work evidence: {len(matches)} assignments matched, "
-                f"top = {(matches[0].get('project_title') or '')[:60]}"
+    matches = load_past_work_matches(analysis)
+    if matches:
+        lines = [
+            "RELEVANT PAST ASSIGNMENTS — ranked by similarity to THIS tender.",
+            "Cite from this list only. Do not cite an assignment that is not "
+            "here, and do not invent contract values, dates or clients.",
+            "",
+        ]
+        for i, m in enumerate(matches, 1):
+            meta = m.get("metadata") or {}
+            outcome = "WON" if m.get("won") else "submitted"
+            lines.append(
+                f"{i}. {m.get('project_title', 'Untitled')} [{outcome}]\n"
+                f"   Source: proposal_embeddings | "
+                f"Client: {meta.get('client', 'N/A')} | "
+                f"Year: {meta.get('year', 'N/A')} | "
+                f"Location: {', '.join(meta.get('location') or []) or 'N/A'}\n"
+                f"   Relevance: {m.get('similarity', 0):.2f}\n"
+                f"   Detail: {(m.get('content_chunk') or '')[:400]}"
             )
-            return strip_monetary_amounts("\n\n".join(lines))[0]
+        logger.info(
+            f"  Past-work evidence: {len(matches)} assignments matched, "
+            f"top = {(matches[0].get('project_title') or '')[:60]}"
+        )
+        return strip_monetary_amounts("\n\n".join(lines))[0]
 
+    if analysis:
         logger.warning(
             "  Past-work evidence: no semantic matches — falling back to Airtable"
         )
@@ -208,6 +215,33 @@ def _build_past_work_context(analysis: dict | None = None) -> str:
             f"   Description: {(w.get('methodology_approach') or '')[:200]}"
         )
     return strip_monetary_amounts("\n\n".join(lines))[0]
+
+
+def _attach_claim_grounding(
+    sections: dict,
+    analysis: dict | None,
+    matched_team_result: dict | None,
+) -> dict:
+    """Label past-work claims against retrieved chunks. Never invent evidence."""
+    try:
+        matches = load_past_work_matches(analysis)
+        grounded = ground_sections(
+            sections,
+            analysis,
+            matched_team_result,
+            past_matches=matches,
+            static_past_work=CORTECH_PAST_WORK,
+        )
+        report = grounded.get("claim_grounding") or {}
+        logger.info(
+            f"  Claim grounding: {report.get('verified', 0)} verified, "
+            f"{report.get('not_verified', 0)} not verified, "
+            f"{report.get('insufficient_evidence', 0)} insufficient"
+        )
+        return grounded
+    except Exception as e:
+        logger.warning(f"  Claim grounding failed (non-fatal): {e}")
+        return sections
 
 
 _STYLE_GUIDE_DIR = Path(__file__).resolve().parent / "style_guides"
@@ -1508,7 +1542,7 @@ SECTIONS ALREADY DRAFTED:
         pass
 
     logger.success("EOI generation complete!")
-    return sections
+    return _attach_claim_grounding(sections, analysis, matched_team_result)
 
 
 def generate_proposal(
@@ -1577,7 +1611,7 @@ def generate_proposal(
         except Exception:
             pass
         logger.success("WATCH quick-flag generation complete!")
-        return sections
+        return _attach_claim_grounding(sections, analysis, matched_team_result)
 
     # BID, and WATCH by default — full 10-section draft, written concurrently
     sections = _run_parallel_sections({
@@ -1613,7 +1647,7 @@ def generate_proposal(
     except Exception:
         pass
     logger.success("Proposal generation complete!")
-    return sections
+    return _attach_claim_grounding(sections, analysis, matched_team_result)
 
 
 def generate_cover_letter(

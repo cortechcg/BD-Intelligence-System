@@ -18,7 +18,8 @@ from config import (
     get_anthropic_api_key,
 )
 from database.airtable_client import log_agent_action
-from utils.llm import complete, get_text, usage_totals
+from utils.llm import complete, usage_totals
+from utils.claude_helpers import get_text
 from utils.errors import ErrorType
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
 
