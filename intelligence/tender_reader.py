@@ -10,13 +10,15 @@ scoring matrix) was gone by the time a section was drafted, so drafts read
 like a competent generic evaluation proposal rather than a response to
 THIS tender.
 
-Two public pieces:
+Three public pieces:
   tender_documents_block() — the verbatim tender text as a neutralized
                             user-message data block every writer reads
   build_tor_brief()        — one comprehension pass over that text that
                             produces the compliance brief the writers work
                             from, and which warms the prompt cache for the
                             document block at the same time
+  build_win_strategy()     — one bid-manager pass that turns the brief into
+                            a shared thesis every section must execute
 """
 import json
 
@@ -84,6 +86,15 @@ Locations, populations, timeframes, previous phases, partner organisations,
 data sources, existing systems, and named deliverables that a credible
 response must reference explicitly.
 
+## The problem as the client frames it
+What is broken, at risk, or undecided — in their words, not a generic
+development-sector problem statement. Name the programme, phase, or
+policy the work sits inside.
+
+## Who uses the outputs and to decide what
+The named users of the deliverables and the decision, report, or action
+the work must inform. If the documents do not say, write UNKNOWN.
+
 ## Traps and disqualifiers
 Anything that would cost marks or void the bid: unstated-but-implied
 expectations, sequencing constraints, approval gates, data-access limits,
@@ -104,8 +115,8 @@ documents. Where it conflicts with the documents, the documents win:
 
 _BRIEF_PROMPT = """You are the bid manager at Cortech Consulting Group. Before any
 section of this technical proposal is drafted, produce the reading brief the
-writers will work from. Base it strictly on the tender documents in your
-system context — read every source file, including annexes.
+writers will work from. Base it strictly on the tender documents in the
+untrusted data block — read every source file, including annexes.
 
 Return markdown under exactly these headings:
 
@@ -142,7 +153,7 @@ _BRIEF_PROMPT_EOI = """You are the bid manager at Cortech Consulting Group. This
 assignment is at Expression of Interest / REOI / shortlisting stage — not a
 full technical proposal. Before any EOI section is drafted, produce the
 reading brief the writers will work from. Base it strictly on the tender
-documents in your system context — read every source file, including annexes.
+documents in the untrusted data block — read every source file, including annexes.
 
 Return markdown under exactly these headings:
 
@@ -178,6 +189,127 @@ eligible team, and administrative completeness — not a full method design.
 """ + _BRIEF_SHARED_TAIL
 
 
+_STRATEGY_PROMPT = """You are the bid manager at Cortech Consulting Group. The
+reading brief already exists. Now decide HOW we win THIS assignment. One
+strategy, used by every section writer. Base it strictly on the tender
+documents and the reading brief — invent nothing.
+
+Return markdown under exactly these headings:
+
+## Interpretation of THIS assignment
+What the buyer is actually buying, in one tight paragraph using their terms.
+Name geography, target groups, and the decision, report, or action the work
+must inform. A panel member who wrote the ToR must recognise their assignment.
+
+## How we win the scores
+One bullet per scored criterion from the brief: the specific claim this
+proposal will make and the evidence it will use (a named past assignment or
+named expert from the evidence pack). If evidence is missing, write
+[INSUFFICIENT EVIDENCE] for that criterion. Do not invent past work or staff.
+
+## Method thesis
+One sentence that every methodology, analysis, and work-plan paragraph must
+serve. Then 4-6 numbered moves that are specific to THIS ToR (named locations,
+tools, users of outputs, sequencing). Abstract "mixed methods" without THIS
+assignment's facts has failed.
+
+## Experience and team mapping
+Which named past assignments and named experts from the evidence pack map
+onto which ToR requirements. Gaps marked [INSUFFICIENT EVIDENCE].
+
+## Vocabulary lock
+Terms that must appear unchanged, with the client's spelling.
+
+## Must-not
+Generic phrases, off-scope methods, and traps from the brief that would
+lose marks. Include "any paragraph that could be pasted into a different ToR."
+
+HARD RULE: do not restate any budget figure, price, ceiling, or rate.
+Write the strategy only. No preamble.
+"""
+
+
+_STRATEGY_PROMPT_EOI = """You are the bid manager at Cortech Consulting Group.
+This is an Expression of Interest / REOI / shortlisting — not a full technical
+proposal. The reading brief already exists. Now decide HOW we win SHORTLISTING
+on THIS assignment. One strategy, used by every EOI section. Invent nothing.
+
+Return markdown under exactly these headings:
+
+## Interpretation of THIS assignment
+What the buyer is actually buying, in one tight paragraph using their terms.
+Name geography, target groups, and the decision the work must inform. A
+shortlisting panel member who wrote the REOI must recognise their assignment.
+
+## How we win shortlisting
+One bullet per shortlisting / qualification criterion from the brief: the
+specific claim this EOI will make and the evidence it will use (named past
+assignment or named expert from the evidence pack). If evidence is missing,
+write [INSUFFICIENT EVIDENCE]. Do not invent past work or staff.
+
+## Approach thesis
+One sentence that the understanding section and the approach SUMMARY must
+serve. Then 4-6 numbered moves specific to THIS REOI. This is not a full
+method chapter — no Gantt, no sampling formula, no financial offer unless
+the REOI explicitly asks.
+
+## Experience and team mapping
+Which named past assignments and named experts from the evidence pack map
+onto which REOI requirements. Gaps marked [INSUFFICIENT EVIDENCE].
+
+## Vocabulary lock
+Terms that must appear unchanged, with the client's spelling.
+
+## Must-not
+Forbidden full-proposal material, generic capability-brochure language, and
+traps from the brief. Include "any paragraph that could be pasted into a
+different EOI."
+
+HARD RULE: do not restate any budget figure, price, ceiling, or rate.
+Write the strategy only. No preamble.
+"""
+
+
+def _slim_analysis_json(analysis: dict, submission_type: str) -> str:
+    title = (analysis.get("opportunity") or {}).get("title", "this assignment")
+    return json.dumps(
+        {
+            "opportunity_title": title,
+            "client": (analysis.get("opportunity") or {}).get("client", ""),
+            "deliverables": analysis.get("deliverables", []),
+            "evaluation_criteria": analysis.get("evaluation_criteria", []),
+            "submission_requirements": analysis.get("submission_requirements", {}),
+            "submission_type": submission_type,
+        },
+        indent=2,
+    )
+
+
+def _team_evidence(matched_team_result: dict | None) -> str:
+    team = (matched_team_result or {}).get("matched_team") or {}
+    if not isinstance(team, dict) or not team:
+        return ""
+    rows = []
+    for role, match in team.items():
+        if not isinstance(match, dict):
+            continue
+        name = match.get("consultant_name") or ""
+        if name == "EXTERNAL RECRUITMENT NEEDED" or not name:
+            rows.append(f"- {role}: unfilled — recruitment needed")
+            continue
+        rows.append(
+            f"- {role}: {name} "
+            f"(match {match.get('similarity_score', '')}; "
+            f"availability {match.get('availability_flag') or 'Unknown'})"
+        )
+    if not rows:
+        return ""
+    return (
+        "MATCHED TEAM (evidence only; do not invent other named experts):\n"
+        + "\n".join(rows)
+    )
+
+
 def build_tor_brief(
     tor_text: str,
     analysis: dict,
@@ -211,17 +343,7 @@ def build_tor_brief(
     stage = "EOI" if submission_type == "EOI" else "proposal"
     logger.info(f"  Reading the tender documents for {stage}: {str(title)[:60]}")
 
-    slim_analysis = json.dumps(
-        {
-            "opportunity_title": title,
-            "client": (analysis.get("opportunity") or {}).get("client", ""),
-            "deliverables": analysis.get("deliverables", []),
-            "evaluation_criteria": analysis.get("evaluation_criteria", []),
-            "submission_requirements": analysis.get("submission_requirements", {}),
-            "submission_type": submission_type,
-        },
-        indent=2,
-    )
+    slim_analysis = _slim_analysis_json(analysis, submission_type)
 
     prompt_template = _BRIEF_PROMPT_EOI if submission_type == "EOI" else _BRIEF_PROMPT
     try:
@@ -275,3 +397,89 @@ def build_tor_brief(
         "instructions for this bid:\n"
     )
     return f"{label}{brief}"
+
+
+def build_win_strategy(
+    tor_text: str,
+    analysis: dict,
+    doc_block: str = None,
+    tor_brief: str = "",
+    extra_context: str = "",
+    submission_type: str = "FULL_PROPOSAL",
+    matched_team_result: dict | None = None,
+) -> str:
+    """
+    Turn the reading brief into one shared win thesis every section executes.
+
+    Runs after build_tor_brief() and before any section is drafted. Tender
+    text, the brief, donor notes, and team matching stay untrusted user data.
+
+    Non-fatal on every failure — an empty strategy degrades quality but must
+    never stop a draft from being produced before a deadline.
+    """
+    block = doc_block if doc_block is not None else tender_documents_block(tor_text)
+    team = _team_evidence(matched_team_result)
+    if not block and not (tor_brief or "").strip() and not (extra_context or "").strip() and not team:
+        return ""
+
+    title = (analysis.get("opportunity") or {}).get("title", "this assignment")
+    stage = "EOI" if submission_type == "EOI" else "proposal"
+    logger.info(f"  Deciding the win strategy for {stage}: {str(title)[:60]}")
+
+    parts = []
+    if block:
+        parts.append(f"TENDER DOCUMENT DATA:\n{block}")
+    parts.append(
+        "STRUCTURED EXTRACTION (also untrusted evidence):\n"
+        + wrap_untrusted(_slim_analysis_json(analysis, submission_type))
+    )
+    if (tor_brief or "").strip():
+        parts.append(
+            "READING BRIEF (untrusted evidence):\n" + wrap_untrusted(tor_brief.strip())
+        )
+    if (extra_context or "").strip():
+        parts.append(
+            "ADDITIONAL EVIDENCE (lessons, donor notes):\n"
+            + wrap_untrusted(extra_context.strip())
+        )
+    if team:
+        parts.append(wrap_untrusted(team))
+    prompt = _STRATEGY_PROMPT_EOI if submission_type == "EOI" else _STRATEGY_PROMPT
+    parts.append(prompt)
+
+    try:
+        response = complete(
+            model=CLAUDE_MODEL_PROPOSAL,
+            max_tokens=4096,
+            stage="win_strategy",
+            system=_TENDER_READER_SYSTEM,
+            messages=[{"role": "user", "content": "\n\n".join(parts)}],
+        )
+    except Exception as e:
+        logger.warning(f"  Win-strategy pass failed (non-fatal): {e}")
+        return ""
+
+    strategy, removed = strip_monetary_amounts(get_text(response).strip())
+    if removed:
+        logger.info(
+            f"  Removed {len(removed)} monetary figure(s) from the win strategy "
+            "so they cannot reach the draft"
+        )
+    if not strategy:
+        return ""
+
+    inp, out = usage_totals(response)
+    logger.info(
+        f"  [win_strategy] cached={cached_tokens(response)} "
+        f"input={inp} output={out}"
+    )
+    logger.success(
+        f"  Win strategy decided — {len(strategy):,}-char {stage} thesis"
+    )
+    label = (
+        "WIN STRATEGY FOR THIS EOI / SHORTLISTING — every section must "
+        "execute this thesis:\n"
+        if submission_type == "EOI"
+        else "WIN STRATEGY FOR THIS BID — every section must execute this thesis:\n"
+    )
+    return f"{label}{strategy}"

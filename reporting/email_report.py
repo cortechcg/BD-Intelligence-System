@@ -617,6 +617,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
             + section_block("Work Plan", proposal.get("work_plan", ""))
         )
 
+    strategy_text = proposal.get("win_strategy") or ""
+    strategy_block = ""
+    if isinstance(strategy_text, str) and strategy_text.strip():
+        strategy_block = section_block(
+            "Win strategy (internal — not in the client Word file)",
+            strategy_text,
+        )
+
     # ── SCORE COLOR ────────────────────────────────────────────────────────
     score_color = (
         "#28a745" if score >= 70
@@ -785,6 +793,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
     </div>
 
     {budget_block}
+
+    {strategy_block}
 
     <!-- PROPOSAL DRAFT -->
     <div style="border-top:3px solid #1F3864;padding-top:20px;margin-top:8px">

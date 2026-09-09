@@ -99,7 +99,26 @@ def test_current_tender_client_is_not_treated_as_invented_past_work():
     assert not any(c["status"] == "NOT VERIFIED" for c in claims)
 
 
-def test_annotate_does_not_double_tag():
+def test_win_strategy_and_brief_are_not_grounded_as_draft_prose():
+    sections = {
+        "cover_letter": "Cortech previously delivered a WASH endline for Arche Nova.",
+        "win_strategy": "Claim we previously delivered a national energy evaluation for Acme International.",
+        "tender_brief": "Invented past work for Acme International should not be tagged here.",
+    }
+    result = ground_sections(
+        sections,
+        {"opportunity": {"title": "Energy evaluation", "client": "Christian Aid"}},
+        None,
+        past_matches=[{
+            "project_title": "WASH Endline Somalia",
+            "content_chunk": "Arche Nova WASH endline",
+            "metadata": {"client": "Arche Nova"},
+        }],
+        static_past_work="",
+    )
+    assert "[NOT VERIFIED]" not in result["win_strategy"]
+    assert "[NOT VERIFIED]" not in result["tender_brief"]
+    assert result["win_strategy"] == sections["win_strategy"]
     claims = [{
         "section": "org_profile_and_track_record",
         "sentence": "Cortech previously worked with Acme International.",
