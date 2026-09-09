@@ -37,13 +37,17 @@ def test_scrape_one_source_swallows_failures():
     assert result == []
 
 
-def test_launch_chromium_falls_back_to_system_chrome():
+def test_launch_chromium_skips_missing_bundled_browser():
     class _Chromium:
+        executable_path = "/nonexistent/playwright-chrome"
+
         def __init__(self):
             self.attempts = []
 
         async def launch(self, **kwargs):
-            self.attempts.append(kwargs.get("channel", "bundled"))
+            self.attempts.append(
+                kwargs.get("executable_path") or kwargs.get("channel") or "bundled"
+            )
             if kwargs.get("channel") != "chrome":
                 raise RuntimeError("bundled chromium missing")
             return "ok-browser"
@@ -59,8 +63,40 @@ def test_launch_chromium_falls_back_to_system_chrome():
 
     browser, attempts = asyncio.run(run())
     assert browser == "ok-browser"
-    assert attempts[0] == "bundled"
-    assert "chrome" in attempts
+    assert attempts == ["chrome"]
+
+
+def test_launch_chromium_uses_bundled_when_executable_exists(tmp_path):
+    bundled = tmp_path / "chrome"
+    bundled.write_text("")
+    bundled.chmod(0o755)
+
+    class _Chromium:
+        executable_path = str(bundled)
+
+        def __init__(self):
+            self.attempts = []
+
+        async def launch(self, **kwargs):
+            self.attempts.append(
+                kwargs.get("executable_path") or kwargs.get("channel") or "bundled"
+            )
+            if kwargs.get("channel") or kwargs.get("executable_path"):
+                raise RuntimeError("should have used bundled Chromium")
+            return "bundled-browser"
+
+    class _Playwright:
+        def __init__(self):
+            self.chromium = _Chromium()
+
+    async def run():
+        pw = _Playwright()
+        browser = await launch_chromium(pw)
+        return browser, pw.chromium.attempts
+
+    browser, attempts = asyncio.run(run())
+    assert browser == "bundled-browser"
+    assert attempts == ["bundled"]
 
 
 def test_launch_chromium_unsets_broken_playwright_cache(monkeypatch, tmp_path):
@@ -69,6 +105,30 @@ def test_launch_chromium_unsets_broken_playwright_cache(monkeypatch, tmp_path):
     monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(empty))
 
     class _Chromium:
+        executable_path = "/nonexistent/playwright-chrome"
+
+        async def launch(self, **kwargs):
+            if kwargs.get("channel") == "chrome":
+                return "ok-browser"
+            raise RuntimeError("bundled chromium missing")
+
+    class _Playwright:
+        def __init__(self):
+            self.chromium = _Chromium()
+
+    browser = asyncio.run(launch_chromium(_Playwright()))
+    assert browser == "ok-browser"
+    assert "PLAYWRIGHT_BROWSERS_PATH" not in os.environ
+
+
+def test_launch_chromium_unsets_cache_with_empty_chromium_folder(monkeypatch, tmp_path):
+    cache = tmp_path / "playwright-cache"
+    (cache / "chromium-1223").mkdir(parents=True)
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", str(cache))
+
+    class _Chromium:
+        executable_path = str(cache / "chromium-1223" / "chrome")
+
         async def launch(self, **kwargs):
             if kwargs.get("channel") == "chrome":
                 return "ok-browser"

@@ -30,6 +30,7 @@ def test_incomplete_budget_is_not_rendered_as_a_fake_zero_total_and_html_is_esca
         },
         "proposal_sections": {
             "cover_letter": "Do not render <iframe>content</iframe>.",
+            "win_strategy": "Lock vocabulary: <script>x</script>",
             "claim_grounding": {
                 "verified": 2,
                 "not_verified": 1,
@@ -43,6 +44,9 @@ def test_incomplete_budget_is_not_rendered_as_a_fake_zero_total_and_html_is_esca
     assert "TOTAL" not in sent["content"]
     assert "$0" not in sent["content"]
     assert "&lt;iframe&gt;content&lt;/iframe&gt;" in sent["content"]
+    assert "Win strategy (internal" in sent["content"]
+    assert "&lt;script&gt;x&lt;/script&gt;" in sent["content"]
+    assert "<script>x</script>" not in sent["content"]
     assert "Claim grounding:" in sent["content"]
     assert "1 not verified" in sent["content"]
     assert "<script>x</script>" not in sent["content"]

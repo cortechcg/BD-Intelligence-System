@@ -55,6 +55,8 @@ _SKIP_KEYS = {
     "lightweight_reason",
     "submission_type",
     "claim_grounding",
+    "tender_brief",
+    "win_strategy",
 }
 
 

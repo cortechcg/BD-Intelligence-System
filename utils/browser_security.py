@@ -53,6 +53,34 @@ _SYSTEM_CHROME_CANDIDATES = (
 )
 
 
+_BUNDLED_BROWSER_NAMES = frozenset({
+    "chrome",
+    "chromium",
+    "chromium-browser",
+    "chrome-headless-shell",
+    "headless_shell",
+})
+
+
+def _dir_contains_chromium_binary(root: Path) -> bool:
+    """True only if a real Chromium executable exists, not just a version folder."""
+    try:
+        for child in root.iterdir():
+            if not child.is_dir() or "chrom" not in child.name.lower():
+                continue
+            for candidate in child.rglob("*"):
+                name = candidate.name.lower()
+                if (
+                    candidate.is_file()
+                    and name in _BUNDLED_BROWSER_NAMES
+                    and os.access(candidate, os.X_OK)
+                ):
+                    return True
+    except OSError:
+        return False
+    return False
+
+
 def _playwright_browsers_path_is_usable() -> bool:
     """Cursor often sets PLAYWRIGHT_BROWSERS_PATH to an empty sandbox cache."""
     path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
@@ -63,13 +91,24 @@ def _playwright_browsers_path_is_usable() -> bool:
     root = Path(path)
     if not root.is_dir():
         return False
-    try:
-        for child in root.iterdir():
-            if "chrom" in child.name.lower():
-                return True
-    except OSError:
-        return False
-    return False
+    return _dir_contains_chromium_binary(root)
+
+
+def _bundled_chromium_available(playwright) -> bool:
+    """Skip the bundled launch when Playwright has no downloaded Chromium.
+
+    A failed bundled launch prints Playwright's 'run playwright install' banner
+    to stderr even though Ubuntu 26.04 cannot install that browser. Probe first.
+    """
+    chromium = getattr(playwright, "chromium", None)
+    path = getattr(chromium, "executable_path", None)
+    if callable(path):
+        try:
+            path = path()
+        except Exception:
+            return False
+    path = str(path or "").strip()
+    return bool(path) and os.path.isfile(path)
 
 
 def _sanitize_playwright_browsers_path() -> None:
@@ -100,18 +139,25 @@ async def launch_chromium(playwright):
 
     Playwright's bundled browser is not published for every Linux distro
     (Ubuntu 26.04 currently rejects ``playwright install chromium``). Cursor
-    also sets PLAYWRIGHT_BROWSERS_PATH to an empty cache. Unset that, then
-    try bundled Chromium, then the Chrome/Chromium channels, then known
+    also sets PLAYWRIGHT_BROWSERS_PATH to an empty cache. Unset that, skip
+    bundled Chromium when the binary is missing (so Playwright never prints
+    the install banner), then use the Chrome/Chromium channels and known
     system binaries so systemd and Cursor both work.
     """
     _sanitize_playwright_browsers_path()
     last_error = None
-    attempts = (
-        {},
+    attempts: list[dict] = []
+    if _bundled_chromium_available(playwright):
+        attempts.append({})
+    else:
+        logger.debug(
+            "Playwright bundled Chromium is not installed; using system Chrome"
+        )
+    attempts.extend((
         {"channel": "chrome"},
         {"channel": "chromium"},
         *_system_chrome_launch_attempts(),
-    )
+    ))
     for extra in attempts:
         kwargs = {"headless": True, "args": _BROWSER_LAUNCH_ARGS, **extra}
         channel = extra.get("executable_path") or extra.get("channel", "bundled")
@@ -121,5 +167,8 @@ async def launch_chromium(playwright):
             return browser
         except Exception as e:
             last_error = e
-            logger.warning(f"Playwright launch via {channel} failed: {e}")
+            # Playwright's missing-browser error includes a multi-line install
+            # banner. Keep one short line; the next attempt is system Chrome.
+            first_line = str(e).strip().splitlines()[0] if str(e).strip() else type(e).__name__
+            logger.warning(f"Playwright launch via {channel} failed: {first_line}")
     raise last_error

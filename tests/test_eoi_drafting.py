@@ -1,9 +1,16 @@
 from intelligence.proposal_writer import (
     _build_past_work_context,
     _opportunity_fields,
+    generate_eoi,
     generate_proposal,
 )
-from intelligence.tender_reader import _BRIEF_PROMPT, _BRIEF_PROMPT_EOI
+from intelligence.tender_reader import (
+    _BRIEF_PROMPT,
+    _BRIEF_PROMPT_EOI,
+    _STRATEGY_PROMPT,
+    _STRATEGY_PROMPT_EOI,
+    build_win_strategy,
+)
 from reporting.docx_builder import SECTION_ORDER
 
 
@@ -33,6 +40,24 @@ def test_eoi_brief_is_shortlisting_not_full_proposal():
 def test_proposal_brief_still_has_award_criteria():
     assert "Scored criteria" in _BRIEF_PROMPT
     assert "technical proposal" in _BRIEF_PROMPT.lower()
+
+
+def test_briefs_require_problem_framing_and_output_users():
+    for prompt in (_BRIEF_PROMPT, _BRIEF_PROMPT_EOI):
+        assert "The problem as the client frames it" in prompt
+        assert "Who uses the outputs and to decide what" in prompt
+
+
+def test_eoi_strategy_is_shortlisting_not_a_method_chapter():
+    assert "shortlisting" in _STRATEGY_PROMPT_EOI.lower()
+    assert "Gantt" in _STRATEGY_PROMPT_EOI
+    assert "Approach thesis" in _STRATEGY_PROMPT_EOI
+    assert "Method thesis" in _STRATEGY_PROMPT
+    assert "Method thesis" not in _STRATEGY_PROMPT_EOI
+
+
+def test_win_strategy_skipped_without_documents_or_brief():
+    assert build_win_strategy("", {"opportunity": {}}, doc_block="") == ""
 
 
 def test_docx_order_includes_full_eoi_backbone():
@@ -99,6 +124,41 @@ def test_generate_proposal_null_fields_dry_path(monkeypatch):
     assert sections["executive_summary"] == "summary"
     assert sections["lightweight"] is True
     assert "claim_grounding" in sections
+    assert "win_strategy" not in sections
+
+
+def test_generate_eoi_attaches_win_strategy_meta(monkeypatch):
+    from intelligence import proposal_writer
+
+    def fake_blocks(*a, **k):
+        return [
+            {"type": "text", "text": "trusted guidance"},
+            {
+                "type": "meta",
+                "tender_brief": "brief-meta",
+                "win_strategy": "win-meta",
+            },
+        ]
+
+    monkeypatch.setattr(proposal_writer, "get_relevant_lessons", lambda *a, **k: "")
+    monkeypatch.setattr(proposal_writer, "get_donor_intelligence", lambda *a, **k: "")
+    monkeypatch.setattr(proposal_writer, "build_system_blocks", fake_blocks)
+    monkeypatch.setattr(proposal_writer, "_generate_section", lambda *a, **k: "section")
+    monkeypatch.setattr(proposal_writer, "generate_quality_self_score", lambda *a, **k: {})
+    monkeypatch.setattr(proposal_writer, "_repair_weakest_section", lambda s, *a, **k: s)
+    monkeypatch.setattr(proposal_writer, "_final_money_audit", lambda s: None)
+    monkeypatch.setattr(proposal_writer, "_log_proposal_usage", lambda *a, **k: None)
+    monkeypatch.setattr(proposal_writer, "load_past_work_matches", lambda *a, **k: [])
+
+    sections = generate_eoi(
+        {"opportunity": {"title": None, "client": None}},
+        None,
+    )
+    assert sections["submission_type"] == "EOI"
+    assert sections["win_strategy"] == "win-meta"
+    assert sections["tender_brief"] == "brief-meta"
+    assert sections["cover_letter"] == "section"
+    assert "claim_grounding" in sections
 
 
 def test_executive_summary_null_location_does_not_crash(monkeypatch):
@@ -111,3 +171,33 @@ def test_executive_summary_null_location_does_not_crash(monkeypatch):
         [],
     )
     assert text == "ok"
+
+
+def test_quality_score_excludes_win_strategy_and_brief(monkeypatch):
+    from types import SimpleNamespace
+
+    from intelligence import proposal_writer
+
+    captured = {}
+    response = SimpleNamespace(
+        content=[SimpleNamespace(type="text", text='{"overall_score": 80}')],
+        usage=None,
+    )
+    monkeypatch.setattr(
+        proposal_writer, "complete", lambda **kwargs: captured.update(kwargs) or response
+    )
+    proposal_writer.generate_quality_self_score(
+        {
+            "cover_letter": "letter about Mogadishu",
+            "win_strategy": "SECRET STRATEGY SHOULD NOT BE SCORED",
+            "tender_brief": "SECRET BRIEF SHOULD NOT BE SCORED",
+            "submission_type": "EOI",
+        },
+        {"evaluation_criteria": []},
+    )
+    user = captured["messages"][0]["content"]
+    assert "letter about Mogadishu" in user
+    assert "SECRET STRATEGY SHOULD NOT BE SCORED" not in user
+    assert "SECRET BRIEF SHOULD NOT BE SCORED" not in user
+    assert "win_strategy" not in user
+    assert "tender_brief" not in user
