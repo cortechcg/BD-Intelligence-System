@@ -913,3 +913,11 @@ TypeError: int() argument must be a string, a bytes-like object or a real number
 2026-09-04 12:38:16.548 | DEBUG    | __main__:read_docx:283 - DOCX: WHH TECHNICAL PROPOSAL.docx → 42649 chars
 2026-09-04 12:38:28.719 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7658 out=1006 cached=0 est_cost_usd=0.025376
 2026-09-04 12:38:28.719 | DEBUG    | __main__:extract_proposal_info:502 - Extracted proposal: Provision of Consultancy Services for Midline Evaluation in Kilifi and Tana River Counties
+2026-09-10 19:35:35.268 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=9 out=10 cached=0 est_cost_usd=0.00011800000000000001
+2026-09-10 19:35:43.932 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal Cortech to DRC.docx → 141495 chars
+2026-09-10 19:35:54.476 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7708 out=914 cached=0 est_cost_usd=0.024556
+2026-09-10 19:35:54.477 | DEBUG    | __main__:extract_proposal_info:503 - Extracted proposal: End-Line Evaluation of the Area-Based Livelihoods Initiative, Garissa (ABLI-G II) Project
+2026-09-10 19:36:57.995 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=9 out=10 cached=0 est_cost_usd=0.00011800000000000001
+2026-09-10 19:37:00.762 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal Cortech to SOS CV Somalia.docx → 257990 chars
+2026-09-10 19:37:12.928 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7584 out=1200 cached=0 est_cost_usd=0.027167999999999998
+2026-09-10 19:37:12.929 | ERROR    | __main__:extract_proposal_info:507 - JSON parse error for proposal Technical Proposal Cortech to SOS CV Somalia.docx: Unterminated string starting at: line 45 column 26 (char 2997)
