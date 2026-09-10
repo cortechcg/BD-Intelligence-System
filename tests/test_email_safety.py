@@ -40,7 +40,8 @@ def test_incomplete_budget_is_not_rendered_as_a_fake_zero_total_and_html_is_esca
         },
     })
 
-    assert "Budget validation required" in sent["content"]
+    assert "Internal budget notes" in sent["content"]
+    assert "do not copy into the technical/EOI" in sent["content"]
     assert "TOTAL" not in sent["content"]
     assert "$0" not in sent["content"]
     assert "&lt;iframe&gt;content&lt;/iframe&gt;" in sent["content"]
