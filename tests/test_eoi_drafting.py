@@ -60,6 +60,18 @@ def test_win_strategy_skipped_without_documents_or_brief():
     assert build_win_strategy("", {"opportunity": {}}, doc_block="") == ""
 
 
+def test_eoi_and_technical_prompts_forbid_financial_information():
+    from intelligence.proposal_writer import EOI_WINNING_STANDARD, NO_MONETARY_RULE, generate_eoi
+    import inspect
+
+    assert "NO FINANCIAL INFORMATION" in NO_MONETARY_RULE
+    assert "evaluation stays independent of price" in NO_MONETARY_RULE
+    assert "Never include a financial offer" in EOI_WINNING_STANDARD
+    src = inspect.getsource(generate_eoi)
+    assert "monetary amount unless the REOI" not in src
+    assert "financial offer unless" not in _STRATEGY_PROMPT_EOI
+
+
 def test_docx_order_includes_full_eoi_backbone():
     keys = [k for k, _ in SECTION_ORDER]
     for required in (

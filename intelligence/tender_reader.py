@@ -26,7 +26,7 @@ from loguru import logger
 
 from config import CLAUDE_MODEL_PROPOSAL
 from utils.llm import cached_tokens, complete, get_text, usage_totals
-from utils.money_scrub import strip_monetary_amounts
+from utils.money_scrub import redact_monetary_amounts, strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
 
 # Below this, whatever we fetched is a listing blurb, not the tender pack.
@@ -65,6 +65,12 @@ def tender_documents_block(tor_text: str) -> str:
             + text[-half:]
         )
 
+    text, removed = redact_monetary_amounts(text)
+    if removed:
+        logger.info(
+            f"  Redacted {len(removed)} financial figure(s) from the tender pack "
+            "before any brief or draft is written"
+        )
     return wrap_untrusted(text)
 
 
@@ -101,10 +107,12 @@ expectations, sequencing constraints, approval gates, data-access limits,
 formatting rules, or requirements that are easy to miss because they sit in
 an annex.
 
-HARD RULE: do not restate any budget figure, price, ceiling, or rate from the
-tender. The technical document must contain no monetary amounts, so no figure
-may enter the writers' context. Refer to financial matters only as "the
-financial proposal", which is a separate submission.
+HARD RULE: do not restate any budget figure, price, ceiling, rate, fee, or
+contract value from the tender. The technical proposal and the EOI must
+contain no financial information, so no figure may enter the writers'
+context. This keeps technical evaluation independent of price. Refer to
+financial matters only as "the financial proposal", which is a separate
+submission.
 
 Write the brief only. No preamble.
 
@@ -224,8 +232,8 @@ Terms that must appear unchanged, with the client's spelling.
 Generic phrases, off-scope methods, and traps from the brief that would
 lose marks. Include "any paragraph that could be pasted into a different ToR."
 
-HARD RULE: do not restate any budget figure, price, ceiling, or rate.
-Write the strategy only. No preamble.
+HARD RULE: do not restate any budget figure, price, ceiling, rate, fee, or
+contract value. Write the strategy only. No preamble.
 """
 
 
@@ -250,8 +258,7 @@ write [INSUFFICIENT EVIDENCE]. Do not invent past work or staff.
 ## Approach thesis
 One sentence that the understanding section and the approach SUMMARY must
 serve. Then 4-6 numbered moves specific to THIS REOI. This is not a full
-method chapter — no Gantt, no sampling formula, no financial offer unless
-the REOI explicitly asks.
+method chapter — no Gantt, no sampling formula, and never a financial offer.
 
 ## Experience and team mapping
 Which named past assignments and named experts from the evidence pack map
@@ -265,8 +272,8 @@ Forbidden full-proposal material, generic capability-brochure language, and
 traps from the brief. Include "any paragraph that could be pasted into a
 different EOI."
 
-HARD RULE: do not restate any budget figure, price, ceiling, or rate.
-Write the strategy only. No preamble.
+HARD RULE: do not restate any budget figure, price, ceiling, rate, fee, or
+contract value. Write the strategy only. No preamble.
 """
 
 

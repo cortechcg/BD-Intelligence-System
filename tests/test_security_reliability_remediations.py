@@ -558,6 +558,33 @@ def test_money_guard_does_not_treat_non_money_number_words_as_currency():
     assert not contains_monetary_amount("One hundred participants will be surveyed.")
 
 
+def test_tender_block_redacts_financial_figures_before_writers_see_them():
+    pack = ("Terms of Reference " * 80) + " The assignment ceiling is USD 80,000 inclusive of fees."
+    block = tender_reader.tender_documents_block(pack)
+    assert "80,000" not in block
+    assert "USD 80,000" not in block
+    assert "REDACTED: financial proposal only" in block
+
+
+def test_financial_experience_column_is_rewritten_not_left_as_value():
+    from utils.money_scrub import (
+        contains_financial_disclosure,
+        strip_financial_table_headers,
+    )
+
+    table = (
+        "| Project | Client | Value (USD) | Year |\n"
+        "| --- | --- | --- | --- |\n"
+        "| WASH endline | Arche Nova |  | 2025 |\n"
+    )
+    assert contains_financial_disclosure(table)
+    cleaned, removed = strip_financial_table_headers(table)
+    assert removed
+    assert "Value (USD)" not in cleaned
+    assert "Duration or scope" in cleaned
+    assert not contains_financial_disclosure(cleaned)
+
+
 def test_final_money_audit_enforces_safe_sections():
     sections = {
         "cover_letter": "The fee is one hundred thousand dollars. Technical content remains.",

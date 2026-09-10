@@ -14,6 +14,11 @@ import httpx
 from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx
+from utils.money_scrub import (
+    contains_financial_disclosure,
+    strip_financial_table_headers,
+    strip_monetary_amounts,
+)
 from utils.urls import UnsafeURLError, assert_public_http_url
 
 
@@ -569,6 +574,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
     def section_block(heading: str, content: str) -> str:
         if not content:
             return ""
+        text, _ = strip_monetary_amounts(content)
+        text, _ = strip_financial_table_headers(text)
+        if contains_financial_disclosure(text):
+            logger.error(
+                f"Omitting emailed draft section '{heading}': financial information remains"
+            )
+            return ""
+        content = text
         # Convert newlines to paragraphs for HTML. Skip markdown rules and
         # table separators so "---" never appears in the emailed draft.
         paragraphs = "".join(
@@ -691,7 +704,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     budget_block = "" if is_eoi else f"""
     <!-- BUDGET STATUS -->
     <div style="margin-bottom:24px;background:#fff3cd;padding:14px 16px;border-left:4px solid #f0a500">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px">Budget validation required</h3>
+        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px">Internal budget notes — not part of the technical/EOI file</h3>
         <p><strong>Status:</strong> {_html(budget_status)}. {_html(budget_reason)}</p>
         {known_personnel_line}
         <p style="margin-bottom:4px"><strong>Inputs still required before a financial submission:</strong></p>
@@ -740,7 +753,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                     ({_html(recommendation)})
                 </td>
                 <td style="padding:4px 0">
-                    <strong>Budget Cap:</strong> {budget_cap_str}
+                    <strong>Budget cap (internal — do not copy into the technical/EOI):</strong> {budget_cap_str}
                 </td>
             </tr>
             <tr>

@@ -14,6 +14,12 @@ from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from loguru import logger
 
+from utils.money_scrub import (
+    contains_financial_disclosure,
+    strip_financial_table_headers,
+    strip_monetary_amounts,
+)
+
 # Order matters — this is the real proposal structure, not dict
 # insertion order. The 4 grouped generator functions map onto these
 # slots (org_profile_and_track_record covers what would otherwise be
@@ -44,6 +50,18 @@ SECTION_ORDER = [
 _BULLET_RE = re.compile(r"^[-*+]\s+(.*)$")
 _NUMBER_RE = re.compile(r"^\d+[.)]\s+(.*)$")
 _HR_RE = re.compile(r"^([-*_])\1{2,}$")
+
+
+def _client_safe_section(key: str, content: str) -> str:
+    """The Word file is the technical/EOI envelope — it must not carry price."""
+    text, _ = strip_monetary_amounts(content)
+    text, _ = strip_financial_table_headers(text)
+    if contains_financial_disclosure(text):
+        raise ValueError(
+            f"Refusing to write [{key}] into the technical/EOI Word file: "
+            "financial information remains"
+        )
+    return text
 
 
 def _is_table_row(line: str) -> bool:
@@ -291,6 +309,9 @@ def build_proposal_docx(
     for key, heading in SECTION_ORDER:
         content = sections.get(key)
         if not content or not isinstance(content, str):
+            continue
+        content = _client_safe_section(key, content)
+        if not content.strip():
             continue
         doc.add_heading(heading, level=1)
         _write_markdown_content(doc, content)
