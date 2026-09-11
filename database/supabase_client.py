@@ -1,7 +1,6 @@
 # database/supabase_client.py
-import os
 from supabase import create_client, Client
-from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL
+from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL, env_file_save_hint, get_openai_api_key
 from loguru import logger
 import httpx
 import json
@@ -9,6 +8,7 @@ import uuid
 from typing import Optional, cast
 from utils.llm import complete
 from utils.claude_helpers import get_text
+from utils.errors import ErrorType
 from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 from utils.untrusted import wrap_untrusted
 
@@ -28,6 +28,14 @@ _LEDGER_MISSING_MESSAGE = (
     "supabase_migration_opportunity_state.sql is applied. "
     "Manual python main.py --submit-url still works."
 )
+
+
+class EmbeddingError(Exception):
+    """OpenAI embedding call failed. CV matching must not treat this as 'no staff'."""
+
+    def __init__(self, message: str, *, auth: bool = False):
+        super().__init__(message)
+        self.auth = auth
 
 
 def _is_missing_processing_ledger(exc: Exception) -> bool:
@@ -121,11 +129,12 @@ def get_embedding(text: str) -> list[float]:
     if len(text) > 8000:
         text = summarize_for_embedding(text)
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_api_key()
     if not api_key:
-        raise ValueError(
+        raise EmbeddingError(
             "OPENAI_API_KEY not set in .env — required for CV semantic "
-            "search. Add it or CV matching will fail."
+            "search. Add it or CV matching will fail.",
+            auth=True,
         )
 
     response = httpx.post(
@@ -141,8 +150,21 @@ def get_embedding(text: str) -> list[float]:
     if response.status_code == 200:
         return response.json()["data"][0]["embedding"]
 
-    logger.error(f"Embedding failed: {response.status_code} {response.text}")
-    raise Exception(f"Failed to get embedding: {response.text}")
+    if response.status_code in (401, 403):
+        logger.error(
+            f"OpenAI rejected OPENAI_API_KEY ({response.status_code} invalidated). "
+            f"{env_file_save_hint()} Embeddings power CV matching and past-proposal "
+            "search — they are not the Anthropic drafting key. Create a new key at "
+            "https://platform.openai.com/api-keys paste OPENAI_API_KEY=sk-... with "
+            f"no quotes, save, and rerun. error_type={ErrorType.AUTH_ERROR}"
+        )
+        raise EmbeddingError(
+            "OpenAI embeddings API key is invalid or revoked",
+            auth=True,
+        )
+
+    logger.error(f"Embedding failed: HTTP {response.status_code}")
+    raise EmbeddingError(f"Failed to get embedding: HTTP {response.status_code}")
 
 
 def summarize_for_embedding(text: str) -> str:
@@ -212,6 +234,8 @@ def search_consultants(
 
         return result.data
 
+    except EmbeddingError:
+        raise
     except Exception as e:
         logger.error(f"Consultant search failed: {e}")
         return []
@@ -246,6 +270,9 @@ def search_past_proposals(
     """
     try:
         query_embedding = get_embedding(query_text)
+    except EmbeddingError as e:
+        logger.warning(f"Past-proposal search: embedding unavailable ({e})")
+        return []
     except Exception as e:
         logger.warning(f"Past-proposal search: embedding failed ({e})")
         return []

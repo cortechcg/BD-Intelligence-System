@@ -574,13 +574,17 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         console.print(
             "  [bold green]Expression of Interest draft complete — ready for review[/bold green]"
         )
+    elif (proposal_sections or {}).get("lightweight"):
+        console.print(
+            "  [bold yellow]WATCH quick-flag sent — not a full draft[/bold yellow]"
+        )
     elif recommendation == "BID":
         console.print(
             "  [bold green]Proposal draft complete — ready for team review[/bold green]"
         )
     else:
         console.print(
-            "  [bold yellow]WATCH quick-flag sent — not a full draft[/bold yellow]"
+            "  [bold green]Full WATCH draft complete — ready for team review[/bold green]"
         )
 
     est_cost = usage.get("estimated_cost_usd") if usage.get("cost_known") else None

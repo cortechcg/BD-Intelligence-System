@@ -179,3 +179,27 @@ def test_unrecognized_availability_status_is_unknown(monkeypatch):
     ])
     assert ranked[0]["availability_flag"] == "Unknown"
     assert ranked[0]["availability_percent"] is None
+
+
+def test_embedding_error_is_not_treated_as_external_recruitment(monkeypatch):
+    from database.supabase_client import EmbeddingError
+
+    monkeypatch.setattr(
+        cv_matcher,
+        "search_consultants",
+        lambda **kwargs: (_ for _ in ()).throw(EmbeddingError("invalid key", auth=True)),
+    )
+    monkeypatch.setattr(cv_matcher, "log_agent_action", lambda **kwargs: None)
+    monkeypatch.setattr(cv_matcher, "get_all_consultants", lambda: [])
+
+    result = cv_matcher.match_team_to_requirements([
+        {"role": "Lead Consultant/Researcher"},
+        {"role": "Analyst"},
+    ])
+    assert result["search_unavailable"] is True
+    assert result["coverage_percent"] is None
+    assert result["gaps"] == []
+    assert result["matched_team"]["Lead Consultant/Researcher"]["consultant_name"] == (
+        "CV SEARCH UNAVAILABLE"
+    )
+    assert result["capability_summary"]["status"] == "UNKNOWN"
