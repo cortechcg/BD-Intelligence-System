@@ -53,7 +53,7 @@ from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
 from reporting.docx_builder import SECTION_ORDER
-from intelligence.learning import process_win_loss_outcomes
+from intelligence.learning import process_win_loss_outcomes, save_draft_memory
 from database.supabase_client import (
     check_opportunity_exists,
     claim_opportunity_processing,
@@ -506,14 +506,30 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
     submission_type = (analysis.get("bid_analysis") or {}).get(
         "submission_type"
     ) or "FULL_PROPOSAL"
-    budget = {}
+
+    logger.info("  Step 4: Preparing internal budget for team review...")
+    project_locations = opportunity.get("project_location") or []
+    if isinstance(project_locations, str):
+        project_locations = [project_locations]
+    elif not isinstance(project_locations, list):
+        project_locations = []
+    primary_location = project_locations[0] if project_locations else "Nairobi"
+    try:
+        budget = calculate_budget(
+            analysis,
+            matched_team_result.get("matched_team", {}),
+            primary_location,
+        )
+    except Exception as e:
+        logger.warning(f"  Budget calculation failed (non-fatal): {e}")
+        budget = {}
 
     if submission_type == "EOI":
         logger.info("  Submission type: EOI — full shortlisting draft")
         console.print(
-            "  [cyan]EOI submission — writing a complete shortlisting draft (budget skipped)[/cyan]"
+            "  [cyan]EOI submission — writing a complete shortlisting draft "
+            "(financial figures stay in the review email only)[/cyan]"
         )
-        logger.info("  Step 4: Skipping budget (EOI stage)")
         logger.info("  Step 5: Reading the tender documents, then writing the EOI...")
         # full_text, not just `analysis`: the writer reads the tender pack
         # itself before drafting — see intelligence/tender_reader.py.
@@ -525,25 +541,6 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         )
     else:
         logger.info("  Submission type: Full technical proposal")
-
-        logger.info("  Step 4: Calculating budget...")
-        project_locations = opportunity.get("project_location") or []
-        if isinstance(project_locations, str):
-            project_locations = [project_locations]
-        elif not isinstance(project_locations, list):
-            project_locations = []
-        primary_location = project_locations[0] if project_locations else "Nairobi"
-
-        try:
-            budget = calculate_budget(
-                analysis,
-                matched_team_result.get("matched_team", {}),
-                primary_location,
-            )
-        except Exception as e:
-            logger.warning(f"  Budget calculation failed (non-fatal): {e}")
-            budget = {}
-
         logger.info("  Step 5: Reading the tender documents, then drafting...")
         # The budget is passed for the internal review email only. No amount
         # from it reaches the drafted proposal — see NO_MONETARY_RULE in
@@ -597,6 +594,17 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         tokens_out=usage.get("output", 0),
     )
 
+    try:
+        save_draft_memory(
+            opportunity_id=airtable_record_id or "",
+            title=title,
+            client=opportunity.get("client") or "",
+            donor=opportunity.get("donor") or "",
+            sections=proposal_sections,
+        )
+    except Exception as e:
+        logger.warning(f"  Draft memory save failed (non-fatal): {e}")
+
     return {
         "airtable_id":       airtable_record_id,
         "title":             title,
@@ -623,6 +631,14 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
     }
 
 
+def _refresh_outcome_learning() -> None:
+    """Pull Won/Lost lessons before drafting so this run can use them."""
+    try:
+        process_win_loss_outcomes()
+    except Exception as e:
+        logger.warning(f"Win/loss learning refresh failed (non-fatal): {e}")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MANUAL URL SUBMISSION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -640,6 +656,7 @@ def submit_single_url(url: str) -> None:
     console.print(Panel(f"Manual submission: {url}", style="bold cyan"))
     new_execution_id()
     _start_execution_budget()
+    _refresh_outcome_learning()
 
     if check_opportunity_exists(url):
         console.print(
@@ -735,6 +752,7 @@ def _run_pipeline() -> None:
         border_style="blue",
     ))
     log_stage("pipeline", "start", execution_id=eid)
+    _refresh_outcome_learning()
 
     all_new: list[dict]              = []
     processed_opportunities: list[dict] = []
@@ -956,6 +974,7 @@ def _run_assortis_check() -> None:
     logger.info("Checking Assortis/ICA newsletter...")
     new_execution_id()
     _start_execution_budget()
+    _refresh_outcome_learning()
     opportunities = check_assortis_newsletter()
     if opportunities and not opportunity_ledger_available():
         logger.error(

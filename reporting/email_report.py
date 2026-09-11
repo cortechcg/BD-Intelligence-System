@@ -36,6 +36,125 @@ def _usd(value) -> str:
     return f"${number:,.0f}" if math.isfinite(number) else "UNKNOWN"
 
 
+def _usd_known(value) -> str:
+    """Show a dollar figure only when it is a real positive amount."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "—"
+    if not math.isfinite(number) or number <= 0:
+        return "—"
+    return f"${number:,.0f}"
+
+
+def _internal_budget_html(budget: dict, budget_cap, is_eoi: bool) -> str:
+    """Team-only financial working. Must never be copied into the Word draft."""
+    budget = budget if isinstance(budget, dict) else {}
+    summary = budget.get("summary") if isinstance(budget.get("summary"), dict) else {}
+    breakdown = budget.get("personnel_breakdown")
+    if not isinstance(breakdown, dict):
+        breakdown = {}
+    missing = budget.get("missing_inputs") if isinstance(budget.get("missing_inputs"), list) else []
+    cap = budget.get("opportunity_budget_cap_usd")
+    if cap in (None, "", 0, 0.0):
+        cap = budget_cap
+    cap_str = _usd_known(cap)
+    if cap_str == "—":
+        cap_str = "Not specified in the tender extraction"
+    known = summary.get("known_personnel_subtotal_usd")
+    known_str = _usd_known(known)
+    personnel_complete = summary.get("personnel_subtotal_usd")
+    personnel_complete_str = _usd_known(personnel_complete)
+    location = _html(budget.get("primary_location") or "Not set")
+    status = _html(budget.get("status") or "UNKNOWN")
+    reason = _html(budget.get("reason") or "No budget basis was supplied.")
+    stage_note = (
+        "This is an Expression of Interest. Figures below are for internal "
+        "planning only — they must not appear in the EOI Word file."
+        if is_eoi
+        else "Figures below are for internal review only — they must not appear "
+        "in the technical proposal Word file."
+    )
+    rows = ""
+    for role, line in breakdown.items():
+        if not isinstance(line, dict):
+            continue
+        days = line.get("estimated_days_of_effort")
+        days_str = "—" if days in (None, "") else _html(days)
+        rows += f"""
+        <tr>
+            <td style="padding:8px;border:1px solid #ddd">{_html(line.get("role") or role)}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(line.get("level") or "—")}</td>
+            <td style="padding:8px;border:1px solid #ddd">{days_str}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_usd_known(line.get("day_rate_usd"))}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_usd_known(line.get("personnel_cost_usd"))}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(line.get("status") or "UNKNOWN")}</td>
+        </tr>"""
+    if not rows:
+        rows = """
+        <tr>
+            <td colspan="6" style="padding:8px;border:1px solid #ddd;color:#856404">
+                No personnel line could be costed yet. See missing inputs below.
+            </td>
+        </tr>"""
+    missing_html = "".join(
+        f"<li>{_html(item)}</li>" for item in missing[:12]
+    ) or "<li>No missing-input detail was recorded.</li>"
+    return f"""
+    <div style="margin-bottom:24px;background:#fff8e8;padding:16px 16px 8px;
+                border:2px solid #f0a500;border-radius:6px">
+        <h3 style="color:#1F3864;font-size:16px;margin:0 0 8px">
+            Internal financial working
+        </h3>
+        <p style="margin:0 0 12px;font-size:13px;color:#856404">
+            {_html(stage_note)}
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
+            <tr>
+                <td style="padding:8px;border:1px solid #ddd;width:50%">
+                    <strong>Tender ceiling</strong><br>{_html(cap_str)}
+                </td>
+                <td style="padding:8px;border:1px solid #ddd">
+                    <strong>Rate-card location</strong><br>{location}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:8px;border:1px solid #ddd">
+                    <strong>Status</strong><br>{status}
+                </td>
+                <td style="padding:8px;border:1px solid #ddd">
+                    <strong>Known personnel subtotal</strong><br>
+                    {known_str if known_str != "—" else "Not yet calculated"}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:8px;border:1px solid #ddd">
+                    <strong>Complete personnel subtotal</strong><br>
+                    {personnel_complete_str if personnel_complete_str != "—" else "Incomplete"}
+                </td>
+                <td style="padding:8px;border:1px solid #ddd">
+                    <strong>Overall bid amount</strong><br>Not estimated — non-personnel costs are still missing
+                </td>
+            </tr>
+        </table>
+        <p style="margin:0 0 6px;font-size:13px">{reason}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 12px">
+            <tr style="background:#1F3864;color:white">
+                <th style="padding:8px;text-align:left">Role</th>
+                <th style="padding:8px;text-align:left">Level</th>
+                <th style="padding:8px;text-align:left">Days</th>
+                <th style="padding:8px;text-align:left">Day rate</th>
+                <th style="padding:8px;text-align:left">Personnel cost</th>
+                <th style="padding:8px;text-align:left">Status</th>
+            </tr>
+            {rows}
+        </table>
+        <p style="margin-bottom:4px"><strong>Still required before a financial submission:</strong></p>
+        <ul style="margin-top:4px">{missing_html}</ul>
+    </div>
+"""
+
+
 def _subject_text(value) -> str:
     """Prevent untrusted titles from injecting a second mail header."""
     return " ".join(str(value or "").replace("\r", " ").replace("\n", " ").split())
@@ -507,12 +626,15 @@ def send_proposal_email(opportunity_result: dict) -> None:
     bid_analysis   = analysis.get("bid_analysis", {})
     key_strengths  = bid_analysis.get("key_strengths", [])
     key_gaps       = bid_analysis.get("key_gaps", [])
-    budget_summary = budget.get("summary", {}) if isinstance(budget, dict) else {}
     team_matches   = matched.get("matched_team", {})
-    budget_status  = budget.get("status", "UNKNOWN") if isinstance(budget, dict) else "UNKNOWN"
-    budget_reason  = budget.get("reason", "No budget basis was supplied.") if isinstance(budget, dict) else "No budget basis was supplied."
-    budget_missing = budget.get("missing_inputs", []) if isinstance(budget, dict) else []
-    budget_cap_str = _usd(budget_cap) if budget_cap else "Not specified"
+    cap_for_header = (
+        budget.get("opportunity_budget_cap_usd") if isinstance(budget, dict) else None
+    )
+    if cap_for_header in (None, "", 0, 0.0):
+        cap_for_header = budget_cap
+    budget_cap_str = _usd_known(cap_for_header)
+    if budget_cap_str == "—":
+        budget_cap_str = "Not specified"
     urgency        = get_urgency_level(str(deadline))
     quality        = proposal.get("quality_score", {}) if isinstance(proposal.get("quality_score"), dict) else {}
     quality_line   = ""
@@ -692,25 +814,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if is_lightweight
         else "Draft Technical Proposal"
     )
-    budget_missing_html = "".join(
-        f"<li>{_html(item)}</li>" for item in budget_missing[:12]
-    ) or "<li>No missing-input detail was recorded.</li>"
-    known_personnel = budget_summary.get("known_personnel_subtotal_usd")
-    known_personnel_line = (
-        f"<p>Verified personnel subtotal only: <strong>{_usd(known_personnel)}</strong>.</p>"
-        if known_personnel not in (None, 0, 0.0)
-        else ""
-    )
-    budget_block = "" if is_eoi else f"""
-    <!-- BUDGET STATUS -->
-    <div style="margin-bottom:24px;background:#fff3cd;padding:14px 16px;border-left:4px solid #f0a500">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px">Internal budget notes — not part of the technical/EOI file</h3>
-        <p><strong>Status:</strong> {_html(budget_status)}. {_html(budget_reason)}</p>
-        {known_personnel_line}
-        <p style="margin-bottom:4px"><strong>Inputs still required before a financial submission:</strong></p>
-        <ul style="margin-top:4px">{budget_missing_html}</ul>
-    </div>
-"""
+    budget_block = _internal_budget_html(budget, budget_cap, is_eoi)
 
     html = f"""
     <!DOCTYPE html>
@@ -753,7 +857,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                     ({_html(recommendation)})
                 </td>
                 <td style="padding:4px 0">
-                    <strong>Budget cap (internal — do not copy into the technical/EOI):</strong> {budget_cap_str}
+                    <strong>Budget cap (internal — do not copy into the technical/EOI):</strong> {_html(budget_cap_str)}
                 </td>
             </tr>
             <tr>
@@ -771,6 +875,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
     {action_banner}
 
     <div style="padding:20px">
+
+    {budget_block}
 
     <!-- STRENGTHS AND GAPS -->
     <div style="display:flex;gap:20px;margin-bottom:24px">
@@ -804,8 +910,6 @@ def send_proposal_email(opportunity_result: dict) -> None:
             {team_rows_html}
         </table>
     </div>
-
-    {budget_block}
 
     {strategy_block}
 
