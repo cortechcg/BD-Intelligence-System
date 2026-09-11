@@ -141,3 +141,24 @@ def test_claim_refuses_active_lease_and_token_mismatch(monkeypatch):
         "https://www.somalijobs.com/tenders/5/eval",
         "Mismatch",
     ) is None
+
+
+def test_get_embedding_uses_sanitized_env_key_and_does_not_dump_401_body(monkeypatch):
+    monkeypatch.setattr(
+        supabase_client, "get_openai_api_key", lambda: "sk-test-openai-key"
+    )
+
+    class _Response:
+        status_code = 401
+        text = '{"error":{"message":"Your API key has been invalidated."}}'
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(supabase_client.httpx, "post", lambda *a, **k: _Response())
+    try:
+        supabase_client.get_embedding("evaluation Somalia")
+        raise AssertionError("401 must raise EmbeddingError")
+    except supabase_client.EmbeddingError as exc:
+        assert exc.auth is True
+        assert "Your API key has been invalidated." not in str(exc)

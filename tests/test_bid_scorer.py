@@ -115,6 +115,25 @@ def test_team_capacity_updates_when_matching_present():
     assert with_team["factor_values"]["team_capacity"] == 50
 
 
+def test_embedding_failure_coverage_does_not_count_as_zero_staff():
+    unavailable = compute_bid_intelligence(
+        _analysis(),
+        matched_team_result={
+            "coverage_percent": None,
+            "gaps": [],
+            "search_unavailable": True,
+        },
+    )
+    zero_staff = compute_bid_intelligence(
+        _analysis(),
+        matched_team_result={"coverage_percent": 0, "gaps": ["Lead Consultant"]},
+    )
+    assert unavailable["recommendation"] == "BID"
+    assert unavailable["factor_values"]["team_capacity"] is None
+    assert zero_staff["factor_values"]["team_capacity"] == 0
+    assert zero_staff["fit"]["score"] < unavailable["fit"]["score"]
+
+
 def test_capability_does_not_infer_education():
     result = score_capability_match(
         {

@@ -1,7 +1,7 @@
 # intelligence/cv_matcher.py
 import json
 from loguru import logger
-from database.supabase_client import search_consultants
+from database.supabase_client import EmbeddingError, search_consultants
 from database.airtable_client import get_all_consultants, log_agent_action
 
 _SCORE_KEYS = (
@@ -319,7 +319,10 @@ def filter_by_availability(matches: list[dict]) -> list[dict]:
         match.update(parsed)
         if consultant and "current_projects" in consultant:
             match["current_project_count"] = consultant.get("current_projects")
-        if (match.get("consultant_name") or "") == "EXTERNAL RECRUITMENT NEEDED":
+        if (match.get("consultant_name") or "") in {
+            "EXTERNAL RECRUITMENT NEEDED",
+            "CV SEARCH UNAVAILABLE",
+        }:
             continue
         req = match.get("requirement")
         if req is not None or match.get("capability") is not None:
@@ -346,8 +349,15 @@ def _team_capability_summary(matched_team: dict, gaps: list) -> dict:
         evidence.extend(f"{role}: {item}" for item in (cap.get("evidence") or [])[:2])
         all_gaps.extend(str(g) for g in (cap.get("gaps") or []))
         unknown.extend(str(u) for u in (cap.get("unknown") or []))
+    unavailable = any(
+        isinstance(match, dict)
+        and (match.get("consultant_name") or "") == "CV SEARCH UNAVAILABLE"
+        for match in (matched_team or {}).values()
+    )
     match_score = round(sum(scores) / len(scores), 2) if scores else 0.0
-    if gaps and not scores:
+    if unavailable:
+        status = "UNKNOWN"
+    elif gaps and not scores:
         status = "MISSING"
     elif gaps or unknown:
         status = "PARTIAL"
@@ -378,12 +388,30 @@ def match_team_to_requirements(
     """
     matched_team = {}
     gaps = []
+    search_unavailable = False
 
     title_label = (opportunity_title or "")[:80]
     logger.info(
         f"Matching team for {len(team_requirements or [])} roles"
         + (f": {title_label}" if title_label else "")
     )
+
+    def _unavailable_slot(role_name: str, requirement: dict) -> dict:
+        return {
+            "consultant_name": "CV SEARCH UNAVAILABLE",
+            "airtable_id": None,
+            "similarity_score": 0,
+            "requirement": requirement,
+            "capability": {
+                "match_score": None,
+                "why": "OpenAI embeddings failed — team match was not run",
+                "evidence": [],
+                "gaps": [],
+                "unknown": ["cv_embeddings"],
+                "confidence": "UNKNOWN",
+                "status": "UNKNOWN",
+            },
+        }
 
     for req in team_requirements or []:
         if not isinstance(req, dict):
@@ -419,11 +447,24 @@ def match_team_to_requirements(
         Education: {req.get('required_education') or ''}
         """
 
-        matches = search_consultants(
-            query_text=search_query,
-            match_threshold=0.60,
-            match_count=3
-        )
+        if search_unavailable:
+            matched_team[role] = _unavailable_slot(role, req)
+            continue
+
+        try:
+            matches = search_consultants(
+                query_text=search_query,
+                match_threshold=0.60,
+                match_count=3
+            )
+        except EmbeddingError as e:
+            search_unavailable = True
+            logger.error(
+                f"  CV search unavailable for remaining roles ({e}) — "
+                "not treating this as a staffing gap"
+            )
+            matched_team[role] = _unavailable_slot(role, req)
+            continue
 
         if matches:
             best_match = matches[0] if isinstance(matches[0], dict) else {}
@@ -485,13 +526,17 @@ def match_team_to_requirements(
     except Exception:
         pass
 
-    coverage = round(
-        (len(matched_team) - len(gaps)) / len(matched_team) * 100
-        if matched_team else 0
-    )
+    if search_unavailable:
+        coverage = None
+    else:
+        coverage = round(
+            (len(matched_team) - len(gaps)) / len(matched_team) * 100
+            if matched_team else 0
+        )
     return {
         "matched_team": matched_team,
         "gaps": gaps,
         "coverage_percent": coverage,
+        "search_unavailable": search_unavailable,
         "capability_summary": _team_capability_summary(matched_team, gaps),
     }

@@ -401,7 +401,9 @@ def get_embedding_openai(text: str) -> list[float]:
     NOTE: Requires OPENAI_API_KEY in .env
     Only costs ~$0.0001 per embedding — extremely cheap.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    from config import get_openai_api_key
+
+    api_key = get_openai_api_key()
     if not api_key:
         raise ValueError("OPENAI_API_KEY not set in .env")
 
