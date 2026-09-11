@@ -2,6 +2,7 @@
 import os
 import threading
 from contextlib import contextmanager
+from datetime import datetime
 from dotenv import load_dotenv
 
 # override=True — a stale ANTHROPIC_API_KEY exported in the shell must not
@@ -9,6 +10,24 @@ from dotenv import load_dotenv
 # interpolate=False — $ in API keys must not be treated as variable expansion.
 _ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(_ENV_PATH, override=True, interpolate=False)
+
+
+def env_file_save_hint() -> str:
+    """Tell the operator when .env on disk was last saved.
+
+    Editing the key in the IDE and not saving is the usual cause of a 401
+    after a key rotation: Python reads the file on disk, not the unsaved tab.
+    """
+    try:
+        ts = datetime.fromtimestamp(os.path.getmtime(_ENV_PATH)).strftime(
+            "%Y-%m-%d %H:%M"
+        )
+    except OSError:
+        return "Could not read .env on disk."
+    return (
+        f".env on disk was last saved {ts}. If you just pasted a new key in "
+        "the editor, save the file (Ctrl+S) before rerunning."
+    )
 
 
 def get_anthropic_api_key() -> str | None:

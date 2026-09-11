@@ -15,6 +15,7 @@ from config import (
     CLAUDE_MODEL,
     CLAUDE_MAX_TOKENS,
     CORTECH_PROFILE,
+    env_file_save_hint,
     get_anthropic_api_key,
 )
 from database.airtable_client import log_agent_action
@@ -396,6 +397,7 @@ def analyze_rfp(
             pass
         logger.error(
             f"  Anthropic rejected API key ending ...{suffix} (401 invalid). "
+            f"{env_file_save_hint()} "
             "Create a new key at https://console.anthropic.com/settings/keys "
             "paste it in .env as "
             f"ANTHROPIC_API_KEY=sk-ant-... with no quotes, save, and rerun. "
