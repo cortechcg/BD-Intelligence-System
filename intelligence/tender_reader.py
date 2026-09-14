@@ -551,7 +551,8 @@ def format_document_lock(lock: dict) -> str:
         ("lots_or_sites", "Lots / sites"),
         ("target_groups", "Target groups"),
         ("deliverables", "Deliverables"),
-        ("prescribed_sections", "Prescribed sections / contents"),
+        ("prescribed_sections", "Prescribed written sections"),
+        ("required_attachments", "Attachments (not chapters)"),
         ("scored_or_shortlisting_criteria", "Scored or shortlisting criteria"),
         ("vocabulary_lock", "Vocabulary to use unchanged"),
         ("must_not", "Must not"),
@@ -561,9 +562,13 @@ def format_document_lock(lock: dict) -> str:
             lines.append(f"- {label}: " + "; ".join(items[:12]))
     if _lock_list(lock.get("prescribed_sections")):
         lines.append(
-            "- Structure rule: write ONLY the prescribed sections, in that "
-            "order. Do not add Cortech house headings the tender did not list. "
-            "Do not draft the financial envelope."
+            "- Structure rule: write a COMPLETE, full-length {stage} under "
+            "ONLY those written headings, in that order, filling every page "
+            "limit. CVs, links, referee contacts, certificates, and signed "
+            "forms are attachments for the human, not draft chapters. "
+            "Do not draft the financial envelope.".format(
+                stage="EOI" if lock.get("document_type") in {"EOI", "REOI"} else "technical proposal"
+            )
         )
     return "\n".join(lines) if len(lines) > 1 else ""
 
@@ -584,6 +589,112 @@ _FORM_HEADING_RE = re.compile(
     r"mandatory form|application form|template)\b",
     re.I,
 )
+_ATTACHMENT_HEADING_RE = re.compile(
+    r"\b(links? to|urls? to|certificates?|tax clearance|"
+    r"business licen[cs]e|registration documents?|"
+    r"contacts of (?:three|3|two|2)|referees?\b)",
+    re.I,
+)
+_COMPOUND_SPLIT_RE = re.compile(
+    r"^(technical proposal|the technical proposal|proposal|"
+    r"expression of interest|the eoi|eoi)\s+"
+    r"(?:summarizing|summarising|covering|including|comprising|"
+    r"containing|shall include|must include|:)\s*(.+)$",
+    re.I,
+)
+_GANTT_RE = re.compile(
+    r"\b(gantt|activity schedule|work[ -]?plan|timeline)\b",
+    re.I,
+)
+WORDS_PER_PAGE = 300
+_FORMAT_META_KEYS = {
+    "submission_type",
+    "lightweight",
+    "lightweight_reason",
+    "quality_score",
+    "claim_grounding",
+    "tender_brief",
+    "win_strategy",
+    "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
+    "required_attachments",
+    "required_forms",
+    "format_compliance",
+}
+
+
+def parse_page_budget(page_limit: str) -> dict | None:
+    """Turn 'max 3 pages' / '450 words' into a binding word budget."""
+    text = " ".join(str(page_limit or "").split()).lower()
+    if not text:
+        return None
+    words = re.search(r"(\d+)\s*words?\b", text)
+    if words:
+        n = int(words.group(1))
+        n = max(40, min(n, 12000))
+        return {
+            "max_words": n,
+            "target_words": n,
+            "pages": round(n / WORDS_PER_PAGE, 2),
+            "label": f"{n} words",
+        }
+    named = re.search(
+        r"\b(one|two|three|four|five|six|seven|eight|nine|ten|a)\s+pages?\b",
+        text,
+    )
+    if named:
+        word_pages = {
+            "a": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+            "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        }
+        p = float(word_pages[named.group(1)])
+    else:
+        pages = re.search(
+            r"(?:max(?:imum)?(?:\s+of)?|not exceeding|no more than|up to|upto)?"
+            r"\s*(\d+(?:\.\d+)?)\s*(?:page|pages|pp\.?)\b",
+            text,
+        )
+        if not pages:
+            pages = re.search(r"(\d+(?:\.\d+)?)\s*-\s*page\b", text)
+        if not pages:
+            return None
+        p = float(pages.group(1))
+    if p <= 0:
+        return None
+    n = max(80, int(round(p * WORDS_PER_PAGE)))
+    label = "1 page" if p == 1 else f"{p:g} pages"
+    return {
+        "max_words": n,
+        "target_words": n,
+        "pages": p,
+        "label": label,
+    }
+
+
+def word_count(text: str) -> int:
+    return len((text or "").split())
+
+
+def estimated_pages(text: str) -> float:
+    return round(word_count(text) / WORDS_PER_PAGE, 2)
+
+
+def has_gantt_chart(text: str) -> bool:
+    """True when the draft contains a real activity-by-period table, not a heading."""
+    raw = text or ""
+    if raw.count("|") < 8:
+        return False
+    header = bool(
+        re.search(
+            r"\|\s*(week|w(?:eek)?\s*\d+|month|m(?:onth)?\s*\d+|q\d)\b",
+            raw,
+            re.I,
+        )
+    )
+    named = bool(re.search(r"\bgantt\b", raw, re.I)) and "|" in raw
+    return header or named
 
 
 def _split_page_limit(text: str) -> tuple[str, str]:
@@ -597,6 +708,30 @@ def _split_page_limit(text: str) -> tuple[str, str]:
     return heading or raw, match.group(1).strip()
 
 
+def _is_attachment_heading(heading: str) -> bool:
+    h = heading or ""
+    lower = h.lower()
+    if re.search(r"curriculum vitae|\bcvs?\b", lower):
+        if re.match(r"(the )?(signed )?cvs?\b", lower):
+            return True
+        if re.search(
+            r"\bcvs?\b.{0,50}(attach|annex|highlighting|including)|"
+            r"(attach|annex|including).{0,40}\bcvs?\b|"
+            r"cvs? of the (proposed )?(team|candidate|expert|consultant)",
+            lower,
+        ):
+            return True
+    if re.search(
+        r"personnel|key expert|proposed team|staffing|team composition|"
+        r"core expert|resources in staff",
+        lower,
+    ):
+        return False
+    if _ATTACHMENT_HEADING_RE.search(h):
+        return True
+    return False
+
+
 def _heading_kind(heading: str) -> str:
     text = heading or ""
     lower = text.lower()
@@ -604,6 +739,8 @@ def _heading_kind(heading: str) -> str:
         return "technical"
     if _FINANCIAL_HEADING_RE.search(text) and "technical" not in lower:
         return "financial"
+    if _is_attachment_heading(text):
+        return "attachment"
     if _FORM_HEADING_RE.search(text):
         return "form"
     return "technical"
@@ -617,6 +754,7 @@ def _section_slug(heading: str, used: set[str] | None = None) -> str:
         "submission_type", "lightweight", "lightweight_reason", "quality_score",
         "claim_grounding", "tender_brief", "win_strategy", "document_lock",
         "section_order", "omitted_financial", "submission_outline",
+        "required_attachments", "required_forms", "format_compliance",
     }
     if slug in reserved:
         slug = f"tor_{slug}"
@@ -659,7 +797,7 @@ def _normalize_prescribed_items(raw) -> list[dict]:
             extra = []
         if not heading:
             continue
-        if kind not in {"technical", "financial", "form"}:
+        if kind not in {"technical", "financial", "form", "attachment"}:
             kind = _heading_kind(heading)
         must_include = []
         for child in extra:
@@ -680,11 +818,122 @@ def _normalize_prescribed_items(raw) -> list[dict]:
     return items
 
 
+def _strip_including_clause(heading: str) -> tuple[str, list[str]]:
+    raw = " ".join((heading or "").split()).strip()
+    match = re.search(r"\s+including\s+(.+)$", raw, re.I)
+    if not match:
+        return raw, []
+    extras = match.group(1).strip(" .;:")
+    cleaned = raw[: match.start()].strip(" ,;:")
+    attachments = []
+    if re.search(r"\bcvs?\b|curriculum vitae", extras, re.I):
+        attachments.append("CVs of proposed experts")
+    elif extras:
+        attachments.append(extras)
+    return cleaned or raw, attachments
+
+
+def _prefer_or_heading(heading: str) -> str:
+    match = re.match(
+        r"^(suitability statement|cover letter|letter of interest)\s+or\s+"
+        r"(suitability statement|cover letter|letter of interest)\b(.*)$",
+        heading or "",
+        re.I,
+    )
+    if not match:
+        return heading
+    return (match.group(1) + match.group(3)).strip()
+
+
+def _compound_children(heading: str) -> list[str] | None:
+    match = _COMPOUND_SPLIT_RE.match(heading or "")
+    if not match:
+        return None
+    rest = match.group(2).strip(" .;:")
+    parts = [p.strip(" .;:") for p in rest.split(",") if p.strip(" .;:")]
+    children = [p[0].upper() + p[1:] if p else p for p in parts if len(p) >= 8]
+    if len(children) < 2:
+        return None
+    return children
+
+
+def _expand_lock_item(item: dict) -> tuple[list[dict], list[str]]:
+    """Split a lock bullet into written headings plus attachment notes."""
+    heading, extras = _strip_including_clause(item.get("heading") or "")
+    heading = _prefer_or_heading(heading)
+    attachments = list(extras)
+    children = list(item.get("must_include") or [])
+    compound = _COMPOUND_SPLIT_RE.match(heading)
+    extracted = _compound_children(heading)
+    if extracted and compound:
+        children = extracted
+        heading = compound.group(1).strip()
+    kind = _heading_kind(heading)
+    raw_kind = str(item.get("kind") or "")
+    if raw_kind == "financial" and _FINANCIAL_HEADING_RE.search(heading):
+        kind = "financial"
+    elif raw_kind == "form" and _FORM_HEADING_RE.search(heading):
+        kind = "form"
+    if kind == "attachment" or _is_attachment_heading(heading):
+        label = heading or "Attachment"
+        return [], attachments + [label]
+    if kind == "financial":
+        return [{**item, "heading": heading, "kind": "financial"}], attachments
+    if kind == "form":
+        return [{**item, "heading": heading, "kind": "form"}], attachments
+    if children and _is_envelope_parent(heading):
+        expanded: list[dict] = []
+        for child in children:
+            if isinstance(child, dict):
+                child_raw = {
+                    "heading": str(child.get("heading") or child.get("title") or ""),
+                    "page_limit": str(child.get("page_limit") or ""),
+                    "kind": str(child.get("kind") or ""),
+                    "must_include": child.get("must_include") or [],
+                }
+            else:
+                child_raw = {
+                    "heading": str(child),
+                    "page_limit": "",
+                    "kind": "",
+                    "must_include": [],
+                }
+            if not child_raw["heading"]:
+                continue
+            if child_raw["kind"] not in {"technical", "financial", "form", "attachment"}:
+                child_raw["kind"] = _heading_kind(child_raw["heading"])
+            nested, extra = _expand_lock_item(child_raw)
+            expanded.extend(nested)
+            attachments.extend(extra)
+        if item.get("page_limit"):
+            budget = parse_page_budget(item["page_limit"])
+            group_id = _section_slug(heading or "technical_proposal")
+            group_max = budget["max_words"] if budget else 0
+            for nested in expanded:
+                nested["group_id"] = group_id
+                nested["group_max_words"] = group_max
+        return expanded, attachments
+    return [{
+        "heading": heading,
+        "page_limit": item.get("page_limit") or "",
+        "kind": "technical",
+        "must_include": [] if extracted else (item.get("must_include") or []),
+        "group_id": item.get("group_id") or "",
+        "group_max_words": item.get("group_max_words") or 0,
+    }], attachments
+
+
+def _require_gantt(heading: str, route: str = "") -> bool:
+    if route == "work_plan":
+        return True
+    return bool(_GANTT_RE.search(heading or ""))
+
+
 def _route_heading(heading: str, submission_type: str) -> str:
     h = (heading or "").lower()
     eoi = submission_type == "EOI"
     if "suitability" in h:
-        return "generic"
+        return "cover_letter"
     if re.search(
         r"cover letter|letter of interest|letter of transmittal|"
         r"letter of expression",
@@ -707,13 +956,13 @@ def _route_heading(heading: str, submission_type: str) -> str:
         return "compliance_matrix"
     if re.search(
         r"personnel|key expert|proposed team|staffing|core expert|"
-        r"resources in staff|team composition|\bcvs?\b",
+        r"resources in staff|team composition",
         h,
     ):
         return "key_experts" if eoi else "team_section"
     if re.search(
-        r"relevant experience|track record|previous assignment|"
-        r"similar assignment",
+        r"relevant experience|related experience|track record|"
+        r"previous assignment|similar assignment",
         h,
     ):
         return "relevant_experience" if eoi else "org_profile_and_track_record"
@@ -724,14 +973,26 @@ def _route_heading(heading: str, submission_type: str) -> str:
     ):
         return "firm_profile" if eoi else "org_profile_and_track_record"
     if re.search(
-        r"understanding of the assignment|interpretation of the assignment",
+        r"understanding of the assignment|understanding of the tor|"
+        r"interpretation of the assignment",
         h,
     ):
+        return "understanding" if eoi else "introduction_and_framework"
+    if re.search(r"research questions|evaluation questions|key questions", h):
         return "understanding" if eoi else "introduction_and_framework"
     if re.search(r"methodology|technical approach|proposed approach", h):
         return "approach_summary" if eoi else "methodology"
     if re.search(r"background|introduction|conceptual framework", h):
         return "introduction_and_framework"
+    compact = re.sub(r"[^a-z0-9]+", " ", h).strip()
+    if compact in {
+        "technical proposal",
+        "the technical proposal",
+        "proposal",
+    }:
+        return "technical_proposal_body"
+    if compact in {"eoi", "expression of interest", "the eoi"}:
+        return "generic"
     return "generic"
 
 
@@ -775,12 +1036,12 @@ def plan_draft_outline(
                 item["page_limit"] = f"{page_limit} pages"
 
     expanded: list[dict] = []
-    for item in items:
-        children = item.get("must_include") or []
-        if children and _is_envelope_parent(item["heading"]):
-            expanded.extend(_normalize_prescribed_items(children))
-            continue
-        expanded.append(item)
+    attachments: list[str] = []
+    for raw_item in items:
+        nested, extra = _expand_lock_item(raw_item)
+        expanded.extend(nested)
+        attachments.extend(extra)
+    attachments.extend(_lock_list(lock.get("required_attachments")))
 
     seen: set[str] = set()
     unique: list[dict] = []
@@ -793,28 +1054,45 @@ def plan_draft_outline(
 
     financial = [item for item in unique if item["kind"] == "financial"]
     forms = [item for item in unique if item["kind"] == "form"]
-    body = [item for item in unique if item["kind"] not in {"financial", "form"}]
+    body = [
+        item for item in unique
+        if item["kind"] not in {"financial", "form", "attachment"}
+    ]
 
     used_keys: set[str] = set()
     sections = []
     for item in body:
+        route = _route_heading(item["heading"], submission_type)
         sections.append({
             "key": _section_slug(item["heading"], used_keys),
             "heading": item["heading"],
             "kind": "technical",
             "page_limit": item.get("page_limit") or "",
             "must_include": item.get("must_include") or [],
-            "route": _route_heading(item["heading"], submission_type),
+            "route": route,
+            "require_gantt": _require_gantt(item["heading"], route),
+            "group_id": item.get("group_id") or "",
+            "group_max_words": item.get("group_max_words") or 0,
         })
-    if forms:
-        sections.append({
-            "key": "mandatory_forms",
-            "heading": "Mandatory forms and annexes",
-            "kind": "form",
-            "page_limit": "",
-            "must_include": [item["heading"] for item in forms],
-            "route": "forms",
-        })
+
+    seen_attach: set[str] = set()
+    required_attachments = []
+    for name in attachments:
+        label = " ".join(str(name or "").split()).strip()
+        key = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+        if len(key) < 3 or key in seen_attach:
+            continue
+        seen_attach.add(key)
+        required_attachments.append(label)
+    required_forms = []
+    seen_forms: set[str] = set()
+    for item in forms:
+        label = item["heading"]
+        key = re.sub(r"[^a-z0-9]+", " ", label.lower()).strip()
+        if key in seen_forms:
+            continue
+        seen_forms.add(key)
+        required_forms.append(label)
 
     flag = lock.get("format_prescribed")
     if flag is None:
@@ -823,7 +1101,6 @@ def plan_draft_outline(
     if (
         prescribed
         and len(sections) == 1
-        and not forms
         and _is_envelope_parent(sections[0]["heading"])
         and not sections[0].get("must_include")
     ):
@@ -834,6 +1111,98 @@ def plan_draft_outline(
         "prescribed": prescribed,
         "sections": sections if prescribed else [],
         "omitted_financial": [item["heading"] for item in financial],
+        "required_attachments": required_attachments,
+        "required_forms": required_forms,
+    }
+
+
+def build_format_compliance(sections: dict, outline: dict | None = None) -> dict:
+    """Page-limit, Gantt, and structure audit for the review dashboard."""
+    sections = sections if isinstance(sections, dict) else {}
+    outline = outline if isinstance(outline, dict) else (
+        sections.get("submission_outline")
+        if isinstance(sections.get("submission_outline"), dict)
+        else {}
+    )
+    prescribed = bool(outline.get("prescribed") and outline.get("sections"))
+    items = outline.get("sections") if prescribed else []
+    rows = []
+    if items:
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            key = item.get("key") or ""
+            text = sections.get(key) if isinstance(sections.get(key), str) else ""
+            budget = parse_page_budget(item.get("page_limit") or "")
+            words = word_count(text)
+            pages = estimated_pages(text)
+            gantt_needed = bool(item.get("require_gantt"))
+            gantt_ok = has_gantt_chart(text) if gantt_needed else True
+            status = "ok"
+            note = ""
+            if budget:
+                if words > int(budget["max_words"] * 1.08):
+                    status = "over"
+                    note = f"Over {budget['label']} ({words} words / ~{pages:g} pages)"
+                elif words < int(budget["target_words"] * 0.55):
+                    status = "under"
+                    note = f"Short of {budget['label']} ({words} words / ~{pages:g} pages)"
+                else:
+                    note = f"{words} words / ~{pages:g} pages vs {budget['label']}"
+            else:
+                status = "no_limit"
+                note = f"{words} words / ~{pages:g} pages"
+            if gantt_needed and not gantt_ok:
+                status = "gantt_missing"
+                note = (note + " — Gantt chart missing").strip(" —")
+            rows.append({
+                "key": key,
+                "heading": item.get("heading") or key,
+                "page_limit": item.get("page_limit") or "",
+                "words": words,
+                "pages": pages,
+                "status": status,
+                "gantt": (
+                    "yes" if gantt_needed and gantt_ok
+                    else "missing" if gantt_needed
+                    else "not_required"
+                ),
+                "note": note,
+            })
+    else:
+        for key, text in sections.items():
+            if key in _FORMAT_META_KEYS or not isinstance(text, str) or not text.strip():
+                continue
+            rows.append({
+                "key": key,
+                "heading": key.replace("_", " ").title(),
+                "page_limit": "",
+                "words": word_count(text),
+                "pages": estimated_pages(text),
+                "status": "no_limit",
+                "gantt": "yes" if key == "work_plan" and has_gantt_chart(text) else (
+                    "missing" if key == "work_plan" else "not_required"
+                ),
+                "note": f"{word_count(text)} words / ~{estimated_pages(text):g} pages",
+            })
+    limits = [r for r in rows if r["status"] in {"ok", "over", "under", "gantt_missing"} and r.get("page_limit")]
+    over = sum(1 for r in rows if r["status"] == "over")
+    under = sum(1 for r in rows if r["status"] == "under")
+    gantt_missing = sum(1 for r in rows if r["gantt"] == "missing")
+    return {
+        "structure": (
+            "ToR-prescribed format"
+            if prescribed
+            else "Cortech house format (no writing format stated in the documents)"
+        ),
+        "prescribed": prescribed,
+        "rows": rows,
+        "required_attachments": outline.get("required_attachments") or sections.get("required_attachments") or [],
+        "required_forms": outline.get("required_forms") or sections.get("required_forms") or [],
+        "omitted_financial": outline.get("omitted_financial") or sections.get("omitted_financial") or [],
+        "page_limits_ok": over == 0 and under == 0,
+        "limits_checked": len(limits),
+        "gantt_ok": gantt_missing == 0,
     }
 
 
@@ -867,22 +1236,30 @@ Return ONLY valid JSON:
     {{
       "heading": "verbatim title the bidder must submit",
       "page_limit": "e.g. max 10 pages, or empty",
-      "kind": "technical or financial or form",
+      "kind": "technical or financial or form or attachment",
       "must_include": []
     }}
   ],
+  "required_attachments": [],
   "scored_or_shortlisting_criteria": [],
   "vocabulary_lock": [],
   "must_not": []
 }}
 
-format_prescribed = true when the documents list required contents, headings,
-page limits, or a section order for THIS submission (e.g. Section A.5,
-"the proposal shall contain", an EOI contents list).
-prescribed_sections = that list in the tender's order. kind=financial for a
-separate financial/commercial envelope. kind=form for annexes, templates, and
-declarations the human must sign. must_include = nested headings only when
-the tender nests them under a parent.
+format_prescribed = true only when the documents list WRITTEN chapters,
+headings, page limits, or a section order for THIS submission (e.g. Section
+A.5, "the proposal shall contain", an EOI contents list). An admin packing
+list of CVs, URLs, referee contacts, tax certificates, and signed templates
+alone is false.
+prescribed_sections = the written chapters the bidder must author, in the
+tender's order, using the tender's own titles. Split a concatenated bullet
+("Technical proposal summarizing experience, understanding, methodology")
+into separate objects, or put those topics in must_include. kind=financial
+for a separate financial/commercial envelope. kind=form for annexes,
+templates, and declarations the human must sign. kind=attachment for CVs,
+links, referee contacts, and certificates. required_attachments = those
+attachment items. must_include = nested written headings only when the
+tender nests them under a parent.
 scored_or_shortlisting_criteria = how THIS submission is judged, not OECD-DAC
 questions the consultant would later apply to a project.
 Keep geography/deliverables/criteria/vocabulary/must_not to at most 8 short

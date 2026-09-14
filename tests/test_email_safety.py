@@ -245,3 +245,62 @@ def test_review_email_flags_duplicate_consultant_mapping(monkeypatch):
     assert "Submit as an Expression of Interest only" in html
     assert "81% match" in html
     assert "81.0% match" not in html
+
+
+def test_review_email_shows_tor_format_page_limits_and_gantt(monkeypatch):
+    sent = _send_capture(monkeypatch)
+
+    email_report.send_proposal_email({
+        "title": "SPREAD Learning Paper 2",
+        "client": "DanChurchAid Kenya",
+        "deadline": "2026-09-24",
+        "score": 80,
+        "recommendation": "BID",
+        "source_url": "https://procurement.example/spread",
+        "analysis": {"opportunity": {}, "bid_analysis": {"key_strengths": [], "key_gaps": []}},
+        "matched_team": {"matched_team": {}},
+        "budget": {"status": "PARTIAL", "summary": {}},
+        "proposal_sections": {
+            "suitability_statement": " ".join(["word"] * 280),
+            "work_plan": (
+                "| Activity | Week 1 | Week 2 |\n"
+                "| Inception | X | |\n"
+                "| Fieldwork | | X |\n"
+            ),
+            "section_order": [
+                ("suitability_statement", "Suitability statement"),
+                ("work_plan", "Work-plan"),
+            ],
+            "submission_outline": {
+                "prescribed": True,
+                "sections": [
+                    {
+                        "key": "suitability_statement",
+                        "heading": "Suitability statement",
+                        "page_limit": "1 page",
+                        "require_gantt": False,
+                    },
+                    {
+                        "key": "work_plan",
+                        "heading": "Work-plan",
+                        "page_limit": "",
+                        "require_gantt": True,
+                    },
+                ],
+                "required_attachments": ["CVs of proposed experts"],
+                "required_forms": ["Proposal Submission Form (Annex 2)"],
+                "omitted_financial": ["Financial proposal"],
+            },
+            "required_attachments": ["CVs of proposed experts"],
+            "omitted_financial": ["Financial proposal"],
+        },
+    })
+
+    html = sent["content"]
+    assert 'href="#c-format"' in html
+    assert "ToR format" in html
+    assert "ToR format vs this draft" in html
+    assert "Gantt included" in html
+    assert "CVs of proposed experts" in html
+    assert "Financial proposal" in html
+    assert "Attach (do not treat as chapters)" in html

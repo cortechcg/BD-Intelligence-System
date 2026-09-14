@@ -14,6 +14,7 @@ import httpx
 from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx, iter_client_sections
+from intelligence.tender_reader import build_format_compliance
 from utils.money_scrub import (
     contains_financial_disclosure,
     strip_financial_table_headers,
@@ -237,6 +238,129 @@ def _checklist_html(items: list[tuple[str, str]]) -> str:
         </td>
       </tr>
       {"".join(rows)}
+    </table>"""
+
+
+def _status_color(status: str) -> str:
+    return {
+        "ok": "#28a745",
+        "no_limit": "#1F3864",
+        "over": "#dc3545",
+        "under": "#f0a500",
+        "gantt_missing": "#dc3545",
+    }.get(status or "", "#1F3864")
+
+
+def _format_compliance_html(proposal: dict) -> str:
+    """ToR vs house format, page limits vs actual, Gantt present/missing."""
+    proposal = proposal if isinstance(proposal, dict) else {}
+    fc = proposal.get("format_compliance")
+    if not isinstance(fc, dict) or not fc.get("rows"):
+        try:
+            fc = build_format_compliance(
+                proposal, proposal.get("submission_outline") or {}
+            )
+        except Exception:
+            fc = {}
+    if not isinstance(fc, dict):
+        fc = {}
+    rows = fc.get("rows") if isinstance(fc.get("rows"), list) else []
+    structure = str(fc.get("structure") or "Format not recorded")
+    attachments = fc.get("required_attachments") or proposal.get("required_attachments") or []
+    forms = fc.get("required_forms") or proposal.get("required_forms") or []
+    financial = fc.get("omitted_financial") or proposal.get("omitted_financial") or []
+    if not isinstance(attachments, list):
+        attachments = []
+    if not isinstance(forms, list):
+        forms = []
+    if not isinstance(financial, list):
+        financial = []
+
+    body_rows = []
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status") or "no_limit")
+        color = _status_color(status)
+        gantt = str(row.get("gantt") or "not_required")
+        gantt_label = {
+            "yes": "Gantt included",
+            "missing": "Gantt missing",
+            "not_required": "—",
+        }.get(gantt, gantt)
+        limit = str(row.get("page_limit") or "None stated")
+        bg = "#F7F4EE" if i % 2 else "#ffffff"
+        body_rows.append(f"""
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(row.get("heading") or row.get("key"))}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(limit)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(row.get("note") or "")}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     font-weight:700;color:{color};background:{bg}">{_html(gantt_label)}</td>
+        </tr>""")
+    if not body_rows:
+        body_rows.append(
+            '<tr><td colspan="4" style="padding:12px 14px;color:#6B6458">'
+            "No drafted sections to audit.</td></tr>"
+        )
+
+    extra_bits = []
+    if financial:
+        extra_bits.append(
+            "<p style='margin:10px 0 0;font-size:13px;line-height:1.5;color:#1C1914'>"
+            "<strong style='color:#1F3864'>Financial envelope (not in this file):</strong> "
+            f"{_html('; '.join(str(x) for x in financial[:6]))}</p>"
+        )
+    if attachments:
+        extra_bits.append(
+            "<p style='margin:10px 0 0;font-size:13px;line-height:1.5;color:#1C1914'>"
+            "<strong style='color:#1F3864'>Attach (do not treat as chapters):</strong> "
+            f"{_html('; '.join(str(x) for x in attachments[:8]))}</p>"
+        )
+    if forms:
+        extra_bits.append(
+            "<p style='margin:10px 0 0;font-size:13px;line-height:1.5;color:#1C1914'>"
+            "<strong style='color:#1F3864'>Signed forms / annexes:</strong> "
+            f"{_html('; '.join(str(x) for x in forms[:8]))}</p>"
+        )
+    extras = "".join(extra_bits)
+    return f"""
+    {_named_anchor("c-format")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px">
+      <tr>
+        <td style="padding:0 0 12px">
+          <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
+                      color:#C4A35A;font-weight:700;font-family:Arial,Helvetica,sans-serif">
+            Format lock</div>
+          <h3 style="color:#1F3864;font-size:16px;margin:4px 0 6px;font-weight:700">
+            ToR format vs this draft</h3>
+          <p style="margin:0;font-size:13px;color:#6B6458;font-family:Arial,Helvetica,sans-serif">
+            {_html(structure)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="width:100%;border-collapse:collapse">
+            <tr style="background:#1F3864;color:white">
+              <th style="padding:10px 12px;text-align:left;font-size:11px;
+                         letter-spacing:0.06em;text-transform:uppercase">Section</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;
+                         letter-spacing:0.06em;text-transform:uppercase">ToR limit</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;
+                         letter-spacing:0.06em;text-transform:uppercase">This draft</th>
+              <th style="padding:10px 12px;text-align:left;font-size:11px;
+                         letter-spacing:0.06em;text-transform:uppercase">Gantt</th>
+            </tr>
+            {"".join(body_rows)}
+          </table>
+          {extras}
+        </td>
+      </tr>
     </table>"""
 
 
@@ -1136,13 +1260,45 @@ def send_proposal_email(opportunity_result: dict) -> None:
             + "; ".join(str(x) for x in omitted[:4])
             + "). It is not in this technical/EOI file.",
         ))
-    order = proposal.get("section_order") if isinstance(proposal, dict) else None
-    if isinstance(order, list) and order:
+    format_audit = proposal.get("format_compliance") if isinstance(proposal, dict) else None
+    if not isinstance(format_audit, dict) or not format_audit.get("rows"):
+        try:
+            format_audit = build_format_compliance(
+                proposal if isinstance(proposal, dict) else {},
+                (proposal or {}).get("submission_outline") or {},
+            )
+        except Exception:
+            format_audit = {}
+    if not isinstance(format_audit, dict):
+        format_audit = {}
+    if format_audit.get("prescribed"):
         review_items.append((
             "Format",
-            "Draft follows the ToR's prescribed section list, not the Cortech "
-            "house template. Check page limits and mandatory forms before sending.",
+            "Draft follows the ToR written-section list. Confirm page limits, "
+            "Gantt if required, and that CVs/forms are attached separately.",
         ))
+    attach_bits = []
+    for label in (format_audit.get("required_attachments") or [])[:4]:
+        attach_bits.append(str(label))
+    for label in (format_audit.get("required_forms") or [])[:3]:
+        attach_bits.append(str(label))
+    if attach_bits:
+        review_items.append((
+            "Attach",
+            "Not drafted as chapters: " + "; ".join(attach_bits),
+        ))
+    for row in format_audit.get("rows") or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("status") == "over":
+            review_items.append(("Length", str(row.get("note") or "Section over page limit")))
+        elif row.get("status") == "under":
+            review_items.append(("Length", str(row.get("note") or "Section under page limit")))
+        elif row.get("gantt") == "missing":
+            review_items.append((
+                "Gantt",
+                f"{row.get('heading') or 'Work plan'} is missing the required Gantt chart.",
+            ))
 
     score_color = (
         "#28a745" if score >= 70
@@ -1271,7 +1427,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"Technical draft · {client} · deadline {deadline_bit} · "
             f"score {_whole(score)}/100 · not sent"
         )
-    nav_items = [("c-decision", "Decision"), ("c-budget", "Budget"), ("c-team", "Team")]
+    nav_items = [("c-decision", "Decision"), ("c-budget", "Budget"), ("c-format", "Format"), ("c-team", "Team")]
     if lock_block or strategy_block:
         nav_items.append(("c-strategy", "Strategy"))
     nav_items.append(("c-draft", "Draft"))
@@ -1280,6 +1436,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
     grounding_table = _grounding_table_html(grounding) if grounding else ""
     checklist = _checklist_html(review_items)
+    format_block = _format_compliance_html(proposal)
     toc = _draft_toc_html(draft_toc)
 
     html = f"""
@@ -1342,6 +1499,38 @@ def send_proposal_email(opportunity_result: dict) -> None:
             ),
             _kpi_tile(g_label, g_value, g_sub, g_color),
             _kpi_tile("Team", team_value, team_sub, team_color),
+            _kpi_tile(
+                "Structure",
+                "ToR format" if format_audit.get("prescribed") else "House format",
+                _html(
+                    "written sections from the documents"
+                    if format_audit.get("prescribed")
+                    else "no format stated in the documents"
+                ),
+                "#28a745" if format_audit.get("prescribed") else "#1F3864",
+            ),
+            _kpi_tile(
+                "Page / Gantt",
+                (
+                    "Limits OK"
+                    if format_audit.get("page_limits_ok") and format_audit.get("gantt_ok")
+                    else "Check draft"
+                ),
+                _html(
+                    "Gantt missing"
+                    if not format_audit.get("gantt_ok")
+                    else (
+                        "page limits vs actual"
+                        if format_audit.get("limits_checked")
+                        else "no page limits stated"
+                    )
+                ),
+                (
+                    "#dc3545"
+                    if not format_audit.get("gantt_ok") or not format_audit.get("page_limits_ok")
+                    else "#28a745"
+                ),
+            ),
         ])}
         <div style="font-family:Arial,Helvetica,sans-serif;padding:8px 6px 0">
           {quality_line}{grounding_line}
@@ -1357,6 +1546,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <tr>
       <td style="padding:20px 32px 8px;font-family:Arial,Helvetica,sans-serif">
         {checklist}
+
+        {format_block}
 
         {budget_block}
 
