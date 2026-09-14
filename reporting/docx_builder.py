@@ -44,6 +44,61 @@ SECTION_ORDER = [
     ("work_plan", "Work Plan & Timeline"),
 ]
 
+_DOCX_SKIP_KEYS = {
+    "submission_type",
+    "lightweight",
+    "lightweight_reason",
+    "quality_score",
+    "claim_grounding",
+    "tender_brief",
+    "win_strategy",
+    "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
+}
+
+
+def iter_client_sections(sections: dict):
+    """Yield (key, heading, content) for the client-facing draft.
+
+    When the ToR prescribed a section list, `section_order` is the source of
+    truth. Otherwise fall back to Cortech house order.
+    """
+    sections = sections if isinstance(sections, dict) else {}
+    order = sections.get("section_order")
+    pairs = []
+    if isinstance(order, list) and order:
+        for item in order:
+            if isinstance(item, dict):
+                key, heading = item.get("key"), item.get("heading")
+            elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                key, heading = item[0], item[1]
+            else:
+                continue
+            if key:
+                pairs.append((str(key), str(heading or key)))
+    else:
+        pairs = list(SECTION_ORDER)
+
+    seen = set()
+    for key, heading in pairs:
+        content = sections.get(key)
+        if key in seen or not isinstance(content, str) or not content.strip():
+            continue
+        seen.add(key)
+        yield key, heading, content
+    for key, content in sections.items():
+        if (
+            key in seen
+            or key in _DOCX_SKIP_KEYS
+            or not isinstance(content, str)
+            or not content.strip()
+        ):
+            continue
+        seen.add(key)
+        yield key, key.replace("_", " ").title(), content
+
 
 # "- item", "* item", "+ item" — the marker must be followed by whitespace so
 # a "---" rule and an "*emphasised*" line opener are not read as bullets.
@@ -306,10 +361,7 @@ def build_proposal_docx(
     doc.add_page_break()
 
     sections_included = 0
-    for key, heading in SECTION_ORDER:
-        content = sections.get(key)
-        if not content or not isinstance(content, str):
-            continue
+    for key, heading, content in iter_client_sections(sections):
         content = _client_safe_section(key, content)
         if not content.strip():
             continue

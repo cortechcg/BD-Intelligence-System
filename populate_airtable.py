@@ -19,6 +19,7 @@ import os
 import re
 import sys
 import json
+import subprocess
 import uuid
 import time
 from pathlib import Path
@@ -325,6 +326,88 @@ def get_files_in_folder(folder: Path) -> list[Path]:
                 files.append(path)
 
     return sorted(files)
+
+
+def _proposal_skip_reason(path: Path) -> str | None:
+    """Files that should not be ingested as past-proposal grounding corpus."""
+    name = path.name.lower()
+    if name.startswith("~") or name.startswith("."):
+        return "temp/system file"
+    if "put_proposal" in name:
+        return "placeholder"
+    if "financial" in name and "technical" not in name:
+        return "financial-only (not a technical proposal)"
+    if "draft input" in name or name.startswith("introduction_"):
+        return "incomplete draft fragment"
+    return None
+
+
+def _corpus_key(path: Path) -> str:
+    """Collapse a filename to a job key so docx/pdf/(2) copies group together."""
+    stem = _norm_title(path.stem)
+    for junk in (
+        "technical and financial proposal",
+        "technical proposal",
+        "tehnical proposal",
+        "financial proposal",
+        "cortech consulting consortium",
+        "cortech consulting group",
+        "crtech consulting group",
+        "cortech consulting",
+        "part ii",
+        "final",
+        "technical",
+    ):
+        stem = stem.replace(junk, " ")
+    stem = re.sub(r"\b20\d{6}\b", " ", stem)
+    stem = re.sub(r"\b20\d{2}\b", " ", stem)
+    stem = re.sub(r"\b\d+\b", " ", stem)
+    return re.sub(r"\s+", " ", stem).strip()
+
+
+def _pick_canonical_proposal(group: list[Path]) -> Path:
+    """Prefer DOCX over PDF, original over '(2)', Cortech spelling, later dated name."""
+
+    def score(path: Path) -> tuple:
+        name = path.name.lower()
+        ext = {".docx": 3, ".doc": 2, ".pdf": 1}.get(path.suffix.lower(), 0)
+        original = 0 if re.search(r"\(\s*\d+\s*\)", path.name) else 1
+        spelling = 0 if "crtech" in name else 1
+        dated = re.search(r"(20\d{6})", path.name)
+        date_val = int(dated.group(1)) if dated else 0
+        return (ext, original, spelling, date_val, len(path.name))
+
+    return max(group, key=score)
+
+
+def select_proposal_files(files: list[Path]) -> tuple[list[Path], list[tuple[Path, str]]]:
+    """Drop financial-only / fragments, then keep one file per job."""
+    skipped: list[tuple[Path, str]] = []
+    candidates: list[Path] = []
+    for path in files:
+        reason = _proposal_skip_reason(path)
+        if reason:
+            skipped.append((path, reason))
+            continue
+        candidates.append(path)
+
+    by_key: dict[str, list[Path]] = {}
+    ungrouped: list[Path] = []
+    for path in candidates:
+        key = _corpus_key(path)
+        if len(key) < 3:
+            ungrouped.append(path)
+            continue
+        by_key.setdefault(key, []).append(path)
+
+    kept = list(ungrouped)
+    for group in by_key.values():
+        winner = _pick_canonical_proposal(group)
+        kept.append(winner)
+        for path in group:
+            if path != winner:
+                skipped.append((path, f"duplicate of {winner.name}"))
+    return sorted(kept), skipped
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1079,10 +1162,37 @@ def _already_in_airtable(file_path: Path, existing_norm: list[str]) -> bool:
     return False
 
 
+def _title_already_stored(title: str, existing_norm: list[str]) -> bool:
+    """True if Claude's extracted project_title already exists in Airtable."""
+    title_norm = _norm_title(title)
+    if len(title_norm) < 18:
+        return False
+    prefix = title_norm[:36]
+    for stored in existing_norm:
+        if len(stored) < 18:
+            continue
+        if prefix in stored or stored[:36] in title_norm:
+            return True
+    return False
+
+
+def _git_tracked_proposal_names() -> set[str]:
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-files", "data/proposals"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return set()
+    return {Path(line.strip()).name for line in out.splitlines() if line.strip()}
+
+
 def run_proposal_population(
     tables: dict,
     interactive: bool = True,
     only_file: str | None = None,
+    new_only: bool = False,
 ) -> dict:
     """Process proposal files and add to Airtable."""
 
@@ -1102,10 +1212,30 @@ def run_proposal_population(
             return {"added": 0, "skipped": 0, "errors": 1}
         prop_files = matched
 
+    results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
+
+    if not only_file:
+        prop_files, skipped_upfront = select_proposal_files(prop_files)
+        for path, reason in skipped_upfront:
+            console.print(f"  [dim]Skip {path.name}: {reason}[/dim]")
+            results["skipped"] += 1
+        if new_only:
+            tracked = _git_tracked_proposal_names()
+            if tracked:
+                before = len(prop_files)
+                prop_files = [f for f in prop_files if f.name not in tracked]
+                dropped = before - len(prop_files)
+                if dropped:
+                    console.print(
+                        f"  [dim]Skip {dropped} git-tracked file(s) "
+                        "(--new-only)[/dim]"
+                    )
+                    results["skipped"] += dropped
+
     if not prop_files:
         console.print(f"[yellow]No proposal files found in {PROPOSALS_DIR}[/yellow]")
         console.print(f"   Add PDF or DOCX files to: [cyan]{PROPOSALS_DIR.absolute()}[/cyan]\n")
-        return {"added": 0, "skipped": 0, "errors": 0}
+        return results
 
     existing_norm: list[str] = []
     if only_file:
@@ -1125,9 +1255,7 @@ def run_proposal_population(
         except Exception as e:
             logger.warning(f"Could not list existing proposals (will not skip): {e}")
 
-    console.print(f"\n[bold blue]Found {len(prop_files)} proposal file(s)[/bold blue]")
-
-    results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
+    console.print(f"\n[bold blue]Found {len(prop_files)} proposal file(s) to ingest[/bold blue]")
 
     for i, prop_file in enumerate(prop_files, 1):
         console.print(f"\n[{i}/{len(prop_files)}] Processing: [cyan]{prop_file.name}[/cyan]")
@@ -1162,6 +1290,14 @@ def run_proposal_population(
                     proposal_info = extract_proposal_info(raw_text, prop_file.name)
                     time.sleep(0.5)
 
+            extracted_title = proposal_info.get("project_title") or ""
+            if not only_file and _title_already_stored(extracted_title, existing_norm):
+                console.print(
+                    "  [yellow]Extracted title already in Airtable — skipping.[/yellow]"
+                )
+                results["skipped"] += 1
+                continue
+
             if interactive:
                 show_proposal_preview(proposal_info, prop_file.name)
 
@@ -1186,6 +1322,8 @@ def run_proposal_population(
                 title = proposal_info.get("project_title", prop_file.name)
                 won_str = "WON" if proposal_info.get("won") else "Not won"
                 console.print(f"  [green]Added: {title[:50]} ({won_str})[/green]")
+                existing_norm.append(_norm_title(title))
+                existing_norm.append(_norm_title(prop_file.stem))
                 results["added"] += 1
                 results["records"].append({
                     "title": title,
@@ -1304,6 +1442,11 @@ def main():
         help="Save without prompting per record.",
     )
     parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help="Only ingest untracked files in data/proposals/ (skip git-tracked corpus).",
+    )
+    parser.add_argument(
         "--prune-logs",
         action="store_true",
         help="Delete oldest AGENT_LOGS rows if the table is near the free-tier cap, then exit.",
@@ -1345,6 +1488,8 @@ def main():
         console.print("\n[bold]Mode:[/bold] Past Proposals only")
         if args.file:
             console.print(f"  File filter: [cyan]{args.file}[/cyan]")
+        if args.new_only:
+            console.print("  [cyan]--new-only[/cyan]: git-tracked files will be skipped")
     else:
         console.print()
         console.print("[bold]What would you like to populate?[/bold]")
@@ -1398,7 +1543,10 @@ def main():
     if choice in ("2", "4"):
         console.print("\n[bold blue]Processing Past Proposals...[/bold blue]")
         prop_results = run_proposal_population(
-            tables, interactive, only_file=args.file
+            tables,
+            interactive,
+            only_file=args.file,
+            new_only=args.new_only,
         )
 
     # 6. Final summary

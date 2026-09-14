@@ -12,7 +12,7 @@ from loguru import logger
 from config import CLAUDE_MODEL
 from database.airtable_client import get_past_proposals, get_table
 from database.supabase_client import EmbeddingError, get_embedding, supabase
-from utils.llm import complete, get_text
+from utils.llm import complete, get_text, loads_json_object
 from utils.money_scrub import strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
 
@@ -25,6 +25,10 @@ _SKIP_SECTION_KEYS = {
     "claim_grounding",
     "tender_brief",
     "win_strategy",
+    "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
 }
 _INJECTION_RE = re.compile(
     r"ignore (all )?(previous|prior) instructions|system prompt|"
@@ -207,7 +211,15 @@ def fetch_win_loss_lessons(client_name: str, donor: str) -> str:
     except EmbeddingError as e:
         logger.warning(f"Win/loss vector search unavailable ({e}) — using table fallback")
     except Exception as e:
-        logger.warning(f"Win/loss RPC unavailable ({e}) — using table fallback")
+        if "PGRST202" in str(e):
+            logger.info("Win/loss RPC is not installed — using table fallback")
+        elif _missing_backend(e):
+            logger.info(
+                "Win/loss memory is not installed in this Supabase project — skipping"
+            )
+            return ""
+        else:
+            logger.warning(f"Win/loss RPC unavailable ({e}) — using table fallback")
 
     if not rows:
         try:
@@ -216,7 +228,12 @@ def fetch_win_loss_lessons(client_name: str, donor: str) -> str:
             ).execute()
             rows = list(fetched.data or [])
         except Exception as e:
-            logger.warning(f"Could not fetch win/loss lessons (non-fatal): {e}")
+            if _missing_backend(e):
+                logger.info(
+                    "Win/loss memory is not installed in this Supabase project — skipping"
+                )
+            else:
+                logger.warning(f"Could not fetch win/loss lessons (non-fatal): {e}")
             return ""
         rows = _rows_matching_account(rows, client_name, donor)[:5]
 
@@ -273,14 +290,20 @@ def load_draft_memory(opportunity_id: str) -> dict:
 
 
 def parse_json_object(text: str) -> dict:
-    raw = (text or "").strip()
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
-    data = json.loads(raw)
-    if not isinstance(data, dict):
-        raise ValueError("expected a JSON object")
-    return data
+    return loads_json_object(text)
+
+
+def _missing_backend(err) -> bool:
+    text = str(err)
+    return any(
+        token in text
+        for token in (
+            "PGRST202",
+            "PGRST205",
+            "42P01",
+            "INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND",
+        )
+    )
 
 
 def _analysis_fields(fields: dict) -> dict:

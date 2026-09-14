@@ -13,7 +13,7 @@ import ssl
 import httpx
 from loguru import logger
 from database.airtable_client import get_table
-from reporting.docx_builder import build_proposal_docx
+from reporting.docx_builder import build_proposal_docx, iter_client_sections
 from utils.money_scrub import (
     contains_financial_disclosure,
     strip_financial_table_headers,
@@ -1047,86 +1047,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
           </tr>
         </table>"""
 
-    proposal_html = (
-        section_block("Cover Letter", proposal.get("cover_letter", ""), anchor="c-cover")
-        + section_block(
-            "Executive Summary", proposal.get("executive_summary", ""), anchor="c-exec"
-        )
-    )
-    if is_eoi:
+    proposal_html = ""
+    if is_lightweight:
         proposal_html = (
-            section_block(
-                "Cover Letter / Letter of Interest",
-                proposal.get("cover_letter", ""),
-                anchor="c-cover",
-            )
+            section_block("Cover Letter", proposal.get("cover_letter", ""), anchor="c-cover")
             + section_block(
-                "Presentation of Cortech Consulting Group",
-                proposal.get("firm_profile", ""),
-                anchor="c-firm",
-            )
-            + section_block(
-                "Our Understanding of the Assignment",
-                proposal.get("understanding", ""),
-                anchor="c-understand",
-            )
-            + section_block(
-                "Proposed Technical Approach — Summary",
-                proposal.get("approach_summary", ""),
-                anchor="c-approach",
-            )
-            + section_block(
-                "Relevant Experience",
-                proposal.get("relevant_experience", ""),
-                anchor="c-experience",
-            )
-            + section_block(
-                "Resources in Staff", proposal.get("key_experts", ""), anchor="c-staff"
-            )
-            + section_block(
-                "Eligibility", proposal.get("eligibility", ""), anchor="c-eligibility"
-            )
-            + section_block(
-                "Capability Matrix",
-                proposal.get("compliance_matrix", ""),
-                anchor="c-matrix",
+                "Executive Summary", proposal.get("executive_summary", ""), anchor="c-exec"
             )
         )
-    elif not is_lightweight:
-        proposal_html += (
-            section_block(
-                "Organisational Profile & Track Record",
-                proposal.get("org_profile_and_track_record", ""),
-                anchor="c-org",
+    else:
+        for idx, (key, heading, content) in enumerate(iter_client_sections(proposal)):
+            proposal_html += section_block(
+                heading, content, anchor=f"c-draft-{idx}"
             )
-            + section_block(
-                "Introduction, Background & Conceptual Framework",
-                proposal.get("introduction_and_framework", ""),
-                anchor="c-intro",
-            )
-            + section_block(
-                "Methodology", proposal.get("methodology", ""), anchor="c-method"
-            )
-            + section_block(
-                "Sampling & Data Analysis Plan",
-                proposal.get("analysis_plan", ""),
-                anchor="c-sampling",
-            )
-            + section_block(
-                "Quality Assurance & Ethical Safeguarding",
-                proposal.get("qa_and_ethics", ""),
-                anchor="c-qa",
-            )
-            + section_block(
-                "Risk Register", proposal.get("risk_register", ""), anchor="c-risk"
-            )
-            + section_block(
-                "Team Composition", proposal.get("team_section", ""), anchor="c-team-draft"
-            )
-            + section_block(
-                "Work Plan", proposal.get("work_plan", ""), anchor="c-workplan"
-            )
-        )
 
     lock_text = proposal.get("document_lock") or ""
     lock_block = ""
@@ -1195,6 +1128,21 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
     for item in missing[:3]:
         review_items.append(("Budget", str(item)))
+    omitted = proposal.get("omitted_financial") if isinstance(proposal, dict) else None
+    if isinstance(omitted, list) and omitted:
+        review_items.append((
+            "Format",
+            "The ToR listed a separate financial envelope ("
+            + "; ".join(str(x) for x in omitted[:4])
+            + "). It is not in this technical/EOI file.",
+        ))
+    order = proposal.get("section_order") if isinstance(proposal, dict) else None
+    if isinstance(order, list) and order:
+        review_items.append((
+            "Format",
+            "Draft follows the ToR's prescribed section list, not the Cortech "
+            "house template. Check page limits and mandatory forms before sending.",
+        ))
 
     score_color = (
         "#28a745" if score >= 70

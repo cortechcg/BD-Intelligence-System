@@ -26,7 +26,7 @@ import re
 from loguru import logger
 
 from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL
-from utils.llm import cached_tokens, complete, get_text, usage_totals
+from utils.llm import cached_tokens, complete, finish_reason, get_text, loads_json_object, usage_totals
 from utils.money_scrub import redact_monetary_amounts, strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
 
@@ -518,7 +518,14 @@ def _lock_list(value) -> list[str]:
         items = []
     cleaned = []
     for item in items:
-        text = _clean_lock_value(item)
+        if isinstance(item, dict):
+            heading = _clean_lock_value(
+                item.get("heading") or item.get("title") or ""
+            )
+            page = _clean_lock_value(item.get("page_limit") or "")
+            text = f"{heading} ({page})" if heading and page else heading
+        else:
+            text = _clean_lock_value(item)
         if text:
             cleaned.append(text)
     return cleaned
@@ -552,23 +559,298 @@ def format_document_lock(lock: dict) -> str:
         items = _lock_list(lock.get(key))
         if items:
             lines.append(f"- {label}: " + "; ".join(items[:12]))
+    if _lock_list(lock.get("prescribed_sections")):
+        lines.append(
+            "- Structure rule: write ONLY the prescribed sections, in that "
+            "order. Do not add Cortech house headings the tender did not list. "
+            "Do not draft the financial envelope."
+        )
     return "\n".join(lines) if len(lines) > 1 else ""
 
 
-def build_document_lock(
+_PAGE_LIMIT_RE = re.compile(
+    r"\(([^)]*\b(?:page|pages|pp\.?|word|words)\b[^)]*)\)",
+    re.I,
+)
+_FINANCIAL_HEADING_RE = re.compile(
+    r"\b(financial proposal|commercial proposal|price schedule|"
+    r"bill of quantities|form of quotation|budget breakdown|"
+    r"cost proposal|fee proposal|priced offer)\b",
+    re.I,
+)
+_FORM_HEADING_RE = re.compile(
+    r"\b(annex\s+[a-z0-9]+|appendix\s+[a-z0-9]+|submission form|"
+    r"proposal submission form|declaration|code of conduct|"
+    r"mandatory form|application form|template)\b",
+    re.I,
+)
+
+
+def _split_page_limit(text: str) -> tuple[str, str]:
+    raw = " ".join(str(text or "").split()).strip()
+    if not raw:
+        return "", ""
+    match = _PAGE_LIMIT_RE.search(raw)
+    if not match:
+        return raw, ""
+    heading = (raw[: match.start()] + raw[match.end() :]).strip(" -,;:")
+    return heading or raw, match.group(1).strip()
+
+
+def _heading_kind(heading: str) -> str:
+    text = heading or ""
+    lower = text.lower()
+    if "technical" in lower and "financial" in lower:
+        return "technical"
+    if _FINANCIAL_HEADING_RE.search(text) and "technical" not in lower:
+        return "financial"
+    if _FORM_HEADING_RE.search(text):
+        return "form"
+    return "technical"
+
+
+def _section_slug(heading: str, used: set[str] | None = None) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", (heading or "").lower()).strip("_")[:50]
+    if not slug:
+        slug = "tor_section"
+    reserved = {
+        "submission_type", "lightweight", "lightweight_reason", "quality_score",
+        "claim_grounding", "tender_brief", "win_strategy", "document_lock",
+        "section_order", "omitted_financial", "submission_outline",
+    }
+    if slug in reserved:
+        slug = f"tor_{slug}"
+    used = used if used is not None else set()
+    base = slug
+    n = 2
+    while slug in used:
+        slug = f"{base}_{n}"
+        n += 1
+    used.add(slug)
+    return slug
+
+
+def _normalize_prescribed_items(raw) -> list[dict]:
+    if isinstance(raw, list):
+        values = raw
+    elif raw:
+        values = [raw]
+    else:
+        values = []
+    items = []
+    for value in values:
+        if isinstance(value, dict):
+            heading = str(
+                value.get("heading") or value.get("title") or value.get("name") or ""
+            ).strip()
+            page_limit = str(value.get("page_limit") or "").strip()
+            kind = str(value.get("kind") or "").strip().lower()
+            extra = value.get("must_include") or []
+            if not isinstance(extra, list):
+                extra = [extra] if extra else []
+            if not heading:
+                heading, extracted = _split_page_limit(str(value))
+                page_limit = page_limit or extracted
+            elif not page_limit:
+                heading, page_limit = _split_page_limit(heading)
+        else:
+            heading, page_limit = _split_page_limit(value)
+            kind = ""
+            extra = []
+        if not heading:
+            continue
+        if kind not in {"technical", "financial", "form"}:
+            kind = _heading_kind(heading)
+        must_include = []
+        for child in extra:
+            if isinstance(child, str) and child.strip():
+                must_include.append(child.strip())
+            elif isinstance(child, dict):
+                child_heading = str(
+                    child.get("heading") or child.get("title") or ""
+                ).strip()
+                if child_heading:
+                    must_include.append(child_heading)
+        items.append({
+            "heading": heading,
+            "page_limit": page_limit,
+            "kind": kind,
+            "must_include": must_include,
+        })
+    return items
+
+
+def _route_heading(heading: str, submission_type: str) -> str:
+    h = (heading or "").lower()
+    eoi = submission_type == "EOI"
+    if "suitability" in h:
+        return "generic"
+    if re.search(
+        r"cover letter|letter of interest|letter of transmittal|"
+        r"letter of expression",
+        h,
+    ):
+        return "cover_letter"
+    if "executive summary" in h:
+        return "executive_summary"
+    if re.search(r"work[ -]?plan|gantt|timeline|schedule of activities", h):
+        return "work_plan"
+    if re.search(r"sampling|data analysis|analysis plan", h):
+        return "analysis_plan"
+    if re.search(r"quality assurance|ethic|safeguard|psea", h):
+        return "qa_and_ethics"
+    if re.search(r"\brisk\b", h):
+        return "risk_register"
+    if re.search(r"eligib", h):
+        return "eligibility"
+    if re.search(r"matrix|compliance table", h):
+        return "compliance_matrix"
+    if re.search(
+        r"personnel|key expert|proposed team|staffing|core expert|"
+        r"resources in staff|team composition|\bcvs?\b",
+        h,
+    ):
+        return "key_experts" if eoi else "team_section"
+    if re.search(
+        r"relevant experience|track record|previous assignment|"
+        r"similar assignment",
+        h,
+    ):
+        return "relevant_experience" if eoi else "org_profile_and_track_record"
+    if re.search(
+        r"organisational profile|organizational profile|firm profile|"
+        r"presentation of|company profile|who we are",
+        h,
+    ):
+        return "firm_profile" if eoi else "org_profile_and_track_record"
+    if re.search(
+        r"understanding of the assignment|interpretation of the assignment",
+        h,
+    ):
+        return "understanding" if eoi else "introduction_and_framework"
+    if re.search(r"methodology|technical approach|proposed approach", h):
+        return "approach_summary" if eoi else "methodology"
+    if re.search(r"background|introduction|conceptual framework", h):
+        return "introduction_and_framework"
+    return "generic"
+
+
+def _is_envelope_parent(heading: str) -> bool:
+    h = re.sub(r"[^a-z0-9]+", " ", (heading or "").lower()).strip()
+    return h in {
+        "technical proposal",
+        "the technical proposal",
+        "proposal",
+        "eoi",
+        "expression of interest",
+        "the eoi",
+    }
+
+
+def plan_draft_outline(
+    lock: dict | None,
+    analysis: dict | None = None,
+    submission_type: str = "FULL_PROPOSAL",
+) -> dict:
+    """Turn the tender's stated submission format into the draft outline.
+
+    House structure is used only when the documents prescribe nothing.
+    Financial envelopes are listed for reviewers and never drafted.
+    """
+    lock = lock if isinstance(lock, dict) else {}
+    analysis = analysis if isinstance(analysis, dict) else {}
+    submission = analysis.get("submission_requirements")
+    if not isinstance(submission, dict):
+        submission = {}
+
+    raw = lock.get("prescribed_sections")
+    if not raw:
+        raw = submission.get("prescribed_proposal_sections") or []
+    items = _normalize_prescribed_items(raw)
+
+    page_limit = submission.get("technical_proposal_page_limit")
+    if page_limit:
+        for item in items:
+            if "technical" in item["heading"].lower() and not item["page_limit"]:
+                item["page_limit"] = f"{page_limit} pages"
+
+    expanded: list[dict] = []
+    for item in items:
+        children = item.get("must_include") or []
+        if children and _is_envelope_parent(item["heading"]):
+            expanded.extend(_normalize_prescribed_items(children))
+            continue
+        expanded.append(item)
+
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for item in expanded:
+        key = re.sub(r"[^a-z0-9]+", " ", item["heading"].lower()).strip()
+        if len(key) < 4 or key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+
+    financial = [item for item in unique if item["kind"] == "financial"]
+    forms = [item for item in unique if item["kind"] == "form"]
+    body = [item for item in unique if item["kind"] not in {"financial", "form"}]
+
+    used_keys: set[str] = set()
+    sections = []
+    for item in body:
+        sections.append({
+            "key": _section_slug(item["heading"], used_keys),
+            "heading": item["heading"],
+            "kind": "technical",
+            "page_limit": item.get("page_limit") or "",
+            "must_include": item.get("must_include") or [],
+            "route": _route_heading(item["heading"], submission_type),
+        })
+    if forms:
+        sections.append({
+            "key": "mandatory_forms",
+            "heading": "Mandatory forms and annexes",
+            "kind": "form",
+            "page_limit": "",
+            "must_include": [item["heading"] for item in forms],
+            "route": "forms",
+        })
+
+    flag = lock.get("format_prescribed")
+    if flag is None:
+        flag = bool(sections)
+    prescribed = bool(flag) and bool(sections)
+    if (
+        prescribed
+        and len(sections) == 1
+        and not forms
+        and _is_envelope_parent(sections[0]["heading"])
+        and not sections[0].get("must_include")
+    ):
+        # "Technical proposal" alone names the envelope, not the section list.
+        prescribed = False
+
+    return {
+        "prescribed": prescribed,
+        "sections": sections if prescribed else [],
+        "omitted_financial": [item["heading"] for item in financial],
+    }
+
+
+def extract_document_lock(
     tor_text: str,
     analysis: dict,
     doc_block: str = None,
     submission_type: str = "FULL_PROPOSAL",
-) -> str:
-    """Extract a compact assignment card from the full tender pack."""
+) -> dict:
+    """JSON assignment card from the full tender pack. Empty dict on failure."""
     block = doc_block if doc_block is not None else tender_documents_block(tor_text)
     if not block:
-        return ""
+        return {}
     stage = "EOI" if submission_type == "EOI" else "technical proposal"
     prompt = f"""Read the untrusted tender pack in full, including annexes and
 middle sections. Extract the assignment card for a {stage}. Invent nothing.
-If a field is not in the documents, use an empty string or [].
+If a field is not in the documents, use an empty string, false, or [].
 
 Return ONLY valid JSON:
 {{
@@ -580,49 +862,102 @@ Return ONLY valid JSON:
   "target_groups": [],
   "purpose_one_sentence": "",
   "deliverables": [],
-  "prescribed_sections": [],
+  "format_prescribed": false,
+  "prescribed_sections": [
+    {{
+      "heading": "verbatim title the bidder must submit",
+      "page_limit": "e.g. max 10 pages, or empty",
+      "kind": "technical or financial or form",
+      "must_include": []
+    }}
+  ],
   "scored_or_shortlisting_criteria": [],
   "vocabulary_lock": [],
   "must_not": []
 }}
 
-prescribed_sections = verbatim headings or contents the bidder must submit.
+format_prescribed = true when the documents list required contents, headings,
+page limits, or a section order for THIS submission (e.g. Section A.5,
+"the proposal shall contain", an EOI contents list).
+prescribed_sections = that list in the tender's order. kind=financial for a
+separate financial/commercial envelope. kind=form for annexes, templates, and
+declarations the human must sign. must_include = nested headings only when
+the tender nests them under a parent.
 scored_or_shortlisting_criteria = how THIS submission is judged, not OECD-DAC
 questions the consultant would later apply to a project.
+Keep geography/deliverables/criteria/vocabulary/must_not to at most 8 short
+items. prescribed_sections: at most 12 objects. purpose_one_sentence under
+40 words. Return compact JSON only — no markdown fences, no commentary.
 """
-    try:
-        response = complete(
+    user = (
+        f"TENDER DOCUMENT DATA:\n{block}\n\n"
+        "STRUCTURED EXTRACTION (also untrusted evidence):\n"
+        + wrap_untrusted(_slim_analysis_json(analysis, submission_type))
+        + "\n\n"
+        + prompt
+    )
+    messages = [{"role": "user", "content": user}]
+
+    def _lock_call(msgs):
+        return complete(
             model=CLAUDE_MODEL,
-            max_tokens=2048,
+            max_tokens=4096,
             stage="document_lock",
             system=_TENDER_READER_SYSTEM,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"TENDER DOCUMENT DATA:\n{block}\n\n"
-                    "STRUCTURED EXTRACTION (also untrusted evidence):\n"
-                    + wrap_untrusted(_slim_analysis_json(analysis, submission_type))
-                    + "\n\n"
-                    + prompt
-                ),
-            }],
+            messages=msgs,
         )
+
+    try:
+        response = _lock_call(messages)
     except Exception as e:
         logger.warning(f"  Document-lock pass failed (non-fatal): {e}")
-        return ""
+        return {}
     raw = get_text(response).strip()
-    if raw.startswith("```"):
-        raw = re.sub(r"^```(?:json)?\s*", "", raw)
-        raw = re.sub(r"\s*```$", "", raw)
+    lock = None
     try:
-        lock = json.loads(raw)
-    except ValueError:
-        logger.warning("  Document lock was not valid JSON — continuing without it")
-        return ""
-    formatted = format_document_lock(lock)
-    if formatted:
+        lock = loads_json_object(raw)
+    except (TypeError, ValueError):
+        lock = None
+    if not lock:
+        try:
+            response = _lock_call(messages + [
+                {"role": "assistant", "content": raw[:4000]},
+                {
+                    "role": "user",
+                    "content": (
+                        "The previous reply was not valid compact JSON"
+                        + (
+                            " (it was truncated)."
+                            if finish_reason(response) in ("max_tokens", "length")
+                            else "."
+                        )
+                        + " Return ONLY the JSON object. prescribed_sections: "
+                        "at most 12 objects. Other arrays: at most 8 short items."
+                    ),
+                },
+            ])
+            lock = loads_json_object(get_text(response))
+        except Exception:
+            logger.warning("  Document lock was not valid JSON — continuing without it")
+            return {}
+    if not isinstance(lock, dict):
+        return {}
+    if lock:
         logger.success("  Document lock extracted from the tender pack")
-    return formatted
+    return lock
+
+
+def build_document_lock(
+    tor_text: str,
+    analysis: dict,
+    doc_block: str = None,
+    submission_type: str = "FULL_PROPOSAL",
+) -> str:
+    """Extract a compact assignment card from the full tender pack."""
+    lock = extract_document_lock(
+        tor_text, analysis, doc_block=doc_block, submission_type=submission_type
+    )
+    return format_document_lock(lock)
 
 
 def build_win_strategy(
