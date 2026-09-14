@@ -5,6 +5,7 @@ Updated: 2026-09-14. This is an implementation inventory, not a roadmap.
 Phase 0 golden-set ADR: `docs/adr/004-golden-evaluation-set.md`.
 Phase 1 schema / content_hash / field-provenance ADR:
 `docs/adr/005-schema-validation-content-hash-provenance.md`.
+Phase 2 client/org ADR: `docs/adr/006-client-organizations.md`.
 
 ## What is operational
 
@@ -16,13 +17,14 @@ Phase 1 schema / content_hash / field-provenance ADR:
 | Deduplication | Canonical exact URL, `opportunity_processing` lease/claim ledger, and `opportunities_cache.content_hash` unique index | Migration file `supabase_migration_content_hash.sql` exists; **not applied** to a live project in this session. Client fail-opens (omits the column / skips lookup) if the column is missing. Same body on a different URL is terminal-skip unless `--submit-url` force. |
 | Extraction | Claude JSON extraction with untrusted-document boundary, Pydantic schema on `parse_analysis_payload()`, one schema-repair retry, then explicit refuse | Missing `is_consultancy_contract` still defaults True. Schema-wrong types are not fail-opened into a structured record. Live Claude vs golden labels is still unmeasured. |
 | Field provenance | `extraction_provenance` map: extracted field → source file / chunk / page-if-marked | VERIFIED only when the value is found in the tender text. Missing source or empty value → INSUFFICIENT DATA. Unlocated value → UNKNOWN. Page is never invented. Not a proposal claim graph (ADR 003 still owns past-work grounding). |
-| Golden evaluation | `tests/golden/opportunities.json` (36 anonymized items) + offline parse/scorer harness | **Baseline (offline only, 2026-09-14, after Phase 1 schema parse):** consultancy P/R/acc = 1.000 on recorded JSON through `parse_analysis_payload` (29 true / 7 false). Client/deadline exact = 1.000. Budget MAE = 0.000 on 1 labeled numeric ToR; null agreement = 1.000. Geography/thematic Jaccard = 1.000. Equal to Phase 0. Scorer recommendation accuracy = 1.000 on 29 items with an expected band (7 vacancies skipped — the boolean gate, not FIT, should stop them). EV INSUFFICIENT DATA rate = 1.000. **Not measured:** live Claude extraction, retrieval, or Won/Lost calibration (all outcomes UNKNOWN). |
+| Golden evaluation | `tests/golden/opportunities.json` (36 anonymized items) + offline parse/scorer harness | **Baseline (offline only, 2026-09-14, after Phase 2):** consultancy P/R/acc = 1.000 on recorded JSON through `parse_analysis_payload` (29 true / 7 false). Client/deadline exact = 1.000. Budget MAE = 0.000 on 1 labeled numeric ToR; null agreement = 1.000. Geography/thematic Jaccard = 1.000. Equal to Phase 0 and Phase 1 — no extraction regression. Scorer recommendation accuracy = 1.000 on 29 items with an expected band (7 vacancies skipped). EV INSUFFICIENT DATA rate = 1.000. **Not measured:** live Claude extraction, retrieval, or Won/Lost calibration (all outcomes UNKNOWN). |
 | Bid intelligence | `scoring_model.json` + deterministic `bid_scorer.py` | FIT/WIN heuristic/strategic/risk/EV separated; LLM numbers are audit-only. |
 | Capability | Semantic CV retrieval plus explicit geography/sector/language/years/skills overlay and live Airtable availability | Missing CV evidence and missing availability stay UNKNOWN — not inferred as a match or as 100% free. |
 | Financial preparation | Explicit ToR effort × exact Airtable rate-card row only | Never a complete financial proposal without non-personnel cost evidence. |
 | Proposal | Tender-aware drafting, style guides, past-proposal retrieval, claim-to-chunk grounding, review email/docx | Named past-work claims must match a retrieved chunk or they are tagged [NOT VERIFIED]. |
 | Compliance | CV/financial/attachments/award-criterion status matrix | Award criteria are not programmatically proven satisfied. |
 | Human control | Review email and Airtable record; no external submission | NO-BID is a recommendation on a `New` record, not final automation. |
+| Client intelligence | `organizations` / aliases / observations in Supabase; normalize+exact/fuzzy matcher; cited roll-up in the review email | **Phase 2.** Matching is exact spaced/compact (VERIFIED) or fuzzy ≥ 0.95 with guards (INFERRED). Below threshold → new candidate / UNKNOWN, never a silent merge. Roll-up counts are code aggregations of stored rows (past opportunities, past proposals, win/loss memory, plus `known_client` name overlap from `bid_scorer.py`). Missing outcomes stay UNKNOWN — not zeros dressed as a win rate. Golden-set outcomes remain UNKNOWN. Migration `supabase_migration_organizations.sql` exists; **not applied** this session. Client fail-opens if tables are missing. No new Airtable fields (`check_schema.py` would reject an invented org-id column). Explicit alias file is empty — no UNICEF↔full-name merge by guess. |
 | Outcome learning | Won/Lost lesson extraction and vector storage | Lessons are not yet model features. |
 
 ## Observed control points
@@ -40,24 +42,26 @@ Phase 1 schema / content_hash / field-provenance ADR:
 
 ## Known material gaps
 
-This is not yet a market, client, competitor, relationship, account, or
-executive intelligence product. There is no canonical organization graph,
-calibrated win-probability model, or costed pursuit model. Field-level ToR
-provenance exists; there is still no full provenance chain from source page to
-**generated proposal claim**. A small golden set exists for boolean-gate and
-scorer regression; live LLM extraction accuracy against that set has not been
-run. Phase 2 (organizations / win model / competitors) was not started.
+This is not yet a market, competitor, relationship, account-management, or
+executive intelligence product. Canonical client/donor **matching and cited
+roll-up** exist (Phase 2); there is still no market digest, competitor table,
+or calibrated win-probability model. Live org history is only as complete as
+the unapplied organizations migration and stored proposal/win-loss rows.
+Field-level ToR provenance exists; there is still no full provenance chain
+from source page to **generated proposal claim**. A small golden set exists
+for boolean-gate and scorer regression; live LLM extraction accuracy against
+that set has not been run. Phase 3 (market intelligence) was not started.
 
 ## Verification
 
 ```text
 ./cortech/bin/python -m pytest tests/ -q
-2 failed, 237 passed in 14.66s
+2 failed, 255 passed in 14.54s
 ```
 
 The two failures are pre-existing `tests/test_grounding.py` cases (claim
 `chunk_id` / `[NOT VERIFIED]` vs `[INSUFFICIENT EVIDENCE]`). They were not
-introduced by Phase 1 and were not changed here. Golden extraction tests still
-pass at the Phase 0 baseline. There has been no live `--once`, `--submit-url`,
-or `--run-assortis` execution as part of this update. The content_hash
-migration was not applied.
+introduced by Phase 2 and were not changed here. Golden extraction tests still
+pass at the Phase 0/1 baseline (consultancy P/R/acc 1.000). There has been no
+live `--once`, `--submit-url`, or `--run-assortis` execution as part of this
+update. The `content_hash` and `organizations` migrations were not applied.

@@ -52,6 +52,11 @@ from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
+from intelligence.organizations import (
+    build_client_intelligence,
+    empty_client_intelligence,
+    known_client_factor_from_analysis,
+)
 from reporting.docx_builder import iter_client_sections
 from intelligence.learning import process_win_loss_outcomes, save_draft_memory
 from database.supabase_client import (
@@ -123,6 +128,29 @@ def _remaining_execution_budget() -> int:
     if budget is None:
         return max(0, int(MAX_OPPORTUNITIES_PER_RUN))
     return max(0, budget.limit - budget.used)
+
+
+def _safe_client_intelligence(
+    analysis: dict | None,
+    *,
+    opportunity_id: str = "",
+    title: str = "",
+) -> dict:
+    """Match client/donor and roll up observed history. Never raises."""
+    try:
+        opportunity = {}
+        if isinstance(analysis, dict) and isinstance(analysis.get("opportunity"), dict):
+            opportunity = analysis["opportunity"]
+        return build_client_intelligence(
+            client=opportunity.get("client") or "",
+            donor=opportunity.get("donor") or "",
+            title=title,
+            opportunity_id=opportunity_id,
+            known_client_factor=known_client_factor_from_analysis(analysis),
+        )
+    except Exception as e:
+        logger.warning(f"  Client intelligence failed (fail-open): {e}")
+        return empty_client_intelligence()
 
 
 def _reserve_processing_slot() -> bool:
@@ -379,6 +407,12 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         console.print(
             "  [green]Confirmed consultancy contract — running full pipeline[/green]"
         )
+
+    client_intelligence = _safe_client_intelligence(
+        analysis,
+        opportunity_id=opp_id,
+        title=str(opportunity.get("title") or title or ""),
+    )
 
     # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
     # The recommendation saves paid drafting effort, but it is not a final
@@ -638,6 +672,7 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         "matched_team":      matched_team_result,
         "budget":            budget,
         "proposal_sections": proposal_sections,
+        "client_intelligence": client_intelligence,
         # Exact provider-call records and aggregate measured/unknown usage for
         # this opportunity; never a guessed section token constant.
         "llm_usage": usage,

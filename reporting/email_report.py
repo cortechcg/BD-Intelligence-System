@@ -15,6 +15,7 @@ from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx, iter_client_sections
 from intelligence.tender_reader import build_format_compliance
+from intelligence.organizations import build_client_intelligence, reviewer_sentences
 from utils.money_scrub import (
     contains_financial_disclosure,
     strip_financial_table_headers,
@@ -238,6 +239,106 @@ def _checklist_html(items: list[tuple[str, str]]) -> str:
         </td>
       </tr>
       {"".join(rows)}
+    </table>"""
+
+
+def _client_intelligence_payload(opportunity_result: dict, client: str) -> dict:
+    """Prefer orchestrator roll-up; otherwise a local empty-history view (no IO)."""
+    intel = opportunity_result.get("client_intelligence")
+    if isinstance(intel, dict) and isinstance(intel.get("client"), dict):
+        return intel
+    raw = client if isinstance(client, str) else ""
+    if raw.strip().casefold() in {"unknown client", "unknown"}:
+        raw = ""
+    return build_client_intelligence(
+        client=raw,
+        persist=False,
+        fetch_stored=False,
+        index=[],
+        observed=[],
+    )
+
+
+def _client_intelligence_html(payload: dict | None) -> str:
+    """Cited client/donor history. Counts are code aggregations; never invents wins."""
+    if not isinstance(payload, dict):
+        return ""
+    client = payload.get("client") if isinstance(payload.get("client"), dict) else {}
+    match = client.get("match") if isinstance(client.get("match"), dict) else {}
+    name = match.get("canonical_name") or match.get("query_sanitized") or ""
+    method = match.get("method") or "empty"
+    status = match.get("status") or "UNKNOWN"
+    citations = client.get("citations") if isinstance(client.get("citations"), list) else []
+    cite_rows = []
+    for cite in citations[:8]:
+        if not isinstance(cite, dict):
+            continue
+        title = cite.get("title") or cite.get("source_id") or "untitled"
+        cite_rows.append(
+            "<li style='margin-bottom:4px'>"
+            f"{_html(title)} "
+            f"({_html(cite.get('source_kind'))} {_html(cite.get('source_id'))}) "
+            f"— outcome {_html(cite.get('outcome') or 'UNKNOWN')}"
+            "</li>"
+        )
+    if not cite_rows:
+        cite_rows.append(
+            "<li style='margin-bottom:4px'>No stored past records cited.</li>"
+        )
+    overlap = client.get("known_client_overlap") or ""
+    overlap_html = (
+        f"<p style='margin:10px 0 0;font-size:13px;line-height:1.5;color:#1C1914'>"
+        f"{_html(overlap)}</p>"
+        if overlap
+        else ""
+    )
+    donor = payload.get("donor") if isinstance(payload.get("donor"), dict) else None
+    donor_html = ""
+    if donor and donor.get("headline"):
+        donor_html = (
+            f"<p style='margin:10px 0 0;font-size:13px;line-height:1.5;color:#1C1914'>"
+            f"{_html(donor.get('headline'))}</p>"
+        )
+        if donor.get("outcome_note"):
+            donor_html += (
+                f"<p style='margin:6px 0 0;font-size:13px;line-height:1.5;color:#6B6458'>"
+                f"{_html(donor.get('outcome_note'))}</p>"
+            )
+    heading_name = _html(name) if name else "UNKNOWN"
+    return f"""
+    {_named_anchor("c-client")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px;background:#F7F4EE">
+      <tr>
+        <td style="padding:16px 18px">
+          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                      color:#8A7A5A;font-weight:700;margin-bottom:8px;
+                      font-family:Arial,Helvetica,sans-serif">
+            Client history · observed records only</div>
+          <h3 style="color:#1F3864;font-size:16px;margin:0 0 8px;font-weight:700;
+                     font-family:Georgia,'Times New Roman',serif">
+            {heading_name}
+          </h3>
+          <p style="margin:0 0 8px;font-size:12px;color:#6B6458;
+                    font-family:Arial,Helvetica,sans-serif">
+            Match: {_html(method)} ({_html(status)}). Code counts from stored
+            rows — not an LLM estimate. Nothing has been sent to the client.
+          </p>
+          <p style="margin:0;font-size:13px;line-height:1.5;color:#1C1914">
+            {_html(client.get("headline") or "")}
+          </p>
+          <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#6B6458">
+            {_html(client.get("outcome_note") or "")}
+          </p>
+          {overlap_html}
+          {donor_html}
+          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                      color:#8A7A5A;font-weight:700;margin:12px 0 6px;
+                      font-family:Arial,Helvetica,sans-serif">Cited records</div>
+          <ul style="margin:0;padding-left:18px;color:#1C1914;font-size:13px;
+                     line-height:1.5">{"".join(cite_rows)}</ul>
+        </td>
+      </tr>
     </table>"""
 
 
@@ -1038,6 +1139,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     budget      = _as_dict(opportunity_result.get("budget"))
     analysis    = _as_dict(opportunity_result.get("analysis"))
     matched     = _as_dict(opportunity_result.get("matched_team"))
+    client_intel = _client_intelligence_payload(opportunity_result, client)
     recommendation = opportunity_result.get("recommendation", "WATCH")
     is_lightweight = proposal.get("lightweight", False)
     submission_type = proposal.get("submission_type", "FULL_PROPOSAL")
@@ -1250,6 +1352,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if isinstance(budget.get("missing_inputs"), list)
         else []
     )
+    client_lines = reviewer_sentences(client_intel)
+    if client_lines:
+        review_items.append(("Client", client_lines[1] if len(client_lines) > 1 else client_lines[0]))
     for item in missing[:3]:
         review_items.append(("Budget", str(item)))
     omitted = proposal.get("omitted_financial") if isinstance(proposal, dict) else None
@@ -1427,7 +1532,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"Technical draft · {client} · deadline {deadline_bit} · "
             f"score {_whole(score)}/100 · not sent"
         )
-    nav_items = [("c-decision", "Decision"), ("c-budget", "Budget"), ("c-format", "Format"), ("c-team", "Team")]
+    nav_items = [
+        ("c-decision", "Decision"),
+        ("c-client", "Client"),
+        ("c-budget", "Budget"),
+        ("c-format", "Format"),
+        ("c-team", "Team"),
+    ]
+    client_history_html = _client_intelligence_html(client_intel)
     if lock_block or strategy_block:
         nav_items.append(("c-strategy", "Strategy"))
     nav_items.append(("c-draft", "Draft"))
@@ -1546,6 +1658,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
     <tr>
       <td style="padding:20px 32px 8px;font-family:Arial,Helvetica,sans-serif">
         {checklist}
+
+        {client_history_html}
 
         {format_block}
 

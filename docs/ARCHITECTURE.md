@@ -48,7 +48,8 @@ Nothing in this pipeline submits to a client.
 | `intelligence/cv_matcher.py` | Semantic match + explicit geography/sector/language/years/skills/availability overlay |
 | `intelligence/compliance.py` | Submission compliance matrix |
 | `intelligence/proposal_writer.py` | Drafting |
-| `database/` | Airtable CRM, Supabase vectors |
+| `intelligence/organizations.py` | Canonical client/donor matching + observed-record roll-up (no LLM) |
+| `database/` | Airtable CRM, Supabase vectors, fail-open org persistence |
 | `utils/errors.py` | Error taxonomy used at call sites |
 | `utils/urls.py` | Canonicalization + SSRF guard |
 | `utils/untrusted.py` | Document-as-data wrapping |
@@ -57,6 +58,7 @@ Nothing in this pipeline submits to a client.
 ## What is stored where
 
 - **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding, and (after `supabase_migration_content_hash.sql`) unique `content_hash` of the extracted body. Dedup = exact canonical URL + content-hash identity + (Assortis) title near-dup. The column is fail-open if the migration is not applied. The Supabase client is created lazily at first storage use, after configuration validation at the entry point.
+- **Supabase `organizations` / `organization_aliases` / `organization_observations`**: canonical client/donor entities and cited involvement. Matching is normalize+exact/fuzzy (ADR 006). Fail-open if `supabase_migration_organizations.sql` is not applied. Airtable was not given new fields.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
 - **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model. If 429s persist, bulk-delete AGENT_LOGS in the Airtable UI (or `python populate_airtable.py --prune-logs`); do not invent a second log system.
 
@@ -78,4 +80,4 @@ the missing-input list instead of a made-up zero-dollar budget.
 
 ## Not in this architecture
 
-Competitor intelligence, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed.
+Competitor intelligence, market-trend products, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed.
