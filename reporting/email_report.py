@@ -105,19 +105,20 @@ def _draft_body_html(content: str) -> str:
 def _kpi_tile(label: str, value: str, sub: str = "", value_color: str = "#1F3864") -> str:
     color = _safe_color(value_color, "#1F3864")
     sub_html = (
-        f'<div style="font-size:12px;color:#6B6458;margin-top:4px;line-height:1.4">'
-        f"{sub}</div>"
+        f'<div style="font-size:12px;color:#6B6458;margin-top:4px;line-height:1.4;'
+        f'font-family:Arial,Helvetica,sans-serif">{sub}</div>'
         if sub
         else ""
     )
     return f"""
-    <td width="25%" valign="top" style="padding:6px">
+    <td width="50%" valign="top" style="padding:4px">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
              style="width:100%;background:#F7F4EE">
         <tr>
-          <td style="padding:16px 14px">
+          <td style="padding:14px 16px">
             <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
-                        color:#6B6458;font-weight:600">{_html(label)}</div>
+                        color:#6B6458;font-weight:600;font-family:Arial,Helvetica,sans-serif">
+              {_html(label)}</div>
             <div style="font-size:22px;font-weight:700;color:{color};margin-top:6px;
                         line-height:1.15">{value}</div>
             {sub_html}
@@ -125,6 +126,188 @@ def _kpi_tile(label: str, value: str, sub: str = "", value_color: str = "#1F3864
         </tr>
       </table>
     </td>"""
+
+
+def _kpi_grid(tiles: list[str]) -> str:
+    """Two-up tiles — four-column rows collapse unreadably in Outlook/Gmail."""
+    rows = []
+    for i in range(0, len(tiles), 2):
+        pair = tiles[i : i + 2]
+        if len(pair) == 1:
+            pair.append('<td width="50%" style="padding:4px">&nbsp;</td>')
+        rows.append(f"<tr>{''.join(pair)}</tr>")
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="width:100%">{"".join(rows)}</table>'
+    )
+
+
+def _preheader_html(text: str) -> str:
+    """Inbox preview line. Hidden in the opened message."""
+    return (
+        '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;'
+        'opacity:0;color:transparent;font-size:1px;line-height:1px">'
+        f"{_html(text)}</div>"
+    )
+
+
+def _jump_nav_html(items: list[tuple[str, str]]) -> str:
+    links = []
+    for i, (anchor, label) in enumerate(items):
+        sep = (
+            '<span style="color:#8A7A5A;padding:0 8px">·</span>' if i else ""
+        )
+        links.append(
+            f'{sep}<a href="#{_html(anchor)}" style="color:#C4A35A;text-decoration:none;'
+            f'font-size:11px;letter-spacing:0.08em;text-transform:uppercase;'
+            f'font-weight:700">{_html(label)}</a>'
+        )
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="width:100%;background:#162A4A">'
+        '<tr><td style="padding:12px 32px;font-family:Arial,Helvetica,sans-serif">'
+        f'{"".join(links)}</td></tr></table>'
+    )
+
+
+def _named_anchor(anchor_id: str) -> str:
+    slug = re.sub(r"[^a-z0-9-]", "", (anchor_id or "").lower())[:48]
+    if not slug:
+        return ""
+    return f'<a id="{slug}" name="{slug}" style="line-height:0;font-size:0"></a>'
+
+
+def _team_coverage(team_matches) -> tuple[int, int, list[str]]:
+    """Named consultants vs required roles, plus duplicate-mapping gaps."""
+    named = 0
+    total = 0
+    gaps: list[str] = []
+    seen: dict[str, str] = {}
+    if not isinstance(team_matches, dict):
+        return 0, 0, gaps
+    blank = {"", "tbd", "unfilled", "unknown", "none", "n/a"}
+    for role, match in team_matches.items():
+        if not isinstance(match, dict):
+            continue
+        total += 1
+        role_label = str(role or "Role")
+        name = str(match.get("consultant_name") or "").strip()
+        if name.lower() in blank:
+            gaps.append(f"{role_label}: no named consultant")
+            continue
+        named += 1
+        key = name.lower()
+        prior = seen.get(key)
+        if prior:
+            gaps.append(f"{name} is mapped to both {prior} and {role_label}")
+        else:
+            seen[key] = role_label
+    return named, total, gaps
+
+
+def _checklist_html(items: list[tuple[str, str]]) -> str:
+    if not items:
+        return ""
+    rows = []
+    for i, (label, body) in enumerate(items):
+        border = "border-bottom:1px solid #E6E1D6;" if i < len(items) - 1 else ""
+        rows.append(f"""
+        <tr>
+          <td valign="top" width="92" style="width:92px;padding:10px 12px 10px 0;
+              font-family:Arial,Helvetica,sans-serif">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                        color:#8A7A5A;font-weight:700">{_html(label)}</div>
+          </td>
+          <td valign="top" style="padding:10px 0;font-size:13px;line-height:1.5;
+              color:#1C1914;{border}font-family:Arial,Helvetica,sans-serif">
+            {_html(body)}
+          </td>
+        </tr>""")
+    return f"""
+    {_named_anchor("c-decision")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px">
+      <tr>
+        <td style="padding:0 0 12px">
+          <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
+                      color:#C4A35A;font-weight:700;font-family:Arial,Helvetica,sans-serif">
+            Review before submit</div>
+          <h3 style="color:#1F3864;font-size:16px;margin:4px 0 0;font-weight:700">
+            What still needs a human</h3>
+        </td>
+      </tr>
+      {"".join(rows)}
+    </table>"""
+
+
+def _grounding_table_html(grounding: dict) -> str:
+    claims = grounding.get("claims") if isinstance(grounding.get("claims"), list) else []
+    rows = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        status = str(claim.get("status") or "")
+        if status not in {"NOT VERIFIED", "INSUFFICIENT EVIDENCE"}:
+            continue
+        sentence = str(claim.get("sentence") or "")
+        preview = sentence[:140] + ("…" if len(sentence) > 140 else "")
+        tone = "#dc3545" if status == "NOT VERIFIED" else "#8A6A12"
+        rows.append(f"""
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:12px;
+                     color:{tone};font-weight:700;white-space:nowrap;
+                     font-family:Arial,Helvetica,sans-serif">{_html(status)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:12px;
+                     color:#6B6458;font-family:Arial,Helvetica,sans-serif">
+            {_html(claim.get("section") or "")}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     line-height:1.45">{_html(preview)}</td>
+        </tr>""")
+        if len(rows) >= 8:
+            break
+    if not rows:
+        return ""
+    return f"""
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px">
+      <tr><td style="padding:0 0 10px">
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                    color:#8A7A5A;font-weight:600;font-family:Arial,Helvetica,sans-serif">
+          Evidence</div>
+        <h3 style="color:#1F3864;font-size:16px;margin:4px 0 0;font-weight:700">
+          Claims that did not pass grounding</h3>
+      </td></tr>
+      <tr><td>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;border-collapse:collapse">
+          <tr style="background:#1F3864;color:#ffffff">
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.06em;
+                       text-transform:uppercase;font-family:Arial,Helvetica,sans-serif">Status</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.06em;
+                       text-transform:uppercase;font-family:Arial,Helvetica,sans-serif">Section</th>
+            <th style="padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.06em;
+                       text-transform:uppercase;font-family:Arial,Helvetica,sans-serif">Claim</th>
+          </tr>
+          {"".join(rows)}
+        </table>
+      </td></tr>
+    </table>"""
+
+
+def _draft_toc_html(items: list[tuple[str, str]]) -> str:
+    if len(items) < 2:
+        return ""
+    links = []
+    for i, (anchor, heading) in enumerate(items):
+        sep = '<span style="color:#C4A35A;padding:0 6px">·</span>' if i else ""
+        links.append(
+            f'{sep}<a href="#{_html(anchor)}" style="color:#1F3864;text-decoration:underline;'
+            f'font-size:13px">{_html(heading)}</a>'
+        )
+    return (
+        '<p style="margin:0 0 18px;line-height:1.7;font-family:Arial,Helvetica,sans-serif">'
+        f'{"".join(links)}</p>'
+    )
 
 
 def _usd(value) -> str:
@@ -204,13 +387,14 @@ def _internal_budget_html(budget: dict, budget_cap, is_eoi: bool) -> str:
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
            style="width:100%;margin:0 0 28px;background:#FFF8EC;border-left:4px solid #C4A35A">
     <tr><td style="padding:20px 20px 8px">
+        {_named_anchor("c-budget")}
         <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
                     color:#8A6A12;font-weight:600;margin-bottom:6px">Internal only</div>
         <h3 style="color:#1F3864;font-size:16px;margin:0 0 8px;font-weight:700">
             Internal financial working
         </h3>
         <p style="margin:0 0 14px;font-size:13px;color:#856404;line-height:1.5">
-            {_html(stage_note)}
+            {_html(stage_note)} Figures below do not copy into the technical/EOI Word file.
         </p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
             <tr>
@@ -285,6 +469,29 @@ def _number(value, default: float = 0) -> float:
     except (TypeError, ValueError):
         return default
     return number if math.isfinite(number) else default
+
+
+def _count(value) -> int:
+    """Non-negative whole number for counts shown in the review dashboard."""
+    number = _number(value, 0)
+    return max(0, int(number))
+
+
+def _whole(value) -> str:
+    """Display scores and percentages without a trailing .0."""
+    return str(int(round(_number(value, 0))))
+
+
+def _as_dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value) -> list:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str) and value.strip():
+        return [value]
+    return []
 
 
 def _get_recipients() -> list[str]:
@@ -703,17 +910,17 @@ def send_proposal_email(opportunity_result: dict) -> None:
     score       = _number(opportunity_result.get("score", 0))
     source_url  = opportunity_result.get("source_url", "")
     budget_cap  = opportunity_result.get("budget_cap", 0)
-    proposal    = opportunity_result.get("proposal_sections", {})
-    budget      = opportunity_result.get("budget", {})
-    analysis    = opportunity_result.get("analysis", {})
-    matched     = opportunity_result.get("matched_team", {})
+    proposal    = _as_dict(opportunity_result.get("proposal_sections"))
+    budget      = _as_dict(opportunity_result.get("budget"))
+    analysis    = _as_dict(opportunity_result.get("analysis"))
+    matched     = _as_dict(opportunity_result.get("matched_team"))
     recommendation = opportunity_result.get("recommendation", "WATCH")
     is_lightweight = proposal.get("lightweight", False)
     submission_type = proposal.get("submission_type", "FULL_PROPOSAL")
     is_eoi = submission_type == "EOI"
     doc_label = "EXPRESSION OF INTEREST" if is_eoi else "DRAFT PROPOSAL"
 
-    opportunity = dict(analysis.get("opportunity", {}))
+    opportunity = dict(_as_dict(analysis.get("opportunity")))
     if title:
         opportunity["title"] = title
     if client:
@@ -727,10 +934,10 @@ def send_proposal_email(opportunity_result: dict) -> None:
             f"Could not build proposal docx — email will still send without it: {e}"
         )
 
-    bid_analysis   = analysis.get("bid_analysis", {})
-    key_strengths  = bid_analysis.get("key_strengths", [])
-    key_gaps       = bid_analysis.get("key_gaps", [])
-    team_matches   = matched.get("matched_team", {})
+    bid_analysis   = _as_dict(analysis.get("bid_analysis"))
+    key_strengths  = _as_list(bid_analysis.get("key_strengths"))
+    key_gaps       = _as_list(bid_analysis.get("key_gaps"))
+    team_matches   = _as_dict(matched.get("matched_team"))
     cap_for_header = (
         budget.get("opportunity_budget_cap_usd") if isinstance(budget, dict) else None
     )
@@ -745,7 +952,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     if quality.get("overall_score") is not None:
         quality_line = (
             f"<p style='margin:8px 0 0;font-size:13px;color:#555'>"
-            f"Self-assessed: <strong>{_html(quality['overall_score'])}/100</strong> — "
+            f"Self-assessed: <strong>{_html(_whole(quality['overall_score']))}/100</strong> — "
             f"weakest: {_html(quality.get('weakest_criterion', 'N/A'))}. "
             f"{_html(quality.get('one_improvement', ''))}"
             f"</p>"
@@ -753,9 +960,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
     grounding = proposal.get("claim_grounding") if isinstance(proposal.get("claim_grounding"), dict) else {}
     grounding_line = ""
     if grounding:
-        nv = int(grounding.get("not_verified") or 0)
-        ver = int(grounding.get("verified") or 0)
-        ins = int(grounding.get("insufficient_evidence") or 0)
+        nv = _count(grounding.get("not_verified"))
+        ver = _count(grounding.get("verified"))
+        ins = _count(grounding.get("insufficient_evidence"))
         removed = grounding.get("removed_unverified")
         removed_n = len(removed) if isinstance(removed, list) else 0
         color = "#dc3545" if nv else "#555"
@@ -789,7 +996,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <tr>
             <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px">{_html(role)}</td>
             <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px;font-weight:700;color:#1F3864">{_html(name)}</td>
-            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px;color:{color};font-weight:700">{score_pct}% match</td>
+            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px;color:{color};font-weight:700">{_whole(score_pct)}% match</td>
             <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px">{_html(avail)}</td>
         </tr>"""
 
@@ -804,7 +1011,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
     )
 
     # ── PROPOSAL SECTIONS ──────────────────────────────────────────────────
-    def section_block(heading: str, content: str) -> str:
+    draft_toc: list[tuple[str, str]] = []
+
+    def section_block(heading: str, content: str, *, internal: bool = False, anchor: str = "") -> str:
         if not content:
             return ""
         text, _ = strip_monetary_amounts(content)
@@ -817,16 +1026,21 @@ def send_proposal_email(opportunity_result: dict) -> None:
         body = _draft_body_html(text)
         if not body.strip():
             return ""
+        if not internal and anchor:
+            draft_toc.append((anchor, heading))
+        bar = "#8A6A12" if internal else "#C4A35A"
+        label = "Internal — not in the Word file" if internal else "Draft section"
         return f"""
+        {_named_anchor(anchor)}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                style="width:100%;margin:0 0 28px">
           <tr>
-            <td style="width:4px;background:#C4A35A;font-size:0;line-height:0">&nbsp;</td>
+            <td style="width:4px;background:{bar};font-size:0;line-height:0">&nbsp;</td>
             <td style="padding:4px 0 8px 16px">
               <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
-                          color:#8A7A5A;font-weight:600;margin-bottom:4px">Draft section</div>
+                          color:#8A7A5A;font-weight:600;margin-bottom:4px">{label}</div>
               <h3 style="color:#1F3864;font-size:16px;margin:0 0 12px;font-weight:700">
-                {heading}
+                {_html(heading)}
               </h3>
               {body}
             </td>
@@ -834,30 +1048,84 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </table>"""
 
     proposal_html = (
-        section_block("Cover Letter", proposal.get("cover_letter", ""))
-        + section_block("Executive Summary", proposal.get("executive_summary", ""))
+        section_block("Cover Letter", proposal.get("cover_letter", ""), anchor="c-cover")
+        + section_block(
+            "Executive Summary", proposal.get("executive_summary", ""), anchor="c-exec"
+        )
     )
     if is_eoi:
         proposal_html = (
-            section_block("Cover Letter / Letter of Interest", proposal.get("cover_letter", ""))
-            + section_block("Presentation of Cortech Consulting Group", proposal.get("firm_profile", ""))
-            + section_block("Our Understanding of the Assignment", proposal.get("understanding", ""))
-            + section_block("Proposed Technical Approach — Summary", proposal.get("approach_summary", ""))
-            + section_block("Relevant Experience", proposal.get("relevant_experience", ""))
-            + section_block("Resources in Staff", proposal.get("key_experts", ""))
-            + section_block("Eligibility", proposal.get("eligibility", ""))
-            + section_block("Capability Matrix", proposal.get("compliance_matrix", ""))
+            section_block(
+                "Cover Letter / Letter of Interest",
+                proposal.get("cover_letter", ""),
+                anchor="c-cover",
+            )
+            + section_block(
+                "Presentation of Cortech Consulting Group",
+                proposal.get("firm_profile", ""),
+                anchor="c-firm",
+            )
+            + section_block(
+                "Our Understanding of the Assignment",
+                proposal.get("understanding", ""),
+                anchor="c-understand",
+            )
+            + section_block(
+                "Proposed Technical Approach — Summary",
+                proposal.get("approach_summary", ""),
+                anchor="c-approach",
+            )
+            + section_block(
+                "Relevant Experience",
+                proposal.get("relevant_experience", ""),
+                anchor="c-experience",
+            )
+            + section_block(
+                "Resources in Staff", proposal.get("key_experts", ""), anchor="c-staff"
+            )
+            + section_block(
+                "Eligibility", proposal.get("eligibility", ""), anchor="c-eligibility"
+            )
+            + section_block(
+                "Capability Matrix",
+                proposal.get("compliance_matrix", ""),
+                anchor="c-matrix",
+            )
         )
     elif not is_lightweight:
         proposal_html += (
-            section_block("Organisational Profile & Track Record", proposal.get("org_profile_and_track_record", ""))
-            + section_block("Introduction, Background & Conceptual Framework", proposal.get("introduction_and_framework", ""))
-            + section_block("Methodology", proposal.get("methodology", ""))
-            + section_block("Sampling & Data Analysis Plan", proposal.get("analysis_plan", ""))
-            + section_block("Quality Assurance & Ethical Safeguarding", proposal.get("qa_and_ethics", ""))
-            + section_block("Risk Register", proposal.get("risk_register", ""))
-            + section_block("Team Composition", proposal.get("team_section", ""))
-            + section_block("Work Plan", proposal.get("work_plan", ""))
+            section_block(
+                "Organisational Profile & Track Record",
+                proposal.get("org_profile_and_track_record", ""),
+                anchor="c-org",
+            )
+            + section_block(
+                "Introduction, Background & Conceptual Framework",
+                proposal.get("introduction_and_framework", ""),
+                anchor="c-intro",
+            )
+            + section_block(
+                "Methodology", proposal.get("methodology", ""), anchor="c-method"
+            )
+            + section_block(
+                "Sampling & Data Analysis Plan",
+                proposal.get("analysis_plan", ""),
+                anchor="c-sampling",
+            )
+            + section_block(
+                "Quality Assurance & Ethical Safeguarding",
+                proposal.get("qa_and_ethics", ""),
+                anchor="c-qa",
+            )
+            + section_block(
+                "Risk Register", proposal.get("risk_register", ""), anchor="c-risk"
+            )
+            + section_block(
+                "Team Composition", proposal.get("team_section", ""), anchor="c-team-draft"
+            )
+            + section_block(
+                "Work Plan", proposal.get("work_plan", ""), anchor="c-workplan"
+            )
         )
 
     lock_text = proposal.get("document_lock") or ""
@@ -866,6 +1134,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         lock_block = section_block(
             "Assignment lock from the ToR/RFP/REOI (internal — not in the Word file)",
             lock_text,
+            internal=True,
         )
     strategy_text = proposal.get("win_strategy") or ""
     strategy_block = ""
@@ -873,22 +1142,90 @@ def send_proposal_email(opportunity_result: dict) -> None:
         strategy_block = section_block(
             "Win strategy (internal — not in the client Word file)",
             strategy_text,
+            internal=True,
         )
 
-    # ── SCORE COLOR ────────────────────────────────────────────────────────
+    if not strengths_html:
+        strengths_html = (
+            "<li style='margin-bottom:4px'>None recorded in the analysis.</li>"
+        )
+    if not gaps_html:
+        gaps_html = (
+            "<li style='margin-bottom:4px'>None recorded in the analysis.</li>"
+        )
+
+    named, total_roles, team_gaps = _team_coverage(team_matches)
+    nv = _count(grounding.get("not_verified")) if grounding else 0
+    ver = _count(grounding.get("verified")) if grounding else 0
+    ins = _count(grounding.get("insufficient_evidence")) if grounding else 0
+
+    review_items: list[tuple[str, str]] = []
+    if is_lightweight:
+        review_items.append((
+            "Decide",
+            "WATCH preview only. Decide whether to commission a full technical draft.",
+        ))
+    elif is_eoi:
+        review_items.append((
+            "Stage",
+            "Submit as an Expression of Interest only. Do not attach a financial "
+            "proposal unless invited to RFP.",
+        ))
+    else:
+        review_items.append((
+            "Stage",
+            "Technical file only. Confirm the financial envelope is a separate "
+            "submission. Nothing has been sent to the client.",
+        ))
+    for gap in team_gaps[:4]:
+        review_items.append(("Team", gap))
+    if nv:
+        review_items.append((
+            "Claims",
+            f"{nv} named claim{'s' if nv != 1 else ''} stripped from the client "
+            "draft. Do not re-insert them.",
+        ))
+    improvement = quality.get("one_improvement") if quality else None
+    if improvement:
+        review_items.append(("Draft", str(improvement)))
+    missing = (
+        budget.get("missing_inputs")
+        if isinstance(budget.get("missing_inputs"), list)
+        else []
+    )
+    for item in missing[:3]:
+        review_items.append(("Budget", str(item)))
+
     score_color = (
         "#28a745" if score >= 70
         else "#f0a500" if score >= 50
         else "#dc3545"
     )
+    if total_roles:
+        team_value = f"{named}/{total_roles}"
+        team_sub = _html("named consultants")
+        team_color = "#dc3545" if named < total_roles else "#28a745"
+    else:
+        team_value = "None"
+        team_sub = _html("no consultants matched")
+        team_color = "#1F3864"
+    if grounding:
+        if nv:
+            g_label, g_value, g_color = "Claims stripped", str(nv), "#dc3545"
+            g_sub = _html(f"{ver} verified · {ins} insufficient")
+        else:
+            g_label, g_value, g_color = "Claims verified", str(ver), "#28a745"
+            g_sub = _html("none stripped from the client draft")
+    else:
+        g_label, g_value, g_color = "Ceiling (internal)", _html(budget_cap_str), "#1F3864"
+        g_sub = "do not copy into the technical/EOI"
 
-    # ── FULL HTML EMAIL ────────────────────────────────────────────────────
     header_title = (
-        "EXPRESSION OF INTEREST READY FOR REVIEW"
+        "Review this EOI before shortlisting"
         if is_eoi
-        else "QUICK FLAG — WATCH OPPORTUNITY"
+        else "WATCH — decide whether to bid"
         if is_lightweight
-        else "PROPOSAL DRAFT READY FOR REVIEW"
+        else "Review this technical draft"
     )
     header_subtitle = (
         "EOI-stage submission — a complete shortlisting draft. Review and submit "
@@ -901,45 +1238,43 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if is_lightweight
         else "Human review required before submission — do not submit without approval"
     )
-    action_banner = (
-        """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="width:100%;margin:0 0 8px;background:#E8F1F8">
-        <tr>
-          <td style="width:4px;background:#2e86c1;font-size:0">&nbsp;</td>
-          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
-            <strong>EOI STAGE:</strong> This document asks for an Expression of Interest only.
-            The draft below is a complete shortlisting file (understanding, approach
-            summary, experience, team, eligibility, criteria matrix) — not a full
-            technical/financial proposal. Review, confirm team availability, then submit
-            as an EOI unless you have been invited to the next stage.
-          </td>
-        </tr>
-        </table>"""
-        if is_eoi
-        else """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="width:100%;margin:0 0 8px;background:#FFF4D6">
-        <tr>
-          <td style="width:4px;background:#f0a500;font-size:0">&nbsp;</td>
-          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
-            <strong>WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
-            (cover letter + executive summary). No full proposal was generated.
-            Review the opportunity and decide whether to pursue a full bid.
-          </td>
-        </tr>
-        </table>"""
-        if is_lightweight
-        else """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="width:100%;margin:0 0 8px;background:#FFF4D6">
-        <tr>
-          <td style="width:4px;background:#C4A35A;font-size:0">&nbsp;</td>
-          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
-            <strong>ACTION REQUIRED:</strong> Review the draft below, make edits,
-            confirm team availability, verify the budget, then approve for submission.
-            <strong>Nothing has been sent to the client.</strong>
-          </td>
-        </tr>
-        </table>"""
+    attach_note = (
+        "The Word file is attached — no fees, rates, or budgets in it."
+        if docx_path
+        else "No Word attachment was generated this cycle; review the draft below."
     )
+    if is_eoi:
+        action_copy = (
+            "<strong>EOI STAGE:</strong> This document asks for an Expression of "
+            "Interest only. The draft below is a complete shortlisting file — not a "
+            "full technical/financial proposal. Nothing has been sent to the client. "
+            f"{_html(attach_note)}"
+        )
+        action_bg, action_bar = "#E8F1F8", "#2e86c1"
+    elif is_lightweight:
+        action_copy = (
+            "<strong>WATCH — QUICK FLAG ONLY:</strong> Cover letter plus executive "
+            "summary. No full proposal was generated. Decide whether to pursue a "
+            "full bid. Nothing has been sent to the client."
+        )
+        action_bg, action_bar = "#FFF4D6", "#f0a500"
+    else:
+        action_copy = (
+            "<strong>ACTION REQUIRED:</strong> Review the draft, confirm team "
+            "availability, verify the internal budget, then approve. "
+            "<strong>Nothing has been sent to the client.</strong> "
+            f"{_html(attach_note)}"
+        )
+        action_bg, action_bar = "#FFF4D6", "#C4A35A"
+    action_banner = f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 8px;background:{action_bg}">
+        <tr>
+          <td style="width:4px;background:{action_bar};font-size:0">&nbsp;</td>
+          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
+            {action_copy}
+          </td>
+        </tr>
+        </table>"""
     draft_heading = (
         "Expression of Interest Draft"
         if is_eoi
@@ -954,11 +1289,17 @@ def send_proposal_email(opportunity_result: dict) -> None:
             "No consultants were matched for this draft.</td></tr>"
         )
     source_href = _safe_href(source_url)
-    source_line = (
-        f'<a href="{source_href}" style="color:#C4A35A;text-decoration:underline">'
-        f"{_html(source_url)}</a>"
+    if source_href:
+        source_line = (
+            f'<a href="{source_href}" style="color:#C4A35A;text-decoration:underline">'
+            f"{_html(source_url)}</a>"
+        )
+    else:
+        source_line = "Not provided"
+    footer_tor = (
+        f'<a href="{source_href}" style="color:#C4A35A">View original TOR</a>'
         if source_href
-        else _html(source_url or "Not provided")
+        else "No TOR link on file"
     )
     stage_label = (
         "Expression of Interest"
@@ -967,6 +1308,31 @@ def send_proposal_email(opportunity_result: dict) -> None:
         if is_lightweight
         else "Technical proposal"
     )
+    deadline_bit = str(deadline)[:10] if deadline else "TBD"
+    if is_eoi:
+        preheader = (
+            f"EOI · {client} · deadline {deadline_bit} · "
+            f"{named}/{total_roles or 0} roles named · not sent"
+        )
+    elif is_lightweight:
+        preheader = (
+            f"WATCH flag · {client} · deadline {deadline_bit} · score {_whole(score)}/100"
+        )
+    else:
+        preheader = (
+            f"Technical draft · {client} · deadline {deadline_bit} · "
+            f"score {_whole(score)}/100 · not sent"
+        )
+    nav_items = [("c-decision", "Decision"), ("c-budget", "Budget"), ("c-team", "Team")]
+    if lock_block or strategy_block:
+        nav_items.append(("c-strategy", "Strategy"))
+    nav_items.append(("c-draft", "Draft"))
+    strategy_anchor = (
+        _named_anchor("c-strategy") if (lock_block or strategy_block) else ""
+    )
+    grounding_table = _grounding_table_html(grounding) if grounding else ""
+    checklist = _checklist_html(review_items)
+    toc = _draft_toc_html(draft_toc)
 
     html = f"""
     <!DOCTYPE html>
@@ -977,19 +1343,21 @@ def send_proposal_email(opportunity_result: dict) -> None:
     </head>
     <body style="margin:0;padding:0;background:#EDE9E0;color:#1C1914;
                  font-family:Georgia,'Times New Roman',serif;font-size:14px">
+    {_preheader_html(preheader)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
            style="width:100%;background:#EDE9E0">
     <tr>
       <td align="center" style="padding:28px 12px">
+      <!--[if mso]><table role="presentation" width="680" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
       <table role="presentation" width="680" cellpadding="0" cellspacing="0"
-             style="width:680px;max-width:680px;background:#ffffff">
+             style="width:100%;max-width:680px;background:#ffffff">
 
     <tr>
       <td style="background:#1F3864;padding:28px 32px 24px">
         <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;
                     color:#C4A35A;font-weight:700;margin-bottom:10px;
                     font-family:Arial,Helvetica,sans-serif">
-          Cortech BD Intelligence · {_html(stage_label)}
+          Cortech BD Intelligence · {_html(stage_label)} · not sent
         </div>
         <h1 style="margin:0;font-size:26px;line-height:1.2;color:#ffffff;
                    font-weight:700;font-family:Georgia,'Times New Roman',serif">
@@ -1001,6 +1369,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
         </p>
       </td>
     </tr>
+    <tr><td>{_jump_nav_html(nav_items)}</td></tr>
 
     <tr>
       <td style="padding:28px 32px 8px">
@@ -1010,15 +1379,22 @@ def send_proposal_email(opportunity_result: dict) -> None:
                   font-family:Arial,Helvetica,sans-serif">
           {_html(client)}
         </p>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-               style="width:100%">
-          <tr>
-            {_kpi_tile("Fit score", f"{_html(score)}/100", _html(recommendation), score_color)}
-            {_kpi_tile("Deadline", _html(str(deadline)[:10] if deadline else "TBD"), _html(urgency.get("prefix") or "Review timing"), _safe_color(urgency.get("color"), "#1F3864"))}
-            {_kpi_tile("Ceiling (internal)", _html(budget_cap_str), "do not copy into the technical/EOI", "#1F3864")}
-            {_kpi_tile("Status", "Review", "Not sent to the client", "#1F3864")}
-          </tr>
-        </table>
+        {_kpi_grid([
+            _kpi_tile(
+                "Deadline",
+                _html(str(deadline)[:10] if deadline else "TBD"),
+                _html(urgency.get("prefix") or "Review timing"),
+                _safe_color(urgency.get("color"), "#1F3864"),
+            ),
+            _kpi_tile(
+                "Fit score",
+                f"{_whole(score)}/100",
+                _html(recommendation),
+                score_color,
+            ),
+            _kpi_tile(g_label, g_value, g_sub, g_color),
+            _kpi_tile("Team", team_value, team_sub, team_color),
+        ])}
         <div style="font-family:Arial,Helvetica,sans-serif;padding:8px 6px 0">
           {quality_line}{grounding_line}
           <p style="margin:10px 0 0;font-size:13px;color:#6B6458">
@@ -1032,6 +1408,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     <tr>
       <td style="padding:20px 32px 8px;font-family:Arial,Helvetica,sans-serif">
+        {checklist}
+
         {budget_block}
 
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
@@ -1062,6 +1440,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
           </tr>
         </table>
 
+        {_named_anchor("c-team")}
         <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
                     color:#8A7A5A;font-weight:600;margin:0 0 8px">People</div>
         <h3 style="color:#1F3864;font-size:16px;margin:0 0 12px;font-weight:700;
@@ -1081,10 +1460,14 @@ def send_proposal_email(opportunity_result: dict) -> None:
             {team_rows_html}
         </table>
 
+        {grounding_table}
+
+        {strategy_anchor}
         {lock_block}
 
         {strategy_block}
 
+        {_named_anchor("c-draft")}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                style="width:100%;margin:12px 0 20px">
           <tr>
@@ -1093,8 +1476,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
                           color:#C4A35A;font-weight:700;margin-bottom:6px">
                 Client-facing file · no fees, rates, or budgets
               </div>
-              <h2 style="color:#1F3864;margin:0 0 20px;font-size:20px;font-weight:700;
+              <h2 style="color:#1F3864;margin:0 0 12px;font-size:20px;font-weight:700;
                          font-family:Georgia,'Times New Roman',serif">{draft_heading}</h2>
+              {toc}
               {proposal_html}
             </td>
           </tr>
@@ -1107,12 +1491,13 @@ def send_proposal_email(opportunity_result: dict) -> None:
         <p style="font-size:12px;color:#D9D2C5;margin:0;line-height:1.5">
             Generated by Cortech BD Intelligence Agent ·
             This is a draft — human review and approval required before any submission ·
-            <a href="{source_href}" style="color:#C4A35A">View original TOR</a>
+            {footer_tor}
         </p>
       </td>
     </tr>
 
       </table>
+      <!--[if mso]></td></tr></table><![endif]-->
       </td>
     </tr>
     </table>
@@ -1126,19 +1511,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
         subject = (
             f"QUICK FLAG: {_subject_text(title)[:50]} | "
             f"Deadline: {safe_deadline_subject} | "
-            f"Score: {score}/100 | WATCH"
+            f"Score: {_whole(score)}/100 | WATCH"
         )
     elif is_eoi:
         subject = (
             f"{doc_label}: {_subject_text(title)[:50]} | "
             f"Deadline: {safe_deadline_subject} | "
-            f"Score: {score}/100 | REVIEW REQUIRED"
+            f"Score: {_whole(score)}/100 | REVIEW REQUIRED"
         )
     else:
         subject = (
             f"{doc_label}: {_subject_text(title)[:50]} | "
             f"Deadline: {safe_deadline_subject} | "
-            f"Score: {score}/100 | REVIEW REQUIRED"
+            f"Score: {_whole(score)}/100 | REVIEW REQUIRED"
         )
 
     if _send_email(subject, html, attachment_path=docx_path):

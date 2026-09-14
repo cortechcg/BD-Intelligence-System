@@ -263,7 +263,7 @@ def test_all_report_templates_escape_untrusted_values_and_reject_unsafe_hrefs(mo
     })
     assert "<img src=x" not in proposal_sent["html"]
     assert "&lt;img src=x" in proposal_sent["html"]
-    assert 'href=""' in proposal_sent["html"]
+    assert "javascript:" not in proposal_sent["html"]
     assert "\r" not in proposal_sent["subject"] and "\n" not in proposal_sent["subject"]
 
 
