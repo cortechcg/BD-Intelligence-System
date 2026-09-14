@@ -56,6 +56,9 @@ _DOCX_SKIP_KEYS = {
     "section_order",
     "omitted_financial",
     "submission_outline",
+    "required_attachments",
+    "required_forms",
+    "format_compliance",
 }
 
 

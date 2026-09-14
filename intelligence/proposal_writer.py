@@ -20,12 +20,15 @@ from utils.untrusted import wrap_untrusted
 from utils.prose import humanize_draft
 from utils.observability import ensure_opportunity_usage, opportunity_usage
 from intelligence.tender_reader import (
+    build_format_compliance,
     build_tor_brief,
     build_win_strategy,
     extract_document_lock,
     format_document_lock,
+    parse_page_budget,
     plan_draft_outline,
     tender_documents_block,
+    word_count,
 )
 from intelligence.grounding import ground_sections
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
@@ -300,6 +303,12 @@ def _finalize_client_draft(
     """Ground claims, then prove the client-facing file has no financial information."""
     grounded = _attach_claim_grounding(sections, analysis, matched_team_result)
     _final_money_audit(grounded)
+    try:
+        grounded["format_compliance"] = build_format_compliance(
+            grounded, grounded.get("submission_outline") or {}
+        )
+    except Exception as e:
+        logger.warning(f"  Format compliance audit failed (non-fatal): {e}")
     return grounded
 
 
@@ -326,7 +335,15 @@ def _attach_draft_meta(sections: dict, system_blocks: list[dict]) -> dict:
     if meta.get("document_lock"):
         sections["document_lock"] = meta["document_lock"]
     outline = meta.get("submission_outline") or {}
-    if isinstance(outline, dict) and outline.get("omitted_financial"):
+    if isinstance(outline, dict) and outline:
+        sections["submission_outline"] = outline
+        if outline.get("omitted_financial"):
+            sections["omitted_financial"] = outline["omitted_financial"]
+        if outline.get("required_attachments"):
+            sections["required_attachments"] = outline["required_attachments"]
+        if outline.get("required_forms"):
+            sections["required_forms"] = outline["required_forms"]
+    elif isinstance(outline, dict) and outline.get("omitted_financial"):
         sections["omitted_financial"] = outline["omitted_financial"]
     return sections
 
@@ -394,6 +411,7 @@ _EXEMPLAR_KEY_FOR = {
     "risk_register": "risk",
     "team_section": "team",
     "work_plan": "work_plan",
+    "technical_proposal_body": "methodology",
     # EOI generators
     "eoi_cover": "cover_letter",
     "eoi_firm": "org_profile",
@@ -524,7 +542,11 @@ MANDATORY WRITING STANDARDS:
 - Match Cortech house voice: concrete, evidence-led, assignment-specific,
   the same register as the trusted house-style block and house-voice excerpts.
 - Where the tender prescribes a structure, heading, or page limit, follow it
-  exactly — the prescribed structure always beats Cortech's house structure.
+  exactly and fill the allowed length. The prescribed structure always beats
+  Cortech's house structure. If no writing format is stated, use the house
+  structure at full quality. CVs, links, referee contacts, and signed forms
+  are attachments, not chapters. Never put fees, rates, or a budget in an
+  EOI or technical proposal.
 - Professional development-consulting tone. No hollow phrases ("we are excited",
   "we believe", "our team is passionate", "this proposal aims", "we are pleased").
 - HUMAN PROSE ONLY. The output is a Word document a person wrote, not a chatbot.
@@ -613,9 +635,13 @@ assignment. This section must:
 6. Include no financial information (no fees, rates, budgets, contract values).
 7. House voice is register only. Do not import another assignment's method,
    geography, or section list.
-8. If the documents prescribe a section list, write those sections only, under
-   the tender's own headings and page limits. Do not add house sections the
-   tender did not ask for. Do not draft a financial envelope.
+8. If the documents prescribe a written section list, write those sections
+   only, under the tender's own headings, as a complete full-length technical
+   proposal or EOI. Fill every page limit. If the documents ask for a Gantt
+   or activity schedule, include a complete Gantt table. Do not turn CVs,
+   links, referee contacts, or signed forms into chapters. Do not add house
+   sections the tender did not ask for. Do not draft a financial envelope.
+   If the documents prescribe no writing format, use the house structure.
 """
 
 # Keys that are internal review metadata, not client-facing draft sections.
@@ -631,6 +657,9 @@ _META_SECTION_KEYS = {
     "section_order",
     "omitted_financial",
     "submission_outline",
+    "required_attachments",
+    "required_forms",
+    "format_compliance",
 }
 
 
@@ -1102,6 +1131,14 @@ def build_system_blocks(
             logger.info(
                 "  Financial envelope left for a separate file: "
                 + "; ".join(str(x) for x in omitted)
+            )
+        extras = []
+        extras.extend(submission_outline.get("required_attachments") or [])
+        extras.extend(submission_outline.get("required_forms") or [])
+        if extras:
+            logger.info(
+                "  Attachments/forms for the human, not drafted as chapters: "
+                + "; ".join(str(x) for x in extras[:8])
             )
     else:
         logger.info("  No ToR-prescribed section list — using Cortech house structure")
@@ -1685,6 +1722,92 @@ every subsection. Do not leave headings without body text.{QUALITY_SUFFIX}"""
     return sections
 
 
+def _draft_rules_for(item: dict) -> str:
+    item = item if isinstance(item, dict) else {}
+    parts = []
+    budget = parse_page_budget(item.get("page_limit") or "")
+    if budget:
+        parts.append(
+            f"BINDING LENGTH: write approximately {budget['target_words']} words "
+            f"({budget['label']}). Do not exceed {budget['max_words']} words. "
+            "Do not return a stub or a single paragraph. This length rule "
+            "overrides any other word count in this prompt. Fill the allowed "
+            "length with assignment-specific evidence."
+        )
+    if item.get("require_gantt"):
+        parts.append(
+            "BINDING GANTT: include a complete markdown Gantt table. Rows are "
+            "the activities and deliverables named in the tender. Columns are "
+            "weeks or months. Mark active cells with X. Every named milestone "
+            "date must appear. Do not stop after a GANTT CHART heading."
+        )
+    heading = str(item.get("heading") or "").strip()
+    if heading:
+        parts.append(
+            f"CLIENT HEADING: use this exact title, not a house rename: {heading}"
+        )
+    return "\n".join(parts)
+
+
+def _with_rules(draft_rules: str, prompt: str) -> str:
+    rules = (draft_rules or "").strip()
+    if not rules:
+        return prompt
+    return rules + "\n\n" + prompt
+
+
+def _clip_words(text: str, max_words: int) -> str:
+    words = (text or "").split()
+    if max_words <= 0 or len(words) <= max_words:
+        return text or ""
+    clipped = " ".join(words[:max_words])
+    return _trim_to_clean_end(clipped)
+
+
+def _apply_item_constraints(text: str, item: dict) -> str:
+    item = item if isinstance(item, dict) else {}
+    text = text or ""
+    budget = parse_page_budget(item.get("page_limit") or "")
+    if budget and word_count(text) > int(budget["max_words"] * 1.08):
+        text = _clip_words(text, budget["max_words"])
+    return text
+
+
+def _apply_outline_constraints(sections: dict, outline: dict) -> dict:
+    outline = outline if isinstance(outline, dict) else {}
+    for item in outline.get("sections") or []:
+        if not isinstance(item, dict):
+            continue
+        key = item.get("key")
+        if key in sections and isinstance(sections.get(key), str):
+            sections[key] = _apply_item_constraints(sections[key], item)
+    groups: dict[str, dict] = {}
+    for item in outline.get("sections") or []:
+        if not isinstance(item, dict):
+            continue
+        gid = item.get("group_id")
+        if not gid:
+            continue
+        groups.setdefault(gid, {
+            "max_words": int(item.get("group_max_words") or 0),
+            "keys": [],
+        })
+        groups[gid]["keys"].append(item.get("key"))
+    for group in groups.values():
+        max_w = int(group.get("max_words") or 0)
+        keys = [k for k in group["keys"] if isinstance(sections.get(k), str)]
+        if max_w <= 0 or not keys:
+            continue
+        total = sum(word_count(sections[k]) for k in keys)
+        if total <= int(max_w * 1.08):
+            continue
+        overflow = total - max_w
+        longest = max(keys, key=lambda k: word_count(sections[k]))
+        keep = max(80, word_count(sections[longest]) - overflow)
+        sections[longest] = _clip_words(sections[longest], keep)
+    return sections
+
+
 def generate_prescribed_section(
     item: dict,
     analysis: dict,
@@ -1705,16 +1828,12 @@ def generate_prescribed_section(
         if submission_type == "EOI"
         else "technical proposal"
     )
-    limit_line = (
-        f"LENGTH RULE (mandatory, scored if the tender says so): {page_limit}. "
-        "Stay inside it. Prefer complete, dense prose over extra house headings."
-        if page_limit
-        else ""
-    )
+    rules = _draft_rules_for(item)
     children = ""
     if must_include:
         children = (
-            "Cover these nested contents in the tender's order:\n"
+            "Cover these nested contents in the tender's order, each at full "
+            "submission quality, not as a bullet list:\n"
             + "\n".join(f"- {c}" for c in must_include if str(c).strip())
         )
     team_note = ""
@@ -1728,6 +1847,7 @@ def generate_prescribed_section(
 This is a {stage} for: {title}
 CLIENT: {client_name}
 
+{rules}
 {children}
 
 List every mandatory form, annex, template, or declaration the tender names
@@ -1737,24 +1857,32 @@ the tender documents. Wet-ink signatures, scanned IDs, and filled official
 templates cannot be produced in this draft — mark those [HUMAN ACTION REQUIRED].
 Do not invent a completed legal form. Do not include financial figures.
 
-{limit_line}
 {_eval_criteria_block(analysis, submission_type)}{QUALITY_SUFFIX}"""
         stage_name = "eoi_eligibility" if submission_type == "EOI" else "qa_and_ethics"
         return _generate_section(
             stage_name, CLAUDE_MODEL_PROPOSAL, 4096, system_blocks, user_prompt
         )
 
+    budget = parse_page_budget(page_limit)
+    tokens = CLAUDE_MAX_TOKENS
+    if budget and budget["max_words"] < 400:
+        tokens = 4096
     user_prompt = f"""Write the tender-prescribed section titled exactly:
 
 {heading}
 
+This section is part of a complete {stage}. Write it at full submission
+quality: specific to THIS assignment, mapped to the evaluation or
+shortlisting criteria, with named geography, target groups, deliverables,
+methods, and evidence. This is not a summary, not a checklist, and not a
+single paragraph unless the page limit is one page.
+
 Do not rename this heading to a Cortech house heading. Do not add extra
-house sections (executive summary, conceptual framework, risk register,
-sampling chapter) unless this heading is that section.
+house chapters unless this heading is that chapter.
 This is a {stage} for: {title}
 CLIENT: {client_name}
 
-{limit_line}
+{rules}
 {children}
 {team_note}
 
@@ -1763,8 +1891,8 @@ in the untrusted evidence pack. Use the client's own vocabulary. Invent
 nothing. If a suitability / fitness statement is required, prove fitness for
 THIS assignment (named geography, registrations in CORTECH PROFILE, relevant
 past work, named team) — not a generic brochure.
+State no fees, rates, budgets, or financial-proposal content.
 {_eval_criteria_block(analysis, submission_type)}{QUALITY_SUFFIX}"""
-    tokens = CLAUDE_MAX_TOKENS if "technical" in heading.lower() else 4096
     route = str(item.get("route") or "generic")
     stage_name = route if route in _EXEMPLAR_KEY_FOR else "understanding"
     return _generate_section(
@@ -1782,36 +1910,66 @@ def _house_writer_for(
     client_name: str,
     deadline: str,
     submission_type: str,
+    item: dict | None = None,
+    sibling_routes: list | None = None,
 ):
     """Return the existing house generator for a mapped ToR heading, or None."""
+    rules = _draft_rules_for(item or {})
     if route == "cover_letter":
         if submission_type == "EOI":
             return None
         return lambda: generate_cover_letter(
             title, client_name, deadline, analysis, system_blocks,
+            draft_rules=rules,
         )
     if route == "executive_summary":
         return lambda: generate_executive_summary(
             analysis, matched_team_result, system_blocks,
+            draft_rules=rules,
         )
     if route == "org_profile_and_track_record":
-        return lambda: generate_org_profile_and_track_record(analysis, system_blocks)
+        return lambda: generate_org_profile_and_track_record(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "introduction_and_framework":
-        return lambda: generate_introduction_and_framework(analysis, system_blocks)
+        return lambda: generate_introduction_and_framework(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "methodology":
-        return lambda: generate_methodology(analysis, system_blocks)
+        return lambda: generate_methodology(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "analysis_plan":
-        return lambda: generate_analysis_plan(analysis, system_blocks)
+        return lambda: generate_analysis_plan(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "qa_and_ethics":
-        return lambda: generate_qa_and_ethics(analysis, system_blocks)
+        return lambda: generate_qa_and_ethics(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "risk_register":
-        return lambda: generate_risk_register(analysis, system_blocks)
+        return lambda: generate_risk_register(
+            analysis, system_blocks, draft_rules=rules,
+        )
     if route == "team_section":
         return lambda: generate_team_section(
             matched_team_result, title, system_blocks, analysis,
+            draft_rules=rules,
         )
     if route == "work_plan":
-        return lambda: generate_work_plan(analysis, system_blocks)
+        return lambda: generate_work_plan(
+            analysis, system_blocks, draft_rules=rules,
+        )
+    if route == "technical_proposal_body":
+        return lambda: generate_technical_proposal_body(
+            analysis,
+            system_blocks,
+            matched_team_result=matched_team_result,
+            item=item or {},
+            sibling_routes=sibling_routes or [],
+            submission_type=submission_type,
+            draft_rules=rules,
+        )
     return None
 
 
@@ -1829,6 +1987,11 @@ def _jobs_from_outline(
     """Split outline items into parallel jobs and deferred (matrix) items."""
     jobs = {}
     deferred = []
+    sibling_routes = [
+        str(i.get("route") or "")
+        for i in (outline.get("sections") or [])
+        if isinstance(i, dict)
+    ]
     for item in outline.get("sections") or []:
         if not isinstance(item, dict) or not item.get("key"):
             continue
@@ -1847,16 +2010,22 @@ def _jobs_from_outline(
                 client_name=client_name,
                 deadline=deadline,
                 submission_type=submission_type,
+                item=item,
+                sibling_routes=[
+                    r for r in sibling_routes if r and r != route
+                ],
             )
             if house is not None:
-                return house()
-            return generate_prescribed_section(
-                item,
-                analysis,
-                system_blocks,
-                matched_team_result=matched_team_result,
-                submission_type=submission_type,
-            )
+                text = house()
+            else:
+                text = generate_prescribed_section(
+                    item,
+                    analysis,
+                    system_blocks,
+                    matched_team_result=matched_team_result,
+                    submission_type=submission_type,
+                )
+            return _apply_item_constraints(text, item)
 
         jobs[item["key"]] = _write
     return jobs, deferred
@@ -1926,10 +2095,13 @@ def generate_eoi(
             sections[item["key"]] = generate_prescribed_section(
                 item, analysis, system_blocks, matched_team_result, "EOI"
             )
+        sections = _apply_outline_constraints(sections, outline)
         sections["section_order"] = [
             (item["key"], item["heading"]) for item in outline["sections"]
         ]
         sections["omitted_financial"] = outline.get("omitted_financial") or []
+        sections["required_attachments"] = outline.get("required_attachments") or []
+        sections["required_forms"] = outline.get("required_forms") or []
         sections["submission_type"] = "EOI"
         sections = _attach_draft_meta(sections, system_blocks)
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
@@ -2239,10 +2411,13 @@ def generate_proposal(
             sections[item["key"]] = generate_prescribed_section(
                 item, analysis, system_blocks, matched_team_result, "FULL_PROPOSAL"
             )
+        sections = _apply_outline_constraints(sections, outline)
         sections["section_order"] = [
             (item["key"], item["heading"]) for item in outline["sections"]
         ]
         sections["omitted_financial"] = outline.get("omitted_financial") or []
+        sections["required_attachments"] = outline.get("required_attachments") or []
+        sections["required_forms"] = outline.get("required_forms") or []
         sections = _attach_draft_meta(sections, system_blocks)
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
         sections = _repair_weakest_section(sections, analysis, system_blocks)
@@ -2294,6 +2469,87 @@ def generate_proposal(
     return sections
 
 
+def generate_technical_proposal_body(
+    analysis: dict,
+    system_blocks: list[dict],
+    matched_team_result: dict | None = None,
+    item: dict | None = None,
+    sibling_routes: list | None = None,
+    submission_type: str = "FULL_PROPOSAL",
+    draft_rules: str = "",
+) -> str:
+    """Full technical-proposal body when the ToR names the envelope as one chapter."""
+    item = item if isinstance(item, dict) else {}
+    analysis = analysis or {}
+    skip = {str(r) for r in (sibling_routes or []) if r}
+    heading = str(item.get("heading") or "Technical proposal").strip()
+    _opportunity, title, client_name, _donor, _deadline = _opportunity_fields(analysis)
+    include = []
+    if "org_profile_and_track_record" not in skip and "relevant_experience" not in skip:
+        include.append(
+            "Previous related experience mapped to THIS assignment "
+            "(client, year, geography, method; no contract values)"
+        )
+    if "introduction_and_framework" not in skip and "understanding" not in skip:
+        include.append(
+            "Understanding of the ToR: purpose, geography, target groups, "
+            "deliverables, and constraints in the client's words"
+        )
+        include.append("Key research or evaluation questions the documents state")
+    if "methodology" not in skip and "approach_summary" not in skip:
+        include.append(
+            "Full methodology and tools: design rationale, phases, instruments, "
+            "respondents, outputs, quality control. Decidable, not abstract."
+        )
+    if "analysis_plan" not in skip:
+        include.append("Analysis approach for the evidence this assignment will produce")
+    if "team_section" not in skip and "key_experts" not in skip:
+        include.append("Named team and roles against the personnel requirements")
+    if "work_plan" not in skip:
+        include.append(
+            "Work plan with a complete markdown Gantt (activities x weeks/months)"
+        )
+    if item.get("must_include"):
+        include.extend(str(c) for c in item["must_include"] if str(c).strip())
+    topics = "\n".join(f"- {t}" for t in include) or (
+        "- A complete technical offer for this assignment"
+    )
+    rules = draft_rules or _draft_rules_for(item)
+    team_note = _team_digest(matched_team_result) if matched_team_result else ""
+    stage = (
+        "Expression of Interest"
+        if submission_type == "EOI"
+        else "technical proposal"
+    )
+    user_prompt = f"""Write the complete {stage} chapter titled exactly:
+
+{heading}
+
+ASSIGNMENT: {title}
+CLIENT: {client_name}
+
+This chapter IS the technical {'EOI body' if submission_type == 'EOI' else 'proposal'}.
+Write a full, scored submission under this heading. Not a stub. Not one
+paragraph. Fill the page limit with assignment-specific evidence.
+
+Cover, in this order:
+{topics}
+
+Do not write a cover letter (a sibling section covers that) if the outline
+already has one. Do not write a financial proposal, fees, rates, or budgets.
+Map the text onto the evaluation or shortlisting criteria in the tender.
+Use the client's vocabulary. Invent nothing.
+{team_note}
+{_eval_criteria_block(analysis, submission_type)}{QUALITY_SUFFIX}"""
+    return _generate_section(
+        "technical_proposal_body",
+        CLAUDE_MODEL_PROPOSAL,
+        CLAUDE_MAX_TOKENS,
+        system_blocks,
+        _with_rules(rules, user_prompt),
+    )
+
+
 def generate_cover_letter(
     title: str,
     client_name: str,
@@ -2301,6 +2557,7 @@ def generate_cover_letter(
     analysis: dict,
     system_blocks: list[dict],
     model: str = CLAUDE_MODEL_PROPOSAL,
+    draft_rules: str = "",
 ) -> str:
     """Generate professional cover letter."""
     strengths = (analysis.get("bid_analysis") or {}).get("key_strengths") or []
@@ -2334,9 +2591,11 @@ REQUIREMENTS:
 - Be specific about capabilities, not generic
 - State no monetary amounts — no fee, no budget, no past contract values
 - Write a complete letter — every sentence finished
-- 400-500 words{QUALITY_SUFFIX}"""
+- 400-500 words unless a BINDING LENGTH rule above sets a different limit{QUALITY_SUFFIX}"""
 
-    return _generate_section("cover_letter", model, 4096, system_blocks, user_prompt)
+    return _generate_section(
+        "cover_letter", model, 4096, system_blocks, _with_rules(draft_rules, user_prompt)
+    )
 
 
 def generate_executive_summary(
@@ -2344,6 +2603,7 @@ def generate_executive_summary(
     matched_team_result: dict,
     system_blocks: list[dict],
     model: str = CLAUDE_MODEL_PROPOSAL,
+    draft_rules: str = "",
 ) -> str:
     """
     Generate executive summary.
@@ -2392,10 +2652,15 @@ Reference 2-3 specific past assignments as credibility evidence, identified by
 client, year, and geography rather than contract value.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
-    return _generate_section("executive_summary", model, 4096, system_blocks, user_prompt)
+    return _generate_section(
+        "executive_summary", model, 4096, system_blocks,
+        _with_rules(draft_rules, user_prompt),
+    )
 
 
-def generate_methodology(analysis: dict, system_blocks: list[dict]) -> str:
+def generate_methodology(
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
+) -> str:
     """Generate the detailed methodology section — longest and most important."""
     user_prompt = f"""Write a detailed methodology section for a technical proposal.
 
@@ -2437,7 +2702,8 @@ State no costs, day rates, or budget figures — the financial proposal covers t
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "methodology", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "methodology", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
@@ -2446,6 +2712,7 @@ def generate_team_section(
     title: str,
     system_blocks: list[dict],
     analysis: dict | None = None,
+    draft_rules: str = "",
 ) -> str:
     """Generate team composition section."""
     team = (matched_team_result or {}).get("matched_team") or {}
@@ -2484,11 +2751,14 @@ State no fees, day rates, or personnel costs.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "team_section", CLAUDE_MODEL_PROPOSAL, 4096, system_blocks, user_prompt,
+        "team_section", CLAUDE_MODEL_PROPOSAL, 4096, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
-def generate_work_plan(analysis: dict, system_blocks: list[dict]) -> str:
+def generate_work_plan(
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
+) -> str:
     """Generate workplan/Gantt description."""
     duration = analysis.get("opportunity", {}).get("project_duration", "3 months")
 
@@ -2514,11 +2784,14 @@ Professional. 500-700 words. Do not stop after a heading such as "GANTT CHART".
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "work_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "work_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
-def generate_risk_register(analysis: dict, system_blocks: list[dict]) -> str:
+def generate_risk_register(
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
+) -> str:
     """Generate risk register."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
     thematic_areas = analysis.get("requirements", {}).get("thematic_areas", [])
@@ -2550,12 +2823,13 @@ Professional development sector language. 400-550 words.
 Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "risk_register", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "risk_register", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
 def generate_org_profile_and_track_record(
-    analysis: dict, system_blocks: list[dict]
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
 ) -> str:
     """Generate 'Organisational Profile' + 'Related Previous Assignments'."""
     user_prompt = f"""Write two sections for a Cortech Consulting Group technical proposal.
@@ -2590,12 +2864,12 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
         CLAUDE_MODEL_PROPOSAL,
         CLAUDE_MAX_TOKENS,
         system_blocks,
-        user_prompt,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
 def generate_introduction_and_framework(
-    analysis: dict, system_blocks: list[dict]
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
 ) -> str:
     """
     Generate 'Introduction and Background' (6 sub-sections per
@@ -2639,11 +2913,13 @@ Professional development consulting tone. Do NOT use hollow phrases like "we are
         CLAUDE_MODEL_PROPOSAL,
         CLAUDE_MAX_TOKENS,
         system_blocks,
-        user_prompt,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
-def generate_analysis_plan(analysis: dict, system_blocks: list[dict]) -> str:
+def generate_analysis_plan(
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
+) -> str:
     """Generate 'Sampling Strategy' (if applicable) + 'Data Analysis Plan'."""
     methodology_reqs = analysis.get("requirements", {}).get("methodology_requirements", [])
     deliverables = analysis.get("deliverables", [])
@@ -2680,11 +2956,14 @@ Professional development consulting tone. Complete both sections — do not stop
 inside the triangulation paragraph. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "analysis_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "analysis_plan", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )
 
 
-def generate_qa_and_ethics(analysis: dict, system_blocks: list[dict]) -> str:
+def generate_qa_and_ethics(
+    analysis: dict, system_blocks: list[dict], draft_rules: str = ""
+) -> str:
     """Generate 'Quality Assurance Framework' + 'Ethical Considerations and Safeguarding'."""
     location = analysis.get("opportunity", {}).get("project_location", ["East Africa"])
 
@@ -2711,5 +2990,6 @@ and do-no-harm principles. Complete both sections in full.
 Professional development consulting tone. Do NOT use hollow phrases like "we are excited," "we believe," "our team is passionate," or "this proposal aims."{QUALITY_SUFFIX}"""
 
     return _generate_section(
-        "qa_and_ethics", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks, user_prompt,
+        "qa_and_ethics", CLAUDE_MODEL_PROPOSAL, CLAUDE_MAX_TOKENS, system_blocks,
+        _with_rules(draft_rules, user_prompt),
     )

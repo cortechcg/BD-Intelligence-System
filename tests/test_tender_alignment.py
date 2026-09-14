@@ -120,7 +120,8 @@ def test_dca_a5_outline_follows_tor_not_house_structure():
     assert headings[0] == "Suitability statement"
     assert "Technical proposal" in headings[1]
     assert "Work-plan" in headings or "Work-plan" in str(headings)
-    assert any(item["key"] == "mandatory_forms" for item in outline["sections"])
+    assert not any(item["key"] == "mandatory_forms" for item in outline["sections"])
+    assert "Proposal Submission Form (Annex 2)" in outline["required_forms"]
     assert "Financial proposal" in outline["omitted_financial"]
     assert "executive_summary" not in headings
     assert "Conceptual Framework" not in str(headings)
@@ -128,6 +129,13 @@ def test_dca_a5_outline_follows_tor_not_house_structure():
     assert "suitability_statement" in keys
     work = next(item for item in outline["sections"] if "work" in item["heading"].lower())
     assert work["route"] == "work_plan"
+    assert work["require_gantt"] is True
+    tech = next(
+        item for item in outline["sections"] if "technical proposal" in item["heading"].lower()
+    )
+    assert tech["route"] == "technical_proposal_body"
+    assert "10" in tech["page_limit"]
+    assert outline["sections"][0]["route"] == "cover_letter"
 
 
 def test_outline_falls_back_when_only_envelope_name_is_listed():
@@ -254,3 +262,107 @@ def test_generate_proposal_writes_prescribed_outline_only(monkeypatch):
     assert "cover_letter" not in sections
     assert sections["section_order"][0][1] == "Suitability Statement"
     assert sections["omitted_financial"] == ["Financial Proposal"]
+
+
+def test_spread_a5_splits_written_chapters_from_attachments():
+    outline = tender_reader.plan_draft_outline({
+        "format_prescribed": True,
+        "prescribed_sections": [
+            "Suitability statement or cover letter including CV (max 3 pages)",
+            "Technical proposal summarizing previous related experience, understanding of the TOR, key research questions, methodology and tools",
+            "Work-plan indicating the activity schedule",
+            "Financial proposal",
+            "Proposal Submission Form (Annex 2)",
+            "Code of Conduct for Contractors (Annex 5)",
+            "CV highlighting the candidate's experience in the relevant field",
+            "Links to at least 3 previous related assignments",
+            "Contacts of three organisations with whom you have worked",
+        ],
+    })
+    headings = [item["heading"].lower() for item in outline["sections"]]
+    joined = " | ".join(headings)
+    assert outline["prescribed"] is True
+    assert any("suitability" in h for h in headings)
+    assert "experience" in joined
+    assert "understanding" in joined
+    assert "research question" in joined
+    assert "methodology" in joined
+    assert any("work" in h for h in headings)
+    assert not any("link" in h for h in headings)
+    assert not any("contact" in h for h in headings)
+    assert not any(h.startswith("cv") for h in headings)
+    assert not any(item["key"] == "mandatory_forms" for item in outline["sections"])
+    attach = " ".join(outline["required_attachments"]).lower()
+    assert "cv" in attach
+    assert "link" in attach
+    assert "contact" in attach
+    assert "Financial proposal" in outline["omitted_financial"]
+    work = next(item for item in outline["sections"] if "work" in item["heading"].lower())
+    assert work["require_gantt"] is True
+    assert outline["sections"][0]["route"] == "cover_letter"
+    assert "3" in outline["sections"][0]["page_limit"]
+
+
+def test_admin_packing_list_alone_is_not_a_proposal_outline():
+    outline = tender_reader.plan_draft_outline({
+        "format_prescribed": True,
+        "prescribed_sections": [
+            "CVs of the proposed team",
+            "Links to at least 3 previous related assignments",
+            "Tax clearance certificate",
+            "Financial proposal",
+        ],
+    })
+    assert outline["prescribed"] is False
+    assert outline["sections"] == []
+    assert outline["omitted_financial"]
+    assert any("cv" in a.lower() for a in outline["required_attachments"])
+
+
+def test_page_budget_and_gantt_detection():
+    one = tender_reader.parse_page_budget("maximum of one page")
+    assert one["max_words"] == 300
+    three = tender_reader.parse_page_budget("max 3 pages")
+    assert three["max_words"] == 900
+    words = tender_reader.parse_page_budget("450 words")
+    assert words["max_words"] == 450
+    table = (
+        "| Activity | Week 1 | Week 2 | Week 3 |\n"
+        "| Inception | X | | |\n"
+        "| Fieldwork | | X | X |\n"
+    )
+    assert tender_reader.has_gantt_chart(table) is True
+    assert tender_reader.has_gantt_chart("We will prepare a Gantt later.") is False
+
+
+def test_format_compliance_flags_over_limit_and_missing_gantt():
+    outline = {
+        "prescribed": True,
+        "sections": [
+            {
+                "key": "cover_letter",
+                "heading": "Cover letter",
+                "page_limit": "1 page",
+                "require_gantt": False,
+            },
+            {
+                "key": "work_plan",
+                "heading": "Work-plan",
+                "page_limit": "",
+                "require_gantt": True,
+            },
+        ],
+        "required_attachments": ["CVs of proposed experts"],
+        "omitted_financial": ["Financial proposal"],
+    }
+    long_cover = " ".join(["word"] * 500)
+    audit = tender_reader.build_format_compliance(
+        {"cover_letter": long_cover, "work_plan": "Narrative only. No table."},
+        outline,
+    )
+    by_key = {row["key"]: row for row in audit["rows"]}
+    assert by_key["cover_letter"]["status"] == "over"
+    assert by_key["work_plan"]["gantt"] == "missing"
+    assert audit["prescribed"] is True
+    assert audit["gantt_ok"] is False
+    assert "CVs of proposed experts" in audit["required_attachments"]
