@@ -215,16 +215,16 @@ TABLES = {
 
 # ── CLAUDE SETTINGS ───────────────────────────────────────────
 # Two constants — never hardcode model IDs at call sites.
-CLAUDE_MODEL = "claude-sonnet-5"           # analysis + extraction
-CLAUDE_MODEL_PROPOSAL = "claude-fable-5"   # proposal / EOI writing
+CLAUDE_MODEL = "claude-haiku-4-5"          # analysis, extraction, ToR reading
+CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"  # proposal / EOI writing
 CLAUDE_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
 # Update when Anthropic publishes new rates; these are not invoices.
 CLAUDE_PRICING_PER_MTOK = {
-    CLAUDE_MODEL: {"input": 2.00, "output": 10.00},
-    CLAUDE_MODEL_PROPOSAL: {"input": 10.00, "output": 50.00},
+    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
+    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 10.00},
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes

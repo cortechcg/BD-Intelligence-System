@@ -1,6 +1,6 @@
 # intelligence/analyzer.py
 """
-RFP/ToR analysis via Claude Sonnet 5.
+RFP/ToR analysis via Claude Haiku 4.5.
 One public function:
   analyze_rfp() → structured JSON from full document text
 """
@@ -23,6 +23,7 @@ from utils.llm import complete, usage_totals
 from utils.claude_helpers import get_text
 from utils.errors import ErrorType
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
+from intelligence.tender_reader import pack_tender_text
 
 
 def _normalize_opportunity(analysis: dict, fallback_title: str) -> None:
@@ -56,6 +57,8 @@ ANALYSIS_SCHEMA = """
     "reference_number": "string or null",
     "submission_deadline": "YYYY-MM-DD or null",
     "project_location": ["list of countries or cities"],
+    "lots_or_sites": ["lots, districts, or sites named in the ToR"],
+    "target_groups": ["named beneficiary or participant groups"],
     "project_duration": "string e.g. 3 months",
     "estimated_budget_usd": "number or null",
     "currency": "string"
@@ -109,6 +112,7 @@ ANALYSIS_SCHEMA = """
 
   "submission_requirements": {
     "technical_proposal_page_limit": "number or null",
+    "prescribed_proposal_sections": ["verbatim headings or contents the bidder must submit, empty if none prescribed"],
     "cvs_required": "boolean",
     "past_work_samples_required": "number",
     "references_required": "number",
@@ -192,9 +196,11 @@ the official score:
 - 30-49:  Weak match — significant gaps, high effort for uncertain win
 - 0-29:   Poor match — fundamental misalignment with Cortech's profile
 
-Extract project_location, thematic_areas, language_requirements,
-certifications, client, donor, submission_deadline, and
-estimated_budget_usd as accurately as the document supports.
+Extract project_location, lots_or_sites, target_groups, thematic_areas,
+language_requirements, certifications, client, donor, submission_deadline,
+prescribed_proposal_sections, and estimated_budget_usd as accurately as
+the document supports. Read the FULL pack: scope of work, scoring matrices,
+and annex instructions often sit in the middle — do not skip them.
 If a field is not in the document, use null / empty — do not guess.
 Copy facts; do not invent clients, countries, budgets, or credentials.
 
@@ -275,16 +281,7 @@ def analyze_rfp(
         logger.error(f"  Empty document — refusing analysis for '{title[:60]}'")
         return {}
 
-    # Truncate if too long — keep within safe token budget
-    max_chars = 120000  # ~30k tokens — enough for a ToR plus 2–3 annexes
-    if len(tor_text) > max_chars:
-        # Keep beginning and end — both contain critical information
-        half = max_chars // 2
-        tor_text = (
-            tor_text[:half]
-            + "\n\n[... MIDDLE SECTION TRUNCATED FOR TOKEN MANAGEMENT ...]\n\n"
-            + tor_text[-half:]
-        )
+    tor_text = pack_tender_text(tor_text, max_chars=140000)
 
     system, document_message = _analysis_request_parts(tor_text)
 

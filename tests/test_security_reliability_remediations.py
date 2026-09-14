@@ -431,15 +431,19 @@ def test_all_tender_derived_context_stays_out_of_proposal_system_messages(monkey
     analysis["opportunity"]["title"] = attack
     monkeypatch.setattr(proposal_writer, "build_tor_brief", lambda *args, **kwargs: attack)
     monkeypatch.setattr(proposal_writer, "build_win_strategy", lambda *args, **kwargs: attack)
+    monkeypatch.setattr(proposal_writer, "build_document_lock", lambda *args, **kwargs: "")
     monkeypatch.setattr(proposal_writer, "house_style_notes_for", lambda *args, **kwargs: "")
     monkeypatch.setattr(proposal_writer, "get_relevant_lessons", lambda *args, **kwargs: "")
+    monkeypatch.setattr(proposal_writer, "search_past_proposals", lambda *args, **kwargs: [])
+    monkeypatch.setattr(proposal_writer, "load_ranked_past_proposals", lambda *args, **kwargs: [])
+    monkeypatch.setattr(proposal_writer, "get_winning_proposals", lambda *args, **kwargs: [])
     blocks = proposal_writer.build_system_blocks(analysis, tor_text="", extra_context=attack)
     trusted = "\n".join(
         block["text"] for block in blocks if block.get("type") == "text"
     )
     assert attack not in trusted
     assert "HOUSE STYLE" in trusted
-    assert "BINDING FOR REGISTER" in trusted
+    assert "REGISTER ONLY" in trusted
     untrusted = "\n".join(
         block.get("text", "")
         for block in blocks
@@ -457,8 +461,9 @@ def test_all_tender_derived_context_stays_out_of_proposal_system_messages(monkey
     monkeypatch.setattr(proposal_writer, "complete", lambda **kwargs: captured.update(kwargs) or response)
     assert proposal_writer._generate_section("test", "model", 512, blocks, "Write safely.") == "Safe section."
     assert attack not in str(captured["system"])
-    assert attack in captured["messages"][0]["content"]
-    assert "WIN-STRATEGY LOCK" in captured["messages"][0]["content"]
+    user_text = proposal_writer._user_content_text(captured["messages"][0]["content"])
+    assert attack in user_text
+    assert "DOCUMENT LOCK" in user_text
     assert all(
         not isinstance(block, dict) or block.get("type") == "text"
         for block in captured["system"]

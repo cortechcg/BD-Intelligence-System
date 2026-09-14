@@ -159,9 +159,11 @@ def test_trusted_guidance_contains_house_style_and_lessons(monkeypatch):
         "get_relevant_lessons",
         lambda client, donor: "HOUSE LESSONS FROM PRIOR CORTECH BIDS\n- Name the OCA tool",
     )
+    monkeypatch.setattr(proposal_writer, "search_past_proposals", lambda *a, **k: [])
+    monkeypatch.setattr(proposal_writer, "load_ranked_past_proposals", lambda *a, **k: [])
     guidance = proposal_writer._build_guidance_block({
         "opportunity": {"client": "UNICEF", "donor": "UNICEF"},
     })
-    assert "BINDING FOR REGISTER AND STRUCTURE" in guidance
+    assert "REGISTER ONLY" in guidance
     assert "Name the OCA tool" in guidance
     assert "numbered sections" in guidance

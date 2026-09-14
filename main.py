@@ -704,7 +704,10 @@ def submit_single_url(url: str) -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = f"output/draft_{timestamp}.md"
     sections = result.get("proposal_sections", {})
-    _skip_keys = {"lightweight", "lightweight_reason", "submission_type", "quality_score"}
+    _skip_keys = {
+        "lightweight", "lightweight_reason", "submission_type", "quality_score",
+        "claim_grounding", "tender_brief", "win_strategy", "document_lock",
+    }
     with open(out_path, "w") as f:
         written = set()
         for key, heading in SECTION_ORDER:

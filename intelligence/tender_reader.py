@@ -21,10 +21,11 @@ Three public pieces:
                             a shared thesis every section must execute
 """
 import json
+import re
 
 from loguru import logger
 
-from config import CLAUDE_MODEL_PROPOSAL
+from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL
 from utils.llm import cached_tokens, complete, get_text, usage_totals
 from utils.money_scrub import redact_monetary_amounts, strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
@@ -35,10 +36,100 @@ from utils.untrusted import wrap_untrusted
 # to write a compliant proposal from.
 MIN_TENDER_CHARS = 1200
 
-# ~22k tokens. Cached across every section call, so this is paid once per
-# opportunity, not once per section. analyzer.py allows more (120k chars)
-# because it makes a single call.
-MAX_TENDER_CHARS = 90000
+# Packed pack is cached across section calls. Assignment-critical middle
+# (scope, scoring, lots, annex instructions) is retained; filler is dropped
+# only when the combined pack exceeds this cap.
+MAX_TENDER_CHARS = 140000
+
+_PRIORITY_RE = re.compile(
+    r"(scope of work|terms of reference|statement of work|objectives?|"
+    r"evaluation criter|award criter|scoring|marking scheme|shortlist|"
+    r"qualification|deliverable|methodology|technical approach|"
+    r"submission|instruction to|eligibility|lot\s*\d|key expert|"
+    r"personnel|staffing|reporting requirement|work ?plan|time.?frame|"
+    r"annex|appendix|expression of interest|request for proposal|"
+    r"target (group|beneficiar)|geographic|duty station|outputs?\b|"
+    r"activities\b|required (section|content|document)|page limit)",
+    re.I,
+)
+_HEADING_RE = re.compile(
+    r"^(#{1,6}\s+\S+|[A-Z][A-Z0-9][A-Z0-9 \-/,&()]{6,}$|"
+    r"\d+(\.\d+){0,4}\s+[A-Z].{3,}|ARTICLE\s+\d+|ANNEX\s+[A-Z0-9]+)",
+    re.I,
+)
+_INJECTION_RE = re.compile(
+    r"ignore (all )?(previous|prior) instructions|system prompt|"
+    r"untrusted-(begin|end)|===== (BEGIN|END)",
+    re.I,
+)
+
+
+def pack_tender_text(text: str, max_chars: int = MAX_TENDER_CHARS) -> str:
+    """Keep the full assignment. Drop only filler when the pack is too long.
+
+    Head+tail truncation was dropping the scope of work, lots, and scoring
+    matrices that sit in the middle of real RFPs, so drafts answered a
+    different document than the one fetched.
+    """
+    text = (text or "").strip()
+    if len(text) <= max_chars:
+        return text
+
+    paragraphs = re.split(r"\n{2,}", text)
+    count = len(paragraphs)
+    if count <= 4:
+        return text[:max_chars]
+
+    keep = set()
+    edge = max(1, count // 8)
+    keep.update(range(0, edge))
+    keep.update(range(count - edge, count))
+    for index, paragraph in enumerate(paragraphs):
+        first = paragraph.strip().split("\n", 1)[0].strip()
+        if _HEADING_RE.match(first) or _PRIORITY_RE.search(paragraph):
+            keep.add(index)
+            if index:
+                keep.add(index - 1)
+            if index + 1 < count:
+                keep.add(index + 1)
+
+    selected = []
+    omitted = False
+    for index, paragraph in enumerate(paragraphs):
+        if index in keep:
+            selected.append(paragraph)
+            omitted = False
+        elif not omitted:
+            selected.append(
+                "[... BACKGROUND PARAGRAPH OMITTED — ASSIGNMENT SECTIONS RETAINED ...]"
+            )
+            omitted = True
+    packed = "\n\n".join(selected)
+    if len(packed) > max_chars:
+        # Last resort: keep every priority paragraph, then fill from the ends.
+        priority = [
+            paragraph for paragraph in paragraphs
+            if _HEADING_RE.match(paragraph.strip().split("\n", 1)[0].strip())
+            or _PRIORITY_RE.search(paragraph)
+        ]
+        core = "\n\n".join(priority)
+        remaining = max_chars - len(core) - 80
+        if remaining > 2000:
+            half = remaining // 2
+            packed = (
+                text[:half]
+                + "\n\n[... NON-ASSIGNMENT PROSE OMITTED ...]\n\n"
+                + core
+                + "\n\n[... NON-ASSIGNMENT PROSE OMITTED ...]\n\n"
+                + text[-half:]
+            )
+        else:
+            packed = core[:max_chars]
+    logger.info(
+        f"  Packed tender {len(text):,} → {len(packed):,} chars "
+        f"(assignment sections retained)"
+    )
+    return packed[:max_chars]
 
 
 def tender_documents_block(tor_text: str) -> str:
@@ -50,20 +141,9 @@ def tender_documents_block(tor_text: str) -> str:
     cannot close its own data boundary before proposal instructions are read.
     Returns "" when there is not enough text to be useful.
     """
-    text = (tor_text or "").strip()
+    text = pack_tender_text((tor_text or "").strip())
     if len(text) < MIN_TENDER_CHARS:
         return ""
-
-    if len(text) > MAX_TENDER_CHARS:
-        # Keep both ends: the opening carries the scope and the client's own
-        # framing, the closing carries evaluation matrices, annex lists, and
-        # submission mechanics. The middle is usually background prose.
-        half = MAX_TENDER_CHARS // 2
-        text = (
-            text[:half]
-            + "\n\n[... MIDDLE SECTION OF THE TENDER PACK OMITTED FOR LENGTH ...]\n\n"
-            + text[-half:]
-        )
 
     text, removed = redact_monetary_amounts(text)
     if removed:
@@ -124,7 +204,9 @@ documents. Where it conflicts with the documents, the documents win:
 _BRIEF_PROMPT = """You are the bid manager at Cortech Consulting Group. Before any
 section of this technical proposal is drafted, produce the reading brief the
 writers will work from. Base it strictly on the tender documents in the
-untrusted data block — read every source file, including annexes.
+untrusted data block — read every source file, including annexes. Scope of
+work, lots, scoring matrices, and submission instructions often sit in the
+middle of the pack or in an annex. Do not skip them.
 
 Return markdown under exactly these headings:
 
@@ -162,6 +244,8 @@ assignment is at Expression of Interest / REOI / shortlisting stage — not a
 full technical proposal. Before any EOI section is drafted, produce the
 reading brief the writers will work from. Base it strictly on the tender
 documents in the untrusted data block — read every source file, including annexes.
+Scope of work, lots, qualification criteria, and submission instructions often
+sit in the middle of the pack or in an annex. Do not skip them.
 
 Return markdown under exactly these headings:
 
@@ -278,14 +362,26 @@ contract value. Write the strategy only. No preamble.
 
 
 def _slim_analysis_json(analysis: dict, submission_type: str) -> str:
-    title = (analysis.get("opportunity") or {}).get("title", "this assignment")
+    opportunity = analysis.get("opportunity") or {}
+    submission = analysis.get("submission_requirements") or {}
+    if not isinstance(opportunity, dict):
+        opportunity = {}
+    if not isinstance(submission, dict):
+        submission = {}
+    title = opportunity.get("title", "this assignment")
     return json.dumps(
         {
             "opportunity_title": title,
-            "client": (analysis.get("opportunity") or {}).get("client", ""),
+            "client": opportunity.get("client", ""),
+            "geography": opportunity.get("project_location") or [],
+            "lots_or_sites": opportunity.get("lots_or_sites") or [],
+            "target_groups": opportunity.get("target_groups") or [],
             "deliverables": analysis.get("deliverables", []),
             "evaluation_criteria": analysis.get("evaluation_criteria", []),
-            "submission_requirements": analysis.get("submission_requirements", {}),
+            "prescribed_proposal_sections": submission.get(
+                "prescribed_proposal_sections"
+            ) or [],
+            "submission_requirements": submission,
             "submission_type": submission_type,
         },
         indent=2,
@@ -355,7 +451,7 @@ def build_tor_brief(
     prompt_template = _BRIEF_PROMPT_EOI if submission_type == "EOI" else _BRIEF_PROMPT
     try:
         response = complete(
-            model=CLAUDE_MODEL_PROPOSAL,
+            model=CLAUDE_MODEL,
             # 8 headings, one of which reproduces a full scoring matrix
             # verbatim — 4096 hit the cap on a routine 8k-char tender and
             # truncated the brief mid-matrix.
@@ -404,6 +500,129 @@ def build_tor_brief(
         "instructions for this bid:\n"
     )
     return f"{label}{brief}"
+
+
+def _clean_lock_value(value) -> str:
+    text = " ".join(str(value or "").split())
+    if not text or _INJECTION_RE.search(text):
+        return ""
+    return text[:400]
+
+
+def _lock_list(value) -> list[str]:
+    if isinstance(value, list):
+        items = value
+    elif value:
+        items = [value]
+    else:
+        items = []
+    cleaned = []
+    for item in items:
+        text = _clean_lock_value(item)
+        if text:
+            cleaned.append(text)
+    return cleaned
+
+
+def format_document_lock(lock: dict) -> str:
+    """Turn the JSON lock into the writers' assignment card."""
+    if not isinstance(lock, dict) or not lock:
+        return ""
+    lines = ["DOCUMENT LOCK — THIS is the assignment. House style and past proposals cannot replace it."]
+    mapping = [
+        ("document_type", "Document type"),
+        ("assignment_title", "Title"),
+        ("buyer", "Buyer"),
+        ("purpose_one_sentence", "Purpose"),
+    ]
+    for key, label in mapping:
+        value = _clean_lock_value(lock.get(key))
+        if value:
+            lines.append(f"- {label}: {value}")
+    for key, label in (
+        ("geography", "Geography"),
+        ("lots_or_sites", "Lots / sites"),
+        ("target_groups", "Target groups"),
+        ("deliverables", "Deliverables"),
+        ("prescribed_sections", "Prescribed sections / contents"),
+        ("scored_or_shortlisting_criteria", "Scored or shortlisting criteria"),
+        ("vocabulary_lock", "Vocabulary to use unchanged"),
+        ("must_not", "Must not"),
+    ):
+        items = _lock_list(lock.get(key))
+        if items:
+            lines.append(f"- {label}: " + "; ".join(items[:12]))
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
+def build_document_lock(
+    tor_text: str,
+    analysis: dict,
+    doc_block: str = None,
+    submission_type: str = "FULL_PROPOSAL",
+) -> str:
+    """Extract a compact assignment card from the full tender pack."""
+    block = doc_block if doc_block is not None else tender_documents_block(tor_text)
+    if not block:
+        return ""
+    stage = "EOI" if submission_type == "EOI" else "technical proposal"
+    prompt = f"""Read the untrusted tender pack in full, including annexes and
+middle sections. Extract the assignment card for a {stage}. Invent nothing.
+If a field is not in the documents, use an empty string or [].
+
+Return ONLY valid JSON:
+{{
+  "document_type": "RFP or REOI or EOI or ToR or OTHER",
+  "assignment_title": "",
+  "buyer": "",
+  "geography": [],
+  "lots_or_sites": [],
+  "target_groups": [],
+  "purpose_one_sentence": "",
+  "deliverables": [],
+  "prescribed_sections": [],
+  "scored_or_shortlisting_criteria": [],
+  "vocabulary_lock": [],
+  "must_not": []
+}}
+
+prescribed_sections = verbatim headings or contents the bidder must submit.
+scored_or_shortlisting_criteria = how THIS submission is judged, not OECD-DAC
+questions the consultant would later apply to a project.
+"""
+    try:
+        response = complete(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            stage="document_lock",
+            system=_TENDER_READER_SYSTEM,
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"TENDER DOCUMENT DATA:\n{block}\n\n"
+                    "STRUCTURED EXTRACTION (also untrusted evidence):\n"
+                    + wrap_untrusted(_slim_analysis_json(analysis, submission_type))
+                    + "\n\n"
+                    + prompt
+                ),
+            }],
+        )
+    except Exception as e:
+        logger.warning(f"  Document-lock pass failed (non-fatal): {e}")
+        return ""
+    raw = get_text(response).strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+    try:
+        lock = json.loads(raw)
+    except ValueError:
+        logger.warning("  Document lock was not valid JSON — continuing without it")
+        return ""
+    formatted = format_document_lock(lock)
+    if formatted:
+        logger.success("  Document lock extracted from the tender pack")
+    return formatted
 
 
 def build_win_strategy(

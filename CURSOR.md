@@ -11,7 +11,7 @@ Nothing submits to clients automatically — human approval required.
 - Python 3.12 + virtualenv at ~/cortech-bd-agent/cortech/
 - Airtable (pyairtable) = human-facing CRM dashboard
 - Supabase (supabase-py + pgvector) = CV vector store + document cache
-- Anthropic Claude = chat (claude-sonnet-5 analysis, claude-fable-5 proposals)
+- Anthropic Claude = chat (claude-haiku-4-5 analysis, claude-sonnet-5 proposals)
 - OpenAI API = embeddings only (text-embedding-3-small, 1536-dim)
 - Gmail SMTP = email reports
 
@@ -61,7 +61,7 @@ check_schema.py            ← schema diagnostic, run before bulk writes
 6. CV matching via Supabase pgvector
 7. Budget calculation via rate card
 8. Compliance matrix via Claude
-9. Proposal draft via Claude Fable 5 (section by section)
+9. Proposal draft via Claude Sonnet 5 (section by section)
 10. Update Airtable status to Reviewing
 11. Send proposal email to full team
 
@@ -81,8 +81,8 @@ The LLM is_consultancy_contract gate does the real quality filtering.
 Do NOT make the RSS filter strict — it kills real opportunities.
 
 ## Models
-CLAUDE_MODEL = "claude-sonnet-5"            # analysis + extraction
-CLAUDE_MODEL_PROPOSAL = "claude-fable-5"    # proposal writing
+CLAUDE_MODEL = "claude-haiku-4-5"           # analysis + extraction + ToR reading
+CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"   # proposal writing
 Both in config.py — never hardcode model strings in other files.
 Embeddings: text-embedding-3-small (unchanged).
 
