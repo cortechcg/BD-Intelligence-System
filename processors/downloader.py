@@ -146,13 +146,14 @@ def extract_text_from_pdf(content: bytes) -> str:
         with pdfplumber.open(BytesIO(content)) as pdf:
             pages = []
             chars = 0
-            for page in pdf.pages:
+            for page_index, page in enumerate(pdf.pages, start=1):
                 text = page.extract_text()
                 if text:
                     remaining = MAX_EXTRACTED_TEXT_CHARS - chars
                     if remaining <= 0:
                         break
-                    pages.append(text[:remaining])
+                    marked = f"----- PAGE {page_index} -----\n{text}"
+                    pages.append(marked[:remaining])
                     chars += len(pages[-1])
                     if chars >= MAX_EXTRACTED_TEXT_CHARS:
                         logger.warning("PDF extracted text reached configured character cap")

@@ -99,9 +99,12 @@ CV/proposal embeddings, and win/loss memory. Important bid decisions retain
 recommendation inside `claude_analysis` / `bid_intelligence`.
 
 Current provenance is adequate for source URL, document cache, extracted
-analysis, score factors, and retrieved proposal metadata. It is not yet a full
-source → page → chunk → claim graph. `content_hash` is logged but not a
-database uniqueness field.
+analysis, score factors, retrieved proposal metadata, unique `content_hash`
+(when `supabase_migration_content_hash.sql` is applied), and field-level
+ToR provenance (`extraction_provenance`: value → source file/chunk, page only
+if a PAGE marker exists). It is not yet a full source → page → chunk →
+**proposal claim** graph. `content_hash` is a uniqueness field in the
+migration; the hosted database was not migrated in the Phase 1 session.
 
 ## 8. AI architecture
 
@@ -111,9 +114,10 @@ deterministic, and the original LLM numbers are audit-only. The budget engine
 does not call an LLM. Model IDs, timeout, retries, and estimated pricing are
 configuration-driven.
 
-Remaining gap: extraction is JSON parsing after a single model call, not a
-fully schema-validated structured-output contract; proposal claims do not yet
-have automated source-chunk verification.
+Remaining gap: proposal claims do not yet have automated source-chunk
+verification. Extraction JSON is now schema-validated (Pydantic) with one
+repair retry then an explicit refuse; that is not a live-LLM accuracy
+measurement and is not a claim graph.
 
 ## 9. RAG architecture
 
@@ -180,6 +184,27 @@ The new mocked vertical slice covers fetch → quality → cache → LLM analysi
 deterministic BID override → financial status → proposal → compliance → CRM
 reviewing status. Tests make no live API calls.
 
+Phase 0 re-run locally on 2026-09-14:
+
+```text
+./cortech/bin/python -m pytest tests/ -q
+2 failed, 219 passed in 14.50s
+```
+
+The two failures are pre-existing `tests/test_grounding.py` cases, not this
+phase. New golden tests all passed.
+
+Phase 1 re-run locally on 2026-09-14:
+
+```text
+./cortech/bin/python -m pytest tests/ -q
+2 failed, 237 passed in 14.66s
+```
+
+The two failures remain the pre-existing grounding cases. Golden extraction
+metrics on recorded JSON through the schema-validating `parse_analysis_payload`
+are unchanged from Phase 0 (consultancy P/R/acc 1.000).
+
 ## 15. Evaluation and regression results
 
 Regression cases added and passing:
@@ -196,15 +221,22 @@ Regression cases added and passing:
 - a deterministic NO-BID stays a human-reviewable `New` record;
 - Supabase client construction is deferred and missing config fails explicitly.
 
-There is no labelled golden corpus or held-out extraction/retrieval benchmark,
-so no accuracy, calibration, precision, recall, or Brier score is claimed.
+Phase 0 (2026-09-14) added `tests/golden/` — 36 anonymized items with an
+offline harness. Recorded-JSON parse vs labels: consultancy precision/recall
+1.000 (29 true / 7 false). Scorer recommendation accuracy 1.000 on the 29
+items with an expected BID/WATCH/NO-BID band. That is a **harness baseline**,
+not live Claude extraction accuracy, not retrieval quality, and not a
+calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
 
 ## 16. Remaining technical debt
 
-- Replace single-shot LLM JSON parsing with schema validation and repair/retry
-  policy.
-- Store content hash, extraction/version/provenance, freshness, and lifecycle
-  fields in deliberate database migrations.
+- Schema validation and one repair retry for analyzer JSON are in place;
+  remaining extraction debt is live-LLM evaluation against the golden set,
+  not a second parser.
+- Store content hash uniqueness (`supabase_migration_content_hash.sql` — file
+  present, not applied this session), then extraction version/freshness and a
+  fuller lifecycle. Field-level ToR provenance exists; proposal-claim
+  provenance does not.
 - Implement DNS-pinned HTTP transport and document-parser isolation if the
   threat model warrants it.
 - Break `main.process_opportunity()` and the large proposal writer into tested
@@ -242,8 +274,8 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 |---|---:|---|
 | Architecture | 6 | Coherent modular single process; lacks durable workflow boundaries and knowledge layer. |
 | Reliability | 6 | Isolated source failures, quality gates, bounded downloads; no durable retry/state system. |
-| Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns; no canonical entity/freshness model. |
-| AI Quality | 6 | Untrusted boundaries and deterministic score boundary; no schema/claim verifier. |
+| Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance. Still no canonical entity/freshness model. |
+| AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail. Gap: live Claude extraction vs golden set is unmeasured; proposal claim verifier is still absent. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
 | Opportunity Intelligence | 6 | Discovery, dedup, extraction, score; limited sources and stale-detection model. |
 | Market Intelligence | 0 | No observed-data trend product. |
@@ -256,16 +288,19 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Outcome Intelligence | 5 | Win/loss lesson storage exists; lessons do not update scoring. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | 57 passing isolated tests plus mocked vertical slice; no staging/golden/evaluation suite. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0) and schema/retry/provenance failure tests (Phase 1). Suite on 2026-09-14: 237 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
 
 ## 20. Recommended next phase
 
-First build a migration-backed opportunity/document/fact/provenance lifecycle
-and a small golden dataset. Then validate extraction and retrieval against it,
-add a human approval/outcome schema, and only after enough structured outcomes
-exist, train and validate a calibrated win model. Build client and market views
-from those observed records before attempting competitors, relationships, or
-strategic recommendations.
+Phase 0 delivered the small golden dataset (`tests/golden/`, ADR 004). Phase 1
+delivered schema-validated extraction, `content_hash` uniqueness (migration
+file; not applied this session), and minimal field-level ToR provenance
+(ADR 005). Next: apply the hash migration, a **live** extraction (and later
+retrieval) pass against the golden set, a human approval/outcome schema, and
+only after enough structured outcomes exist, train and validate a calibrated
+win model. Build client and market views from those observed records before
+attempting competitors, relationships, or strategic recommendations. Phase 2
+(organizations / win model / competitors) was not started here.

@@ -11,6 +11,7 @@ from utils.claude_helpers import get_text
 from utils.errors import ErrorType
 from utils.urls import canonicalize_url, safe_filename, url_identity_keys
 from utils.untrusted import wrap_untrusted
+from utils.hashing import content_hash
 
 _supabase_client: Client | None = None
 
@@ -36,6 +37,28 @@ class EmbeddingError(Exception):
     def __init__(self, message: str, *, auth: bool = False):
         super().__init__(message)
         self.auth = auth
+
+
+def _is_missing_content_hash_column(exc: Exception) -> bool:
+    """True when opportunities_cache.content_hash has not been migrated yet."""
+    msg = str(exc).lower()
+    if "content_hash" not in msg:
+        return False
+    return (
+        "pgrst204" in msg
+        or "42703" in msg
+        or "schema cache" in msg
+        or "does not exist" in msg
+        or "could not find" in msg
+        or "unknown column" in msg
+    )
+
+
+def _is_content_hash_unique_violation(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    if "content_hash" not in msg:
+        return False
+    return "23505" in msg or "duplicate" in msg or "unique" in msg
 
 
 def _is_missing_processing_ledger(exc: Exception) -> bool:
@@ -506,6 +529,33 @@ def find_similar_opportunity(
         return None
 
 
+def find_opportunity_by_content_hash(digest: str) -> Optional[dict]:
+    """Look up a cached document by body hash. Missing column → None (fail-open)."""
+    if not digest or not isinstance(digest, str):
+        return None
+    try:
+        result = (
+            supabase.table("opportunities_cache")
+            .select("id, source_url, title, content_hash")
+            .eq("content_hash", digest)
+            .limit(1)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows or not isinstance(rows[0], dict):
+            return None
+        return rows[0]
+    except Exception as e:
+        if _is_missing_content_hash_column(e):
+            logger.warning(
+                "opportunities_cache.content_hash is missing — apply "
+                "supabase_migration_content_hash.sql. Dedup stays URL-only."
+            )
+            return None
+        logger.warning(f"content_hash lookup failed (non-fatal): {e}")
+        return None
+
+
 def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
     """
     Store opportunity text in cache. Upsert on source_url so re-submits don't 23505.
@@ -515,6 +565,10 @@ def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
     semantic near-duplicate gate silently matches nothing forever: the RPC
     and the column both exist, they just have no vectors to search. Failure
     here is non-fatal; the row still lands and exact-URL dedup still works.
+
+    ``content_hash`` is unique when the migration has been applied. A unique
+    collision means this body was already stored under another URL; return
+    that row's id rather than overwriting it.
     """
     row = {
         "source_url": source_url,
@@ -532,10 +586,38 @@ def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
     store_url = canonicalize_url(source_url) or source_url
     row["source_url"] = store_url
 
-    result = supabase.table("opportunities_cache").upsert(
-        row,
-        on_conflict="source_url",
-    ).execute()
+    digest = content_hash(raw_text) if (raw_text or "").strip() else None
+    if digest:
+        row["content_hash"] = digest
+
+    def _upsert(payload: dict):
+        return supabase.table("opportunities_cache").upsert(
+            payload,
+            on_conflict="source_url",
+        ).execute()
+
+    try:
+        result = _upsert(row)
+    except Exception as e:
+        if digest and _is_content_hash_unique_violation(e):
+            existing = find_opportunity_by_content_hash(digest)
+            if existing and existing.get("id"):
+                logger.info(
+                    "content_hash already stored "
+                    f"(source_url={existing.get('source_url', '')[:80]})"
+                )
+                return str(existing["id"])
+        if digest and _is_missing_content_hash_column(e):
+            logger.warning(
+                "content_hash column missing — storing without uniqueness. "
+                "Apply supabase_migration_content_hash.sql."
+            )
+            fallback = dict(row)
+            fallback.pop("content_hash", None)
+            result = _upsert(fallback)
+        else:
+            raise
+
     return result.data[0]["id"]
 
 

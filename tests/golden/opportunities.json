@@ -1,0 +1,2165 @@
+[
+  {
+    "id": "g-001",
+    "source_kind": "past_proposal",
+    "title": "Consultancy to conduct a WASH KAP survey in Dadaab refugee camps, Garissa, Kenya",
+    "document_text": "TERMS OF REFERENCE \u2014 FIRM CONSULTANCY\nAssignment: Knowledge, Attitudes and Practices (KAP) survey of WASH interventions\nin Dadaab refugee camps, Garissa County, Kenya.\nThe contracting organisation (Client A) seeks a consulting firm to design and\nimplement a mixed-methods KAP survey, identify gaps in current WASH programming,\nand deliver a findings report with recommendations.\nDeliverables: inception report, cleaned dataset, draft and final survey report.\nThis is not a staff vacancy.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client A",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "WASH",
+        "assessment"
+      ],
+      "geography": [
+        "Kenya",
+        "Dadaab",
+        "Garissa"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past technical proposal in data/proposals; ToR deadline and budget not stated in the inspected text.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Consultancy to conduct a WASH KAP survey in Dadaab refugee camps, Garissa, Kenya",
+        "client": "Client A",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Dadaab",
+          "Garissa"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "WASH",
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Dadaab",
+          "Garissa"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-002",
+    "source_kind": "past_proposal",
+    "title": "Consultancy to conduct a labour market assessment in Jowhar focusing on IDPs and host communities",
+    "document_text": "TERMS OF REFERENCE \u2014 CONSULTANCY CONTRACT\nClient B requests a consulting firm to conduct a labour market assessment in\nJowhar, Somalia, with particular focus on internally displaced persons and\nvulnerable host communities. Duration approximately 30 days.\nDeliverables: methodology, field assessment, labour market report.\nFirm-level assignment with a defined scope of work.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client B",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "livelihoods",
+        "assessment"
+      ],
+      "geography": [
+        "Somalia",
+        "Jowhar"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past technical proposal. Assignment location is Jowhar, Somalia.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Consultancy to conduct a labour market assessment in Jowhar focusing on IDPs and host communities",
+        "client": "Client B",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Jowhar"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "livelihoods",
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Jowhar"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-003",
+    "source_kind": "past_proposal",
+    "title": "Third-party monitoring of a climate-resilient food security portfolio in Gobweyn and Kismayo, Jubaland",
+    "document_text": "REQUEST FOR PROPOSAL \u2014 THIRD PARTY MONITORING\nClient C seeks a consulting firm for third-party monitoring of a climate\nresilient food security project in Gobweyn and Luglow/Kismayo, Jubaland, Somalia.\nDeliverables: TPM inception, field monitoring reports, verification of outputs.\nCompany contract with monitoring deliverables \u2014 not an individual job posting.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client C",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "monitoring",
+        "climate",
+        "food security"
+      ],
+      "geography": [
+        "Somalia",
+        "Kismayo",
+        "Jubaland"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past TPM proposal. 'Food security' is labeled because it is in the assignment title; scoring uses overlap with the core thematic list.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Third-party monitoring of a climate-resilient food security portfolio in Gobweyn and Kismayo, Jubaland",
+        "client": "Client C",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Kismayo",
+          "Jubaland"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "monitoring",
+          "climate",
+          "food security"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Kismayo",
+          "Jubaland"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-004",
+    "source_kind": "past_proposal",
+    "title": "Mapping of child protection and GBV service providers in Baidoa and Bardhere, Somalia",
+    "document_text": "CALL FOR CONSULTANCY\nClient D (Somalia country office) requests a firm to map available child\nprotection and GBV service providers in Baidoa and Bardhere, Somalia.\nDeliverables: service mapping, gap analysis, presentation to the client.\nTerms of reference dated July 2024. Submission deadline is not restated in the\nproposal body inspected.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client D",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "protection"
+      ],
+      "geography": [
+        "Somalia",
+        "Baidoa"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Bardhere is in the assignment but city-level labels keep Baidoa + Somalia as the verified geography.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Mapping of child protection and GBV service providers in Baidoa and Bardhere, Somalia",
+        "client": "Client D",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Baidoa"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "protection"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Baidoa"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-005",
+    "source_kind": "past_proposal",
+    "title": "End-line evaluation of a resilience and peaceful co-existence project in Somalia",
+    "document_text": "TERMS OF REFERENCE \u2014 END-LINE EVALUATION\nClient E seeks a consulting firm to conduct an end-line evaluation of the\nproject Promoting Resilience and Peaceful Co-existence for Climate Crisis\nAffected Communities in Somalia.\nApply OECD-DAC criteria. Deliverables: inception, data collection, draft and\nfinal evaluation report.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client E",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "evaluation",
+        "endline",
+        "climate"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past end-line evaluation proposal. Climate crisis is in the project name.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "End-line evaluation of a resilience and peaceful co-existence project in Somalia",
+        "client": "Client E",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation",
+          "endline",
+          "climate"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-006",
+    "source_kind": "past_proposal",
+    "title": "End of project evaluation of nutrition interventions in three Garissa sub-counties, Kenya",
+    "document_text": "TERMS OF REFERENCE \u2014 END OF PROJECT EVALUATION\nClient F requests a consulting firm to evaluate scaling up of activities related\nto prevention and treatment of malnourished children under five, pregnant and\nlactating women in Lagdera, Dadaab and Garissa Township, Kenya.\nDeliverables: evaluation report covering nutrition outcomes and local IMAM capacity.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client F",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "evaluation",
+        "nutrition"
+      ],
+      "geography": [
+        "Kenya",
+        "Garissa",
+        "Dadaab"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past nutrition evaluation proposal. Assignment geography is Garissa County, Kenya.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "End of project evaluation of nutrition interventions in three Garissa sub-counties, Kenya",
+        "client": "Client F",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Garissa",
+          "Dadaab"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation",
+          "nutrition"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Garissa",
+          "Dadaab"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-007",
+    "source_kind": "past_proposal",
+    "title": "Development of a communication strategy for a girls' empowerment organisation in Kenya ASALs",
+    "document_text": "CONSULTANCY \u2014 COMMUNICATION STRATEGY\nClient G, an NGO working with girls in arid and semi-arid regions of Kenya,\nseeks a consulting firm to develop a communication strategy covering visibility,\nresource mobilisation and advocacy.\nDeliverables: strategy document, implementation roadmap, briefing to leadership.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client G",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "advocacy"
+      ],
+      "geography": [
+        "Kenya"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Firm consultancy to produce a strategy deliverable, not a communications officer vacancy.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Development of a communication strategy for a girls' empowerment organisation in Kenya ASALs",
+        "client": "Client G",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "advocacy"
+        ],
+        "geographic_experience": [
+          "Kenya"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-008",
+    "source_kind": "past_proposal",
+    "title": "GEDSI assessment and staff training in Jubaland, Somalia",
+    "document_text": "TERMS OF REFERENCE\nClient E requests consulting services for a Gender Equality, Disability and\nSocial Inclusion (GEDSI) assessment in Jubaland, Somalia, plus training of\nsub-programme staff.\nDeliverables: GEDSI assessment report and capacity-building workshops.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client E",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "assessment",
+        "capacity building"
+      ],
+      "geography": [
+        "Somalia",
+        "Jubaland"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Same anonymized client as g-005 (repeat buyer). Outcome still UNKNOWN.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "GEDSI assessment and staff training in Jubaland, Somalia",
+        "client": "Client E",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Jubaland"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "assessment",
+          "capacity building"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Jubaland"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-009",
+    "source_kind": "past_proposal",
+    "title": "Monitoring framework and scorecard for a free-movement-of-persons protocol in Africa",
+    "document_text": "CONSULTANCY CONTRACT\nClient H (regional office in Ethiopia) seeks a firm to develop a monitoring\nframework and scorecard on implementation of the Free Movement of Persons\nprotocol in Africa.\nDeliverables: monitoring framework, scorecard, guidance notes.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client H",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "monitoring"
+      ],
+      "geography": [
+        "Ethiopia",
+        "Africa"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Assignment is continental; contracting office named Ethiopia. 'Africa' is a regional geography in the scoring model.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Monitoring framework and scorecard for a free-movement-of-persons protocol in Africa",
+        "client": "Client H",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Ethiopia",
+          "Africa"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "monitoring"
+        ],
+        "geographic_experience": [
+          "Ethiopia",
+          "Africa"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-010",
+    "source_kind": "past_proposal",
+    "title": "Institutional strengthening for Somalia's accession to a regional economic community",
+    "document_text": "REQUEST FOR CONSULTING SERVICES\nThe assignment is to support institutional strengthening and capacity building\nfor Somalia's accession to a regional economic community, including alignment\nof national systems with the community framework.\nClient I. Deliverables: capacity-building plan, institutional assessments,\nprogress reports. Firm-level consultancy.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client I",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "capacity building",
+        "policy"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past proposal on Somalia regional-integration support. Budget/deadline not in inspected opening pages.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Institutional strengthening for Somalia's accession to a regional economic community",
+        "client": "Client I",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "capacity building",
+          "policy"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-011",
+    "source_kind": "past_proposal",
+    "title": "Livelihood development through SME and MSME support for IDPs and host communities in Bossaso, Somalia",
+    "document_text": "CONSULTANCY SERVICE\nReference noted in the source proposal as a UN-agency country procurement code.\nClient J requests a firm to enhance livelihood development through SME and MSME\nsupport for IDPs and host communities in Bossaso, Somalia.\nDeliverables: technical approach, implementation support, reporting.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client J",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "livelihoods",
+        "economic inclusion"
+      ],
+      "geography": [
+        "Somalia",
+        "Bossaso"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Client anonymized. Donor identity not treated as a verified extracted field.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Livelihood development through SME and MSME support for IDPs and host communities in Bossaso, Somalia",
+        "client": "Client J",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Bossaso"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "livelihoods",
+          "economic inclusion"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Bossaso"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-012",
+    "source_kind": "past_proposal",
+    "title": "Third-party monitoring of a country humanitarian fund in Sudan",
+    "document_text": "REQUEST FOR PROPOSAL\nConsultancy service for provision of third-party monitoring services for a\nhumanitarian fund in Sudan. Client K (UN humanitarian coordination office).\nDeliverables: TPM methodology, field monitoring, verification reports.\nThis hires a company to deliver monitoring services.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client K",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "monitoring"
+      ],
+      "geography": [
+        "Sudan"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Sudan is a secondary geography in scoring_model.json. Thematic monitoring is core.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Third-party monitoring of a country humanitarian fund in Sudan",
+        "client": "Client K",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Sudan"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "monitoring"
+        ],
+        "geographic_experience": [
+          "Sudan"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-013",
+    "source_kind": "past_proposal",
+    "title": "Design of an impact-based climate-risk forecasting framework and prototype in Somalia",
+    "document_text": "EXPRESSION OF INTEREST\nClient L (national disaster-management agency, Mogadishu) seeks consulting\nservices to design and develop a practical impact-based forecasting framework\nand prototype system for climate risks in Somalia, complementary to the\nmulti-hazard early warning system.\nDeliverables: framework, prototype products, institutionalisation roadmap.\nEOI stage.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client L",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "climate"
+      ],
+      "geography": [
+        "Somalia",
+        "Mogadishu"
+      ],
+      "outcome": "UNKNOWN",
+      "submission_type": "EOI",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": []
+    },
+    "expected_recommendation": "BID",
+    "notes": "EOI, not a full proposal stage. Still a firm consultancy.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Design of an impact-based climate-risk forecasting framework and prototype in Somalia",
+        "client": "Client L",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "climate"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "EOI",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-014",
+    "source_kind": "past_proposal",
+    "title": "Scaling up women-led micro and small enterprises for social and economic inclusion of IDPs in Baidoa",
+    "document_text": "CONSULTANCY / TECHNICAL SUBMISSION\nAssignment: scaling up women-led micro and small enterprises for the social\nand economic inclusion of internally displaced persons in Baidoa, Somalia.\nA firm is proposed to deliver the technical approach, not a salaried post.\nDeliverables: technical methodology and implementation plan.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client M",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "livelihoods",
+        "economic inclusion"
+      ],
+      "geography": [
+        "Somalia",
+        "Baidoa"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Contracting client name was not reliable in the inspected opening text; labeled Client M rather than invented.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Scaling up women-led micro and small enterprises for social and economic inclusion of IDPs in Baidoa",
+        "client": "Client M",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Baidoa"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "livelihoods",
+          "economic inclusion"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Baidoa"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-015",
+    "source_kind": "past_proposal",
+    "title": "Operating-model design for a local organisation in Kismayo, Jubaland",
+    "document_text": "TERMS OF REFERENCE \u2014 TECHNICAL CONSULTANCY\nDevelop an operating model for a local organisation in Kismayo, Jubaland,\nSomalia. Client N. Deliverables: operating-model report and implementation\nrecommendations. Company assignment with defined outputs.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client N",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "assessment"
+      ],
+      "geography": [
+        "Somalia",
+        "Kismayo",
+        "Jubaland"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Thematic 'assessment' is the closest core label; the document is an organisational operating-model consultancy.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Operating-model design for a local organisation in Kismayo, Jubaland",
+        "client": "Client N",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Kismayo",
+          "Jubaland"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Somalia",
+          "Kismayo",
+          "Jubaland"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-016",
+    "source_kind": "past_proposal",
+    "title": "End-line evaluation of an area-based livelihoods initiative in Dadaab and Fafi, Garissa County",
+    "document_text": "TERMS OF REFERENCE \u2014 END-LINE EVALUATION\nClient O (Kenya office) seeks a consulting firm for the end-line evaluation of\nan area-based livelihoods initiative in Dadaab and Fafi, Garissa County, Kenya.\nOECD-DAC criteria. Mixed methods. Deliverables: inception, survey, outcome\nharvesting, draft and final evaluation reports.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client O",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "evaluation",
+        "endline",
+        "livelihoods"
+      ],
+      "geography": [
+        "Kenya",
+        "Garissa",
+        "Dadaab"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past end-line evaluation proposal. Donor not labeled; not stated as a separate extracted field in the opening text used.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "End-line evaluation of an area-based livelihoods initiative in Dadaab and Fafi, Garissa County",
+        "client": "Client O",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Garissa",
+          "Dadaab"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation",
+          "endline",
+          "livelihoods"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Garissa",
+          "Dadaab"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-017",
+    "source_kind": "past_proposal",
+    "title": "End-line evaluation of localization practice in child protection coordination in Somalia",
+    "document_text": "TERMS OF REFERENCE \u2014 INDEPENDENT ENDLINE EVALUATION\nClient P (Somalia country office) seeks a firm to evaluate Localization Practice\nPhase II: strengthening local and national actors in child protection\ncoordination and advocacy in Somalia, including organisational capacity of\nsupported CSOs.\nDeliverables: qualitative endline, OCA re-administration, evaluation report.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client P",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "evaluation",
+        "endline",
+        "protection"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past endline evaluation. Child protection is labeled as protection (core thematic).",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "End-line evaluation of localization practice in child protection coordination in Somalia",
+        "client": "Client P",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation",
+          "endline",
+          "protection"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-018",
+    "source_kind": "past_proposal",
+    "title": "Survey of applicable expert remuneration fees in comparable organisations in Kenya",
+    "document_text": "REQUEST FOR PROPOSAL\nClient C seeks a consulting firm to survey applicable expert remuneration fees\nin comparable organisations in Kenya and produce a benchmark report.\nDeliverables: methodology, survey, remuneration benchmark report.\nFirm consultancy, not a human-resources staff vacancy.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client C",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "research",
+        "assessment"
+      ],
+      "geography": [
+        "Kenya"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Repeat anonymized client C. Labeled research/assessment because it is a fee survey, not an HR job.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Survey of applicable expert remuneration fees in comparable organisations in Kenya",
+        "client": "Client C",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "research",
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Kenya"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-019",
+    "source_kind": "past_proposal",
+    "title": "Design and delivery of a community-based anticipatory action pilot in the Mandera and Moyale clusters",
+    "document_text": "REQUEST FOR PROPOSALS\nClient Q (regional climate centre, Kenya) seeks consulting services to design\nand deliver a community-based anticipatory action pilot within the Mandera and\nMoyale clusters. RFP dated 10 August 2026 (issue date, not a submission deadline).\nDeliverables: design, delivery, pilot documentation.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client Q",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "climate",
+        "capacity building"
+      ],
+      "geography": [
+        "Kenya",
+        "Ethiopia",
+        "Mandera",
+        "Moyale"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "RFP issue date is not a submission deadline \u2014 deadline labeled null. Clusters sit on the Kenya/Ethiopia border.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Design and delivery of a community-based anticipatory action pilot in the Mandera and Moyale clusters",
+        "client": "Client Q",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Ethiopia",
+          "Mandera",
+          "Moyale"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "climate",
+          "capacity building"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Ethiopia",
+          "Mandera",
+          "Moyale"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-020",
+    "source_kind": "past_proposal",
+    "title": "Final evaluation of a civil-society empowerment project for rural service delivery in Kenya",
+    "document_text": "TERMS OF REFERENCE \u2014 FINAL EVALUATION\nClient R seeks a consulting firm for the evaluation of a civil society\nempowerment project for improved service delivery in rural areas of Kenya.\nMEAL assignment. Deliverables: evaluation report and recommendations.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client R",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "evaluation"
+      ],
+      "geography": [
+        "Kenya"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Past final-evaluation proposal. Rural counties were named in one variant; country-level Kenya is the verified geography.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Final evaluation of a civil-society empowerment project for rural service delivery in Kenya",
+        "client": "Client R",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation"
+        ],
+        "geographic_experience": [
+          "Kenya"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-021",
+    "source_kind": "past_proposal",
+    "title": "Technical strengthening assessment of WASH projects in Makueni and Kitui Counties, Kenya",
+    "document_text": "REQUEST FOR TENDER \u2014 ASSESSMENT\nClient R seeks a firm for a technical strengthening support assessment of WASH\nprojects in Makueni and Kitui Counties, Kenya (infrastructure performance and\ncommunity-based sustainability).\nDeliverables: WASH system assessment report.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client R",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "WASH",
+        "assessment"
+      ],
+      "geography": [
+        "Kenya"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Same anonymized client as g-020. County names kept out of geography list to avoid inventing extra admin units as scoring locations; Kenya is stated.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Technical strengthening assessment of WASH projects in Makueni and Kitui Counties, Kenya",
+        "client": "Client R",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "WASH",
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Kenya"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-022",
+    "source_kind": "past_proposal",
+    "title": "Development of a country nutrition cluster strategy and response plan for Somalia",
+    "document_text": "REQUEST FOR CONSULTANCY\nClient R seeks a firm to lead development of the Somalia Nutrition Cluster\nStrategy and Response Plan for a multi-year period.\nDeliverables: strategy and response plan. Firm-level consultancy.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client R",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "nutrition",
+        "policy"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Strategy/response-plan consultancy, not a cluster coordinator vacancy.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Development of a country nutrition cluster strategy and response plan for Somalia",
+        "client": "Client R",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "nutrition",
+          "policy"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-023",
+    "source_kind": "past_proposal",
+    "title": "Third-party monitoring of a girls' education accelerator programme in Somalia",
+    "document_text": "REQUEST FOR PROPOSAL\nClient S seeks a consulting firm to provide third-party monitoring services for\na girls' education accelerator programme in Somalia.\nDeliverables: TPM inception, field reports, synthesis.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client S",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "monitoring"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Education is not a core scoring thematic; monitoring is. Do not invent an 'education' core match.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Third-party monitoring of a girls' education accelerator programme in Somalia",
+        "client": "Client S",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "monitoring"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-024",
+    "source_kind": "past_proposal",
+    "title": "Agritech landscape study in Kenya",
+    "document_text": "PROVISION OF CONSULTANCY SERVICES\nClient T (Kenya) requests a firm to undertake an agritech landscape study in\nKenya. Deliverables: landscape study report.\nReference on the source proposal is a Kenya country-office procurement code.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client T",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "research",
+        "livelihoods"
+      ],
+      "geography": [
+        "Kenya"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Landscape study labeled research + livelihoods (agritech/agriculture). Not a staff vacancy.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Agritech landscape study in Kenya",
+        "client": "Client T",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "research",
+          "livelihoods"
+        ],
+        "geographic_experience": [
+          "Kenya"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-025",
+    "source_kind": "past_proposal",
+    "title": "Internal audit services for a national society country office in Somalia",
+    "document_text": "REQUEST FOR PROPOSAL \u2014 AUDIT SERVICES\nClient U (country office, Somalia) seeks a firm to provide internal audit\nservices for the 2025 period. Deliverables: internal audit reports.\nThis is a firm-level professional-services contract, not a staff vacancy.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client U",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "internal audit"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "WATCH",
+    "notes": "Internal audit is consultancy=true but is not a core Cortech thematic. Expected FIT band is mid (WATCH) under scoring_model 1.0.0: Somalia geography 100 + unmatched thematic 15.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Internal audit services for a national society country office in Somalia",
+        "client": "Client U",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "internal audit"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-026",
+    "source_kind": "past_proposal",
+    "title": "Institutional consultancy to assess out-of-school children and adolescents in Dadaab, Kakuma and Kalobeyei",
+    "document_text": "REQUEST FOR PROPOSAL FOR SERVICES\nInstitutional consultancy to undertake assessment of out of school children\nand adolescents in Dadaab, Kakuma and Kalobeyei settlement areas, Kenya.\nClient V. Deliverables: assessment report. Company/institutional contract.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client V",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "assessment"
+      ],
+      "geography": [
+        "Kenya",
+        "Dadaab"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Kakuma/Kalobeyei are in the title; geography keeps Kenya + Dadaab as the labeled set (no extra towns invented into scoring). recorded JSON omits is_consultancy_contract to test fail-open default.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Institutional consultancy to assess out-of-school children and adolescents in Dadaab, Kakuma and Kalobeyei",
+        "client": "Client V",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Dadaab"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "assessment"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Dadaab"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": []
+      }
+    }
+  },
+  {
+    "id": "g-027",
+    "source_kind": "synthetic_consultancy",
+    "title": "Endline evaluation of a livelihoods programme in Somalia (synthetic ToR with stated budget and deadline)",
+    "document_text": "TERMS OF REFERENCE\nClient W hires a consulting firm for an endline evaluation of a livelihoods\nprogramme in Somalia.\nSubmission deadline: 2026-12-01.\nEstimated budget: USD 45000 (forty-five thousand), as stated in this ToR.\nDeliverables: inception, fieldwork, draft and final evaluation report.\nLanguages: English and Somali. PSEA policy required of the firm.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Client W",
+      "deadline": "2026-12-01",
+      "budget_usd": 45000,
+      "thematic_areas": [
+        "evaluation",
+        "MEL",
+        "livelihoods"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "language_requirements": [
+        "English",
+        "Somali"
+      ],
+      "certifications": [
+        "PSEA policy"
+      ],
+      "donor": null,
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "BID",
+    "notes": "Synthetic ToR so budget/deadline MAE is measurable. Facts are those written in document_text, not guessed from a past proposal.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Endline evaluation of a livelihoods programme in Somalia (synthetic ToR with stated budget and deadline)",
+        "client": "Client W",
+        "donor": null,
+        "submission_deadline": "2026-12-01",
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": 45000,
+        "currency": "USD"
+      },
+      "requirements": {
+        "thematic_areas": [
+          "evaluation",
+          "MEL",
+          "livelihoods"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [
+          "English",
+          "Somali"
+        ],
+        "certifications": [
+          "PSEA policy"
+        ]
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-028",
+    "source_kind": "synthetic_consultancy",
+    "title": "Extractive mining geology study in Brazil",
+    "document_text": "REQUEST FOR PROPOSAL\nUnknown Corp seeks a consulting firm for a mining geology study in Brazil.\nDeliverables: geological study report. This is a firm consultancy (not a job\nposting) but it is outside Cortech's geography and thematics.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": "Unknown Corp",
+      "deadline": "2026-12-01",
+      "budget_usd": null,
+      "thematic_areas": [
+        "extractive mining geology"
+      ],
+      "geography": [
+        "Brazil"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "NO-BID",
+    "notes": "Mirrors tests/test_bid_scorer.py wrong-geography case. Consultancy true; expected recommendation NO-BID.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Extractive mining geology study in Brazil",
+        "client": "Unknown Corp",
+        "donor": null,
+        "submission_deadline": "2026-12-01",
+        "project_location": [
+          "Brazil"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "extractive mining geology"
+        ],
+        "geographic_experience": [
+          "Brazil"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-029",
+    "source_kind": "synthetic_consultancy",
+    "title": "Assignment with no usable extracted fields",
+    "document_text": "NOTICE\nA consulting firm may be hired. The notice states no client, no country, no\ntheme, no deadline, and no budget. Do not invent them.",
+    "labels": {
+      "is_consultancy_contract": true,
+      "client": null,
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [],
+      "geography": [],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": "WATCH",
+    "notes": "Missing inputs must stay UNKNOWN. Scorer FIT null \u2192 WATCH. recorded JSON has null client to exercise parse normalisation.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Assignment with no usable extracted fields",
+        "client": null,
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [],
+        "geographic_experience": [],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": true
+      }
+    }
+  },
+  {
+    "id": "g-030",
+    "source_kind": "synthetic_vacancy",
+    "title": "Vacancy announcement: MEAL Officer, Nairobi",
+    "document_text": "VACANCY ANNOUNCEMENT\nWe are recruiting a Monitoring, Evaluation, Accountability and Learning Officer\nin Nairobi, Kenya. This is a salaried staff position. Benefits include leave\nentitlement, medical cover, and a monthly salary. Report to the Country Director.\nNo firm deliverables. Individual employment contract only.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client X",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "MEL"
+      ],
+      "geography": [
+        "Kenya",
+        "Nairobi"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "Negative class for the boolean gate. expected_recommendation is null: bid_scorer is not the consultancy gate.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Vacancy announcement: MEAL Officer, Nairobi",
+        "client": "Client X",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "MEL"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-031",
+    "source_kind": "synthetic_vacancy",
+    "title": "We are hiring a Programme Officer in Somalia",
+    "document_text": "WE ARE HIRING\nProgramme Officer \u2014 Mogadishu, Somalia. Permanent staff. HR will process\napplications. Leave days, pension, and a job description for one employee.\nThere is no scope of work for a consulting firm and no deliverables schedule.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client Y",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [],
+      "geography": [
+        "Somalia",
+        "Mogadishu"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "Uses the 'we are hiring' staff-vacancy phrase. Consultancy false.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "We are hiring a Programme Officer in Somalia",
+        "client": "Client Y",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [],
+        "geographic_experience": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-032",
+    "source_kind": "synthetic_vacancy",
+    "title": "Job opening: Driver, Mogadishu",
+    "document_text": "JOB OPENING\nDriver wanted for the Mogadishu office. Staff vacancy. Driving licence required.\nMonthly salary. This is not a consultancy and has no evaluation deliverables.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client Z",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [],
+      "geography": [
+        "Somalia",
+        "Mogadishu"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "Unambiguous staff vacancy (driver).",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Job opening: Driver, Mogadishu",
+        "client": "Client Z",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [],
+        "geographic_experience": [
+          "Somalia",
+          "Mogadishu"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-033",
+    "source_kind": "synthetic_vacancy",
+    "title": "Employment opportunity: Finance Manager, Kenya",
+    "document_text": "EMPLOYMENT OPPORTUNITY\nFinance Manager, Nairobi, Kenya. Full-time salaried post. Benefits, probation,\nand annual leave. Individual employment \u2014 not an RFP for a firm.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client AA",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [],
+      "geography": [
+        "Kenya",
+        "Nairobi"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "Employment-opportunity language. Consultancy false.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Employment opportunity: Finance Manager, Kenya",
+        "client": "Client AA",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [],
+        "geographic_experience": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-034",
+    "source_kind": "synthetic_vacancy",
+    "title": "UN-Agency A is recruiting a Nutrition Specialist",
+    "document_text": "UN-Agency A is recruiting a Nutrition Specialist (P-3) for its Somalia country\noffice. Staff appointment. Benefits, home leave, and a personal contract.\nNo company deliverables. This is not a consultancy contract.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "UN-Agency A",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "nutrition"
+      ],
+      "geography": [
+        "Somalia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "'is recruiting a' staff signal. Agency name anonymized.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "UN-Agency A is recruiting a Nutrition Specialist",
+        "client": "UN-Agency A",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Somalia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "nutrition"
+        ],
+        "geographic_experience": [
+          "Somalia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-035",
+    "source_kind": "synthetic_vacancy",
+    "title": "Intern wanted: Research Assistant, Nairobi",
+    "document_text": "INTERN WANTED\nResearch Assistant internship in Nairobi. Stipend, leave, and supervision by HR.\nIndividual trainee post. No firm-level scope of work.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client AB",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "research"
+      ],
+      "geography": [
+        "Kenya",
+        "Nairobi"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "Intern-wanted is a definite staff signal in rss_monitor. Consultancy false.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Intern wanted: Research Assistant, Nairobi",
+        "client": "Client AB",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "research"
+        ],
+        "geographic_experience": [
+          "Kenya",
+          "Nairobi"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  },
+  {
+    "id": "g-036",
+    "source_kind": "synthetic_vacancy",
+    "title": "Client AC is seeking a Monitoring and Evaluation Officer",
+    "document_text": "Client AC is seeking a Monitoring and Evaluation Officer for a salaried\nposition in Ethiopia. Job opening with benefits and leave entitlement.\nOne person will be hired as staff. No consultancy deliverables.",
+    "labels": {
+      "is_consultancy_contract": false,
+      "client": "Client AC",
+      "deadline": null,
+      "budget_usd": null,
+      "thematic_areas": [
+        "monitoring",
+        "evaluation"
+      ],
+      "geography": [
+        "Ethiopia"
+      ],
+      "outcome": "UNKNOWN",
+      "donor": null,
+      "language_requirements": [],
+      "certifications": [],
+      "submission_type": "FULL_PROPOSAL"
+    },
+    "expected_recommendation": null,
+    "notes": "'is seeking a' staff signal. MEL in a vacancy must still be class false.",
+    "recorded_analyzer_json": {
+      "opportunity": {
+        "title": "Client AC is seeking a Monitoring and Evaluation Officer",
+        "client": "Client AC",
+        "donor": null,
+        "submission_deadline": null,
+        "project_location": [
+          "Ethiopia"
+        ],
+        "estimated_budget_usd": null,
+        "currency": null
+      },
+      "requirements": {
+        "thematic_areas": [
+          "monitoring",
+          "evaluation"
+        ],
+        "geographic_experience": [
+          "Ethiopia"
+        ],
+        "language_requirements": [],
+        "certifications": []
+      },
+      "bid_analysis": {
+        "submission_type": "FULL_PROPOSAL",
+        "cortech_fit_score": 1,
+        "win_probability": 1,
+        "bid_recommendation": "NO-BID",
+        "key_strengths": [],
+        "key_gaps": [],
+        "is_consultancy_contract": false
+      }
+    }
+  }
+]

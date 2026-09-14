@@ -330,10 +330,15 @@ def compute_bid_intelligence(
     """Pure function. Does not call an LLM. Missing inputs → UNKNOWN / INSUFFICIENT DATA."""
     from config import SOON_DEADLINE_DAYS, URGENT_DEADLINE_DAYS
 
+    if not isinstance(analysis, dict):
+        analysis = {}
+    if matched_team_result is not None and not isinstance(matched_team_result, dict):
+        matched_team_result = None
+
     model = load_scoring_model()
-    opportunity = analysis.get("opportunity") or {}
-    requirements = analysis.get("requirements") or {}
-    bid_analysis = analysis.get("bid_analysis") or {}
+    opportunity = analysis.get("opportunity") if isinstance(analysis.get("opportunity"), dict) else {}
+    requirements = analysis.get("requirements") if isinstance(analysis.get("requirements"), dict) else {}
+    bid_analysis = analysis.get("bid_analysis") if isinstance(analysis.get("bid_analysis"), dict) else {}
 
     locations = (
         opportunity.get("project_location")
@@ -508,8 +513,9 @@ def apply_bid_intelligence(analysis: dict, matched_team_result: Optional[dict] =
     Preserves is_consultancy_contract and submission_type.
     Stashes LLM numbers under bid_analysis.llm_*.
     """
-    analysis = analysis or {}
-    bid = dict(analysis.get("bid_analysis") or {})
+    if not isinstance(analysis, dict):
+        analysis = {}
+    bid = dict(analysis.get("bid_analysis") if isinstance(analysis.get("bid_analysis"), dict) else {})
     intelligence = compute_bid_intelligence(analysis, matched_team_result)
 
     bid["llm_cortech_fit_score"] = bid.get("cortech_fit_score")

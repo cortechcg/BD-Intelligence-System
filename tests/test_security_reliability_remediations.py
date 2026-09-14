@@ -66,6 +66,7 @@ def _pipeline_dependencies(monkeypatch):
         "generate_proposal",
         lambda *args, **kwargs: {"cover_letter": "Safe completed draft."},
     )
+    monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
 
 
 def test_analysis_failure_is_not_cached_or_marked_complete_and_is_retryable(monkeypatch):
@@ -86,6 +87,71 @@ def test_analysis_failure_is_not_cached_or_marked_complete_and_is_retryable(monk
     assert result is not None
     assert completed == [("https://procurement.example/tender", "claim-1")]
     assert len(cached) == 1
+
+
+def test_content_hash_duplicate_skips_reanalysis_and_is_terminal(monkeypatch):
+    _pipeline_dependencies(monkeypatch)
+    analyzed = []
+    completed = []
+    failed = []
+    monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
+    monkeypatch.setattr(
+        main, "complete_opportunity_processing",
+        lambda url, token: completed.append((url, token)) or True,
+    )
+    monkeypatch.setattr(
+        main, "fail_opportunity_processing",
+        lambda url, token, error: failed.append((url, token, error)) or True,
+    )
+    monkeypatch.setattr(
+        main,
+        "find_opportunity_by_content_hash",
+        lambda digest: {
+            "id": "other-row",
+            "source_url": "https://other.example/same-body",
+            "content_hash": digest,
+        },
+    )
+    monkeypatch.setattr(
+        main, "analyze_rfp",
+        lambda *args, **kwargs: analyzed.append(1) or _analysis(),
+    )
+
+    result = main.process_opportunity({
+        "title": "Same PDF, different portal",
+        "source_url": "https://procurement.example/tender",
+    })
+    assert result is None
+    assert analyzed == []
+    assert completed == [("https://procurement.example/tender", "claim-1")]
+    assert failed == []
+
+
+def test_content_hash_duplicate_still_runs_when_force(monkeypatch):
+    _pipeline_dependencies(monkeypatch)
+    analyzed = []
+    monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
+    monkeypatch.setattr(main, "complete_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "fail_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "store_opportunity", lambda *args: "cache")
+    monkeypatch.setattr(
+        main,
+        "find_opportunity_by_content_hash",
+        lambda digest: {
+            "id": "other-row",
+            "source_url": "https://other.example/same-body",
+        },
+    )
+    monkeypatch.setattr(
+        main, "analyze_rfp",
+        lambda *args, **kwargs: analyzed.append(1) or _analysis(),
+    )
+    result = main.process_opportunity(
+        {"title": "Forced", "source_url": "https://procurement.example/tender"},
+        force=True,
+    )
+    assert result is not None
+    assert analyzed == [1]
 
 
 def test_completed_and_active_claims_do_not_duplicate_processing(monkeypatch):

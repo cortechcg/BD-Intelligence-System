@@ -58,6 +58,7 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
         "cover_letter": "Evidence-bound draft section",
         "executive_summary": "Grounded in the tender.",
     })
+    monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
 
     result = main.process_opportunity({
         "title": "Listing title",
@@ -89,6 +90,7 @@ def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
     monkeypatch.setattr(main, "store_opportunity", lambda *args: "cache-id")
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: analysis)
     monkeypatch.setattr(main, "create_opportunity", lambda payload: saved.append(payload) or "airtable-id")
+    monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
 
     result = main.process_opportunity({
         "title": "Mining study",

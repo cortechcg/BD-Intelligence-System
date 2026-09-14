@@ -1,4 +1,5 @@
 from database import supabase_client
+from pathlib import Path
 
 
 PGRST205 = (
@@ -162,3 +163,170 @@ def test_get_embedding_uses_sanitized_env_key_and_does_not_dump_401_body(monkeyp
     except supabase_client.EmbeddingError as exc:
         assert exc.auth is True
         assert "Your API key has been invalidated." not in str(exc)
+
+
+def test_store_opportunity_writes_content_hash(monkeypatch):
+    from types import SimpleNamespace
+    from utils.hashing import content_hash
+
+    backend = {"upserts": [], "error": None, "lookup": []}
+
+    class _Table:
+        def upsert(self, row, on_conflict=None):
+            backend["upserts"].append((row, on_conflict))
+
+            class _Call:
+                def execute(_self):
+                    if backend["error"]:
+                        raise RuntimeError(backend["error"])
+                    return SimpleNamespace(data=[{"id": "row-1", **row}])
+
+            return _Call()
+
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=backend["lookup"])
+
+    class _Client:
+        def table(self, name):
+            assert name == "opportunities_cache"
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    monkeypatch.setattr(supabase_client, "get_embedding", lambda _t: [0.1, 0.2])
+
+    body = "Terms of Reference for an evaluation in Somalia."
+    row_id = supabase_client.store_opportunity(
+        "https://procurement.example/tender",
+        "Endline",
+        body,
+    )
+    assert row_id == "row-1"
+    row, conflict = backend["upserts"][0]
+    assert conflict == "source_url"
+    assert row["content_hash"] == content_hash(body)
+    assert row["source_url"] == "https://procurement.example/tender"
+
+
+def test_store_opportunity_retries_without_hash_when_column_missing(monkeypatch):
+    from types import SimpleNamespace
+
+    backend = {"upserts": [], "error": (
+        "PGRST204: Could not find the 'content_hash' column of "
+        "'opportunities_cache' in the schema cache"
+    )}
+
+    class _Table:
+        def upsert(self, row, on_conflict=None):
+            backend["upserts"].append(row)
+
+            class _Call:
+                def execute(_self):
+                    if "content_hash" in row and backend["error"]:
+                        raise RuntimeError(backend["error"])
+                    return SimpleNamespace(data=[{"id": "row-2", **row}])
+
+            return _Call()
+
+    class _Client:
+        def table(self, name):
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    monkeypatch.setattr(supabase_client, "get_embedding", lambda _t: [0.1])
+
+    row_id = supabase_client.store_opportunity(
+        "https://procurement.example/tender",
+        "Endline",
+        "Terms of Reference body text here.",
+    )
+    assert row_id == "row-2"
+    assert "content_hash" in backend["upserts"][0]
+    assert "content_hash" not in backend["upserts"][1]
+
+
+def test_store_opportunity_returns_existing_id_on_content_hash_collision(monkeypatch):
+    from types import SimpleNamespace
+    from utils.hashing import content_hash
+
+    body = "Identical tender body for two portals."
+    digest = content_hash(body)
+
+    class _Table:
+        def upsert(self, row, on_conflict=None):
+            class _Call:
+                def execute(_self):
+                    raise RuntimeError(
+                        'duplicate key value violates unique constraint '
+                        '"opportunities_cache_content_hash_uidx" (23505) content_hash'
+                    )
+            return _Call()
+
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=[{
+                "id": "existing-id",
+                "source_url": "https://first.example/tender",
+                "content_hash": digest,
+            }])
+
+    class _Client:
+        def table(self, name):
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    monkeypatch.setattr(supabase_client, "get_embedding", lambda _t: [0.1])
+
+    assert supabase_client.store_opportunity(
+        "https://second.example/tender", "Copy", body
+    ) == "existing-id"
+
+
+def test_find_content_hash_fail_open_when_column_missing(monkeypatch):
+    class _Table:
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            raise RuntimeError(
+                "PGRST204: Could not find the 'content_hash' column of "
+                "'opportunities_cache' in the schema cache"
+            )
+
+    class _Client:
+        def table(self, name):
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    assert supabase_client.find_opportunity_by_content_hash("abc") is None
+
+
+def test_content_hash_migration_enforces_partial_unique_index():
+    sql = Path("supabase_migration_content_hash.sql").read_text()
+    assert "ADD COLUMN IF NOT EXISTS content_hash TEXT" in sql
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS opportunities_cache_content_hash_uidx" in sql
+    assert "WHERE content_hash IS NOT NULL" in sql
+    assert "organizations" not in sql.lower()
+    assert "competitor" not in sql.lower()

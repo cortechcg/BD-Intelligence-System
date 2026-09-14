@@ -59,6 +59,7 @@ from database.supabase_client import (
     claim_opportunity_processing,
     complete_opportunity_processing,
     fail_opportunity_processing,
+    find_opportunity_by_content_hash,
     opportunity_ledger_available,
     store_opportunity,
 )
@@ -296,6 +297,22 @@ def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) ->
         f"  Extracted [green]{len(full_text):,}[/green] characters"
     )
     log_stage("fetch", "ok", chars=len(full_text), content_sha256=content_hash(full_text)[:12])
+
+    digest = content_hash(full_text)
+    if not force and digest:
+        existing_body = find_opportunity_by_content_hash(digest)
+        existing_url = ""
+        if isinstance(existing_body, dict):
+            existing_url = existing_body.get("source_url") or ""
+            existing_url = canonicalize_url(existing_url) or existing_url
+        if existing_url and existing_url != dedup_url:
+            logger.info(
+                f"  Same document body already cached under {existing_url[:80]} "
+                f"(content_hash {digest[:12]}) — skipping re-analysis"
+            )
+            log_stage("analyze", "skip", reason="content_hash_duplicate")
+            _pipeline_outcome.set("terminal")
+            return None
 
     # ── STEP 2: CLAUDE ANALYSIS ────────────────────────────────────────────
     # The raw document is cached only after this opportunity completes. A
