@@ -92,7 +92,7 @@ Accounts needed, all free-tier-capable except where noted:
 
 | Service | Used for |
 |---|---|
-| [Anthropic](https://console.anthropic.com) | Chat: `claude-sonnet-5` (analysis) + `claude-fable-5` (proposals) |
+| [Anthropic](https://console.anthropic.com) | Chat: `claude-haiku-4-5` (analysis) + `claude-sonnet-5` (proposals) |
 | [OpenAI Platform](https://platform.openai.com) | Embeddings only (`text-embedding-3-small`) |
 | [Supabase](https://supabase.com) | pgvector storage, semantic search |
 | [Airtable](https://airtable.com) | Human-facing CRM dashboard |

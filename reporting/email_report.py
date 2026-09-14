@@ -752,6 +752,13 @@ def send_proposal_email(opportunity_result: dict) -> None:
             + section_block("Work Plan", proposal.get("work_plan", ""))
         )
 
+    lock_text = proposal.get("document_lock") or ""
+    lock_block = ""
+    if isinstance(lock_text, str) and lock_text.strip():
+        lock_block = section_block(
+            "Assignment lock from the ToR/RFP/REOI (internal — not in the Word file)",
+            lock_text,
+        )
     strategy_text = proposal.get("win_strategy") or ""
     strategy_block = ""
     if isinstance(strategy_text, str) and strategy_text.strip():
@@ -910,6 +917,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
             {team_rows_html}
         </table>
     </div>
+
+    {lock_block}
 
     {strategy_block}
 
