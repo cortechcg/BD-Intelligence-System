@@ -23,6 +23,8 @@ from utils.llm import complete, usage_totals
 from utils.claude_helpers import get_text
 from utils.errors import ErrorType
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
+from intelligence.analysis_schema import AnalysisSchemaError, validate_analysis_object
+from intelligence.extraction_provenance import attach_extraction_provenance
 from intelligence.tender_reader import pack_tender_text
 
 
@@ -41,6 +43,57 @@ def _normalize_opportunity(analysis: dict, fallback_title: str) -> None:
     client = opp.get("client")
     if not isinstance(client, str) or not client.strip():
         opp["client"] = "Unknown Client"
+
+
+def _strip_json_fences(response_text: str) -> str:
+    """Drop markdown fences the model sometimes wraps around JSON."""
+    if "```" not in response_text:
+        return response_text
+    parts = response_text.split("```")
+    for part in parts:
+        part = part.strip()
+        if part.startswith("json"):
+            part = part[4:].strip()
+        if part.startswith("{"):
+            return part
+    return response_text
+
+
+def parse_analysis_payload(
+    response_text: str,
+    fallback_title: str = "Unknown",
+    *,
+    source_text: str | None = None,
+) -> dict:
+    """Parse analyzer JSON the same way ``analyze_rfp`` does after Claude returns.
+
+    Raises ``json.JSONDecodeError`` on invalid JSON (caller logs).
+    Raises ``AnalysisSchemaError`` when the JSON is an object that violates
+    the extraction schema — callers must not treat that as a valid record.
+    Returns ``{}`` when the JSON value is not an object — that is a parse
+    failure, not a valid empty analysis. A valid object still receives
+    opportunity normalisation and the consultancy default (True when missing).
+    """
+    if not isinstance(response_text, str) or not response_text.strip():
+        raise json.JSONDecodeError("empty analysis payload", response_text or "", 0)
+
+    payload = _strip_json_fences(response_text.strip())
+    analysis = json.loads(payload)
+    if not isinstance(analysis, dict):
+        return {}
+
+    analysis = validate_analysis_object(analysis)
+    _normalize_opportunity(analysis, fallback_title)
+
+    bid_analysis = analysis.get("bid_analysis")
+    if not isinstance(bid_analysis, dict):
+        bid_analysis = {}
+        analysis["bid_analysis"] = bid_analysis
+    # Fail open on the boolean only: a missing key must never look like a vacancy.
+    if "is_consultancy_contract" not in bid_analysis:
+        bid_analysis["is_consultancy_contract"] = True
+    attach_extraction_provenance(analysis, source_text)
+    return analysis
 
 
 # ── EXTRACTION SCHEMA ─────────────────────────────────────────────────────────
@@ -273,6 +326,8 @@ def analyze_rfp(
     Returns a dict matching ANALYSIS_SCHEMA, or empty dict on failure.
     The is_consultancy_contract field in bid_analysis is the critical
     gate read by main.py before any further pipeline work begins.
+    Schema-invalid JSON is retried once, then refused — never returned as
+    a silently-wrong structured record.
     """
     title = title if isinstance(title, str) and title.strip() else "Unknown"
     logger.info(f"  Analyzing: {title[:60]}...")
@@ -284,8 +339,22 @@ def analyze_rfp(
     tor_text = pack_tender_text(tor_text, max_chars=140000)
 
     system, document_message = _analysis_request_parts(tor_text)
+    messages = [{"role": "user", "content": document_message}]
 
     tokens_used = 0
+
+    def _parse(response_text: str) -> dict:
+        analysis = parse_analysis_payload(
+            response_text,
+            title,
+            source_text=tor_text,
+        )
+        if not analysis:
+            logger.error(
+                f"  Analysis JSON was not an object — refusing '{title[:60]}'"
+            )
+            return {}
+        return analysis
 
     try:
         response = complete(
@@ -293,41 +362,65 @@ def analyze_rfp(
             max_tokens=CLAUDE_MAX_TOKENS,
             stage="analyze_rfp",
             system=system,
-            messages=[{"role": "user", "content": document_message}]
+            messages=messages,
         )
 
         inp, out = usage_totals(response)
         tokens_used = inp + out
         response_text = get_text(response).strip()
-
-        # Strip markdown code fences if the model added them
-        if "```" in response_text:
-            parts = response_text.split("```")
-            for part in parts:
-                part = part.strip()
-                if part.startswith("json"):
-                    part = part[4:].strip()
-                if part.startswith("{"):
-                    response_text = part
-                    break
-
-        analysis = json.loads(response_text)
-        if not isinstance(analysis, dict):
-            logger.error(
-                f"  Analysis JSON was {type(analysis).__name__}, not an object "
-                f"— refusing '{title[:60]}'"
+        try:
+            analysis = _parse(response_text)
+        except AnalysisSchemaError as schema_error:
+            logger.warning(
+                f"  Schema validation failed for '{title[:60]}' — retrying once: "
+                f"{schema_error}"
             )
+            repair = (
+                "Your last response didn't match the schema because "
+                f"{schema_error}. Fix and resend. Return only a JSON object "
+                "matching the requested extraction schema. Do not invent "
+                "clients, countries, budgets, page numbers, or credentials "
+                "that are not in the untrusted document."
+            )
+            retry_messages = [
+                {"role": "user", "content": document_message},
+                {"role": "assistant", "content": response_text},
+                {"role": "user", "content": repair},
+            ]
+            retry = complete(
+                model=CLAUDE_MODEL,
+                max_tokens=CLAUDE_MAX_TOKENS,
+                stage="analyze_rfp_schema_retry",
+                system=system,
+                messages=retry_messages,
+            )
+            inp2, out2 = usage_totals(retry)
+            tokens_used += inp2 + out2
+            retry_text = get_text(retry).strip()
+            try:
+                analysis = _parse(retry_text)
+            except AnalysisSchemaError as retry_error:
+                logger.error(
+                    f"  Schema validation failed after retry for '{title[:60]}' "
+                    f"— refusing. error_type={ErrorType.VALIDATION_ERROR}. "
+                    f"{retry_error}"
+                )
+                try:
+                    log_agent_action(
+                        action_type="Error",
+                        description=f"Schema validation failed after retry: {title[:60]}",
+                        opportunity_id=opportunity_id,
+                        tokens_used=tokens_used,
+                        status="Error",
+                        error_message=str(retry_error)[:500],
+                    )
+                except Exception:
+                    pass
+                return {}
+        if not analysis:
             return {}
-        _normalize_opportunity(analysis, title)
 
-        bid_analysis = analysis.get("bid_analysis")
-        if not isinstance(bid_analysis, dict):
-            bid_analysis = {}
-            analysis["bid_analysis"] = bid_analysis
-        # Fail open: a missing boolean must never look like a staff vacancy.
-        if "is_consultancy_contract" not in bid_analysis:
-            bid_analysis["is_consultancy_contract"] = True
-
+        bid_analysis = analysis["bid_analysis"]
         score = bid_analysis.get("cortech_fit_score", 0)
         is_contract = bid_analysis.get("is_consultancy_contract", True)
         submission_type = bid_analysis.get("submission_type", "FULL_PROPOSAL")

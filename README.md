@@ -120,6 +120,8 @@ Before the first production run, open the Supabase SQL Editor and apply
 `supabase_migration_opportunity_state.sql`. It creates the ownership-bound
 lease ledger used for retryable opportunity processing; without it the agent
 fails open (never drops a tender), but cannot provide cross-process deduplication.
+Apply `supabase_migration_content_hash.sql` once so `opportunities_cache.content_hash`
+is a unique document-body identity; until then the client fail-opens and omits the column.
 
 ```bash
 python main.py --once
@@ -273,7 +275,7 @@ This validates the Airtable base's field names against what the code expects —
 
 ### Step 5 — Only run the SQL migrations if Supabase itself needed to be recreated from scratch
 
-If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; the older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
+If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
 
 ### Step 6 — Recreate the systemd timers
 
