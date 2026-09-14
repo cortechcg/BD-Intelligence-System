@@ -57,7 +57,26 @@ _SKIP_KEYS = {
     "claim_grounding",
     "tender_brief",
     "win_strategy",
+    "document_lock",
 }
+
+_PERSON_RE = re.compile(
+    r"\b((?:Dr|Mr|Mrs|Ms|Prof)\.?\s+[A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+|"
+    r"[A-Z][a-z]+\s+[A-Z]\.\s+[A-Z][a-z]+|"
+    r"[A-Z][a-z]+\s+[A-Z][a-z]+)\b"
+)
+_PERSON_CLAIM = re.compile(
+    r"\b(holds an? |years of experience|lead consultant|team leader|"
+    r"proposed (?:expert|team)|will be led by|cv of)\b",
+    re.I,
+)
+_ORG_NOISE = re.compile(
+    r"\b(international|foundation|children|committee|alliance|agency|"
+    r"ministry|government|consulting|group|programme|program|project|"
+    r"evaluation|endline|baseline)\b",
+    re.I,
+)
+_EMPTY_SECTION = "[INSUFFICIENT EVIDENCE]"
 
 
 def _norm(text: str) -> str:
@@ -174,16 +193,53 @@ def build_evidence_chunks(
     this_client = str(opportunity.get("client") or "").strip()
     this_title = str(opportunity.get("title") or "").strip()
     this_donor = str(opportunity.get("donor") or "").strip()
+    locations = opportunity.get("project_location") or []
+    lots = opportunity.get("lots_or_sites") or []
+    targets = opportunity.get("target_groups") or []
+    if not isinstance(locations, list):
+        locations = [locations] if locations else []
+    if not isinstance(lots, list):
+        lots = [lots] if lots else []
+    if not isinstance(targets, list):
+        targets = [targets] if targets else []
     if this_client or this_title:
         chunks.append(_chunk(
             "this_tender",
             "opportunity_analysis",
             this_title or "current tender",
             "opportunity",
-            f"{this_title} {this_client} {this_donor}",
-            {"client": this_client, "title": this_title, "this_tender": True},
+            " ".join(
+                str(x) for x in (
+                    [this_title, this_client, this_donor]
+                    + list(locations) + list(lots) + list(targets)
+                ) if x
+            ),
+            {
+                "client": this_client,
+                "title": this_title,
+                "this_tender": True,
+                "locations": locations,
+                "lots": lots,
+                "targets": targets,
+            },
         ))
     return chunks
+
+
+def _profile_client_names(profile: str) -> list[str]:
+    marker = "KEY CLIENTS"
+    if marker not in (profile or ""):
+        return []
+    chunk = profile.split(marker, 1)[1]
+    for stop in ("REGISTRATIONS:", "CERTIFICATIONS:", "COMPETITIVE STRENGTHS:"):
+        if stop in chunk:
+            chunk = chunk.split(stop, 1)[0]
+    names = []
+    for part in re.split(r"[\n,]", chunk):
+        name = part.strip(" -:\t")
+        if len(name) >= 4:
+            names.append(name)
+    return names
 
 
 def _entity_map(chunks: list[dict]) -> dict[str, list[str]]:
@@ -209,6 +265,15 @@ def _entity_map(chunks: list[dict]) -> dict[str, list[str]]:
         # indexed via metadata). Also index the full normalized text for
         # substring containment checks later.
         add(chunk.get("document") or "", cid)
+        if chunk["chunk_id"] == "profile:cortech":
+            for client in _profile_client_names(chunk.get("text") or ""):
+                add(client, cid)
+        for loc in meta.get("locations") or []:
+            add(str(loc), cid)
+        for lot in meta.get("lots") or []:
+            add(str(lot), cid)
+        for group in meta.get("targets") or []:
+            add(str(group), cid)
     return index
 
 
@@ -232,19 +297,69 @@ def _longest_entity_hits(sentence: str, entity_map: dict[str, list[str]]) -> lis
     return hits
 
 
-def _unknown_proper_nouns(sentence: str, entity_map: dict[str, list[str]], this_tender_norms: set[str]) -> list[str]:
+def _this_tender_norms(chunks: list[dict]) -> set[str]:
+    norms: set[str] = set()
+    for chunk in chunks:
+        if chunk["chunk_id"] != "this_tender":
+            continue
+        meta = chunk.get("metadata") or {}
+        for value in (
+            [meta.get("client"), meta.get("title")]
+            + list(meta.get("locations") or [])
+            + list(meta.get("lots") or [])
+            + list(meta.get("targets") or [])
+        ):
+            n = _norm(str(value or ""))
+            if n:
+                norms.add(n)
+    return norms
+
+
+def _supported_name(phrase: str, entity_map: dict[str, list[str]], blobs: dict[str, str]) -> bool:
+    key = _norm(phrase)
+    if len(key) < 4:
+        return False
+    if key in entity_map:
+        return True
+    return any(key in blob for blob in blobs.values() if blob)
+
+
+def _unknown_proper_nouns(
+    sentence: str,
+    entity_map: dict[str, list[str]],
+    blobs: dict[str, str],
+    this_tender_norms: set[str],
+) -> list[str]:
     unknown = []
     for match in _PROPER_NOUN.finditer(sentence):
         phrase = match.group(1)
         key = _norm(phrase)
         if key in _STOP_PHRASES or key in this_tender_norms:
             continue
-        if key in entity_map:
+        if _supported_name(phrase, entity_map, blobs):
             continue
-        # Already covered by a longer indexed entity
-        if any(key in ent or ent in key for ent in entity_map if len(ent) >= len(key)):
-            if any(key in ent for ent in entity_map):
-                continue
+        unknown.append(phrase)
+    return unknown
+
+
+def _unknown_people(
+    sentence: str,
+    entity_map: dict[str, list[str]],
+    blobs: dict[str, str],
+    this_tender_norms: set[str],
+) -> list[str]:
+    if not _PERSON_CLAIM.search(sentence):
+        return []
+    unknown = []
+    for match in _PERSON_RE.finditer(sentence):
+        phrase = match.group(1)
+        key = _norm(phrase)
+        if key in _STOP_PHRASES or key in this_tender_norms:
+            continue
+        if _ORG_NOISE.search(phrase):
+            continue
+        if _supported_name(phrase, entity_map, blobs):
+            continue
         unknown.append(phrase)
     return unknown
 
@@ -252,14 +367,7 @@ def _unknown_proper_nouns(sentence: str, entity_map: dict[str, list[str]], this_
 def extract_claims(sections: dict, chunks: list[dict]) -> list[dict]:
     entity_map = _entity_map(chunks)
     blobs = _chunk_blob(chunks)
-    this_tender_norms = set()
-    for chunk in chunks:
-        if chunk["chunk_id"] == "this_tender":
-            meta = chunk.get("metadata") or {}
-            for value in (meta.get("client"), meta.get("title")):
-                n = _norm(str(value or ""))
-                if n:
-                    this_tender_norms.add(n)
+    this_norms = _this_tender_norms(chunks)
 
     claims: list[dict] = []
     for section, body in sections.items():
@@ -270,14 +378,19 @@ def extract_claims(sections: dict, chunks: list[dict]) -> list[dict]:
                 continue
             past = _is_past_claim(sentence)
             hits = _longest_entity_hits(sentence, entity_map)
-            # Hits only on this_tender do not verify a *past* assignment claim
             supporting = [
                 (ent, cid) for ent, cid in hits
                 if cid != "this_tender" or not past
             ]
-            unknown = _unknown_proper_nouns(sentence, entity_map, this_tender_norms) if past else []
+            unknown_orgs = (
+                _unknown_proper_nouns(sentence, entity_map, blobs, this_norms)
+                if past else []
+            )
+            unknown_people = _unknown_people(
+                sentence, entity_map, blobs, this_norms
+            )
 
-            if past and unknown:
+            if (past and unknown_orgs) or unknown_people:
                 status = "NOT VERIFIED"
                 chunk_id = ""
                 inference = "UNKNOWN"
@@ -290,8 +403,6 @@ def extract_claims(sections: dict, chunks: list[dict]) -> list[dict]:
                 chunk_id = ""
                 inference = "UNKNOWN"
             elif supporting and blobs.get(supporting[0][1]) and supporting[0][0] in (blobs.get(supporting[0][1]) or ""):
-                # Named expert / known assignment mentioned without past-work
-                # marker — still attach the chunk, do not nag.
                 continue
             else:
                 continue
@@ -308,6 +419,41 @@ def extract_claims(sections: dict, chunks: list[dict]) -> list[dict]:
                 "inference_level": inference,
             })
     return claims
+
+
+def redact_unverified_claims(sections: dict, claims: list[dict]) -> tuple[dict, list[dict]]:
+    """Remove invented assertions from client-facing text.
+
+    Tagging a false client or CV [NOT VERIFIED] still ships misinformation.
+    Unsupported named claims are dropped. Empty sections become an explicit
+    evidence gap rather than a plausible-sounding filler.
+    """
+    flagged = {
+        (c["section"], c["sentence"])
+        for c in claims
+        if c["status"] == "NOT VERIFIED"
+    }
+    if not flagged:
+        return sections, []
+    out = dict(sections)
+    removed: list[dict] = []
+    for section, body in sections.items():
+        if section in _SKIP_KEYS or not isinstance(body, str):
+            continue
+        kept = []
+        for sentence in _sentences(body):
+            key = (section, sentence[:400])
+            if key in flagged or "[NOT VERIFIED]" in sentence:
+                removed.append({"section": section, "sentence": sentence[:400]})
+                continue
+            kept.append(sentence)
+        if not kept and body.strip():
+            out[section] = _EMPTY_SECTION
+        elif "|" in body:
+            out[section] = "\n".join(kept) if kept else _EMPTY_SECTION
+        else:
+            out[section] = " ".join(kept)
+    return out, removed
 
 
 def annotate_unverified(sections: dict, claims: list[dict]) -> dict:
@@ -347,7 +493,7 @@ def ground_sections(
     past_matches: list[dict] | None = None,
     static_past_work: str = "",
 ) -> dict:
-    """Attach claim_grounding and annotate unverified past-work sentences."""
+    """Attach claim_grounding and strip unverified assertions from the draft."""
     sections = sections or {}
     chunks = build_evidence_chunks(
         past_matches=past_matches,
@@ -356,15 +502,16 @@ def ground_sections(
         analysis=analysis,
     )
     claims = extract_claims(sections, chunks)
-    annotated = annotate_unverified(sections, claims)
+    redacted, removed = redact_unverified_claims(sections, claims)
     verified = sum(1 for c in claims if c["status"] == "VERIFIED")
     not_verified = sum(1 for c in claims if c["status"] == "NOT VERIFIED")
     insufficient = sum(1 for c in claims if c["status"] == "INSUFFICIENT EVIDENCE")
-    annotated["claim_grounding"] = {
+    redacted["claim_grounding"] = {
         "claims": claims,
         "verified": verified,
         "not_verified": not_verified,
         "insufficient_evidence": insufficient,
+        "removed_unverified": removed,
         "chunk_count": len(chunks),
     }
-    return annotated
+    return redacted
