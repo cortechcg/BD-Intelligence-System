@@ -194,3 +194,54 @@ def test_review_email_renders_draft_tables_as_html_not_pipe_rows(monkeypatch):
     assert "| WASH endline |" not in html
     assert "Draft Technical Proposal" in html
     assert "Fit score" in html
+    assert "82/100" in html
+    assert "82.0/100" not in html
+    assert "Review before submit" in html
+    assert 'href="#c-decision"' in html
+    assert 'href="#c-draft"' in html
+    assert "display:none" in html
+    assert "What still needs a human" in html
+
+
+def test_review_email_flags_duplicate_consultant_mapping(monkeypatch):
+    sent = _send_capture(monkeypatch)
+
+    email_report.send_proposal_email({
+        "title": "KPEEL EOI",
+        "client": "Ministry of Education",
+        "deadline": "2099-12-01",
+        "score": 74,
+        "recommendation": "BID",
+        "source_url": "https://procurement.example/reoi",
+        "analysis": {"opportunity": {}, "bid_analysis": {"key_strengths": [], "key_gaps": []}},
+        "matched_team": {"matched_team": {
+            "Research Assistant 1": {
+                "consultant_name": "Salahweli Harun Abdi",
+                "similarity_score": 81,
+                "availability_flag": "Unknown",
+            },
+            "Research Assistant 2": {
+                "consultant_name": "Salahweli Harun Abdi",
+                "similarity_score": 64,
+                "availability_flag": "Unknown",
+            },
+            "Lead Consultant": {
+                "consultant_name": "TBD",
+                "similarity_score": 0,
+            },
+        }},
+        "budget": {"status": "PARTIAL", "summary": {}},
+        "proposal_sections": {
+            "submission_type": "EOI",
+            "cover_letter": "Letter of interest.",
+        },
+    })
+
+    html = sent["content"]
+    assert "2/3" in html
+    assert "mapped to both" in html
+    assert "no named consultant" in html
+    assert "Review this EOI before shortlisting" in html
+    assert "Submit as an Expression of Interest only" in html
+    assert "81% match" in html
+    assert "81.0% match" not in html
