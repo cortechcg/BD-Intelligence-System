@@ -27,6 +27,106 @@ def _html(value) -> str:
     return html.escape(str(value or ""), quote=True)
 
 
+def _is_markdown_separator(line: str) -> bool:
+    stripped = (line or "").strip()
+    if not stripped.startswith("|"):
+        return False
+    return set(stripped.replace(" ", "").replace("\t", "")) <= set("|:-")
+
+
+def _markdown_table_html(lines: list[str]) -> str:
+    """Turn pipe tables in a draft into a dashboard table. Cells stay escaped."""
+    rows = []
+    for line in lines:
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if any(cells):
+            rows.append(cells)
+    if not rows:
+        return ""
+    header, *body = rows
+    head = "".join(
+        f'<th style="padding:10px 12px;text-align:left;font-size:11px;'
+        f"letter-spacing:0.06em;text-transform:uppercase;font-weight:600;"
+        f'background:#1F3864;color:#ffffff;border:0">{_html(h)}</th>'
+        for h in header
+    )
+    body_html = []
+    for i, row in enumerate(body):
+        padded = row + [""] * (len(header) - len(row))
+        bg = "#F7F4EE" if i % 2 else "#ffffff"
+        tds = "".join(
+            f'<td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;'
+            f'font-size:13px;line-height:1.45;vertical-align:top;background:{bg}">'
+            f"{_html(cell)}</td>"
+            for cell in padded[: len(header)]
+        )
+        body_html.append(f"<tr>{tds}</tr>")
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        'style="width:100%;border-collapse:collapse;margin:0 0 18px">'
+        f"<tr>{head}</tr>{''.join(body_html)}</table>"
+    )
+
+
+def _draft_body_html(content: str) -> str:
+    """Render draft prose and markdown tables for the review dashboard email."""
+    lines = (content or "").split("\n")
+    parts: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped:
+            i += 1
+            continue
+        if stripped.startswith("|"):
+            table_lines: list[str] = []
+            while i < len(lines) and lines[i].strip().startswith("|"):
+                if not _is_markdown_separator(lines[i]):
+                    table_lines.append(lines[i])
+                i += 1
+            if table_lines:
+                parts.append(_markdown_table_html(table_lines))
+            continue
+        if set(stripped) <= set("-*_= ") or (
+            stripped.startswith("|")
+            and set(stripped.replace(" ", "")) <= set("|:-")
+        ):
+            i += 1
+            continue
+        parts.append(
+            f'<p style="margin:0 0 12px;line-height:1.65;font-size:14px;'
+            f'color:#1C1914">{_html(stripped)}</p>'
+        )
+        i += 1
+    return "".join(parts)
+
+
+def _kpi_tile(label: str, value: str, sub: str = "", value_color: str = "#1F3864") -> str:
+    color = _safe_color(value_color, "#1F3864")
+    sub_html = (
+        f'<div style="font-size:12px;color:#6B6458;margin-top:4px;line-height:1.4">'
+        f"{sub}</div>"
+        if sub
+        else ""
+    )
+    return f"""
+    <td width="25%" valign="top" style="padding:6px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+             style="width:100%;background:#F7F4EE">
+        <tr>
+          <td style="padding:16px 14px">
+            <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
+                        color:#6B6458;font-weight:600">{_html(label)}</div>
+            <div style="font-size:22px;font-weight:700;color:{color};margin-top:6px;
+                        line-height:1.15">{value}</div>
+            {sub_html}
+          </td>
+        </tr>
+      </table>
+    </td>"""
+
+
 def _usd(value) -> str:
     """Format a known finite number; invalid/missing values remain UNKNOWN."""
     try:
@@ -101,12 +201,15 @@ def _internal_budget_html(budget: dict, budget_cap, is_eoi: bool) -> str:
         f"<li>{_html(item)}</li>" for item in missing[:12]
     ) or "<li>No missing-input detail was recorded.</li>"
     return f"""
-    <div style="margin-bottom:24px;background:#fff8e8;padding:16px 16px 8px;
-                border:2px solid #f0a500;border-radius:6px">
-        <h3 style="color:#1F3864;font-size:16px;margin:0 0 8px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px;background:#FFF8EC;border-left:4px solid #C4A35A">
+    <tr><td style="padding:20px 20px 8px">
+        <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
+                    color:#8A6A12;font-weight:600;margin-bottom:6px">Internal only</div>
+        <h3 style="color:#1F3864;font-size:16px;margin:0 0 8px;font-weight:700">
             Internal financial working
         </h3>
-        <p style="margin:0 0 12px;font-size:13px;color:#856404">
+        <p style="margin:0 0 14px;font-size:13px;color:#856404;line-height:1.5">
             {_html(stage_note)}
         </p>
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
@@ -151,7 +254,8 @@ def _internal_budget_html(budget: dict, budget_cap, is_eoi: bool) -> str:
         </table>
         <p style="margin-bottom:4px"><strong>Still required before a financial submission:</strong></p>
         <ul style="margin-top:4px">{missing_html}</ul>
-    </div>
+    </td></tr>
+    </table>
 """
 
 
@@ -652,12 +756,19 @@ def send_proposal_email(opportunity_result: dict) -> None:
         nv = int(grounding.get("not_verified") or 0)
         ver = int(grounding.get("verified") or 0)
         ins = int(grounding.get("insufficient_evidence") or 0)
+        removed = grounding.get("removed_unverified")
+        removed_n = len(removed) if isinstance(removed, list) else 0
         color = "#dc3545" if nv else "#555"
+        strip_note = (
+            f"{removed_n} unsupported named claim"
+            f"{'s' if removed_n != 1 else ''} removed from the client draft."
+            if removed_n
+            else "Unsupported named claims were removed from the client draft."
+        )
         grounding_line = (
             f"<p style='margin:8px 0 0;font-size:13px;color:{color}'>"
             f"Claim grounding: {ver} verified, {nv} not verified, "
-            f"{ins} insufficient evidence. "
-            f"Unverified past-work sentences are tagged [NOT VERIFIED] in the draft."
+            f"{ins} insufficient evidence. {strip_note}"
             f"</p>"
         )
 
@@ -676,10 +787,10 @@ def send_proposal_email(opportunity_result: dict) -> None:
         color = "#28a745" if score_pct >= 80 else "#f0a500" if score_pct >= 60 else "#dc3545"
         team_rows_html += f"""
         <tr>
-            <td style="padding:8px;border:1px solid #ddd">{_html(role)}</td>
-            <td style="padding:8px;border:1px solid #ddd;font-weight:bold">{_html(name)}</td>
-            <td style="padding:8px;border:1px solid #ddd;color:{color};font-weight:bold">{score_pct}% match</td>
-            <td style="padding:8px;border:1px solid #ddd">{_html(avail)}</td>
+            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px">{_html(role)}</td>
+            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px;font-weight:700;color:#1F3864">{_html(name)}</td>
+            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px;color:{color};font-weight:700">{score_pct}% match</td>
+            <td style="padding:12px 14px;border-bottom:1px solid #E6E1D6;font-size:13px">{_html(avail)}</td>
         </tr>"""
 
     # ── STRENGTHS / GAPS ───────────────────────────────────────────────────
@@ -703,27 +814,24 @@ def send_proposal_email(opportunity_result: dict) -> None:
                 f"Omitting emailed draft section '{heading}': financial information remains"
             )
             return ""
-        content = text
-        # Convert newlines to paragraphs for HTML. Skip markdown rules and
-        # table separators so "---" never appears in the emailed draft.
-        paragraphs = "".join(
-            f"<p style='margin:0 0 10px;line-height:1.6'>{_html(p.strip())}</p>"
-            for p in content.split("\n")
-            if p.strip()
-            and not set(p.strip()) <= set("-*_= ")
-            and not (
-                p.strip().startswith("|")
-                and set(p.strip().replace(" ", "")) <= set("|:-")
-            )
-        )
+        body = _draft_body_html(text)
+        if not body.strip():
+            return ""
         return f"""
-        <div style="margin-bottom:24px">
-            <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                       border-bottom:2px solid #1F3864;padding-bottom:6px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 28px">
+          <tr>
+            <td style="width:4px;background:#C4A35A;font-size:0;line-height:0">&nbsp;</td>
+            <td style="padding:4px 0 8px 16px">
+              <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                          color:#8A7A5A;font-weight:600;margin-bottom:4px">Draft section</div>
+              <h3 style="color:#1F3864;font-size:16px;margin:0 0 12px;font-weight:700">
                 {heading}
-            </h3>
-            {paragraphs}
-        </div>"""
+              </h3>
+              {body}
+            </td>
+          </tr>
+        </table>"""
 
     proposal_html = (
         section_block("Cover Letter", proposal.get("cover_letter", ""))
@@ -794,25 +902,43 @@ def send_proposal_email(opportunity_result: dict) -> None:
         else "Human review required before submission — do not submit without approval"
     )
     action_banner = (
-        """<div style="background:#e8f4fd;padding:14px 20px;border-left:4px solid #2e86c1">
-        <strong>EOI STAGE:</strong> This document asks for an Expression of Interest only.
-        The draft below is a complete shortlisting file (understanding, approach
-        summary, experience, team, eligibility, criteria matrix) — not a full
-        technical/financial proposal. Review, confirm team availability, then submit
-        as an EOI unless you have been invited to the next stage.
-        </div>"""
+        """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 8px;background:#E8F1F8">
+        <tr>
+          <td style="width:4px;background:#2e86c1;font-size:0">&nbsp;</td>
+          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
+            <strong>EOI STAGE:</strong> This document asks for an Expression of Interest only.
+            The draft below is a complete shortlisting file (understanding, approach
+            summary, experience, team, eligibility, criteria matrix) — not a full
+            technical/financial proposal. Review, confirm team availability, then submit
+            as an EOI unless you have been invited to the next stage.
+          </td>
+        </tr>
+        </table>"""
         if is_eoi
-        else f"""<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
-        <strong>WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
-        (cover letter + executive summary). No full proposal was generated.
-        Review the opportunity and decide whether to pursue a full bid.
-        </div>"""
+        else """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 8px;background:#FFF4D6">
+        <tr>
+          <td style="width:4px;background:#f0a500;font-size:0">&nbsp;</td>
+          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
+            <strong>WATCH — QUICK FLAG ONLY:</strong> This is a lightweight preview
+            (cover letter + executive summary). No full proposal was generated.
+            Review the opportunity and decide whether to pursue a full bid.
+          </td>
+        </tr>
+        </table>"""
         if is_lightweight
-        else """<div style="background:#fff3cd;padding:14px 20px;border-left:4px solid #f0a500">
-        <strong>ACTION REQUIRED:</strong> Review the draft below, make edits,
-        confirm team availability, verify the budget, then approve for submission.
-        <strong>Nothing has been sent to the client.</strong>
-        </div>"""
+        else """<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 8px;background:#FFF4D6">
+        <tr>
+          <td style="width:4px;background:#C4A35A;font-size:0">&nbsp;</td>
+          <td style="padding:16px 20px;font-size:14px;line-height:1.55;color:#1C1914">
+            <strong>ACTION REQUIRED:</strong> Review the draft below, make edits,
+            confirm team availability, verify the budget, then approve for submission.
+            <strong>Nothing has been sent to the client.</strong>
+          </td>
+        </tr>
+        </table>"""
     )
     draft_heading = (
         "Expression of Interest Draft"
@@ -822,125 +948,174 @@ def send_proposal_email(opportunity_result: dict) -> None:
         else "Draft Technical Proposal"
     )
     budget_block = _internal_budget_html(budget, budget_cap, is_eoi)
+    if not team_rows_html:
+        team_rows_html = (
+            '<tr><td colspan="4" style="padding:12px 14px;color:#6B6458">'
+            "No consultants were matched for this draft.</td></tr>"
+        )
+    source_href = _safe_href(source_url)
+    source_line = (
+        f'<a href="{source_href}" style="color:#C4A35A;text-decoration:underline">'
+        f"{_html(source_url)}</a>"
+        if source_href
+        else _html(source_url or "Not provided")
+    )
+    stage_label = (
+        "Expression of Interest"
+        if is_eoi
+        else "Quick flag"
+        if is_lightweight
+        else "Technical proposal"
+    )
 
     html = f"""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family:Arial,sans-serif;max-width:900px;
-                 margin:0 auto;color:#333;font-size:14px">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body style="margin:0;padding:0;background:#EDE9E0;color:#1C1914;
+                 font-family:Georgia,'Times New Roman',serif;font-size:14px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;background:#EDE9E0">
+    <tr>
+      <td align="center" style="padding:28px 12px">
+      <table role="presentation" width="680" cellpadding="0" cellspacing="0"
+             style="width:680px;max-width:680px;background:#ffffff">
 
-    <!-- HEADER -->
-    <div style="background:#1F3864;color:white;padding:24px 20px;
-                border-radius:8px 8px 0 0">
-        <h1 style="margin:0;font-size:22px">{header_title}</h1>
-        <p style="margin:8px 0 0;opacity:0.85;font-size:14px">
-            {_html(header_subtitle)}
+    <tr>
+      <td style="background:#1F3864;padding:28px 32px 24px">
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;
+                    color:#C4A35A;font-weight:700;margin-bottom:10px;
+                    font-family:Arial,Helvetica,sans-serif">
+          Cortech BD Intelligence · {_html(stage_label)}
+        </div>
+        <h1 style="margin:0;font-size:26px;line-height:1.2;color:#ffffff;
+                   font-weight:700;font-family:Georgia,'Times New Roman',serif">
+          {header_title}
+        </h1>
+        <p style="margin:10px 0 0;color:#D9D2C5;font-size:14px;line-height:1.5;
+                  font-family:Arial,Helvetica,sans-serif">
+          {_html(header_subtitle)}
         </p>
-    </div>
+      </td>
+    </tr>
 
-    <!-- OPPORTUNITY SUMMARY -->
-    <div style="background:#f8f9fa;padding:20px;
-                border-left:4px solid #1F3864;margin-bottom:0">
-        <h2 style="margin:0 0 12px;color:#1F3864;font-size:18px">{_html(title)}</h2>
-        <table style="width:100%;border-collapse:collapse">
-            <tr>
-                <td style="padding:4px 12px 4px 0;width:50%">
-                    <strong>Client:</strong> {_html(client)}
-                </td>
-                <td style="padding:4px 0">
-                    <strong>Deadline:</strong>
-                    <span style="color:{_safe_color(urgency.get('color'), '#dc3545')};font-weight:bold">
-                        {_html(deadline)} {_html(urgency.get('prefix', ''))}
-                    </span>
-                </td>
-            </tr>
-            <tr>
-                <td style="padding:4px 12px 4px 0">
-                    <strong>Fit Score:</strong>
-                    <span style="color:{score_color};font-weight:bold;font-size:16px">
-                        {_html(score)}/100
-                    </span>
-                    ({_html(recommendation)})
-                </td>
-                <td style="padding:4px 0">
-                    <strong>Budget cap (internal — do not copy into the technical/EOI):</strong> {_html(budget_cap_str)}
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2">{quality_line}{grounding_line}</td>
-            </tr>
-            <tr>
-                <td colspan="2" style="padding:8px 0 4px">
-                    <strong>TOR / Source:</strong>
-                    <a href="{_safe_href(source_url)}" style="color:#1F3864">{_html(source_url)}</a>
-                </td>
-            </tr>
+    <tr>
+      <td style="padding:28px 32px 8px">
+        <h2 style="margin:0 0 6px;color:#1F3864;font-size:22px;line-height:1.3;
+                   font-weight:700">{_html(title)}</h2>
+        <p style="margin:0 0 18px;color:#6B6458;font-size:14px;
+                  font-family:Arial,Helvetica,sans-serif">
+          {_html(client)}
+        </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%">
+          <tr>
+            {_kpi_tile("Fit score", f"{_html(score)}/100", _html(recommendation), score_color)}
+            {_kpi_tile("Deadline", _html(str(deadline)[:10] if deadline else "TBD"), _html(urgency.get("prefix") or "Review timing"), _safe_color(urgency.get("color"), "#1F3864"))}
+            {_kpi_tile("Ceiling (internal)", _html(budget_cap_str), "do not copy into the technical/EOI", "#1F3864")}
+            {_kpi_tile("Status", "Review", "Not sent to the client", "#1F3864")}
+          </tr>
         </table>
-    </div>
-
-    {action_banner}
-
-    <div style="padding:20px">
-
-    {budget_block}
-
-    <!-- STRENGTHS AND GAPS -->
-    <div style="display:flex;gap:20px;margin-bottom:24px">
-        <div style="flex:1;background:#d4edda;padding:16px;border-radius:6px">
-            <h3 style="color:#155724;margin:0 0 10px;font-size:14px">
-                Key Strengths
-            </h3>
-            <ul style="margin:0;padding-left:18px">{strengths_html}</ul>
+        <div style="font-family:Arial,Helvetica,sans-serif;padding:8px 6px 0">
+          {quality_line}{grounding_line}
+          <p style="margin:10px 0 0;font-size:13px;color:#6B6458">
+            <strong style="color:#1F3864">TOR / Source:</strong> {source_line}
+          </p>
         </div>
-        <div style="flex:1;background:#fff3cd;padding:16px;border-radius:6px">
-            <h3 style="color:#856404;margin:0 0 10px;font-size:14px">
-                Gaps to Address
-            </h3>
-            <ul style="margin:0;padding-left:18px">{gaps_html}</ul>
-        </div>
-    </div>
+      </td>
+    </tr>
 
-    <!-- TEAM TABLE -->
-    <div style="margin-bottom:24px">
-        <h3 style="color:#1F3864;font-size:15px;margin:0 0 10px;
-                   border-bottom:2px solid #1F3864;padding-bottom:6px">
-            Matched Team
-        </h3>
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr><td style="padding:12px 32px 0">{action_banner}</td></tr>
+
+    <tr>
+      <td style="padding:20px 32px 8px;font-family:Arial,Helvetica,sans-serif">
+        {budget_block}
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:0 0 28px">
+          <tr>
+            <td width="50%" valign="top" style="padding:0 8px 0 0">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="width:100%;background:#F1F7F2">
+                <tr><td style="padding:16px 18px">
+                  <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                              color:#155724;font-weight:700;margin-bottom:8px">Key Strengths</div>
+                  <ul style="margin:0;padding-left:18px;color:#1C1914;font-size:13px;
+                             line-height:1.5">{strengths_html}</ul>
+                </td></tr>
+              </table>
+            </td>
+            <td width="50%" valign="top" style="padding:0 0 0 8px">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                     style="width:100%;background:#FFF8EC">
+                <tr><td style="padding:16px 18px">
+                  <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                              color:#856404;font-weight:700;margin-bottom:8px">Gaps to Address</div>
+                  <ul style="margin:0;padding-left:18px;color:#1C1914;font-size:13px;
+                             line-height:1.5">{gaps_html}</ul>
+                </td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                    color:#8A7A5A;font-weight:600;margin:0 0 8px">People</div>
+        <h3 style="color:#1F3864;font-size:16px;margin:0 0 12px;font-weight:700;
+                   font-family:Georgia,'Times New Roman',serif">Matched Team</h3>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;border-collapse:collapse;margin:0 0 28px">
             <tr style="background:#1F3864;color:white">
-                <th style="padding:8px;text-align:left">Required Role</th>
-                <th style="padding:8px;text-align:left">Matched Consultant</th>
-                <th style="padding:8px;text-align:left">CV Match</th>
-                <th style="padding:8px;text-align:left">Availability</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;
+                           letter-spacing:0.06em;text-transform:uppercase">Required Role</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;
+                           letter-spacing:0.06em;text-transform:uppercase">Matched Consultant</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;
+                           letter-spacing:0.06em;text-transform:uppercase">CV Match</th>
+                <th style="padding:10px 12px;text-align:left;font-size:11px;
+                           letter-spacing:0.06em;text-transform:uppercase">Availability</th>
             </tr>
             {team_rows_html}
         </table>
-    </div>
 
-    {lock_block}
+        {lock_block}
 
-    {strategy_block}
+        {strategy_block}
 
-    <!-- PROPOSAL DRAFT -->
-    <div style="border-top:3px solid #1F3864;padding-top:20px;margin-top:8px">
-        <h2 style="color:#1F3864;margin:0 0 20px">{draft_heading}</h2>
-        {proposal_html}
-    </div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="width:100%;margin:12px 0 20px">
+          <tr>
+            <td style="border-top:2px solid #1F3864;padding-top:20px">
+              <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
+                          color:#C4A35A;font-weight:700;margin-bottom:6px">
+                Client-facing file · no fees, rates, or budgets
+              </div>
+              <h2 style="color:#1F3864;margin:0 0 20px;font-size:20px;font-weight:700;
+                         font-family:Georgia,'Times New Roman',serif">{draft_heading}</h2>
+              {proposal_html}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
 
-    </div>
-
-    <!-- FOOTER -->
-    <div style="background:#f8f9fa;padding:16px 20px;
-                border-radius:0 0 8px 8px;text-align:center;
-                border-top:1px solid #dee2e6">
-        <p style="font-size:12px;color:#999;margin:0">
-            Generated by Cortech BD Intelligence Agent •
-            This is a draft — human review and approval required before any submission •
-            <a href="{_safe_href(source_url)}" style="color:#1F3864">View original TOR</a>
+    <tr>
+      <td style="background:#1F3864;padding:18px 32px;font-family:Arial,Helvetica,sans-serif">
+        <p style="font-size:12px;color:#D9D2C5;margin:0;line-height:1.5">
+            Generated by Cortech BD Intelligence Agent ·
+            This is a draft — human review and approval required before any submission ·
+            <a href="{source_href}" style="color:#C4A35A">View original TOR</a>
         </p>
-    </div>
+      </td>
+    </tr>
 
+      </table>
+      </td>
+    </tr>
+    </table>
     </body>
     </html>
     """

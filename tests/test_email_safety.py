@@ -162,3 +162,35 @@ def test_eoi_review_email_still_shows_internal_budget(monkeypatch):
     assert "$50,000" in html
     assert "$9,000" in html
     assert "must not appear in the EOI Word file" in html
+
+
+def test_review_email_renders_draft_tables_as_html_not_pipe_rows(monkeypatch):
+    sent = _send_capture(monkeypatch)
+
+    email_report.send_proposal_email({
+        "title": "Somalia MEL Endline",
+        "client": "UNICEF",
+        "deadline": "2099-12-01",
+        "score": 82,
+        "recommendation": "BID",
+        "source_url": "https://procurement.example/tender",
+        "budget_cap": 100000,
+        "analysis": {"opportunity": {}, "bid_analysis": {"key_strengths": [], "key_gaps": []}},
+        "matched_team": {"matched_team": {}},
+        "budget": {"status": "PARTIAL", "summary": {}},
+        "proposal_sections": {
+            "cover_letter": "Opening paragraph.",
+            "org_profile_and_track_record": (
+                "| Project | Client | Year |\n"
+                "|---|---|---|\n"
+                "| WASH endline | Arche Nova | 2025 |\n"
+            ),
+        },
+    })
+
+    html = sent["content"]
+    assert "<th" in html
+    assert "Arche Nova" in html
+    assert "| WASH endline |" not in html
+    assert "Draft Technical Proposal" in html
+    assert "Fit score" in html
