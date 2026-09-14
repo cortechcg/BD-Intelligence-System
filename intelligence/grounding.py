@@ -58,6 +58,9 @@ _SKIP_KEYS = {
     "tender_brief",
     "win_strategy",
     "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
 }
 
 _PERSON_RE = re.compile(

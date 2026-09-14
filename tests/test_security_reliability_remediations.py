@@ -431,7 +431,14 @@ def test_all_tender_derived_context_stays_out_of_proposal_system_messages(monkey
     analysis["opportunity"]["title"] = attack
     monkeypatch.setattr(proposal_writer, "build_tor_brief", lambda *args, **kwargs: attack)
     monkeypatch.setattr(proposal_writer, "build_win_strategy", lambda *args, **kwargs: attack)
-    monkeypatch.setattr(proposal_writer, "build_document_lock", lambda *args, **kwargs: "")
+    monkeypatch.setattr(proposal_writer, "extract_document_lock", lambda *args, **kwargs: {})
+    monkeypatch.setattr(
+        proposal_writer,
+        "plan_draft_outline",
+        lambda *args, **kwargs: {
+            "prescribed": False, "sections": [], "omitted_financial": [],
+        },
+    )
     monkeypatch.setattr(proposal_writer, "house_style_notes_for", lambda *args, **kwargs: "")
     monkeypatch.setattr(proposal_writer, "get_relevant_lessons", lambda *args, **kwargs: "")
     monkeypatch.setattr(proposal_writer, "search_past_proposals", lambda *args, **kwargs: [])

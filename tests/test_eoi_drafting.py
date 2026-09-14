@@ -213,3 +213,45 @@ def test_quality_score_excludes_win_strategy_and_brief(monkeypatch):
     assert "SECRET BRIEF SHOULD NOT BE SCORED" not in user
     assert "win_strategy" not in user
     assert "tender_brief" not in user
+
+
+def test_quality_score_parses_fenced_json(monkeypatch):
+    from types import SimpleNamespace
+
+    from intelligence import proposal_writer
+
+    response = SimpleNamespace(
+        content=[SimpleNamespace(
+            type="text",
+            text='```json\n{"overall_score": 71, "rewrite_section": "methodology"}\n```',
+        )],
+        usage=None,
+    )
+    monkeypatch.setattr(proposal_writer, "complete", lambda **kwargs: response)
+    score = proposal_writer.generate_quality_self_score(
+        {"cover_letter": "letter about Turkana", "submission_type": "FULL_PROPOSAL"},
+        {"evaluation_criteria": []},
+    )
+    assert score["overall_score"] == 71
+    assert score["rewrite_section"] == "methodology"
+
+
+def test_cover_letter_signoff_is_not_treated_as_truncated():
+    from intelligence import proposal_writer
+
+    letter = (
+        "We remain available to DanChurchAid Kenya for any clarification "
+        "required prior to the closing date of 24 September 2026, 17:00 hours EAT.\n\n"
+        "Yours sincerely,\n\n"
+        "Mugove Kwashirai Chakurira\n"
+        "Lead Consultant/Researcher\n"
+        "Cortech Consulting Group\n"
+        "Nairobi, Kenya"
+    )
+    assert proposal_writer._looks_truncated(letter) is False
+    assert proposal_writer._trim_to_clean_end(letter) == letter
+    cut = letter + "\nWe remain available to"
+    cleaned = proposal_writer._trim_to_clean_end(cut)
+    assert cleaned.endswith("Nairobi, Kenya")
+    assert not cleaned.endswith("We remain available to")
+

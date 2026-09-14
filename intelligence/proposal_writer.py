@@ -6,7 +6,7 @@ from contextvars import copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from loguru import logger
-from utils.llm import cached_tokens, complete, finish_reason, get_text, output_tokens, usage_totals
+from utils.llm import cached_tokens, complete, finish_reason, get_text, loads_json_object, output_tokens, usage_totals
 from utils.money_scrub import (
     contains_financial_disclosure,
     contains_monetary_amount,
@@ -20,9 +20,11 @@ from utils.untrusted import wrap_untrusted
 from utils.prose import humanize_draft
 from utils.observability import ensure_opportunity_usage, opportunity_usage
 from intelligence.tender_reader import (
-    build_document_lock,
     build_tor_brief,
     build_win_strategy,
+    extract_document_lock,
+    format_document_lock,
+    plan_draft_outline,
     tender_documents_block,
 )
 from intelligence.grounding import ground_sections
@@ -43,7 +45,9 @@ from config import (
 )
 
 
-# This is Cortech's exact proposal structure (from the DRC template)
+# Fallback only. When the ToR/RFP/REOI lists required contents, that list
+# is the draft outline (see plan_draft_outline). This house skeleton is used
+# only when the documents prescribe nothing.
 PROPOSAL_STRUCTURE = """
 PROPOSAL SECTIONS (in order):
 1. COVER LETTER (addressed to client, professional, 4-5 paragraphs)
@@ -307,6 +311,7 @@ def _draft_meta(system_blocks: list[dict]) -> dict:
                 "tender_brief": block.get("tender_brief") or "",
                 "win_strategy": block.get("win_strategy") or "",
                 "document_lock": block.get("document_lock") or "",
+                "submission_outline": block.get("submission_outline") or {},
             }
     return {}
 
@@ -320,6 +325,9 @@ def _attach_draft_meta(sections: dict, system_blocks: list[dict]) -> dict:
         sections["win_strategy"] = meta["win_strategy"]
     if meta.get("document_lock"):
         sections["document_lock"] = meta["document_lock"]
+    outline = meta.get("submission_outline") or {}
+    if isinstance(outline, dict) and outline.get("omitted_financial"):
+        sections["omitted_financial"] = outline["omitted_financial"]
     return sections
 
 
@@ -605,6 +613,9 @@ assignment. This section must:
 6. Include no financial information (no fees, rates, budgets, contract values).
 7. House voice is register only. Do not import another assignment's method,
    geography, or section list.
+8. If the documents prescribe a section list, write those sections only, under
+   the tender's own headings and page limits. Do not add house sections the
+   tender did not ask for. Do not draft a financial envelope.
 """
 
 # Keys that are internal review metadata, not client-facing draft sections.
@@ -617,6 +628,9 @@ _META_SECTION_KEYS = {
     "tender_brief",
     "win_strategy",
     "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
 }
 
 
@@ -734,10 +748,35 @@ _CONTACT_LINE_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+_SIGNOFF_RE = re.compile(
+    r"^(yours\s+(sincerely|faithfully)|sincerely yours|sincerely|"
+    r"faithfully yours|respectfully yours|respectfully|"
+    r"(kind|best|warm)\s+regards|with\s+kind\s+regards|"
+    r"yours\s+truly)\s*,?\s*$",
+    re.I,
+)
+
 
 def _ends_in_contact_block(last_line: str) -> bool:
     """True for signature-block lines that legitimately carry no full stop."""
     return bool(_CONTACT_LINE_RE.search(last_line))
+
+
+def _is_signature_line(line: str) -> bool:
+    """Name, title, org, city, or letter sign-off — not an unfinished sentence."""
+    s = (line or "").strip().strip("*").strip()
+    if not s:
+        return False
+    if _SIGNOFF_RE.match(s) or _ends_in_contact_block(s):
+        return True
+    if len(s) > 80 or any(ch in s for ch in ".!?;:"):
+        return False
+    words = [w for w in re.split(r"[\s,/]+", s) if w]
+    if not (1 <= len(words) <= 8):
+        return False
+    if len(words) >= 2 and words[1][:1].islower():
+        return False
+    return s[0].isupper() or s[0].isdigit()
 
 
 def _looks_truncated(text: str) -> bool:
@@ -756,7 +795,7 @@ def _looks_truncated(text: str) -> bool:
         return False
     if t[-1] in ".!?\"'”’:":
         return False
-    if _ends_in_contact_block(last_line):
+    if _is_signature_line(last_line):
         return False
     return True
 
@@ -810,7 +849,7 @@ def _trim_to_clean_end(text: str) -> str:
         if last.startswith("|") and not _ends_cleanly(last):
             lines.pop()
             continue
-        if _ends_cleanly(last):
+        if _ends_cleanly(last) or _is_signature_line(last):
             break
         # Mid-sentence: keep the line only if a substantial finished clause
         # survives the cut, otherwise drop it and re-test the line above.
@@ -1047,9 +1086,25 @@ def build_system_blocks(
     tor_brief = build_tor_brief(
         tor_text, analysis, doc_block=doc_block, submission_type=submission_type
     )
-    document_lock = build_document_lock(
+    lock = extract_document_lock(
         tor_text, analysis, doc_block=doc_block, submission_type=submission_type
     )
+    document_lock = format_document_lock(lock)
+    submission_outline = plan_draft_outline(lock, analysis, submission_type)
+    if submission_outline.get("prescribed"):
+        names = ", ".join(
+            str(item.get("heading") or "")
+            for item in submission_outline.get("sections") or []
+        )
+        logger.info(f"  ToR prescribes draft structure: {names}")
+        omitted = submission_outline.get("omitted_financial") or []
+        if omitted:
+            logger.info(
+                "  Financial envelope left for a separate file: "
+                + "; ".join(str(x) for x in omitted)
+            )
+    else:
+        logger.info("  No ToR-prescribed section list — using Cortech house structure")
     win_strategy = build_win_strategy(
         tor_text,
         analysis,
@@ -1099,12 +1154,13 @@ def build_system_blocks(
         "text": guidance,
         "cache_control": {"type": "ephemeral"},
     })
-    if tor_brief or win_strategy or document_lock:
+    if tor_brief or win_strategy or document_lock or submission_outline:
         blocks.append({
             "type": "meta",
             "tender_brief": tor_brief,
             "win_strategy": win_strategy,
             "document_lock": document_lock,
+            "submission_outline": submission_outline,
         })
     return blocks
 
@@ -1142,7 +1198,12 @@ def get_donor_intelligence(donor: str, client_name: str) -> str:
     except Exception as e:
         from database.airtable_client import _note_failure
         _note_failure(e)
-        logger.warning(f"Could not fetch donor intelligence (non-fatal): {e}")
+        if "INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND" in str(e):
+            logger.info(
+                "Donor intelligence table is not in this Airtable base — skipping"
+            )
+        else:
+            logger.warning(f"Could not fetch donor intelligence (non-fatal): {e}")
         return ""
     if not records:
         return ""
@@ -1193,6 +1254,8 @@ def generate_quality_self_score(sections: dict, analysis: dict) -> dict:
 
 {extra}
 
+Allowed rewrite_section keys: {", ".join(writable) or "none"}.
+
 CRITERIA FROM THE TENDER:
 {wrap_untrusted(json.dumps(eval_criteria, indent=2))}
 
@@ -1205,13 +1268,13 @@ Return ONLY valid JSON:
   "weakest_criterion": "<which stated criterion is weakest, and why, one sentence>",
   "strongest_criterion": "<which stated criterion is strongest, and why, one sentence>",
   "one_improvement": "<the single most impactful specific fix, referencing something specific in the draft>",
-  "rewrite_section": "<exactly one of: {", ".join(writable)} — the section that most needs a rewrite to lift the score. Empty string if none>"
+  "rewrite_section": "<one draft section key, or empty string if none>"
 }}"""
 
     try:
         response = complete(
             model=CLAUDE_MODEL_PROPOSAL,
-            max_tokens=600,
+            max_tokens=1536,
             stage="proposal_quality_score",
             system=(
                 "Score a technical proposal using only evidence supplied as untrusted "
@@ -1219,7 +1282,7 @@ Return ONLY valid JSON:
             ),
             messages=[{"role": "user", "content": prompt}],
         )
-        return json.loads(get_text(response))
+        return loads_json_object(get_text(response))
     except Exception as e:
         logger.warning(f"Quality self-score failed (non-fatal): {e}")
         return {}
@@ -1519,6 +1582,14 @@ def _final_money_audit(sections: dict) -> None:
         return value
 
     for key, value in list(sections.items()):
+        if key in {
+            "section_order",
+            "omitted_financial",
+            "submission_outline",
+            "lightweight",
+            "lightweight_reason",
+        }:
+            continue
         sections[key] = scrub(value, str(key))
     if offenders:
         details = "; ".join(
@@ -1614,6 +1685,183 @@ every subsection. Do not leave headings without body text.{QUALITY_SUFFIX}"""
     return sections
 
 
+def generate_prescribed_section(
+    item: dict,
+    analysis: dict,
+    system_blocks: list[dict],
+    matched_team_result: dict | None = None,
+    submission_type: str = "FULL_PROPOSAL",
+) -> str:
+    """Write one tender-prescribed heading (not a Cortech house slot)."""
+    item = item if isinstance(item, dict) else {}
+    heading = str(item.get("heading") or "Required section").strip()
+    page_limit = str(item.get("page_limit") or "").strip()
+    must_include = item.get("must_include") or []
+    if not isinstance(must_include, list):
+        must_include = [must_include] if must_include else []
+    _opportunity, title, client_name, _donor, _deadline = _opportunity_fields(analysis)
+    stage = (
+        "Expression of Interest / shortlisting submission"
+        if submission_type == "EOI"
+        else "technical proposal"
+    )
+    limit_line = (
+        f"LENGTH RULE (mandatory, scored if the tender says so): {page_limit}. "
+        "Stay inside it. Prefer complete, dense prose over extra house headings."
+        if page_limit
+        else ""
+    )
+    children = ""
+    if must_include:
+        children = (
+            "Cover these nested contents in the tender's order:\n"
+            + "\n".join(f"- {c}" for c in must_include if str(c).strip())
+        )
+    team_note = ""
+    if matched_team_result:
+        team_note = _team_digest(matched_team_result)
+    if item.get("kind") == "form" or item.get("route") == "forms":
+        user_prompt = f"""Write the tender-prescribed section titled exactly:
+
+{heading}
+
+This is a {stage} for: {title}
+CLIENT: {client_name}
+
+{children}
+
+List every mandatory form, annex, template, or declaration the tender names
+for this heading. For each: quote the requirement, then state what Cortech
+will attach (registration, policy, signatory) using only CORTECH PROFILE and
+the tender documents. Wet-ink signatures, scanned IDs, and filled official
+templates cannot be produced in this draft — mark those [HUMAN ACTION REQUIRED].
+Do not invent a completed legal form. Do not include financial figures.
+
+{limit_line}
+{_eval_criteria_block(analysis, submission_type)}{QUALITY_SUFFIX}"""
+        stage_name = "eoi_eligibility" if submission_type == "EOI" else "qa_and_ethics"
+        return _generate_section(
+            stage_name, CLAUDE_MODEL_PROPOSAL, 4096, system_blocks, user_prompt
+        )
+
+    user_prompt = f"""Write the tender-prescribed section titled exactly:
+
+{heading}
+
+Do not rename this heading to a Cortech house heading. Do not add extra
+house sections (executive summary, conceptual framework, risk register,
+sampling chapter) unless this heading is that section.
+This is a {stage} for: {title}
+CLIENT: {client_name}
+
+{limit_line}
+{children}
+{team_note}
+
+Work from the tender documents, DOCUMENT LOCK, READING BRIEF, and WIN STRATEGY
+in the untrusted evidence pack. Use the client's own vocabulary. Invent
+nothing. If a suitability / fitness statement is required, prove fitness for
+THIS assignment (named geography, registrations in CORTECH PROFILE, relevant
+past work, named team) — not a generic brochure.
+{_eval_criteria_block(analysis, submission_type)}{QUALITY_SUFFIX}"""
+    tokens = CLAUDE_MAX_TOKENS if "technical" in heading.lower() else 4096
+    route = str(item.get("route") or "generic")
+    stage_name = route if route in _EXEMPLAR_KEY_FOR else "understanding"
+    return _generate_section(
+        stage_name, CLAUDE_MODEL_PROPOSAL, tokens, system_blocks, user_prompt
+    )
+
+
+def _house_writer_for(
+    route: str,
+    *,
+    analysis: dict,
+    system_blocks: list[dict],
+    matched_team_result: dict,
+    title: str,
+    client_name: str,
+    deadline: str,
+    submission_type: str,
+):
+    """Return the existing house generator for a mapped ToR heading, or None."""
+    if route == "cover_letter":
+        if submission_type == "EOI":
+            return None
+        return lambda: generate_cover_letter(
+            title, client_name, deadline, analysis, system_blocks,
+        )
+    if route == "executive_summary":
+        return lambda: generate_executive_summary(
+            analysis, matched_team_result, system_blocks,
+        )
+    if route == "org_profile_and_track_record":
+        return lambda: generate_org_profile_and_track_record(analysis, system_blocks)
+    if route == "introduction_and_framework":
+        return lambda: generate_introduction_and_framework(analysis, system_blocks)
+    if route == "methodology":
+        return lambda: generate_methodology(analysis, system_blocks)
+    if route == "analysis_plan":
+        return lambda: generate_analysis_plan(analysis, system_blocks)
+    if route == "qa_and_ethics":
+        return lambda: generate_qa_and_ethics(analysis, system_blocks)
+    if route == "risk_register":
+        return lambda: generate_risk_register(analysis, system_blocks)
+    if route == "team_section":
+        return lambda: generate_team_section(
+            matched_team_result, title, system_blocks, analysis,
+        )
+    if route == "work_plan":
+        return lambda: generate_work_plan(analysis, system_blocks)
+    return None
+
+
+def _jobs_from_outline(
+    outline: dict,
+    *,
+    analysis: dict,
+    system_blocks: list[dict],
+    matched_team_result: dict,
+    title: str,
+    client_name: str,
+    deadline: str,
+    submission_type: str,
+) -> tuple[dict, list[dict]]:
+    """Split outline items into parallel jobs and deferred (matrix) items."""
+    jobs = {}
+    deferred = []
+    for item in outline.get("sections") or []:
+        if not isinstance(item, dict) or not item.get("key"):
+            continue
+        if item.get("route") == "compliance_matrix":
+            deferred.append(item)
+            continue
+
+        def _write(item=item):
+            route = item.get("route") or "generic"
+            house = _house_writer_for(
+                route,
+                analysis=analysis,
+                system_blocks=system_blocks,
+                matched_team_result=matched_team_result,
+                title=title,
+                client_name=client_name,
+                deadline=deadline,
+                submission_type=submission_type,
+            )
+            if house is not None:
+                return house()
+            return generate_prescribed_section(
+                item,
+                analysis,
+                system_blocks,
+                matched_team_result=matched_team_result,
+                submission_type=submission_type,
+            )
+
+        jobs[item["key"]] = _write
+    return jobs, deferred
+
+
 def generate_eoi(
     analysis: dict,
     matched_team_result: dict,
@@ -1648,6 +1896,7 @@ def generate_eoi(
         submission_type="EOI",
         matched_team_result=matched_team_result,
     )
+    outline = (_draft_meta(system_blocks).get("submission_outline") or {})
 
     team_summary = json.dumps({
         role: {
@@ -1660,6 +1909,38 @@ def generate_eoi(
     }, indent=2)
 
     eoi_criteria = _eval_criteria_block(analysis, "EOI")
+
+    if outline.get("prescribed") and outline.get("sections"):
+        jobs, deferred = _jobs_from_outline(
+            outline,
+            analysis=analysis,
+            system_blocks=system_blocks,
+            matched_team_result=matched_team_result,
+            title=title,
+            client_name=client_name,
+            deadline=_deadline,
+            submission_type="EOI",
+        )
+        sections = _run_parallel_sections(jobs) if jobs else {}
+        for item in deferred:
+            sections[item["key"]] = generate_prescribed_section(
+                item, analysis, system_blocks, matched_team_result, "EOI"
+            )
+        sections["section_order"] = [
+            (item["key"], item["heading"]) for item in outline["sections"]
+        ]
+        sections["omitted_financial"] = outline.get("omitted_financial") or []
+        sections["submission_type"] = "EOI"
+        sections = _attach_draft_meta(sections, system_blocks)
+        sections["quality_score"] = generate_quality_self_score(sections, analysis)
+        sections = _repair_weakest_section(sections, analysis, system_blocks)
+        sections = _finalize_client_draft(sections, analysis, matched_team_result)
+        try:
+            _log_proposal_usage(f"Generated EOI for: {title[:60]}", opportunity_id, usage_before)
+        except Exception:
+            pass
+        logger.success("EOI generation complete!")
+        return sections
 
     jobs = {
         "cover_letter": lambda: _generate_section(
@@ -1876,8 +2157,8 @@ def generate_proposal(
 ) -> dict:
     """
     Generate a proposal draft routed by bid_recommendation:
-      BID   → all 10 sections on the proposal model, complete and
-              aligned to the ToR award criteria
+      BID   → ToR-prescribed sections when the documents list them;
+              otherwise the Cortech house 10-section draft
       WATCH → same full draft by default; a two-section quick flag only
               when FULL_DRAFT_FOR_WATCH is disabled (see config.py)
     NO-BID callers should not invoke this function.
@@ -1941,7 +2222,41 @@ def generate_proposal(
         logger.success("WATCH quick-flag generation complete!")
         return sections
 
-    # BID, and WATCH by default — full 10-section draft, written concurrently
+    outline = (_draft_meta(system_blocks).get("submission_outline") or {})
+    if outline.get("prescribed") and outline.get("sections"):
+        jobs, deferred = _jobs_from_outline(
+            outline,
+            analysis=analysis,
+            system_blocks=system_blocks,
+            matched_team_result=matched_team_result,
+            title=title,
+            client_name=client_name,
+            deadline=deadline,
+            submission_type="FULL_PROPOSAL",
+        )
+        sections = _run_parallel_sections(jobs) if jobs else {}
+        for item in deferred:
+            sections[item["key"]] = generate_prescribed_section(
+                item, analysis, system_blocks, matched_team_result, "FULL_PROPOSAL"
+            )
+        sections["section_order"] = [
+            (item["key"], item["heading"]) for item in outline["sections"]
+        ]
+        sections["omitted_financial"] = outline.get("omitted_financial") or []
+        sections = _attach_draft_meta(sections, system_blocks)
+        sections["quality_score"] = generate_quality_self_score(sections, analysis)
+        sections = _repair_weakest_section(sections, analysis, system_blocks)
+        sections = _finalize_client_draft(sections, analysis, matched_team_result)
+        try:
+            _log_proposal_usage(
+                f"Generated full draft proposal for: {title[:60]}", opportunity_id, usage_before
+            )
+        except Exception:
+            pass
+        logger.success("Proposal generation complete!")
+        return sections
+
+    # BID, and WATCH by default — house 10-section draft when the ToR prescribes nothing
     sections = _run_parallel_sections({
         "cover_letter": lambda: generate_cover_letter(
             title, client_name, deadline, analysis, system_blocks,

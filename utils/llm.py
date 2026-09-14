@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 from config import get_anthropic_client
@@ -152,3 +154,24 @@ def usage_totals(response) -> tuple[int, int]:
         or 0
     )
     return inp, out
+
+
+def loads_json_object(text: str) -> dict:
+    """Parse a JSON object from model output (fences, leading prose, or raw)."""
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("empty JSON")
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw).strip()
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start < 0 or end <= start:
+            raise
+        data = json.loads(raw[start : end + 1])
+    if not isinstance(data, dict):
+        raise ValueError("expected a JSON object")
+    return data

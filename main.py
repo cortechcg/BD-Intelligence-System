@@ -52,7 +52,7 @@ from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
 from intelligence.proposal_writer import generate_proposal, generate_eoi
-from reporting.docx_builder import SECTION_ORDER
+from reporting.docx_builder import iter_client_sections
 from intelligence.learning import process_win_loss_outcomes, save_draft_memory
 from database.supabase_client import (
     check_opportunity_exists,
@@ -707,12 +707,12 @@ def submit_single_url(url: str) -> None:
     _skip_keys = {
         "lightweight", "lightweight_reason", "submission_type", "quality_score",
         "claim_grounding", "tender_brief", "win_strategy", "document_lock",
+        "section_order", "omitted_financial", "submission_outline",
     }
     with open(out_path, "w") as f:
         written = set()
-        for key, heading in SECTION_ORDER:
-            content = sections.get(key)
-            if key in _skip_keys or not isinstance(content, str) or not content.strip():
+        for key, heading, content in iter_client_sections(sections):
+            if key in _skip_keys:
                 continue
             f.write(f"## {heading}\n\n{content}\n\n")
             written.add(key)

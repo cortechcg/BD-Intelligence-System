@@ -921,3 +921,278 @@ TypeError: int() argument must be a string, a bytes-like object or a real number
 2026-09-10 19:37:00.762 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal Cortech to SOS CV Somalia.docx → 257990 chars
 2026-09-10 19:37:12.928 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-sonnet-5 in=7584 out=1200 cached=0 est_cost_usd=0.027167999999999998
 2026-09-10 19:37:12.929 | ERROR    | __main__:extract_proposal_info:507 - JSON parse error for proposal Technical Proposal Cortech to SOS CV Somalia.docx: Unterminated string starting at: line 45 column 26 (char 2997)
+2026-09-14 13:53:51.841 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=8 out=10 cached=0 est_cost_usd=5.8e-05
+2026-09-14 13:53:56.892 | DEBUG    | __main__:read_docx:284 - DOCX: 20240209_Cortech Consulting Group_Technical Proposal_PWJ KAP Survey.docx → 58262 chars
+2026-09-14 13:54:07.150 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5584 out=787 cached=0 est_cost_usd=0.009519
+2026-09-14 13:54:07.150 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: WASH Knowledge, Attitude and Practice (KAP) Survey in Dadaab Refugee Camps
+2026-09-14 13:54:13.025 | DEBUG    | __main__:read_pdf:253 - PDF: 20240409_Cortech Consulting Group_Technical and Financial Proposal_NRC Market Survey.pdf → 81119 chars
+2026-09-14 13:54:20.854 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=6185 out=575 cached=0 est_cost_usd=0.00906
+2026-09-14 13:54:20.855 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Labor Market Assessment in Jowhar with Particular Focus on IDPs and Vulnerable Host Communities
+2026-09-14 13:54:22.899 | DEBUG    | __main__:read_docx:284 - DOCX: 20240506_TPM Technical Proposal.docx → 133811 chars
+2026-09-14 13:54:30.960 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4873 out=597 cached=0 est_cost_usd=0.007858
+2026-09-14 13:54:30.960 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy for Third Party Monitoring – Somalia Portfolio / Climate Resilient Food Security Project in Gobweyn and Luglow/Kismayo/Jubbaland
+2026-09-14 13:54:32.964 | DEBUG    | __main__:read_docx:284 - DOCX: 20240729_Cortech Consulting Group_Technical and Financial Proposal_ Plan International Mapping.docx → 53395 chars
+2026-09-14 13:54:42.147 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5262 out=661 cached=0 est_cost_usd=0.008567
+2026-09-14 13:54:42.148 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy to Conduct Mapping of Available CP & GBV Service Providers in Baidoa and Bardhere, Somalia
+2026-09-14 13:54:46.752 | DEBUG    | __main__:read_pdf:253 - PDF: 20240814_Cortech Consulting Group_Technical and Financial Proposal_ LWF DF 6241- Endline Evaluation Survey (2).pdf → 74571 chars
+2026-09-14 13:54:56.709 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4479 out=747 cached=0 est_cost_usd=0.008214
+2026-09-14 13:54:56.709 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End-line Evaluation for 'Promoting Resilience and Peaceful Co-existence for Climate Crisis Affected Communities in Somalia' Project
+2026-09-14 13:54:58.439 | DEBUG    | __main__:read_docx:284 - DOCX: 20241003_Cortech Consulting Group_Technical Proposal_TDH.docx → 17673 chars
+2026-09-14 13:55:07.846 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4900 out=755 cached=0 est_cost_usd=0.008675
+2026-09-14 13:55:07.846 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End of Project Evaluation for Scaling Up of Activities Related to Prevention and Treatment of Malnourished Children Under 5, Pregnant & Lactating Women in Garissa County
+2026-09-14 13:55:09.663 | DEBUG    | __main__:read_docx:284 - DOCX: 20241018_Cortech Consulting Group_Technical_ PGI.docx → 25013 chars
+2026-09-14 13:55:17.527 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5093 out=608 cached=0 est_cost_usd=0.008133000000000001
+2026-09-14 13:55:17.527 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Development of Communication Strategy
+2026-09-14 13:55:19.490 | DEBUG    | __main__:read_docx:284 - DOCX: 20241108_Cortech Consulting Group_Technical Proposal_ LWF GEDSI Assessment Project.docx → 66231 chars
+2026-09-14 13:55:28.385 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4799 out=685 cached=0 est_cost_usd=0.008224
+2026-09-14 13:55:28.386 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: GEDSI Assessment in Jubaland and Training for LWF Somalia Sub-Program Staff
+2026-09-14 13:55:36.286 | DEBUG    | __main__:read_pdf:253 - PDF: 20241111_ Cortech Consulting Group_Technical Proposal_IoM_Monitoring Framework and Scorecard on the Implementation of FMP.pdf → 157653 chars
+2026-09-14 13:55:44.480 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4815 out=723 cached=0 est_cost_usd=0.00843
+2026-09-14 13:55:44.480 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Monitoring Framework and Scorecard on the Implementation of the Free Movement of Persons (FMP) Protocol in Africa
+2026-09-14 13:55:46.960 | DEBUG    | __main__:read_pdf:253 - PDF: 20250317_Cortech Consulting_ Somali EAC Intergration Proposal.pdf → 25298 chars
+2026-09-14 13:55:54.290 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5652 out=643 cached=0 est_cost_usd=0.008867
+2026-09-14 13:55:54.290 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Supporting Somalia's Integration into the East Africa Community
+2026-09-14 13:55:55.988 | DEBUG    | __main__:read_docx:284 - DOCX: Annex 1 - Inv for Proposals CPD 2026 2030 - UNFPA Somalia.docx → 45378 chars
+2026-09-14 13:56:05.145 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4976 out=714 cached=0 est_cost_usd=0.008546000000000002
+2026-09-14 13:56:05.145 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Integrated Reproductive Health and Gender-Based Violence Response and Empowerment Programme for Women and Girls in Conflict-Affected Areas of Hirshabelle and South West States, Somalia
+2026-09-14 13:56:11.656 | DEBUG    | __main__:read_pdf:253 - PDF: Cortech Consulting Consortium_Technical Proposal for Enhancing Livelihood Development through SME and MSME Support Somalia.pdf → 137084 chars
+2026-09-14 13:56:19.585 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5422 out=565 cached=0 est_cost_usd=0.008246999999999999
+2026-09-14 13:56:19.586 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Enhancing Livelihood Development through SME and MSME Support IDPs and Host communities in Bossaso, Somalia
+2026-09-14 13:56:25.129 | DEBUG    | __main__:read_pdf:253 - PDF: Cortech Consulting Group- Technical Proposal for OCHA SHF Funded Projects in Sudan V1.pdf → 103851 chars
+2026-09-14 13:56:33.251 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4767 out=782 cached=0 est_cost_usd=0.008677
+2026-09-14 13:56:33.251 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Third-Party Monitoring Services for OCHA Sudan Humanitarian Fund
+2026-09-14 13:56:51.535 | DEBUG    | __main__:read_pdf:253 - PDF: Cortech-Technical Proposal.pdf → 481145 chars
+2026-09-14 13:57:01.037 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5325 out=770 cached=0 est_cost_usd=0.009174999999999999
+2026-09-14 13:57:01.037 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Independent Evaluation of the Sida-Funded Sub-Saharan Africa Energy Access Programme (REACT SSA)
+2026-09-14 13:57:02.807 | DEBUG    | __main__:read_docx:284 - DOCX: EOI Apiculture.docx → 106344 chars
+2026-09-14 13:57:12.024 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4690 out=682 cached=0 est_cost_usd=0.0081
+2026-09-14 13:57:12.024 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consulting Services for Business Accelerator for Apiculture Value Chain under NAVCDP
+2026-09-14 13:57:13.792 | DEBUG    | __main__:read_docx:284 - DOCX: EOI Cortech to SODMA.docx → 79247 chars
+2026-09-14 13:57:22.459 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4896 out=744 cached=0 est_cost_usd=0.008616
+2026-09-14 13:57:22.460 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Design and Development of a Practical Impact-Based Forecasting Framework and Prototype System for Climate Risks in Somalia
+2026-09-14 13:57:33.175 | DEBUG    | __main__:read_pdf:253 - PDF: EOI_SFERE_CORTECH.pdf → 331750 chars
+2026-09-14 13:57:40.446 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4957 out=614 cached=0 est_cost_usd=0.008027
+2026-09-14 13:57:40.446 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy to conduct pre-feasibility and feasibility studies for the proposed TVET Phase IV Project
+2026-09-14 13:57:42.040 | DEBUG    | __main__:read_docx:284 - DOCX: EoI WB Somali.docx → 990 chars
+2026-09-14 13:57:45.768 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=855 out=339 cached=0 est_cost_usd=0.0025499999999999997
+2026-09-14 13:57:45.769 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Unknown - Expression of Interest (EOI) document only
+2026-09-14 13:57:47.111 | DEBUG    | __main__:read_docx:284 - DOCX: Expresion of Interest - Cortech Isebania.docx → 28490 chars
+2026-09-14 13:57:55.495 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4828 out=587 cached=0 est_cost_usd=0.007762999999999999
+2026-09-14 13:57:55.496 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy Services for Supervision of Construction of Intake Improvement Works for Migori & Isebania Towns Water Supply System and Ugunja Last Mile Connectivity Project
+2026-09-14 13:57:57.174 | DEBUG    | __main__:read_docx:284 - DOCX: Expresion of Interest - Cortech Nandi Hills.docx → 28459 chars
+2026-09-14 13:58:05.772 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4832 out=628 cached=0 est_cost_usd=0.007972
+2026-09-14 13:58:05.772 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy Services for Supervision of Construction Works for Last Mile Connectivity for Nandi Hills, Kilgoris and Lolgorian Towns Water Supply Project
+2026-09-14 13:58:07.558 | DEBUG    | __main__:read_docx:284 - DOCX: Funding Proposal - HIDIG Relief and Development Organization.docx → 29879 chars
+2026-09-14 13:58:18.374 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5012 out=917 cached=0 est_cost_usd=0.009597
+2026-09-14 13:58:18.375 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Roots of Resilience: Community-Led Prevention of Violent Extremism in Baay and Bakool, Somalia
+2026-09-14 13:58:21.225 | DEBUG    | __main__:read_pdf:253 - PDF: Operation Model of JUWA_Technical_Proposal.pdf → 26127 chars
+2026-09-14 13:58:30.062 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4913 out=648 cached=0 est_cost_usd=0.008153
+2026-09-14 13:58:30.062 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy Service for Support in the Implementation of the Operation Model and Capacity Development for the Jubaland Water Agency
+2026-09-14 13:58:31.774 | DEBUG    | __main__:read_docx:284 - DOCX: Part II_Technical_Proposal_SRI.docx → 21781 chars
+2026-09-14 13:58:39.359 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4480 out=588 cached=0 est_cost_usd=0.0074199999999999995
+2026-09-14 13:58:39.359 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Roadmap implementation needs assessment study on the integration of Somalia into the East African Community in regard to trade for agricultural commodities
+2026-09-14 13:58:41.064 | DEBUG    | __main__:read_docx:284 - DOCX: RACIDA TECHNICAL PROPOSAL.docx → 26066 chars
+2026-09-14 13:58:50.110 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5042 out=774 cached=0 est_cost_usd=0.008912
+2026-09-14 13:58:50.111 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy Services for Endline Evaluation in Mandera Under RACIDA's IRR Project
+2026-09-14 13:58:51.694 | DEBUG    | __main__:read_docx:284 - DOCX: RfP_UNICEF.docx → 25457 chars
+2026-09-14 13:58:58.374 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4645 out=677 cached=0 est_cost_usd=0.008029999999999999
+2026-09-14 13:58:58.375 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Institutional Consultancy to Undertake Assessment of Out of School Children (OOSC) and Adolescents in Dadaab, Kakuma and Kalobeyei Settlement Areas
+2026-09-14 13:59:00.227 | DEBUG    | __main__:read_docx:284 - DOCX: Scaling up women led micro and small enterprises for the social and economic inclusion of IDPs in Baidoa.docx → 73312 chars
+2026-09-14 13:59:12.888 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5242 out=1005 cached=0 est_cost_usd=0.010267
+2026-09-14 13:59:12.888 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Scaling up Women-Led Micro and Small Enterprises for the Social and Economic Inclusion of IDPs in Baidoa, Somalia
+2026-09-14 13:59:14.655 | DEBUG    | __main__:read_docx:284 - DOCX: TECHNICAL PROPOSAL 1.docx → 42743 chars
+2026-09-14 13:59:24.065 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4783 out=736 cached=0 est_cost_usd=0.008463
+2026-09-14 13:59:24.065 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy Services for PDM/Final Evaluation of QRCS' project in Somalia
+2026-09-14 13:59:25.805 | DEBUG    | __main__:read_docx:284 - DOCX: TECHNICAL PROPOSAL 2.docx → 27614 chars
+2026-09-14 13:59:35.020 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4959 out=672 cached=0 est_cost_usd=0.008319
+2026-09-14 13:59:35.021 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy Services for Post Distribution Monitoring of Unconditional Cash Under RACIDA's IRR Project
+2026-09-14 13:59:36.678 | DEBUG    | __main__:read_docx:284 - DOCX: TECHNICAL PROPOSAL CEF-RFP-01.docx → 77485 chars
+2026-09-14 13:59:47.051 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4672 out=799 cached=0 est_cost_usd=0.008667000000000001
+2026-09-14 13:59:47.051 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Monitoring, Evaluation, and Learning Partner for the Somali Civic Engagement Facility
+2026-09-14 13:59:48.821 | DEBUG    | __main__:read_docx:284 - DOCX: TECHNICAL PROPOSAL HI Kenya.docx → 72578 chars
+2026-09-14 13:59:56.705 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4881 out=672 cached=0 est_cost_usd=0.008241
+2026-09-14 13:59:56.706 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy Services to undertake Agritech landscape study in Kenya
+2026-09-14 13:59:58.370 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Approach and Methodology.docx → 194203 chars
+2026-09-14 14:00:07.458 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4250 out=711 cached=0 est_cost_usd=0.007805
+2026-09-14 14:00:07.459 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Community-based Anticipatory Action Pilot in Mandera and Moyale Cross-border Clusters
+2026-09-14 14:00:09.180 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal - Audit.docx → 54329 chars
+2026-09-14 14:00:19.575 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4957 out=697 cached=0 est_cost_usd=0.008442
+2026-09-14 14:00:19.575 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: External Audit Services for External Offices
+2026-09-14 14:00:21.335 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal - Internal Audit.docx → 40258 chars
+2026-09-14 14:00:29.555 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5741 out=668 cached=0 est_cost_usd=0.009080999999999999
+2026-09-14 14:00:29.556 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Internal Audit of Qatar Red Crescent Society Somalia Office
+2026-09-14 14:00:31.367 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal - PRF 29110 18 Nov 2025.docx → 37199 chars
+2026-09-14 14:00:40.663 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4841 out=742 cached=0 est_cost_usd=0.008551
+2026-09-14 14:00:40.664 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Endline Evaluation - Continuity in Crisis Project
+2026-09-14 14:00:42.421 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal - PRF29115 18 Nov 2025.docx → 33712 chars
+2026-09-14 14:00:52.443 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4935 out=744 cached=0 est_cost_usd=0.008655
+2026-09-14 14:00:52.444 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End-Term Evaluation of the Resilience, Health and Rights Project
+2026-09-14 14:00:54.181 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 3.docx → 84650 chars
+2026-09-14 14:01:03.744 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4800 out=650 cached=0 est_cost_usd=0.00805
+2026-09-14 14:01:03.745 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Behavioral and Social Drivers (BeSD) Survey amongst Cross-border Communities in Fafi, Dadaab and Hulugho Sub Counties
+2026-09-14 14:01:05.619 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 4.docx → 83677 chars
+2026-09-14 14:01:14.275 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4659 out=626 cached=0 est_cost_usd=0.007789
+2026-09-14 14:01:14.275 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Training IIW-SS Investees on Sexual and Gender-Based Violence and Harassment (SGBVH), Safeguarding, and Referral Mechanisms
+2026-09-14 14:01:16.154 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 5.docx → 160857 chars
+2026-09-14 14:01:26.581 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4671 out=820 cached=0 est_cost_usd=0.008771
+2026-09-14 14:01:26.581 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Feasibility Study for the NURTURE (Nutrition, Health and Resilience for Vulnerable Communities) Project
+2026-09-14 14:01:28.639 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 6.docx → 212882 chars
+2026-09-14 14:01:37.643 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4347 out=637 cached=0 est_cost_usd=0.0075320000000000005
+2026-09-14 14:01:37.644 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy to Develop a CEWARN Regional Strategy Framework for Integrating Climate Security into National Peace and Security Policies
+2026-09-14 14:01:39.378 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 7.docx → 73572 chars
+2026-09-14 14:01:49.727 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4807 out=907 cached=0 est_cost_usd=0.009342
+2026-09-14 14:01:49.728 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Endline Evaluation for the Sustainable Food Systems Project (SUSTFARM+) in Western Kenya Counties
+2026-09-14 14:01:51.425 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal 9.docx → 50394 chars
+2026-09-14 14:02:01.759 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4410 out=667 cached=0 est_cost_usd=0.007745
+2026-09-14 14:02:01.759 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: External Audit Services - QRCS Somalia Office
+2026-09-14 14:02:03.501 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal ACEF.docx → 65953 chars
+2026-09-14 14:02:14.333 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4987 out=841 cached=0 est_cost_usd=0.009191999999999999
+2026-09-14 14:02:14.333 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Final Evaluation of the Finance for Inclusive Growth (FIG) Somalia Programme
+2026-09-14 14:02:16.065 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal CARE.docx → 89725 chars
+2026-09-14 14:02:26.045 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4750 out=725 cached=0 est_cost_usd=0.008375
+2026-09-14 14:02:26.045 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Third Party Monitoring Consultancy for the Girls' Education Accelerator (GEA) Program
+2026-09-14 14:02:28.404 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal Forms 27 Jan 2026.docx → 328236 chars
+2026-09-14 14:02:37.445 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4793 out=586 cached=0 est_cost_usd=0.007723000000000001
+2026-09-14 14:02:37.445 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Community Early Warning and Disaster Risk Reduction (DRR) Training Support
+2026-09-14 14:02:39.057 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal GAIN.docx → 35298 chars
+2026-09-14 14:02:47.725 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4822 out=694 cached=0 est_cost_usd=0.008292
+2026-09-14 14:02:47.731 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Data Collection on Child and Adolescent Centred Nutrition Indicators (CAN-I) in Kenya
+2026-09-14 14:02:49.519 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal GREDO.docx → 81083 chars
+2026-09-14 14:02:59.150 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4812 out=704 cached=0 est_cost_usd=0.008331999999999999
+2026-09-14 14:02:59.150 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Documentation of Best Practices and Lessons Learnt under the Green Skills for Sustainable Employment Opportunities Intervention in Baidoa, Somalia
+2026-09-14 14:03:01.145 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal ICPAC Final.docx → 340832 chars
+2026-09-14 14:03:11.440 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4789 out=830 cached=0 est_cost_usd=0.008938999999999999
+2026-09-14 14:03:11.440 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consulting Services to Design and Delivery of Community Based Anticipatory Action Pilot Project within Mandera and Moyale IGAD Clusters
+2026-09-14 14:03:13.267 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal IGAD.docx → 117302 chars
+2026-09-14 14:03:24.208 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4795 out=846 cached=0 est_cost_usd=0.009024999999999998
+2026-09-14 14:03:24.208 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End-of-Project Evaluation of the 'Improving Land Governance in the IGAD Region' Programme (Phase II)
+2026-09-14 14:03:25.959 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal SCI.docx → 81483 chars
+2026-09-14 14:03:36.936 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4919 out=799 cached=0 est_cost_usd=0.008914
+2026-09-14 14:03:36.936 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Endline Evaluation of the SOM_DANIDA SPA 2022–2025 Programme (Lot HUM and Lot CIV)
+2026-09-14 14:03:38.683 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal ZIZI Afrique.docx → 71728 chars
+2026-09-14 14:03:48.230 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4925 out=735 cached=0 est_cost_usd=0.0086
+2026-09-14 14:03:48.230 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy Services to Develop a Comprehensive M&E Framework and Document Key Achievements and Impact Stories under the Unlocking Data Initiative
+2026-09-14 14:03:57.329 | DEBUG    | __main__:read_pdf:253 - PDF: Technical Proposal _DRC Kenya- Business Needs & Mapping of BDS Providers  _ RegioTrade_ Final_14122024.pdf → 258404 chars
+2026-09-14 14:04:06.327 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4792 out=725 cached=0 est_cost_usd=0.008417000000000001
+2026-09-14 14:04:06.327 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Business Needs Assessment & Mapping Relevant Business Development Services (BDS) Providers in Nairobi and Mandera
+2026-09-14 14:04:14.384 | DEBUG    | __main__:read_pdf:253 - PDF: Technical Proposal for 2025 Audit Services- QRCS Somalia Office.pdf → 58993 chars
+2026-09-14 14:04:22.661 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4941 out=592 cached=0 est_cost_usd=0.007901
+2026-09-14 14:04:22.662 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Internal Audit Services - QRCS Somalia Office
+2026-09-14 14:04:24.498 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal for LLINs.docx → 56884 chars
+2026-09-14 14:04:34.075 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4779 out=759 cached=0 est_cost_usd=0.008574
+2026-09-14 14:04:34.076 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: LLINs Ownership and Use Assessment in Somalia and Somaliland
+2026-09-14 14:04:35.739 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal to PACIDA.docx → 45640 chars
+2026-09-14 14:04:46.148 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4908 out=783 cached=0 est_cost_usd=0.008823000000000001
+2026-09-14 14:04:46.148 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Final Evaluation – Emergency Relief and Anticipatory Humanitarian Action for Victims of Climate-Related Disasters in Somalia, Northern Kenya, and Southern Ethiopia
+2026-09-14 14:04:47.839 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal to WHH 2.docx → 66528 chars
+2026-09-14 14:04:58.457 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4838 out=855 cached=0 est_cost_usd=0.009113
+2026-09-14 14:04:58.457 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project (SIAGER Food Systems Initiative) in Kenya's Arid Marsabit County
+2026-09-14 14:04:58.960 | ERROR    | __main__:run_proposal_population:1291 - Proposal processing error for Technical Proposal to WHH 2.docx
+Traceback (most recent call last):
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 1499, in <module>
+    main()
+    └ <function main at 0x7a59d7b01bc0>
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 1490, in main
+    prop_results = run_proposal_population(
+                   └ <function run_proposal_population at 0x7a59d7b01850>
+
+> File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 1268, in run_proposal_population
+    record_id = add_proposal_to_airtable(
+                └ <function add_proposal_to_airtable at 0x7a59d7b00a90>
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 778, in add_proposal_to_airtable
+    record = _proposal_airtable_record(proposal_info, raw_proposal_text, file_name)
+             │                         │              │                  └ 'Technical Proposal to WHH 2'
+             │                         │              └ 'TABLE OF CONTENTS\n1. COVER LETTER\nTo: Procurement Office, Deutsche Welthungerhilfe e. V. Kenya Office\nSubject: Provision ...
+             │                         └ {'project_title': "Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project (SIAGER Food Systems Initi...
+             └ <function _proposal_airtable_record at 0x7a59d7b007d0>
+
+  File "/home/sharahbill/cortech-bd-agent/populate_airtable.py", line 742, in _proposal_airtable_record
+    "year": int(proposal_info.get("year", datetime.now().year)),
+                │             │           │        └ <method 'now' of 'datetime.datetime' objects>
+                │             │           └ <class 'datetime.datetime'>
+                │             └ <method 'get' of 'dict' objects>
+                └ {'project_title': "Feasibility Study of Strengthening Resilient and Inclusive Food Systems Project (SIAGER Food Systems Initi...
+
+TypeError: int() argument must be a string, a bytes-like object or a real number, not 'NoneType'
+2026-09-14 14:04:59.053 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal-Kenya Survey CORTEC.docx → 12158 chars
+2026-09-14 14:05:06.128 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=3230 out=522 cached=0 est_cost_usd=0.00584
+2026-09-14 14:05:06.129 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Survey of applicable expert remuneration fees in comparable organizations in Kenya
+2026-09-14 14:05:13.109 | DEBUG    | __main__:read_pdf:253 - PDF: Technical Proposal_ DRC BORESHA NABAD Project.pdf → 118637 chars
+2026-09-14 14:05:20.915 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4914 out=685 cached=0 est_cost_usd=0.008339
+2026-09-14 14:05:20.915 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Business Development Services (BDS) Mentorship and Coaching to VSLA Groups and TVET Youths in Mandera under BORESHA-NABAD Programme
+2026-09-14 14:05:22.595 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_ DRC Mapping Formal Financial Service Providers for Refugees.docx → 56487 chars
+2026-09-14 14:05:31.582 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4598 out=688 cached=0 est_cost_usd=0.008038
+2026-09-14 14:05:31.582 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Mapping of Formal Financial Service Providers (FSPs) and Financial Inclusion Assessment in Displacement-Affected Communities in Kenya
+2026-09-14 14:05:39.970 | DEBUG    | __main__:read_pdf:253 - PDF: Technical Proposal_ Research and Learning for Pathway to Prosperity Project (8).pdf → 223122 chars
+2026-09-14 14:05:50.539 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4804 out=805 cached=0 est_cost_usd=0.008829
+2026-09-14 14:05:50.539 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Research and Learning for the Pathway to Prosperity Project
+2026-09-14 14:05:52.683 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_ Somalia Nutrition Cluster Strategy and Response Plan.docx → 50683 chars
+2026-09-14 14:06:02.322 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5095 out=713 cached=0 est_cost_usd=0.00866
+2026-09-14 14:06:02.322 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Somalia Nutrition Cluster Strategy and Response Plan (2025–2028)
+2026-09-14 14:06:04.096 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_ WHH Endline Evaluation Kenya.docx → 69993 chars
+2026-09-14 14:06:13.178 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5055 out=713 cached=0 est_cost_usd=0.00862
+2026-09-14 14:06:13.179 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for Improved Service Delivery in Rural Areas of Kenya
+2026-09-14 14:06:14.881 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_ WHH TECHNICAL STRENGTHENING SUPPORT ASSESSMENT.docx → 52008 chars
+2026-09-14 14:06:23.882 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5139 out=780 cached=0 est_cost_usd=0.009039
+2026-09-14 14:06:23.883 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Technical Strengthening Support Assessment of WASH Projects
+2026-09-14 14:06:28.780 | DEBUG    | __main__:read_pdf:253 - PDF: Technical Proposal_Endline Evaluation_KEN1202.pdf → 90233 chars
+2026-09-14 14:06:37.343 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5066 out=755 cached=0 est_cost_usd=0.008841
+2026-09-14 14:06:37.343 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for improved service delivery in rural areas of Kenya
+2026-09-14 14:06:38.994 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_GIZ Remuneration Survey_Cortech_2025.docx → 27185 chars
+2026-09-14 14:06:48.447 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4929 out=697 cached=0 est_cost_usd=0.008414000000000001
+2026-09-14 14:06:48.447 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy to Conduct Survey of Applicable Expert Remuneration Fees in Comparable Organizations in Kenya
+2026-09-14 14:06:50.776 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_Somalia EIE Consultancy (3).docx → 104394 chars
+2026-09-14 14:06:50.817 | DEBUG    | populate_airtable:read_pdf:254 - PDF: Technical Proposal_ DRC BORESHA NABAD Project.pdf → 118637 chars
+2026-09-14 14:06:59.525 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4914 out=730 cached=0 est_cost_usd=0.008563999999999999
+2026-09-14 14:06:59.525 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Provision of Business Development Services (BDS) Mentorship and Coaching to VSLA Groups and TVET Youths in Mandera under BORESHA-NABAD Programme
+2026-09-14 14:06:59.710 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4885 out=659 cached=0 est_cost_usd=0.00818
+2026-09-14 14:06:59.711 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Somalia Education In Emergencies Anticipatory Action Consultancy – Education Cannot Wait Pilot Programme
+2026-09-14 14:07:01.499 | DEBUG    | __main__:read_docx:284 - DOCX: Technical Proposal_World Vision Endline Evaluation Somalia.docx → 53204 chars
+2026-09-14 14:07:01.945 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_ DRC Mapping Formal Financial Service Providers for Refugees.docx → 56487 chars
+2026-09-14 14:07:10.996 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4598 out=696 cached=0 est_cost_usd=0.008078
+2026-09-14 14:07:10.996 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Mapping of Formal Financial Service Providers for Refugees and Host Communities in Kenya
+2026-09-14 14:07:11.443 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4991 out=764 cached=0 est_cost_usd=0.008811
+2026-09-14 14:07:11.443 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End-Line Evaluation for SOMREP RFSS Project (Riverine and Pastoral Food Systems Strengthening)
+2026-09-14 14:07:12.784 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_ Somalia Nutrition Cluster Strategy and Response Plan.docx → 50683 chars
+2026-09-14 14:07:13.019 | DEBUG    | __main__:read_docx:284 - DOCX: Technical_Proposal_Agricultural_Processing_Business_In_Gobweyn[1].docx → 41509 chars
+2026-09-14 14:07:21.988 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5095 out=671 cached=0 est_cost_usd=0.00845
+2026-09-14 14:07:21.989 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Somalia Nutrition Cluster Strategy and Response Plan (2025–2028)
+2026-09-14 14:07:22.301 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4939 out=698 cached=0 est_cost_usd=0.008428999999999999
+2026-09-14 14:07:22.301 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Consultancy Service for Agricultural Processing Business in Gobweyn/Luglow, Jubbaland for the Promoting Climate Resilient Food Security in Jubbaland Project
+2026-09-14 14:07:23.766 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_ WHH Endline Evaluation Kenya.docx → 69993 chars
+2026-09-14 14:07:23.953 | DEBUG    | __main__:read_docx:284 - DOCX: Technicap Proposal Concern WorldWide 6 November 2025.docx → 73335 chars
+2026-09-14 14:07:32.749 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5055 out=722 cached=0 est_cost_usd=0.008664999999999999
+2026-09-14 14:07:32.750 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Evaluation of the Chukua Control, Civil Society Empowerment for Improved Service Delivery in Rural Areas of Kenya
+2026-09-14 14:07:34.078 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4742 out=761 cached=0 est_cost_usd=0.008546999999999999
+2026-09-14 14:07:34.078 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Endline Evaluation of the EU–NEGAAD Project: Supporting Climate Adaptation and Durable Solutions for Displacement-Affected Communities in the Shabelle River Basin, Afgoye District
+2026-09-14 14:07:34.464 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_ WHH TECHNICAL STRENGTHENING SUPPORT ASSESSMENT.docx → 52008 chars
+2026-09-14 14:07:35.674 | DEBUG    | __main__:read_docx:284 - DOCX: Tehnical Proposal KRCS.docx → 60375 chars
+2026-09-14 14:07:43.872 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5139 out=803 cached=0 est_cost_usd=0.009154
+2026-09-14 14:07:43.873 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Technical Strengthening Support Assessment of WASH Projects
+2026-09-14 14:07:45.539 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4847 out=769 cached=0 est_cost_usd=0.008692
+2026-09-14 14:07:45.540 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: End-Term Evaluation of the Youth Social and Economic Empowerment Project (YSEEP) in Mombasa
+2026-09-14 14:07:45.564 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_GIZ Remuneration Survey_Cortech_2025.docx → 27185 chars
+2026-09-14 14:07:47.158 | DEBUG    | __main__:read_docx:284 - DOCX: UNICEF CONCEPT NOTE BY CORTECH.docx → 69049 chars
+2026-09-14 14:07:55.052 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4929 out=728 cached=0 est_cost_usd=0.008569
+2026-09-14 14:07:55.053 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Consultancy to Conduct Survey of Applicable Expert Remuneration Fees in Comparable Organizations in Kenya
+2026-09-14 14:07:56.772 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical Proposal_World Vision Endline Evaluation Somalia.docx → 53204 chars
+2026-09-14 14:07:57.106 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5903 out=757 cached=0 est_cost_usd=0.009688
+2026-09-14 14:07:57.106 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Enhancing Integrated Health, Nutrition, and WASH Services for Child Survival in Bu'aale District, Middle Juba Region
+2026-09-14 14:07:58.764 | DEBUG    | __main__:read_docx:284 - DOCX: WHH TECHNICAL PROPOSAL.docx → 42649 chars
+2026-09-14 14:08:05.916 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4991 out=711 cached=0 est_cost_usd=0.008546
+2026-09-14 14:08:05.916 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: End-Line Evaluation for SOMREP RFSS Project (Riverine and Pastoral Food Systems Strengthening)
+2026-09-14 14:08:07.457 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4946 out=785 cached=0 est_cost_usd=0.008871
+2026-09-14 14:08:07.458 | DEBUG    | __main__:extract_proposal_info:585 - Extracted proposal: Provision of Consultancy Services for Midline Evaluation in Kilifi and Tana River Counties
+2026-09-14 14:08:09.337 | DEBUG    | populate_airtable:read_pdf:254 - PDF: Technical proposal _Cortech_GIZ.pdf → 57357 chars
+2026-09-14 14:08:18.414 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4786 out=732 cached=0 est_cost_usd=0.008446
+2026-09-14 14:08:18.415 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Operationalization of the Water Sector Coordination Framework for Hirshabelle State, Somalia
+2026-09-14 14:08:33.799 | DEBUG    | populate_airtable:read_pdf:254 - PDF: Cortech-Technical Proposal.pdf → 481145 chars
+2026-09-14 14:08:42.581 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=5325 out=725 cached=0 est_cost_usd=0.00895
+2026-09-14 14:08:42.582 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Independent Evaluation of the Sida-Funded Sub-Saharan Africa Energy Access Programme (REACT SSA)
+2026-09-14 14:08:44.321 | DEBUG    | populate_airtable:read_pdf:254 - PDF: Technical proposal.pdf → 0 chars
+2026-09-14 14:08:44.387 | DEBUG    | populate_airtable:read_docx:285 - DOCX: Technical_Proposal_Agricultural_Processing_Business_In_Gobweyn[1].docx → 41509 chars
+2026-09-14 14:08:53.306 | INFO     | utils.observability:record_usage:169 - llm_usage stage= model=claude-haiku-4-5 in=4939 out=677 cached=0 est_cost_usd=0.008324
+2026-09-14 14:08:53.306 | DEBUG    | populate_airtable:extract_proposal_info:586 - Extracted proposal: Consultancy Service for Agricultural Processing Business in Gobweyn/Luglow, Jubbaland for the Promoting Climate Resilient Food Security in Jubbaland Project
