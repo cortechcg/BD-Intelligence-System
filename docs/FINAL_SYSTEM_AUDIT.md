@@ -88,23 +88,27 @@ unimplemented “intelligence domains” were added.
 | Bid | Functional deterministic fit/win/strategic/risk dimensions; factors, evidence, weights, and score version stored in analysis JSON. |
 | Proposal | Drafting uses tender text, past proposal retrieval, style guides, compliance output, and human review. Claim-level verification is not present. |
 | Outcome | Airtable Won/Lost polling and lesson embedding exist; lessons are not yet a scored-model input. |
-| Market/client/competitor/relationship/executive | Not operational as dedicated, evidence-backed products. No fake foundation was added. |
+| Client | Canonical org matching + cited observed-record roll-up in the review email (Phase 2). Migration unapplied; live history often UNKNOWN. Not an account CRM. |
+| Market/competitor/relationship/executive | Not operational as dedicated, evidence-backed products. No fake foundation was added. |
 
 ## 7. Data model and provenance
 
 Operational records currently span Airtable opportunities/consultants/rate
 cards/past proposals/logs and Supabase opportunity cache, document storage,
-CV/proposal embeddings, and win/loss memory. Important bid decisions retain
-`score_version`, factor values, factor evidence, LLM audit values, and the
-recommendation inside `claude_analysis` / `bid_intelligence`.
+CV/proposal embeddings, win/loss memory, and (after
+`supabase_migration_organizations.sql`) canonical `organizations` /
+`organization_aliases` / `organization_observations`. Important bid decisions
+retain `score_version`, factor values, factor evidence, LLM audit values, and
+the recommendation inside `claude_analysis` / `bid_intelligence`.
 
 Current provenance is adequate for source URL, document cache, extracted
 analysis, score factors, retrieved proposal metadata, unique `content_hash`
-(when `supabase_migration_content_hash.sql` is applied), and field-level
-ToR provenance (`extraction_provenance`: value → source file/chunk, page only
-if a PAGE marker exists). It is not yet a full source → page → chunk →
-**proposal claim** graph. `content_hash` is a uniqueness field in the
-migration; the hosted database was not migrated in the Phase 1 session.
+(when `supabase_migration_content_hash.sql` is applied), field-level ToR
+provenance (`extraction_provenance`: value → source file/chunk, page only
+if a PAGE marker exists), and org-name match status (VERIFIED exact /
+INFERRED fuzzy / UNKNOWN new-candidate). It is not yet a full source → page
+→ chunk → **proposal claim** graph. Hosted `content_hash` and `organizations`
+migrations were not applied in the Phase 1/2 sessions.
 
 ## 8. AI architecture
 
@@ -248,7 +252,8 @@ calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
 
 ## 17. Remaining product gaps
 
-- Canonical organizations, client/account profiles, market trends, competitors,
+- Account-management depth beyond matcher + cited roll-up (applied migration,
+  filled Won/Lost history, human-checked aliases). Market trends, competitors,
   evidence-backed relationships, and executive briefings.
 - Calibrated win probability based on sufficient historical Won/Lost data.
 - Verified pursuit cost and full financial-pricing workflow.
@@ -274,12 +279,12 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 |---|---:|---|
 | Architecture | 6 | Coherent modular single process; lacks durable workflow boundaries and knowledge layer. |
 | Reliability | 6 | Isolated source failures, quality gates, bounded downloads; no durable retry/state system. |
-| Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance. Still no canonical entity/freshness model. |
+| Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance, org-name matcher (Phase 2). Still no freshness model; organizations migration also unapplied. |
 | AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail. Gap: live Claude extraction vs golden set is unmeasured; proposal claim verifier is still absent. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
 | Opportunity Intelligence | 6 | Discovery, dedup, extraction, score; limited sources and stale-detection model. |
 | Market Intelligence | 0 | No observed-data trend product. |
-| Client Intelligence | 2 | Client fields/retrieval context exist; no canonical account profile. |
+| Client Intelligence | 5 | Canonical org table + normalize/exact/fuzzy matcher + cited review-email roll-up from stored rows (Phase 2, ADR 006). Exact match is VERIFIED; fuzzy ≥ 0.95 with length/first-token guards is INFERRED; below threshold is a new candidate / UNKNOWN, never a silent merge. Counts are code aggregations; unknown outcomes stay UNKNOWN (golden set is all UNKNOWN — not faked as wins). Gap: migration `supabase_migration_organizations.sql` is not applied this session; live Airtable/proposal history is therefore often empty; explicit alias list is empty; this is not an account-management or relationship product. |
 | Competitor Intelligence | 0 | Not implemented. |
 | Capability Intelligence | 6 | Semantic + explicit overlay; no complete requirement traceability/availability control. |
 | Relationship Intelligence | 0 | Not implemented. |
@@ -288,7 +293,7 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Outcome Intelligence | 5 | Win/loss lesson storage exists; lessons do not update scoring. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0) and schema/retry/provenance failure tests (Phase 1). Suite on 2026-09-14: 237 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), and org matcher/roll-up/email failure-mode tests (Phase 2). Suite on 2026-09-14: 255 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -298,9 +303,12 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 Phase 0 delivered the small golden dataset (`tests/golden/`, ADR 004). Phase 1
 delivered schema-validated extraction, `content_hash` uniqueness (migration
 file; not applied this session), and minimal field-level ToR provenance
-(ADR 005). Next: apply the hash migration, a **live** extraction (and later
-retrieval) pass against the golden set, a human approval/outcome schema, and
-only after enough structured outcomes exist, train and validate a calibrated
-win model. Build client and market views from those observed records before
-attempting competitors, relationships, or strategic recommendations. Phase 2
-(organizations / win model / competitors) was not started here.
+(ADR 005). Phase 2 delivered canonical client/donor organizations, a
+deterministic matcher, and a cited roll-up on the review email (ADR 006;
+migration file not applied this session). Next: apply the hash and
+organizations migrations, a **live** extraction (and later retrieval) pass
+against the golden set, a human approval/outcome schema, and only after enough
+structured outcomes exist, train and validate a calibrated win model. Build
+**market** views from those observed records before attempting competitors,
+relationships, or strategic recommendations. Phase 3 (market intelligence)
+was not started here.

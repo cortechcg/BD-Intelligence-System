@@ -3,6 +3,35 @@
 import main
 
 
+def _stub_client_intelligence(monkeypatch):
+    monkeypatch.setattr(
+        main,
+        "build_client_intelligence",
+        lambda **kwargs: {
+            "client": {
+                "match": {
+                    "status": "UNKNOWN",
+                    "method": "new_candidate",
+                    "canonical_name": kwargs.get("client") or "",
+                },
+                "headline": (
+                    "Cortech has bid on 0 opportunities from this client before "
+                    "(no matching past opportunity or proposal records in the observed store)."
+                ),
+                "outcome_note": "There are no stored outcomes to count.",
+                "citations": [],
+                "won": 0,
+                "lost": 0,
+                "unknown_outcomes": 0,
+                "opportunities_before": 0,
+            },
+            "donor": None,
+            "same_org": False,
+            "storage": "test",
+        },
+    )
+
+
 def _high_fit_analysis():
     return {
         "opportunity": {
@@ -59,6 +88,7 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
         "executive_summary": "Grounded in the tender.",
     })
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({
         "title": "Listing title",
@@ -91,6 +121,7 @@ def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: analysis)
     monkeypatch.setattr(main, "create_opportunity", lambda payload: saved.append(payload) or "airtable-id")
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({
         "title": "Mining study",

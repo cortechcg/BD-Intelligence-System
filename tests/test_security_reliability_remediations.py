@@ -67,6 +67,32 @@ def _pipeline_dependencies(monkeypatch):
         lambda *args, **kwargs: {"cover_letter": "Safe completed draft."},
     )
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        main,
+        "build_client_intelligence",
+        lambda **kwargs: {
+            "client": {
+                "match": {
+                    "status": "UNKNOWN",
+                    "method": "new_candidate",
+                    "canonical_name": kwargs.get("client") or "",
+                },
+                "headline": (
+                    "Cortech has bid on 0 opportunities from this client before "
+                    "(no matching past opportunity or proposal records in the observed store)."
+                ),
+                "outcome_note": "There are no stored outcomes to count.",
+                "citations": [],
+                "won": 0,
+                "lost": 0,
+                "unknown_outcomes": 0,
+                "opportunities_before": 0,
+            },
+            "donor": None,
+            "same_org": False,
+            "storage": "test",
+        },
+    )
 
 
 def test_analysis_failure_is_not_cached_or_marked_complete_and_is_retryable(monkeypatch):
