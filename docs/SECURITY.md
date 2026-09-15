@@ -46,9 +46,11 @@ This is **not** a kernel namespace, cgroup memory kill, or gVisor jail.
 ## CI dependency scan
 
 `.github/workflows/ci.yml` runs `pip-audit -r requirements.txt` then pytest.
-A 2026-09-15 scan reported known issues in `cryptography`, `h2`, `pillow`, and
-`pytest` (fix versions published). Those packages were **not** bumped in this
-session; the scan exists so CI can fail on them rather than hide them.
+A 2026-09-15 scan reported PYSEC findings in `cryptography` 49.0.0,
+`h2` 4.3.0, `pillow` 12.2.0, and `pytest` 8.4.2. Those were bumped to
+`cryptography==50.0.0`, `h2==4.4.1`, `pillow==12.3.0`, `pytest==9.0.3`.
+Re-scan: no known vulnerabilities. Full suite still 346 passed, 0 failed,
+0 skipped.
 
 ## Outbound review email
 
@@ -67,5 +69,5 @@ Storage keys use `safe_filename()` (basename only) in the downloader and `store_
 
 ## What we did not build
 
-No WAF, no DLP product, no OS-level Playwright/parser sandbox. `pip-audit` is
-in CI; that is a scan, not a patched-CVE guarantee.
+No WAF, no DLP product, no OS-level Playwright/parser sandbox. `pip-audit`
+is in CI; current `requirements.txt` is clean as of the 2026-09-15 re-scan.

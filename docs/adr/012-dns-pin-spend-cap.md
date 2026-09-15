@@ -2,10 +2,12 @@
 
 ## Status
 
-Accepted (implementation in-tree). Hosted `opportunity_processing` stage
-columns must be present for the live spend-cap kill-test; applying
-`supabase_migration_opportunity_stages.sql` is an operator step when the
-process has no Postgres URL / Management API token.
+Accepted. Hosted `opportunity_processing` stage columns
+(`pipeline_stage`, `checkpoint`, `draft_fail_count`) are present
+(`check_supabase_stages.py` exit 0, 2026-09-15, applied via Dashboard SQL
+Editor — not via script). Live spend-cap kill-test passed against the
+real row: `$0` cap, zero further `messages.create()`, row left
+`scored`/`failed`, resume completed at `drafted`.
 
 ## Context
 
@@ -75,11 +77,9 @@ not replaced; wrap_untrusted stays on untrusted document prompts.
 
 ## Consequences
 
-- Operators apply `supabase_migration_opportunity_stages.sql` via
-  `scripts/apply_sql_migration.py` (needs `DATABASE_URL` /
-  `SUPABASE_DB_PASSWORD` / `SUPABASE_ACCESS_TOKEN`) or the Dashboard SQL
-  editor. PostgREST cannot run DDL. The service role key is not a Postgres
-  password.
+- `supabase_migration_opportunity_stages.sql` was applied via the Dashboard
+  SQL editor. PostgREST cannot run DDL; the service role key is not a
+  Postgres password. Do not re-apply the file automatically.
 - Playwright and PDF/DOCX parsers are still a local process with a full
   browser. Treat public tender URLs as hostile; the pin covers the
   **download** path, not every Playwright subresource DNS lookup (those
