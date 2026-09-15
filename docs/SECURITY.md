@@ -26,7 +26,29 @@ This is prompt-injection *mitigation*, not a proof against every jailbreak. A de
 
 TLS certificates are always verified. A source with a broken certificate fails visibly rather than triggering an insecure retry.
 
-Not solved: DNS rebinding (resolve to public, then to 127.0.0.1). Would need a pin-IP transport.
+Download GETs are DNS-pinned (`utils/dns_pinned_http.py`): the hostname is
+resolved once, any non-public address in the answer is rejected, and the
+client connects to that IP with the original Host header and TLS SNI. httpx
+is not allowed to re-resolve between the check and connect on that path.
+
+Not solved: Playwright still performs its own DNS for page subresources
+(those hops still pass `assert_public_http_url` / `assert_safe_redirect` in
+the request guard, which is a check-then-fetch TOCTOU, not a pin-IP
+transport). Document parsers are in-process.
+
+## Playwright process limits
+
+`utils/browser_security.py` sets page default/navigation timeouts and Chromium
+flags (`--js-flags=--max-old-space-size`, `--renderer-process-limit=1`,
+`--disable-dev-shm-usage`). `--no-sandbox` is still required on this host.
+This is **not** a kernel namespace, cgroup memory kill, or gVisor jail.
+
+## CI dependency scan
+
+`.github/workflows/ci.yml` runs `pip-audit -r requirements.txt` then pytest.
+A 2026-09-15 scan reported known issues in `cryptography`, `h2`, `pillow`, and
+`pytest` (fix versions published). Those packages were **not** bumped in this
+session; the scan exists so CI can fail on them rather than hide them.
 
 ## Outbound review email
 
@@ -45,4 +67,5 @@ Storage keys use `safe_filename()` (basename only) in the downloader and `store_
 
 ## What we did not build
 
-No WAF, no secret scanner CI, no sandbox for Playwright, no DLP product. Those would be theatre at this repo's size.
+No WAF, no DLP product, no OS-level Playwright/parser sandbox. `pip-audit` is
+in CI; that is a scan, not a patched-CVE guarantee.

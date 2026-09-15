@@ -14,7 +14,7 @@ from typing import Optional
 
 from loguru import logger
 
-from utils.errors import ErrorType
+from utils.errors import ErrorType, SpendCapError
 
 execution_id_var: ContextVar[str] = ContextVar("execution_id", default="")
 stage_var: ContextVar[str] = ContextVar("stage", default="")
@@ -23,6 +23,7 @@ opportunity_id_var: ContextVar[str] = ContextVar("opportunity_id", default="")
 # Per-opportunity token totals for the current process_opportunity call.
 _opp_tokens: ContextVar[dict] = ContextVar("opp_tokens", default=None)
 _usage_lock = Lock()
+_run_spend: ContextVar[dict | None] = ContextVar("run_spend", default=None)
 
 
 def new_execution_id() -> str:
@@ -37,6 +38,75 @@ def get_execution_id() -> str:
 
 def set_stage(stage: str) -> None:
     stage_var.set(stage or "")
+
+
+def start_run_spend_cap(limit_usd: float | None = None) -> dict:
+    """Start the per-run Anthropic spend ceiling. Zero blocks the first call."""
+    from config import MAX_RUN_COST_USD
+
+    limit = MAX_RUN_COST_USD if limit_usd is None else float(limit_usd)
+    if limit < 0:
+        raise ValueError("spend cap must be non-negative")
+    bucket = {
+        "limit_usd": limit,
+        "spent_usd": 0.0,
+        "cost_known": True,
+        "halted": limit <= 0,
+        "provider_calls": 0,
+        "blocked_calls": 0,
+    }
+    _run_spend.set(bucket)
+    return bucket
+
+
+def reset_run_spend_cap() -> None:
+    _run_spend.set(None)
+
+
+def run_spend_snapshot() -> dict:
+    with _usage_lock:
+        bucket = _run_spend.get()
+        return dict(bucket) if bucket else {}
+
+
+def assert_under_spend_cap() -> None:
+    """Raise SpendCapError without calling the provider once the cap is hit."""
+    with _usage_lock:
+        bucket = _run_spend.get()
+        if bucket is None:
+            return
+        over = (not bucket.get("cost_known", True)) or bool(bucket.get("halted"))
+        if not over:
+            spent = float(bucket.get("spent_usd") or 0)
+            limit = float(bucket.get("limit_usd") or 0)
+            over = spent >= limit
+        if over:
+            bucket["halted"] = True
+            bucket["blocked_calls"] = int(bucket.get("blocked_calls") or 0) + 1
+            spent = float(bucket.get("spent_usd") or 0)
+            limit = float(bucket.get("limit_usd") or 0)
+            raise SpendCapError(
+                f"per-run LLM spend cap reached (spent_usd={spent:.4f} "
+                f"limit_usd={limit:.4f})"
+            )
+
+
+def _note_provider_cost(cost: float | None, usage_known: bool) -> None:
+    bucket = _run_spend.get()
+    if bucket is None:
+        return
+    bucket["provider_calls"] = int(bucket.get("provider_calls") or 0) + 1
+    if cost is not None:
+        bucket["spent_usd"] = float(bucket.get("spent_usd") or 0) + cost
+        if bucket["spent_usd"] >= float(bucket.get("limit_usd") or 0):
+            bucket["halted"] = True
+    elif not usage_known:
+        bucket["cost_known"] = False
+        bucket["halted"] = True
+    else:
+        # Usage present but model has no price row — cannot prove we are under.
+        bucket["cost_known"] = False
+        bucket["halted"] = True
 
 
 def reset_opportunity_usage(opportunity_id: str = "") -> None:
@@ -136,9 +206,9 @@ def record_usage(response, model: str, stage: str = "") -> dict:
         "usage_known": usage_known,
     }
 
-    bucket = _opp_tokens.get()
-    if bucket is not None:
-        with _usage_lock:
+    with _usage_lock:
+        bucket = _opp_tokens.get()
+        if bucket is not None:
             bucket["call_count"] += 1
             bucket.setdefault("calls", []).append(call)
             if usage_known:
@@ -149,6 +219,7 @@ def record_usage(response, model: str, stage: str = "") -> dict:
             if cost is not None:
                 bucket["estimated_cost_usd"] = (bucket.get("estimated_cost_usd") or 0) + cost
                 bucket["cost_known"] = True
+        _note_provider_cost(cost, usage_known)
 
     payload = {
         "stage": stage or stage_var.get(""),

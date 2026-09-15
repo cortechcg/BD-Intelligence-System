@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
 from monitors.rss_monitor import quick_relevance_check
-from utils.browser_security import install_browser_request_guard, launch_chromium
+from utils.browser_security import launch_chromium, prepare_browser_page
 from config import MAX_DOCUMENT_BYTES, MAX_DOWNLOAD_REDIRECTS
 from utils.urls import (
     UnsafeURLError,
@@ -163,7 +163,7 @@ async def fetch_with_browser(
     """
     page = await browser.new_page()
     try:
-        await install_browser_request_guard(page)
+        await prepare_browser_page(page)
         await page.set_extra_http_headers(HTTP_HEADERS)
         await page.goto(url, wait_until="commit", timeout=timeout_ms)
         if wait_for:

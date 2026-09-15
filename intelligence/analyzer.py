@@ -21,7 +21,7 @@ from config import (
 from database.airtable_client import log_agent_action
 from utils.llm import complete, usage_totals
 from utils.claude_helpers import get_text
-from utils.errors import ErrorType
+from utils.errors import ErrorType, SpendCapError
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
 from intelligence.analysis_schema import AnalysisSchemaError, validate_analysis_object
 from intelligence.extraction_provenance import attach_extraction_provenance
@@ -443,6 +443,8 @@ def analyze_rfp(
 
         return analysis
 
+    except SpendCapError:
+        raise
     except json.JSONDecodeError as e:
         logger.error(f"  JSON parse failed for '{title[:60]}': {e}")
         try:

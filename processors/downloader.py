@@ -21,8 +21,9 @@ from config import (
     MAX_EXTRACTED_TEXT_CHARS,
     MAX_GDRIVE_FILES,
 )
+from utils.dns_pinned_http import exchange as dns_pinned_exchange
 from utils.errors import ErrorType
-from utils.browser_security import install_browser_request_guard, launch_chromium
+from utils.browser_security import launch_chromium, prepare_browser_page
 from utils.urls import UnsafeURLError, assert_public_http_url, assert_safe_redirect, safe_filename
 
 HTTP_HEADERS = {
@@ -50,56 +51,63 @@ def _retryable_download_error(exc: Exception) -> bool:
 
 
 def _download_document_once(url: str) -> bytes:
-    """One secure fetch attempt. Redirect targets are validated per hop."""
+    """One secure fetch. Each hop is DNS-pinned (resolve once, connect to that IP)."""
     current_url = url
-    timeout = httpx.Timeout(DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS)
-    with httpx.Client(timeout=timeout, follow_redirects=False) as client:
-        for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
-            # Protect every hop, not only the original listing URL.
-            assert_public_http_url(current_url, resolve=True)
-            with client.stream("GET", current_url, headers=HTTP_HEADERS) as response:
-                if response.status_code in {301, 302, 303, 307, 308}:
-                    location = response.headers.get("location")
-                    if not location:
-                        response.raise_for_status()
-                        raise RuntimeError("Redirect response did not include a Location header")
-                    if redirect_count >= MAX_DOWNLOAD_REDIRECTS:
-                        raise RuntimeError(
-                            f"Too many redirects (max {MAX_DOWNLOAD_REDIRECTS}) while downloading document"
-                        )
-                    next_url = urljoin(current_url, location)
-                    # Validate now as well as at the next loop's start so an
-                    # internal redirect is never accidentally requested.
-                    assert_safe_redirect(current_url, next_url)
-                    current_url = next_url
-                    continue
+    for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
+        # Literal/scheme policy first; pin_public_http_target inside exchange
+        # is the only DNS lookup for this hop.
+        assert_public_http_url(current_url, resolve=False)
+        try:
+            response = dns_pinned_exchange(
+                current_url,
+                headers=HTTP_HEADERS,
+                timeout=DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS,
+                max_bytes=MAX_DOCUMENT_BYTES,
+            )
+        except TimeoutError as exc:
+            raise httpx.TimeoutException(str(exc)) from exc
+        except OSError as exc:
+            raise httpx.ConnectError(str(exc)) from exc
 
-                response.raise_for_status()
-                declared_size = response.headers.get("content-length")
-                if declared_size:
-                    try:
-                        if int(declared_size) > MAX_DOCUMENT_BYTES:
-                            raise ValueError(
-                                f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit "
-                                f"(declared {declared_size} bytes)"
-                            )
-                    except ValueError as exc:
-                        # A malformed Content-Length is not a security signal;
-                        # stream accounting below remains authoritative. Keep
-                        # a real over-limit error visible to the caller.
-                        if "exceeds" in str(exc):
-                            raise
+        if response.status_code in {301, 302, 303, 307, 308}:
+            location = response.headers.get("location")
+            if not location:
+                raise RuntimeError("Redirect response did not include a Location header")
+            if redirect_count >= MAX_DOWNLOAD_REDIRECTS:
+                raise RuntimeError(
+                    f"Too many redirects (max {MAX_DOWNLOAD_REDIRECTS}) while downloading document"
+                )
+            next_url = urljoin(current_url, location)
+            assert_safe_redirect(current_url, next_url)
+            current_url = next_url
+            continue
 
-                content = bytearray()
-                for chunk in response.iter_bytes():
-                    content.extend(chunk)
-                    if len(content) > MAX_DOCUMENT_BYTES:
-                        raise ValueError(
-                            f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit while streaming"
-                        )
-                return bytes(content)
+        if response.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"HTTP {response.status_code}",
+                request=httpx.Request("GET", current_url),
+                response=httpx.Response(response.status_code),
+            )
 
-    # The loop either returns, raises, or reaches this impossible guard.
+        declared_size = response.headers.get("content-length")
+        if declared_size:
+            try:
+                if int(declared_size) > MAX_DOCUMENT_BYTES:
+                    raise ValueError(
+                        f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit "
+                        f"(declared {declared_size} bytes)"
+                    )
+            except ValueError as exc:
+                if "exceeds" in str(exc):
+                    raise
+
+        content = response.body
+        if len(content) > MAX_DOCUMENT_BYTES:
+            raise ValueError(
+                f"Document exceeds {MAX_DOCUMENT_BYTES} byte limit while streaming"
+            )
+        return content
+
     raise RuntimeError("Document download ended without a response")
 
 
@@ -113,7 +121,7 @@ def download_document(url: str) -> bytes:
     security for procurement documents.
     """
     try:
-        assert_public_http_url(url, resolve=True)
+        assert_public_http_url(url, resolve=False)
     except UnsafeURLError as e:
         logger.error(f"Download blocked ({ErrorType.SSRF_ERROR}): {e}")
         raise
@@ -267,8 +275,8 @@ async def _fetch_rendered_html(url: str) -> str | None:
             context = await browser.new_context()
             page = await context.new_page()
             try:
-                await install_browser_request_guard(page)
-                await page.goto(url, wait_until="commit", timeout=45000)
+                await prepare_browser_page(page)
+                await page.goto(url, wait_until="commit")
                 await page.wait_for_timeout(5000)
                 return await page.content()
             except PlaywrightTimeout:

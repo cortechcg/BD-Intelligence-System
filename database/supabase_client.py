@@ -626,6 +626,28 @@ def load_processing_snapshot(source_url: str) -> dict:
         return empty
 
 
+REQUIRED_STAGE_COLUMNS = ("pipeline_stage", "checkpoint", "draft_fail_count")
+
+
+def check_opportunity_stage_schema() -> list[str]:
+    """Return missing opportunity_processing stage columns.
+
+    Transport errors propagate. Missing columns return names, never a fake OK.
+    """
+    missing: list[str] = []
+    for col in REQUIRED_STAGE_COLUMNS:
+        try:
+            supabase.table("opportunity_processing").select(col).limit(1).execute()
+        except Exception as e:
+            if _is_missing_stage_support(e) or "42703" in str(e):
+                missing.append(col)
+                continue
+            if _is_missing_processing_ledger(e):
+                return list(REQUIRED_STAGE_COLUMNS)
+            raise
+    return missing
+
+
 def persist_opportunity_stage(
     source_url: str,
     claim_token: str,

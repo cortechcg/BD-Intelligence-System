@@ -9,7 +9,7 @@ from config import RSS_FEEDS, CORTECH_PROFILE, CLAUDE_MODEL
 import json
 from utils.llm import complete, get_text
 from utils.dates import parse_deadline
-from utils.errors import ErrorType
+from utils.errors import ErrorType, SpendCapError
 from utils.untrusted import wrap_untrusted
 from utils.urls import UnsafeURLError, assert_public_http_url, canonicalize_url
 from processors.downloader import download_document
@@ -190,6 +190,8 @@ def extract_deadline_from_text(text: str) -> str:
         return parse_deadline(date_str) or (
             date_str if len(date_str) <= 20 else "unknown"
         )
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"Deadline extract failed (non-fatal): {e}")
         return "unknown"

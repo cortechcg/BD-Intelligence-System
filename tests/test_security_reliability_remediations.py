@@ -17,7 +17,7 @@ from reporting import email_report
 from utils import browser_security, healthcheck, urls
 from utils.llm import complete
 from utils.money_scrub import contains_monetary_amount, strip_monetary_amounts
-from utils.observability import opportunity_usage, record_usage, reset_opportunity_usage
+from utils.observability import opportunity_usage, record_usage, reset_opportunity_usage, reset_run_spend_cap
 
 
 @pytest.fixture(autouse=True)
@@ -25,9 +25,11 @@ def _clear_run_context():
     """Do not let a prior run's budget or usage bucket affect a later test."""
     main._execution_budget.set(None)
     reset_opportunity_usage()
+    reset_run_spend_cap()
     yield
     main._execution_budget.set(None)
     reset_opportunity_usage()
+    reset_run_spend_cap()
 
 
 def _analysis():
