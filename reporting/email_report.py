@@ -1391,15 +1391,22 @@ def send_proposal_email(opportunity_result: dict) -> None:
         nv = _count(grounding.get("not_verified"))
         ver = _count(grounding.get("verified"))
         ins = _count(grounding.get("insufficient_evidence"))
-        removed = grounding.get("removed_unverified")
-        removed_n = len(removed) if isinstance(removed, list) else 0
+        if nv:
+            strip_note = (
+                f"{nv} named past-work claim"
+                f"{'s' if nv != 1 else ''} tagged [NOT VERIFIED] in the draft."
+            )
+        elif ins:
+            strip_note = (
+                f"{ins} generic past-work statement"
+                f"{'s' if ins != 1 else ''} recorded as INSUFFICIENT EVIDENCE "
+                "(report only; prose not rewritten)."
+            )
+        else:
+            strip_note = (
+                "Named past-work claims were checked against retrieved chunks."
+            )
         color = "#dc3545" if nv else "#555"
-        strip_note = (
-            f"{removed_n} unsupported named claim"
-            f"{'s' if removed_n != 1 else ''} removed from the client draft."
-            if removed_n
-            else "Unsupported named claims were removed from the client draft."
-        )
         grounding_line = (
             f"<p style='margin:8px 0 0;font-size:13px;color:{color}'>"
             f"Claim grounding: {ver} verified, {nv} not verified, "
@@ -1543,8 +1550,9 @@ def send_proposal_email(opportunity_result: dict) -> None:
     if nv:
         review_items.append((
             "Claims",
-            f"{nv} named claim{'s' if nv != 1 else ''} stripped from the client "
-            "draft. Do not re-insert them.",
+            f"{nv} named past-work claim{'s' if nv != 1 else ''} tagged "
+            "[NOT VERIFIED] in the draft. Check each against the corpus "
+            "before anything is sent to a client.",
         ))
     improvement = quality.get("one_improvement") if quality else None
     if improvement:
@@ -1622,11 +1630,11 @@ def send_proposal_email(opportunity_result: dict) -> None:
         team_color = "#1F3864"
     if grounding:
         if nv:
-            g_label, g_value, g_color = "Claims stripped", str(nv), "#dc3545"
+            g_label, g_value, g_color = "Claims tagged", str(nv), "#dc3545"
             g_sub = _html(f"{ver} verified · {ins} insufficient")
         else:
             g_label, g_value, g_color = "Claims verified", str(ver), "#28a745"
-            g_sub = _html("none stripped from the client draft")
+            g_sub = _html("no named past-work claims tagged [NOT VERIFIED]")
     else:
         g_label, g_value, g_color = "Ceiling (internal)", _html(budget_cap_str), "#1F3864"
         g_sub = "do not copy into the technical/EOI"

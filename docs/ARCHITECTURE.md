@@ -48,6 +48,7 @@ Nothing in this pipeline submits to a client.
 | `intelligence/cv_matcher.py` | Semantic match + explicit geography/sector/language/years/skills/availability overlay |
 | `intelligence/compliance.py` | Submission compliance matrix |
 | `intelligence/proposal_writer.py` | Drafting |
+| `intelligence/grounding.py` | Named past-work claim → retrieved chunk; `[NOT VERIFIED]` inline (ADR 008) |
 | `intelligence/organizations.py` | Canonical client/donor matching + observed-record roll-up (no LLM) |
 | `intelligence/market_trends.py` | Observed-data 30/90-day digest over stored opportunities (no LLM; thin-n refusal) |
 | `database/` | Airtable CRM, Supabase vectors, fail-open org persistence + opportunity fact columns |
@@ -87,4 +88,4 @@ The digest aggregates stored rows; it is not external market research.
 
 ## Not in this architecture
 
-Competitor intelligence, external market-research products, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. The Phase 3 digest is observed stored opportunities only.
+Competitor intelligence, external market-research products, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph and not Phase 5.

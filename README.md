@@ -35,7 +35,7 @@ Cortech competes for consulting work advertised across dozens of tender portals,
 2. **Filter, for free** — before any paid API call, every posting passes a three-gate keyword check (staff-vacancy language, geography, thematic relevance) and a semantic near-duplicate check against everything already seen, catching the same tender posted on multiple portals under different URLs.
 3. **Analyze** — the LLM reads the full document (as untrusted data) and extracts structured fields. A **deterministic scorer** (`intelligence/bid_scorer.py`, weights in `intelligence/scoring_model.json`) calculates FIT / WIN / STRATEGIC / RISK and BID / WATCH / NO-BID. The model's own numeric score is stored only as an audit field.
 4. **Match & cost safely** — team CVs are matched semantically against requirements, then checked for explicit geography, sector, language, years, skills, and live availability (missing education or availability is UNKNOWN, never inferred as a credential or as 100% free). Financial preparation uses only ToR-stated effort days and an exact maintained rate-card row. It returns `PARTIAL` / `INSUFFICIENT DATA` rather than inventing travel, workshop, overhead, contingency, or tax figures.
-5. **Draft** — a strategy is decided once, then every section is drafted against it and against real past-proposal structure (extracted from 60+ real submissions, not an assumed template).
+5. **Draft** — a strategy is decided once, then every section is drafted against it and against real past-proposal structure (extracted from 60+ real submissions, not an assumed template). Named “Cortech has done X before” claims are checked against retrieved proposal chunks; unsupported names are tagged `[NOT VERIFIED]` in the draft (`intelligence/grounding.py`, ADR 003 / ADR 008).
 6. **Review itself** — a self-assessment pass scores the draft against the ToR's actual stated evaluation criteria before anyone sees it.
 7. **Deliver** — a formatted `.docx` and an email land with the team, flagged by urgency and by anything the review pass caught.
 8. **Learn** — when a bid is later marked Won or Lost, the system extracts concrete lessons and feeds them into future proposals for similar clients and donors.
@@ -61,6 +61,7 @@ cortech-bd-agent/
 │   ├── compliance.py             # SATISFIED/PARTIAL/MISSING/UNKNOWN matrix
 │   ├── budget_calculator.py     # Evidence-bound personnel costing; never LLM-estimated
 │   ├── proposal_writer.py       # Section generation, strategy, style-guide grounding, quality self-score
+│   ├── grounding.py             # Named past-work claim → retrieved chunk; else [NOT VERIFIED]
 │   └── learning.py               # Win/loss lesson extraction and retrieval
 ├── monitors/
 │   ├── rss_monitor.py            # RSS feeds + the 3-gate free filter + semantic dedup
