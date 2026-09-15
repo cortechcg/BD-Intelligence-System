@@ -253,8 +253,10 @@ calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
 ## 17. Remaining product gaps
 
 - Account-management depth beyond matcher + cited roll-up (applied migration,
-  filled Won/Lost history, human-checked aliases). Market trends, competitors,
-  evidence-backed relationships, and executive briefings.
+  filled Won/Lost history, human-checked aliases). Competitors,
+  evidence-backed relationships, and executive briefings. Market views now
+  exist as an observed digest (Phase 3) but live windows are thin until
+  migrations are applied and dated rows accumulate.
 - Calibrated win probability based on sufficient historical Won/Lost data.
 - Verified pursuit cost and full financial-pricing workflow.
 - Formal partner discovery and relationship evidence.
@@ -283,7 +285,7 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail. Gap: live Claude extraction vs golden set is unmeasured; proposal claim verifier is still absent. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
 | Opportunity Intelligence | 6 | Discovery, dedup, extraction, score; limited sources and stale-detection model. |
-| Market Intelligence | 0 | No observed-data trend product. |
+| Market Intelligence | 4 | Observed-data digest over stored opportunities (Phase 3, ADR 007): trailing 30/90-day thematic and geography frequencies plus donor posting counts for organizations already in the Phase 2 table; weekly internal email (`cortech-market.timer`). Every shown number carries sample size and date range. n&lt;10 (tested at n=2) is “insufficient data for a trend”, never INFERRED-as-trend; no invented buckets (“Other WASH”, “East Africa”) or dummy donors. Code aggregation only — no Claude market narrative, no external research source. Gap: `supabase_migration_opportunity_facts.sql` and organizations migration are **not applied** this session; empty/thin history keeps live output at INSUFFICIENT DATA. Not a dashboard and not 8–10. |
 | Client Intelligence | 5 | Canonical org table + normalize/exact/fuzzy matcher + cited review-email roll-up from stored rows (Phase 2, ADR 006). Exact match is VERIFIED; fuzzy ≥ 0.95 with length/first-token guards is INFERRED; below threshold is a new candidate / UNKNOWN, never a silent merge. Counts are code aggregations; unknown outcomes stay UNKNOWN (golden set is all UNKNOWN — not faked as wins). Gap: migration `supabase_migration_organizations.sql` is not applied this session; live Airtable/proposal history is therefore often empty; explicit alias list is empty; this is not an account-management or relationship product. |
 | Competitor Intelligence | 0 | Not implemented. |
 | Capability Intelligence | 6 | Semantic + explicit overlay; no complete requirement traceability/availability control. |
@@ -293,7 +295,7 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Outcome Intelligence | 5 | Win/loss lesson storage exists; lessons do not update scoring. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), and org matcher/roll-up/email failure-mode tests (Phase 2). Suite on 2026-09-14: 255 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), and observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3). Suite on 2026-09-15: 278 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -305,10 +307,12 @@ delivered schema-validated extraction, `content_hash` uniqueness (migration
 file; not applied this session), and minimal field-level ToR provenance
 (ADR 005). Phase 2 delivered canonical client/donor organizations, a
 deterministic matcher, and a cited roll-up on the review email (ADR 006;
-migration file not applied this session). Next: apply the hash and
-organizations migrations, a **live** extraction (and later retrieval) pass
-against the golden set, a human approval/outcome schema, and only after enough
-structured outcomes exist, train and validate a calibrated win model. Build
-**market** views from those observed records before attempting competitors,
-relationships, or strategic recommendations. Phase 3 (market intelligence)
-was not started here.
+migration file not applied this session). Phase 3 delivered an observed-data
+market digest from stored opportunities (ADR 007; `opportunity_facts`
+migration file not applied this session; thin-n refusal). Next: apply the
+hash, organizations, and opportunity-facts migrations, a **live** extraction
+(and later retrieval) pass against the golden set, a human approval/outcome
+schema, and only after enough structured outcomes exist, train and validate
+a calibrated win model. Competitors, relationships, and strategic
+recommendations remain later. Phase 4 (proposal claim verification) was
+**not** started here.

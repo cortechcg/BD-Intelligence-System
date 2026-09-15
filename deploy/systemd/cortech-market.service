@@ -1,0 +1,14 @@
+[Unit]
+Description=Cortech BD observed-data market digest
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/cortech-bd-agent
+EnvironmentFile=%h/cortech-bd-agent/.env
+# Cursor sandboxes can set PLAYWRIGHT_BROWSERS_PATH to an empty cache.
+UnsetEnvironment=PLAYWRIGHT_BROWSERS_PATH
+ExecStart=%h/cortech-bd-agent/cortech/bin/python %h/cortech-bd-agent/main.py --run-market-digest
+
+[Install]
+WantedBy=default.target

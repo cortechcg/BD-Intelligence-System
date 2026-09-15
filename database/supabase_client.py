@@ -556,7 +556,12 @@ def find_opportunity_by_content_hash(digest: str) -> Optional[dict]:
         return None
 
 
-def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
+def store_opportunity(
+    source_url: str,
+    title: str,
+    raw_text: str,
+    facts: dict | None = None,
+) -> str:
     """
     Store opportunity text in cache. Upsert on source_url so re-submits don't 23505.
 
@@ -606,6 +611,10 @@ def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
                     "content_hash already stored "
                     f"(source_url={existing.get('source_url', '')[:80]})"
                 )
+                if facts:
+                    update_opportunity_facts(
+                        str(existing.get("source_url") or store_url), facts
+                    )
                 return str(existing["id"])
         if digest and _is_missing_content_hash_column(e):
             logger.warning(
@@ -618,7 +627,96 @@ def store_opportunity(source_url: str, title: str, raw_text: str) -> str:
         else:
             raise
 
-    return result.data[0]["id"]
+    row_id = result.data[0]["id"]
+    if facts:
+        update_opportunity_facts(store_url, facts)
+    return row_id
+
+
+_FACTS_MISSING_MESSAGE = (
+    "opportunities_cache observed-fact columns missing — apply "
+    "supabase_migration_opportunity_facts.sql. Cache row still stored; "
+    "market digest fail-opens to timestamps and Airtable secondary fields."
+)
+_opportunity_facts_available: bool | None = None
+
+
+def reset_opportunity_facts_status() -> None:
+    """Test helper."""
+    global _opportunity_facts_available
+    _opportunity_facts_available = None
+
+
+def _is_missing_opportunity_facts(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    tokens = ("thematic_areas", "locations", "discovered_at", "donor")
+    if not any(t in msg for t in tokens) and "opportunities_cache" not in msg:
+        return False
+    return (
+        "pgrst204" in msg
+        or "42703" in msg
+        or "schema cache" in msg
+        or "does not exist" in msg
+        or "could not find" in msg
+        or "unknown column" in msg
+    )
+
+
+def _sanitize_fact_labels(value) -> list[str]:
+    if isinstance(value, str):
+        text = " ".join(value.split())[:200]
+        return [text] if text else []
+    if not isinstance(value, (list, tuple)):
+        return []
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        text = " ".join(item.split())[:200]
+        if text:
+            out.append(text)
+    return out
+
+
+def update_opportunity_facts(source_url: str, facts: dict | None) -> None:
+    """Best-effort structured facts on a cache row. Fail-open if columns missing.
+
+    ``discovered_at`` must already be a real stored/discovery date
+    (strftime %Y-%m-%d). This function does not invent posting dates.
+    """
+    global _opportunity_facts_available
+    if _opportunity_facts_available is False:
+        return
+    if not source_url or not isinstance(facts, dict):
+        return
+    store_url = canonicalize_url(source_url) or source_url
+    payload: dict = {}
+    if "thematic_areas" in facts:
+        payload["thematic_areas"] = _sanitize_fact_labels(facts.get("thematic_areas"))
+    if "locations" in facts:
+        payload["locations"] = _sanitize_fact_labels(facts.get("locations"))
+    if "donor" in facts:
+        donor = facts.get("donor")
+        payload["donor"] = (
+            " ".join(str(donor).split())[:200] if isinstance(donor, str) else ""
+        )
+    discovered = facts.get("discovered_at")
+    if isinstance(discovered, str) and len(discovered) >= 10:
+        # DATE: YYYY-MM-DD only — never a full iso timestamp.
+        payload["discovered_at"] = discovered[:10]
+    if not payload:
+        return
+    try:
+        supabase.table("opportunities_cache").update(payload).eq(
+            "source_url", store_url
+        ).execute()
+        _opportunity_facts_available = True
+    except Exception as e:
+        if _is_missing_opportunity_facts(e):
+            _opportunity_facts_available = False
+            logger.warning(f"{_FACTS_MISSING_MESSAGE} Cause: {e}")
+            return
+        logger.warning(f"opportunity facts update failed (fail-open): {e}")
 
 
 def store_document(

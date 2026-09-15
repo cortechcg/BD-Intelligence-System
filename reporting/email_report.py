@@ -928,6 +928,208 @@ def send_deadline_alert_email(urgent: list[dict]) -> None:
         logger.error("Deadline alert email failed to send")
 
 
+def _frequency_section_html(title: str, window) -> str:
+    from intelligence.market_trends import INSUFFICIENT_TREND_PHRASE, TREND_MIN_N
+
+    heading = (
+        f"{title} — trailing {window.days} days "
+        f"({window.start.isoformat()} to {window.end.isoformat()}, "
+        f"n={window.sample_size} dated rows)"
+    )
+    if not window.is_trend:
+        return f"""
+        <h3 style="margin:20px 0 8px;font-size:16px">{_html(heading)}</h3>
+        <p style="margin:0 0 12px">{_html(INSUFFICIENT_TREND_PHRASE)}
+        {_html(f'(n={window.sample_size} < {TREND_MIN_N}; {window.sample_clause()}).')}
+        Percentages and charts are withheld. Evidence: INSUFFICIENT DATA — not a trend.</p>
+        """
+    rows_html = ""
+    for item in window.counts:
+        pct = (100.0 * item.count / window.sample_size) if window.sample_size else 0
+        rows_html += f"""
+        <tr>
+            <td style="padding:8px;border:1px solid #ddd">{_html(item.label)}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(item.count)}</td>
+            <td style="padding:8px;border:1px solid #ddd">
+                {_html(f'{pct:.0f}% of n={window.sample_size}')}
+            </td>
+        </tr>"""
+    return f"""
+    <h3 style="margin:20px 0 8px;font-size:16px">{_html(heading)}</h3>
+    <p style="margin:0 0 8px;font-size:13px;color:#555">{_html(window.message)}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="background:#1F3864;color:white">
+            <th style="padding:8px;text-align:left">Observed label</th>
+            <th style="padding:8px;text-align:left">Count</th>
+            <th style="padding:8px;text-align:left">Share (sample size inline)</th>
+        </tr>
+        {rows_html}
+    </table>
+    """
+
+
+def _donor_section_html(window) -> str:
+
+    heading = (
+        f"Donor posting counts — trailing {window.days} days "
+        f"({window.start.isoformat()} to {window.end.isoformat()}, "
+        f"n={window.sample_size} dated rows)"
+    )
+    if window.status != "VERIFIED" or not window.donors:
+        return f"""
+        <h3 style="margin:20px 0 8px;font-size:16px">{_html(heading)}</h3>
+        <p style="margin:0 0 12px">{_html(window.message)}</p>
+        """
+    rows_html = ""
+    for item in window.donors:
+        rows_html += f"""
+        <tr>
+            <td style="padding:8px;border:1px solid #ddd">{_html(item.canonical_name)}</td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(item.count)}</td>
+            <td style="padding:8px;border:1px solid #ddd">
+                {_html(f'{item.count} of n={window.sample_size} dated rows')}
+            </td>
+            <td style="padding:8px;border:1px solid #ddd">{_html(item.match_status)}</td>
+        </tr>"""
+    return f"""
+    <h3 style="margin:20px 0 8px;font-size:16px">{_html(heading)}</h3>
+    <p style="margin:0 0 8px;font-size:13px;color:#555">{_html(window.message)}</p>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="background:#1F3864;color:white">
+            <th style="padding:8px;text-align:left">Donor (organizations table)</th>
+            <th style="padding:8px;text-align:left">Postings</th>
+            <th style="padding:8px;text-align:left">Sample</th>
+            <th style="padding:8px;text-align:left">Match</th>
+        </tr>
+        {rows_html}
+    </table>
+    """
+
+
+def build_market_digest_html(digest) -> str:
+    """Internal observed-data digest. Labels from the store are HTML-escaped."""
+    from intelligence.market_trends import INSUFFICIENT_TREND_PHRASE, TREND_MIN_N
+
+    notes = "".join(
+        f'<p style="margin:0 0 8px">{_html(note)}</p>' for note in (digest.notes or ())
+    )
+    sources = ", ".join(digest.sources) if digest.sources else "none"
+    theme_html = "".join(
+        _frequency_section_html("Thematic areas", digest.themes[days])
+        for days in (30, 90)
+        if days in digest.themes
+    )
+    geo_html = "".join(
+        _frequency_section_html("Geography", digest.geography[days])
+        for days in (30, 90)
+        if days in digest.geography
+    )
+    shift = digest.geo_shift
+    if shift is None or shift.status != "VERIFIED" or not shift.rows:
+        shift_html = f"""
+        <h3 style="margin:20px 0 8px;font-size:16px">Geography distribution shift</h3>
+        <p style="margin:0 0 12px">{_html((shift.message if shift else INSUFFICIENT_TREND_PHRASE))}</p>
+        """
+    else:
+        shift_rows = ""
+        n30 = digest.geography[30].sample_size
+        n90 = digest.geography[90].sample_size
+        w30 = digest.geography[30]
+        w90 = digest.geography[90]
+        for row in shift.rows:
+            shift_rows += f"""
+            <tr>
+                <td style="padding:8px;border:1px solid #ddd">{_html(row.label)}</td>
+                <td style="padding:8px;border:1px solid #ddd">
+                    {_html(f'{row.count_30} ({row.share_30 * 100:.0f}% of n={n30}, {w30.start.isoformat()} to {w30.end.isoformat()})')}
+                </td>
+                <td style="padding:8px;border:1px solid #ddd">
+                    {_html(f'{row.count_90} ({row.share_90 * 100:.0f}% of n={n90}, {w90.start.isoformat()} to {w90.end.isoformat()})')}
+                </td>
+                <td style="padding:8px;border:1px solid #ddd">{_html(f'{row.delta_pp:+.1f} pp')}</td>
+            </tr>"""
+        shift_html = f"""
+        <h3 style="margin:20px 0 8px;font-size:16px">Geography distribution shift</h3>
+        <p style="margin:0 0 8px;font-size:13px;color:#555">{_html(shift.message)}</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <tr style="background:#1F3864;color:white">
+                <th style="padding:8px;text-align:left">Observed location</th>
+                <th style="padding:8px;text-align:left">30d share</th>
+                <th style="padding:8px;text-align:left">90d share</th>
+                <th style="padding:8px;text-align:left">Delta</th>
+            </tr>
+            {shift_rows}
+        </table>
+        """
+    donor_html = "".join(
+        _donor_section_html(digest.donor_windows[days])
+        for days in (30, 90)
+        if days in digest.donor_windows
+    )
+    org_note = (
+        f"Organizations index: {digest.donor_org_count} canonical rows "
+        f"({'available' if digest.donor_orgs_available else 'unavailable/empty'})."
+    )
+    overall = (
+        "Window n meets the trend minimum."
+        if digest.overall_is_trend()
+        else f"{INSUFFICIENT_TREND_PHRASE} (need n>={TREND_MIN_N} dated rows in a window)."
+    )
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;color:#333">
+    <div style="background:#1F3864;color:white;padding:20px;border-radius:8px 8px 0 0">
+        <h1 style="margin:0;font-size:22px">Observed-data market digest</h1>
+        <p style="margin:8px 0 0;opacity:0.85">
+            Internal. Counts are stored opportunities already discovered —
+            not external market research.
+        </p>
+    </div>
+    <div style="padding:20px">
+        <p><strong>As of {_html(digest.as_of.isoformat())}.</strong>
+        Store rows: {_html(digest.store_row_count)}
+        (dated: {_html(digest.dated_row_count)}; sources: {_html(sources)}).
+        {_html(overall)}</p>
+        <p style="font-size:13px;color:#555">{_html(org_note)}
+        Trend minimum: n&gt;={_html(TREND_MIN_N)} dated rows per window.
+        Undated rows are excluded from windows (dates are never invented).</p>
+        {notes}
+        {theme_html}
+        {geo_html}
+        {shift_html}
+        {donor_html}
+        <p style="font-size:12px;color:#666;margin-top:16px">
+            Human review only. Nothing in this digest submits or acts externally.
+            Categories not present in the store are not shown.
+        </p>
+    </div>
+    </body>
+    </html>
+    """
+
+
+def send_market_digest_email(digest) -> None:
+    """Email the observed-data digest. Tests must mock SMTP via _send_email."""
+    from intelligence.market_trends import INSUFFICIENT_TREND_PHRASE
+
+    n30 = digest.themes[30].sample_size if 30 in digest.themes else 0
+    flag = "trend" if digest.overall_is_trend() else INSUFFICIENT_TREND_PHRASE
+    subject = _subject_text(
+        f"Cortech observed-data market digest | {digest.as_of.isoformat()} | "
+        f"n={n30} dated rows (30d) | {flag}"
+    )
+    html = build_market_digest_html(digest)
+    if _send_email(subject, html):
+        logger.success(
+            f"Market digest email sent (store_rows={digest.store_row_count}, "
+            f"dated={digest.dated_row_count})"
+        )
+    else:
+        logger.error("Market digest email failed to send")
+
+
 def get_pipeline_summary() -> dict:
     """Get current pipeline stats from Airtable."""
     table = get_table("opportunities")

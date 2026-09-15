@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Cortech observed-data market digest
+
+[Timer]
+OnCalendar=Mon *-*-* 08:30:00
+Persistent=true
+Unit=cortech-market.service
+
+[Install]
+WantedBy=timers.target
