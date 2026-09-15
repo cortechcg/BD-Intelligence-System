@@ -504,7 +504,24 @@ def compute_bid_intelligence(
             "note": "LLM numbers are audit-only. They are not the final score.",
         },
     }
+    # Audit field only. Never replaces heuristic win_probability / recommendation.
+    try:
+        from intelligence.win_calibration import attach_calibrated_win_probability
+
+        attach_calibrated_win_probability(result)
+    except Exception:
+        result["calibrated_win_probability"] = {
+            "value": None,
+            "status": INSUFFICIENT,
+            "official": False,
+            "official_win_probability_source": "bid_scorer_heuristic",
+            "note": (
+                "Calibration harness failed open. "
+                "Heuristic WIN PROBABILITY remains official."
+            ),
+        }
     return result
+
 
 
 def apply_bid_intelligence(analysis: dict, matched_team_result: Optional[dict] = None) -> dict:

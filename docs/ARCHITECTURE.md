@@ -45,6 +45,8 @@ Nothing in this pipeline submits to a client.
 | `intelligence/analyzer.py` | LLM structured extraction (Pydantic schema + one schema retry) |
 | `intelligence/bid_scorer.py` | Deterministic FIT/WIN/STRATEGIC/RISK/EV |
 | `intelligence/scoring_model.json` | Versioned weights |
+| `intelligence/win_calibration.py` | Phase 6 P(win) harness; null unless labeled n meets the bar |
+| `intelligence/win_calibration_artifact.json` | Census + thresholds; `fitted: false` (v0.1.0) |
 | `intelligence/cv_matcher.py` | Semantic match + explicit geography/sector/language/years/skills/availability overlay |
 | `intelligence/compliance.py` | Submission compliance matrix |
 | `intelligence/proposal_writer.py` | Drafting |
@@ -71,7 +73,7 @@ Nothing in this pipeline submits to a client.
 
 LLM extracts locations, themes, languages, certs, client, deadline, budget, qualitative strengths/gaps.
 
-`bid_scorer.compute_bid_intelligence()` turns those fields + optional CV coverage into dimension scores using `scoring_model.json`. The LLM's own `cortech_fit_score` is kept as `llm_cortech_fit_score` for audit and is not the gate.
+`bid_scorer.compute_bid_intelligence()` turns those fields + optional CV coverage into dimension scores using `scoring_model.json`. The LLM's own `cortech_fit_score` is kept as `llm_cortech_fit_score` for audit and is not the gate. `calibrated_win_probability` is a separate audit field from `intelligence/win_calibration.py`; it is null / INSUFFICIENT DATA on current labeled n (123 WON / 0 LOST) and does not replace heuristic WIN PROBABILITY.
 
 ## Financial preparation
 
@@ -91,4 +93,4 @@ The digest aggregates stored rows; it is not external market research.
 
 ## Not in this architecture
 
-Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph and not Phase 6.
+Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph. Phase 6 is a calibration *harness* that currently returns INSUFFICIENT DATA — not a trusted P(win) model and not Phase 7.

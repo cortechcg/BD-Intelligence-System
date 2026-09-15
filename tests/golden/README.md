@@ -53,7 +53,7 @@ Rules:
 | Measured offline | Not measured (needs a live LLM pass later) |
 |---|---|
 | `parse_analysis_payload` / `analyze_rfp` with mocked `complete()` vs labels | Claude extraction accuracy on real ToRs |
-| `is_consultancy_contract` precision/recall on recorded JSON | Calibrated P(win) / Brier score |
+| `is_consultancy_contract` precision/recall on recorded JSON | Calibrated P(win) / Brier score (Phase 6: sample too small to trust; 0 LOST) |
 | Budget MAE and null agreement | Retrieval / RAG quality |
 | Scorer recommendation vs hand-labeled expected band | Won/Lost outcomes (all UNKNOWN here) |
 

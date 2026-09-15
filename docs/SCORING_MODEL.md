@@ -51,4 +51,6 @@ MATCH SCORE is the mean of factors that have a number. WHY / EVIDENCE / GAPS tra
 
 ## What this is not
 
-It is not a calibrated win-probability model. There is no historical win/loss regression yet. WIN PROBABILITY is a weighted heuristic on observed factors, 0–100, not a frequentist P(win).
+It is not a calibrated win-probability model. WIN PROBABILITY is a weighted heuristic on observed factors, 0–100, not a frequentist P(win).
+
+Phase 6 added an audit field `calibrated_win_probability` on `bid_intelligence` (`intelligence/win_calibration.py`, artifact `intelligence/win_calibration_artifact.json` v0.1.0). It is **null / INSUFFICIENT DATA** until there are at least 30 distinct labeled WON+LOST outcomes **and** at least 10 of each class. A 2026-09-15 census found **123 WON and 0 LOST** (Phase 2: unchecked `won=False` is UNKNOWN, not Lost; golden set is 0/0/36). Held-out Brier is therefore **sample too small to trust**. The heuristic is still official. A later model may only replace it if it beats `score/100` on held-out Brier or log loss. LLM output is not this probability.
