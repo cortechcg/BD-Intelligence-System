@@ -54,6 +54,11 @@ def complete(
     request, including retries/continuations, is counted exactly once from the
     provider response rather than from guessed section-level token totals.
     """
+    # Local import avoids a module-import cycle: observability reads helpers
+    # from this module when it processes the provider response.
+    from utils.observability import assert_under_spend_cap, record_usage
+
+    assert_under_spend_cap()
     client = get_anthropic_client(timeout=timeout, max_retries=max_retries)
     kwargs: dict[str, Any] = {
         "model": model,
@@ -63,10 +68,6 @@ def complete(
     if system is not None:
         kwargs["system"] = system
     response = client.messages.create(**kwargs)
-    # Local import avoids a module-import cycle: observability reads helpers
-    # from this module when it processes the provider response.
-    from utils.observability import record_usage
-
     record_usage(response, model, stage=stage)
     return response
 

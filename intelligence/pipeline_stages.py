@@ -29,7 +29,7 @@ from intelligence.proposal_writer import DraftingError, assert_usable_client_dra
 from processors.document_quality import assess_extraction
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp
-from utils.errors import ErrorType
+from utils.errors import ErrorType, SpendCapError
 from utils.hashing import content_hash
 from utils.observability import (
     get_execution_id,
@@ -559,6 +559,8 @@ def run_draft_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
             submission_type=ctx.submission_type,
         )
         ctx.proposal_sections = assert_usable_client_draft(ctx.proposal_sections)
+    except SpendCapError:
+        raise
     except DraftingError:
         raise
     except Exception as e:
@@ -673,6 +675,13 @@ def run_opportunity_pipeline(
             ctx = run_draft_stage(ctx, deps)
             _persist(deps, ctx.dedup_url, claim_token, "drafted", ctx)
             return PipelineOutcome(result=ctx.to_result(), disposition="success")
+    except SpendCapError as exc:
+        return PipelineOutcome(
+            result=None,
+            disposition="retryable",
+            error=str(exc) or "per-run LLM spend cap reached",
+            increment_draft_fail=False,
+        )
     except TerminalSkip as skip:
         return PipelineOutcome(result=None, disposition="terminal", error=str(skip.reason or skip))
     except DraftingError as exc:

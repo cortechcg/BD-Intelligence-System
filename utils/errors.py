@@ -14,6 +14,16 @@ class ErrorType:
     VALIDATION_ERROR = "VALIDATION_ERROR"
     SSRF_ERROR = "SSRF_ERROR"
     DRAFTING_ERROR = "DRAFTING_ERROR"
+    SPEND_CAP_ERROR = "SPEND_CAP_ERROR"
+
+
+class SpendCapError(Exception):
+    """Raised when complete() would exceed MAX_RUN_COST_USD. Not a draft-quality failure."""
+
+    error_type = ErrorType.SPEND_CAP_ERROR
+
+    def __init__(self, message: str = "per-run LLM spend cap reached"):
+        super().__init__(message)
 
 
 def classify_exception(exc: Exception) -> str:
@@ -22,6 +32,8 @@ def classify_exception(exc: Exception) -> str:
     name = type(exc).__name__
     msg = str(exc).lower()
 
+    if isinstance(exc, SpendCapError) or name == "SpendCapError":
+        return ErrorType.SPEND_CAP_ERROR
     if "429" in msg or "rate limit" in msg or name in {"RateLimitError"}:
         return ErrorType.RATE_LIMIT_ERROR
     if "401" in msg or "403" in msg or "authentication" in msg or name in {

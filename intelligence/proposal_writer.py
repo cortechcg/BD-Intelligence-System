@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from loguru import logger
 from utils.llm import cached_tokens, complete, finish_reason, get_text, loads_json_object, output_tokens, usage_totals
+from utils.errors import SpendCapError
 from utils.money_scrub import (
     contains_financial_disclosure,
     contains_monetary_amount,
@@ -1378,6 +1379,8 @@ Return ONLY valid JSON:
             messages=[{"role": "user", "content": prompt}],
         )
         return loads_json_object(get_text(response))
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"Quality self-score failed (non-fatal): {e}")
         return {}
@@ -1458,6 +1461,8 @@ def _enforce_no_monetary(section_name: str, text: str) -> str:
         ):
             logger.success(f"  [{section_name}] monetary amounts rewritten out")
             return rewritten
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"  [{section_name}] money rewrite call failed: {e}")
 
@@ -1624,6 +1629,8 @@ def _run_parallel_sections(jobs: dict) -> dict:
             try:
                 sections[key] = fut.result()
                 logger.success(f"  [{key}] complete")
+            except SpendCapError:
+                raise
             except Exception as e:
                 logger.error(f"  [{key}] failed: {e}")
                 sections[key] = ""

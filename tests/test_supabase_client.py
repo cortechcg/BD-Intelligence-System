@@ -386,3 +386,32 @@ def test_persist_stage_when_rpc_missing_does_not_mark_ledger_gone(monkeypatch):
     ) is False
     assert supabase_client._opportunity_stage_columns_available is False
     assert supabase_client._opportunity_ledger_available is not False
+
+
+def test_check_opportunity_stage_schema_fails_when_columns_missing(monkeypatch):
+    supabase_client.reset_opportunity_ledger_status()
+
+    class _Table:
+        def __init__(self):
+            self._col = ""
+
+        def select(self, col):
+            self._col = col
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            raise RuntimeError(
+                f"42703: column opportunity_processing.{self._col} does not exist"
+            )
+
+    class _Client:
+        def table(self, name):
+            assert name == "opportunity_processing"
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    missing = supabase_client.check_opportunity_stage_schema()
+    assert missing == list(supabase_client.REQUIRED_STAGE_COLUMNS)

@@ -8,7 +8,7 @@ import pytest
 
 import main
 from intelligence.pipeline_stages import MAX_DRAFT_FAILURES
-from utils.observability import reset_opportunity_usage
+from utils.observability import reset_opportunity_usage, reset_run_spend_cap
 from utils.urls import canonicalize_url
 
 
@@ -16,9 +16,11 @@ from utils.urls import canonicalize_url
 def _clear_run_context():
     main._execution_budget.set(None)
     reset_opportunity_usage()
+    reset_run_spend_cap()
     yield
     main._execution_budget.set(None)
     reset_opportunity_usage()
+    reset_run_spend_cap()
 
 
 class MemoryLedger:
@@ -296,3 +298,5 @@ def test_stage_migration_extends_existing_ledger_not_a_second_table():
     assert "dead_letter" in sql
     original = Path("supabase_migration_opportunity_state.sql").read_text()
     assert "claim_opportunity_processing" in original
+    assert "DROP TABLE" not in sql
+    assert "DELETE FROM" not in sql.upper()

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from loguru import logger
 
+from config import PLAYWRIGHT_JS_HEAP_MB, PLAYWRIGHT_TIMEOUT_MS
 from utils.errors import ErrorType
 from utils.urls import UnsafeURLError, assert_public_http_url, assert_safe_redirect
 
@@ -39,11 +40,33 @@ async def install_browser_request_guard(page) -> None:
     await page.route("**/*", guard_browser_request)
 
 
-_BROWSER_LAUNCH_ARGS = [
-    "--no-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-blink-features=AutomationControlled",
-]
+async def prepare_browser_page(page) -> None:
+    """Install SSRF routing plus navigation/default timeouts.
+
+    Timeouts bound a hung tab. They are not a memory cgroup or gVisor jail.
+    """
+    await install_browser_request_guard(page)
+    timeout_ms = max(1000, int(PLAYWRIGHT_TIMEOUT_MS))
+    page.set_default_timeout(timeout_ms)
+    page.set_default_navigation_timeout(timeout_ms)
+
+
+def _browser_launch_args() -> list[str]:
+    """Chromium flags. This is not an OS sandbox (see SECURITY.md).
+
+    ``--no-sandbox`` remains because this host cannot run a namespaced
+    Chromium sandbox. Heap and process caps are in-process limits only.
+    """
+    heap_mb = max(64, int(PLAYWRIGHT_JS_HEAP_MB))
+    return [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-extensions",
+        "--disable-gpu",
+        "--renderer-process-limit=1",
+        f"--js-flags=--max-old-space-size={heap_mb}",
+    ]
 
 _SYSTEM_CHROME_CANDIDATES = (
     "/usr/bin/google-chrome-stable",
@@ -159,7 +182,7 @@ async def launch_chromium(playwright):
         *_system_chrome_launch_attempts(),
     ))
     for extra in attempts:
-        kwargs = {"headless": True, "args": _BROWSER_LAUNCH_ARGS, **extra}
+        kwargs = {"headless": True, "args": _browser_launch_args(), **extra}
         channel = extra.get("executable_path") or extra.get("channel", "bundled")
         try:
             browser = await playwright.chromium.launch(**kwargs)

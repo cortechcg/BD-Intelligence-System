@@ -66,6 +66,18 @@ def _positive_int_env(name: str, default: int) -> int:
     return value
 
 
+def _nonnegative_float_env(name: str, default: float) -> float:
+    """Read a non-negative float setting (zero is a valid hard stop)."""
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a non-negative number, got {raw!r}") from exc
+    if value < 0:
+        raise ValueError(f"{name} must be a non-negative number, got {value}")
+    return value
+
+
 def _nonnegative_int_env(name: str, default: int) -> int:
     """Read a non-negative integer setting (zero is a valid hard stop)."""
     raw = os.getenv(name, str(default)).strip()
@@ -360,6 +372,15 @@ CHECK_INTERVAL_HOURS = _positive_int_env("CHECK_INTERVAL_HOURS", 6)
 # opportunity is only written to Supabase once it has been processed, so
 # whatever is deferred here is rediscovered on the next run.
 MAX_OPPORTUNITIES_PER_RUN = _nonnegative_int_env("MAX_OPPORTUNITIES_PER_RUN", 15)
+
+# Estimated USD ceiling for Anthropic complete() calls in one process run.
+# Zero blocks the first call. Unknown-model prices also halt further calls.
+MAX_RUN_COST_USD = _nonnegative_float_env("MAX_RUN_COST_USD", 25.0)
+
+# Playwright tab limits. These are in-process Chromium flags/timeouts, not a
+# kernel sandbox (the launcher still passes --no-sandbox on this host).
+PLAYWRIGHT_TIMEOUT_MS = _positive_int_env("PLAYWRIGHT_TIMEOUT_MS", 45000)
+PLAYWRIGHT_JS_HEAP_MB = _positive_int_env("PLAYWRIGHT_JS_HEAP_MB", 512)
 
 # WATCH-rated opportunities used to get a two-section quick flag (cover
 # letter + executive summary) instead of a draft. A WATCH is a mid-scoring

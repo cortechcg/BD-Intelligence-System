@@ -27,6 +27,7 @@ from loguru import logger
 
 from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL
 from utils.llm import cached_tokens, complete, finish_reason, get_text, loads_json_object, usage_totals
+from utils.errors import SpendCapError
 from utils.money_scrub import redact_monetary_amounts, strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
 
@@ -469,6 +470,8 @@ def build_tor_brief(
                 ),
             }],
         )
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"  ToR comprehension pass failed (non-fatal): {e}")
         return ""
@@ -1286,6 +1289,8 @@ items. prescribed_sections: at most 12 objects. purpose_one_sentence under
 
     try:
         response = _lock_call(messages)
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"  Document-lock pass failed (non-fatal): {e}")
         return {}
@@ -1314,6 +1319,8 @@ items. prescribed_sections: at most 12 objects. purpose_one_sentence under
                 },
             ])
             lock = loads_json_object(get_text(response))
+        except SpendCapError:
+            raise
         except Exception:
             logger.warning("  Document lock was not valid JSON — continuing without it")
             return {}
@@ -1393,6 +1400,8 @@ def build_win_strategy(
             system=_TENDER_READER_SYSTEM,
             messages=[{"role": "user", "content": "\n\n".join(parts)}],
         )
+    except SpendCapError:
+        raise
     except Exception as e:
         logger.warning(f"  Win-strategy pass failed (non-fatal): {e}")
         return ""

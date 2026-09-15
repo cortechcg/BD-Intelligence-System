@@ -62,6 +62,7 @@ from intelligence.pipeline_stages import (
     StageDeps,
     run_opportunity_pipeline,
 )
+from utils.errors import SpendCapError
 from intelligence.organizations import (
     build_client_intelligence,
     empty_client_intelligence,
@@ -97,6 +98,7 @@ from utils.observability import (
     configure_logging,
     log_stage,
     new_execution_id,
+    start_run_spend_cap,
 )
 from utils.urls import canonicalize_url
 from utils.healthcheck import ping_healthcheck
@@ -130,6 +132,7 @@ _pipeline_increment_draft: ContextVar[bool] = ContextVar(
 
 def _start_execution_budget() -> _ExecutionBudget:
     """Start a per-command hard cap at the actual processing boundary."""
+    start_run_spend_cap()
     budget = _ExecutionBudget(limit=max(0, int(MAX_OPPORTUNITIES_PER_RUN)))
     _execution_budget.set(budget)
     return budget
@@ -331,6 +334,8 @@ def _draft_via_main_hooks(
                 opportunity_id=opportunity_id,
                 tor_text=tor_text,
             )
+    except SpendCapError:
+        raise
     except DraftingError:
         raise
     except Exception as e:
