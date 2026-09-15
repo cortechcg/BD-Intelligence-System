@@ -165,7 +165,9 @@ and tests for injection and redirect behavior.
 Remaining risks: Playwright still does its own DNS for subresources (request
 guard is check-then-fetch, not pin-IP); document parsers are in-process;
 Airtable and Supabase use service credentials in a local process. Download
-GETs are DNS-pinned (resolve once, connect to that IP). CI runs `pip-audit`.
+GETs are DNS-pinned (resolve once, connect to that IP). CI runs `pip-audit`;
+`requirements.txt` was bumped 2026-09-15 (`cryptography` 50.0.0, `h2` 4.4.1,
+`pillow` 12.3.0, `pytest` 9.0.3) and re-scan found no known vulnerabilities.
 
 ## 12. Reliability review
 
@@ -270,15 +272,18 @@ Regression cases added and passing:
 - spend-cap during draft leaves in-memory ledger `pipeline_stage=scored`,
   `state=failed`, not `dead_letter`.
 
-Phase 8 pytest (2026-09-15):
+Phase 8 pytest (2026-09-15, after hosted stages SQL + dependency bumps):
 
 ```text
-1 failed, 343 passed, 2 skipped, 2 warnings in 12.93s
+346 passed, 2 warnings in 26.01s
 ```
 
-The failure is the hosted schema check (`pipeline_stage` / `checkpoint` /
-`draft_fail_count` absent). The two skips are live stage-write and live
-spend-cap kill-tests that require those columns.
+0 failed, 0 skipped. `check_supabase_stages.py` exit 0. All three tests in
+`tests/test_live_supabase_stages.py` passed. Hosted E2E SELECT sequence:
+discovered → extracted → scored → drafted. Hosted spend-cap kill-test:
+`$0` cap, `messages.create()` count 0, row `scored`/`failed` (resumable),
+resume `drafted`/`completed`. Prior to the Dashboard SQL apply the same
+suite was 1 failed, 343 passed, 2 skipped.
 
 Phase 0 (2026-09-14) added `tests/golden/` — 36 anonymized items with an
 offline harness. Recorded-JSON parse vs labels: consultancy precision/recall
@@ -310,15 +315,15 @@ held-out Brier is sample too small to trust.
   `draft_bid_or_watch_proposal()`; unit-tested without the live pipeline.
 - ~~Add durable execution records, retries, and failure recovery.~~ **Phase 7:**
   same `opportunity_processing` ledger (not a second table) plus
-  `pipeline_stage` + `checkpoint` (`supabase_migration_opportunity_stages.sql`).
+  `pipeline_stage` + `checkpoint` (`supabase_migration_opportunity_stages.sql`,
+  **applied** to hosted Supabase via Dashboard SQL on 2026-09-15).
   Kill-mid-run after `scored` resumes at draft.
   BID/WATCH empty drafts retry then `dead_letter` (3 failures). Optional intel
   still fail-open. `reviewed` / `outcome` are human/Airtable only.
-- Complete LLM usage accounting and a configurable spend cap. **Phase 8:**
+- ~~Complete LLM usage accounting and a configurable spend cap.~~ **Phase 8:**
   `MAX_RUN_COST_USD` is enforced at `complete()` before `messages.create()`.
-  Unit kill-test: `$0` cap, provider `create()` count stays 0, ledger stays
-  `scored` / `failed`. Live hosted-column kill-test is in
-  `tests/test_live_supabase_stages.py`.
+  Unit and **hosted** kill-tests: `$0` cap, provider `create()` count stays 0,
+  ledger stays `scored` / `failed` (not `dead_letter`); resume writes `drafted`.
 - Replace direct Airtable/Supabase imports with dependency injection where it
   materially improves testing. StageDeps covers the opportunity pipeline;
   a repo-wide DI rewrite was not in scope.
@@ -355,8 +360,8 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 
 | Domain | Score | Evidence / concrete gap |
 |---|---:|---|
-| Architecture | 7 | Coherent modular single process with tested extract/score/draft stage services and durable workflow boundaries on the existing `opportunity_processing` ledger (`pipeline_stage` + checkpoint, ADR 011). Kill-mid-run after `scored` resumes at draft rather than re-fetching. Still one process; knowledge layer incomplete; stage migration **not applied** to hosted Supabase this session (REST keys cannot run DDL). Not 8. |
-| Reliability | 7 | Isolated source failures, quality gates, bounded downloads, plus durable stage resume and BID/WATCH drafting retry → `dead_letter` after 3 failures (not a silent skip). Consultancy FALSE still stops before CV/proposal tokens. Optional intel (orgs, market facts, calibrated P(win) INSUFFICIENT DATA) still fail-open. Gap: `supabase_migration_opportunity_stages.sql` not applied (no Postgres URL / Management API token); no distributed retry queue. Not 8. |
+| Architecture | 7 | Coherent modular single process with tested extract/score/draft stage services and durable workflow boundaries on the existing `opportunity_processing` ledger (`pipeline_stage` + checkpoint, ADR 011). Hosted columns exist (`check_supabase_stages.py` exit 0). Kill-mid-run after `scored` resumes at draft rather than re-fetching (proven on the hosted row). Still one process; knowledge layer incomplete. Not 8. |
+| Reliability | 7 | Isolated source failures, quality gates, bounded downloads, plus durable stage resume and BID/WATCH drafting retry → `dead_letter` after 3 failures (not a silent skip). Consultancy FALSE still stops before CV/proposal tokens. Optional intel (orgs, market facts, calibrated P(win) INSUFFICIENT DATA) still fail-open. Hosted `opportunity_stages` SQL is applied. Gap: no distributed retry queue. Not 8. |
 | Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance, org-name matcher (Phase 2). Still no freshness model; organizations migration also unapplied. |
 | AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail, named past-work claim verifier (Phase 4). Gap: live Claude extraction vs golden set is unmeasured; not a full sentence-level claim graph. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
@@ -369,10 +374,10 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Bid Intelligence | 8 | Deterministic, versioned scoring with factors/evidence/audit values and tests proving LLM NO-BID cannot force an official NO-BID. Phase 6 harness exists (`win_calibration.py` + versioned artifact v0.1.0) but **no model was fit**: census 123 WON / 0 LOST, bar is n≥30 and ≥10 per class, held-out Brier is “sample too small to trust.” Heuristic WIN PROBABILITY remains official. Not 9. |
 | Proposal Intelligence | 8 | Named past-work verifier is real (Phase 4, ADR 008): every “Cortech has done X before” named-client claim must resolve to a retrieved proposal chunk (`chunk_id` like `proposal:recARCH`) or stay in the draft tagged `[NOT VERIFIED]`. Invented clients are not passed through clean; empty retrieval / malformed sections / adversarial text do not crash and do not silent-accept. Generic boasts without an entity are `INSUFFICIENT EVIDENCE` in the report only (ADR 003). Gap: this is **not** a source→proposal graph for every sentence, and assignment details beyond named-entity presence are not proven. Not 10. |
 | Outcome Intelligence | 6 | Win/loss lesson storage exists. Phase 6 adds an offline held-out evaluator that only emits Brier when both classes meet the bar; production census has 0 LOST so the calibrated field is INSUFFICIENT DATA. Lessons still do not update the official heuristic. Harness exists; model not trusted. |
-| Security | 8 | Per-hop SSRF validation, DNS-pinned download GET (resolve once, connect to that IP, reject private/mixed DNS), capped downloads, TLS, input boundaries, escaped email, CI `pip-audit`. Playwright/parser still not an OS sandbox. Not 9. |
+| Security | 8 | Per-hop SSRF validation, DNS-pinned download GET (resolve once, connect to that IP, reject private/mixed DNS), capped downloads, TLS, input boundaries, escaped email, CI `pip-audit` with patched `cryptography` 50.0.0 / `h2` 4.4.1 / `pillow` 12.3.0 / `pytest` 9.0.3 (re-scan clean). Playwright/parser still not an OS sandbox. Not 9. |
 | Observability | 7 | Execution/stage/cost hooks plus enforced per-run spend cap at `complete()`. No metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open), Phase 7 stage-unit + kill-mid-run resume + drafting dead-letter tests, and Phase 8 DNS-pin / spend-cap / Playwright-limit / hosted stage-schema tests. Still no staging environment or live-LLM extraction evaluation. |
-| Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call, plus `MAX_RUN_COST_USD` enforced at `complete()` (unit `$0` kill-test: no `messages.create()`). Hosted-column kill-test is the remaining bar if stage SQL is unapplied. Not 9. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open), Phase 7 stage-unit + kill-mid-run resume + drafting dead-letter tests, and Phase 8 DNS-pin / spend-cap / Playwright-limit / hosted stage-schema + hosted stage-write + hosted spend-cap kill-tests (346 passed, 0 failed, 0 skipped). Still no staging environment or live-LLM extraction evaluation. |
+| Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call, plus `MAX_RUN_COST_USD` enforced at `complete()` (unit and hosted `$0` kill-test: no `messages.create()`; hosted row left `scored`/`failed` then resumed to `drafted`). Not 9. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
 
@@ -396,13 +401,13 @@ harness (ADR 010) and **refused to fit a model**: labeled n is 123 WON /
 heuristic WIN PROBABILITY was not replaced. Phase 7 delivered durable
 pipeline stages on the existing `opportunity_processing` ledger (ADR 011):
 extract → score → draft resume, BID/WATCH drafting dead-letter, kill-mid-run
-test. Stage migration file not applied this session. Next: apply the hash,
-organizations, opportunity-facts, award-relationships, and **opportunity-stages**
-migrations, a **live** extraction (and later retrieval) pass against the golden
-set, a human approval/outcome schema that records Lost as well as Won, and only
-after both classes meet the bar, train and validate a calibrated win model
-against the heuristic on held-out data. **Phase 8** (ADR 012) shipped
-download-path DNS pin, Playwright timeout/heap flags (not an OS sandbox),
-CI `pip-audit`, and an enforced `MAX_RUN_COST_USD` at `complete()`. Hosted
-stage SQL still needs a Postgres URL or Dashboard paste when only REST keys
-exist.
+test. `opportunity_stages` SQL **was applied** to hosted Supabase (Dashboard
+SQL, 2026-09-15). Next: apply the hash, organizations, opportunity-facts, and
+award-relationships migrations, a **live** extraction (and later retrieval)
+pass against the golden set, a human approval/outcome schema that records Lost
+as well as Won, and only after both classes meet the bar, train and validate a
+calibrated win model against the heuristic on held-out data. **Phase 8**
+(ADR 012) is complete: download-path DNS pin, Playwright timeout/heap flags
+(not an OS sandbox), CI `pip-audit` (scan clean after bumps listed in
+`docs/SECURITY.md`), enforced `MAX_RUN_COST_USD` at `complete()`, and the
+hosted spend-cap kill-test on the real `opportunity_processing` row.

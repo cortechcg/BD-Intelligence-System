@@ -21,8 +21,8 @@ Phase 8 DNS-pin / Playwright limits / CI audit / spend cap ADR:
 | Discovery | RSS support (currently no configured feeds), Somali Jobs Playwright scraper, Assortis/ICA IMAP parser | Functional local sources; coverage is limited. |
 | Fetch and extraction | HTML, PDF, DOCX, Google Drive packs, browser/PDF-link fallbacks | Quality gate rejects empty/corrupt/access-wall output. PDF text includes `----- PAGE N -----` markers from pdfplumber page index. |
 | Download security | Public HTTP URL policy, per-hop redirect validation, TLS verification, bounded bytes/redirects/retries, DNS-pinned GET on the download path (`utils/dns_pinned_http.py`: resolve once, connect to that IP, reject private/mixed answers) | Playwright still uses browser DNS plus the request guard (not a pin-IP transport). Parser isolation is Chromium flags/timeouts, not an OS sandbox. |
-| Deduplication | Canonical exact URL, `opportunity_processing` lease/claim ledger with Phase 7 `pipeline_stage` + checkpoint resume, and `opportunities_cache.content_hash` unique index | Migration files `supabase_migration_content_hash.sql` and `supabase_migration_opportunity_stages.sql` exist; **not applied** to a live project in this session. Client fail-opens (omits the hash column / skips lookup) if `content_hash` is missing. Same body on a different URL is terminal-skip unless `--submit-url` force. Stage columns missing: log CRITICAL, still attempt from `discovered` (do not drop BID/WATCH). When stage columns exist, crash mid-run resumes at the last persisted stage. |
-| Pipeline reliability | `intelligence/pipeline_stages.py` + `opportunity_processing.pipeline_stage` | **Phase 7.** Stages: discovered → extracted → scored → drafted (agent); reviewed → outcome (human/Airtable, not autonomous submit). Kill-mid-run after `scored` resumes at draft (fetch/analyze not repeated). BID/WATCH empty drafts are retryable `failed` then `dead_letter` after 3 failures — not a silent skip. Consultancy FALSE still stops before CV/proposal tokens. Optional intel still fail-open. **Phase 8:** `MAX_RUN_COST_USD` (default 25; `$0` blocks the first `complete()`). Cap halt is retryable `failed` at the last persisted stage; it does not increment draft-fail / dead-letter. |
+| Deduplication | Canonical exact URL, `opportunity_processing` lease/claim ledger with Phase 7 `pipeline_stage` + checkpoint resume, and `opportunities_cache.content_hash` unique index | `supabase_migration_opportunity_stages.sql` **is applied** on hosted `opportunity_processing` (`pipeline_stage`, `checkpoint`, `draft_fail_count`; `check_supabase_stages.py` exit 0 on 2026-09-15). `supabase_migration_content_hash.sql` is still **not applied** this session. Client fail-opens (omits the hash column / skips lookup) if `content_hash` is missing. Same body on a different URL is terminal-skip unless `--submit-url` force. Crash mid-run resumes at the last persisted stage. |
+| Pipeline reliability | `intelligence/pipeline_stages.py` + `opportunity_processing.pipeline_stage` | **Phase 7.** Stages: discovered → extracted → scored → drafted (agent); reviewed → outcome (human/Airtable, not autonomous submit). Kill-mid-run after `scored` resumes at draft (fetch/analyze not repeated). BID/WATCH empty drafts are retryable `failed` then `dead_letter` after 3 failures — not a silent skip. Consultancy FALSE still stops before CV/proposal tokens. Optional intel still fail-open. **Phase 8:** `MAX_RUN_COST_USD` (default 25; `$0` blocks the first `complete()`). Cap halt is retryable `failed` at the last persisted stage; it does not increment draft-fail / dead-letter. Hosted row (2026-09-15): spend-cap kill-test left `pipeline_stage=scored` / `state=failed` with zero further `messages.create()`; resume completed at `drafted`. Direct queries on a hosted E2E probe observed discovered → extracted → scored → drafted. |
 | Extraction | Claude JSON extraction with untrusted-document boundary, Pydantic schema on `parse_analysis_payload()`, one schema-repair retry, then explicit refuse | Missing `is_consultancy_contract` still defaults True. Schema-wrong types are not fail-opened into a structured record. Live Claude vs golden labels is still unmeasured. |
 | Field provenance | `extraction_provenance` map: extracted field → source file / chunk / page-if-marked | VERIFIED only when the value is found in the tender text. Missing source or empty value → INSUFFICIENT DATA. Unlocated value → UNKNOWN. Page is never invented. Not a proposal claim graph (ADR 003 / ADR 008 own named past-work grounding). |
 | Golden evaluation | `tests/golden/opportunities.json` (36 anonymized items) + offline parse/scorer harness | **Baseline (offline only, 2026-09-15, after Phase 7):** consultancy P/R/acc = 1.000 on recorded JSON through `parse_analysis_payload` (29 true / 7 false). Client/deadline exact = 1.000. Budget MAE = 0.000 on 1 labeled numeric ToR; null agreement = 1.000. Geography/thematic Jaccard = 1.000. Equal to Phase 0, 1, 2, 3, 4, 5, and 6 — no extraction regression. Scorer recommendation accuracy = 1.000 on 29 items with an expected band (7 vacancies skipped). EV INSUFFICIENT DATA rate = 1.000. **Not measured:** live Claude extraction, retrieval, or trusted P(win) calibration (golden outcomes UNKNOWN; live LOST labels = 0). |
@@ -72,29 +72,32 @@ durable extract/score/draft stages on the existing `opportunity_processing`
 ledger (ADR 011): kill-mid-run after `scored` resumes at draft; BID/WATCH
 drafting failures retry then dead-letter. Phase 8 (ADR 012) shipped
 DNS-pinned downloads, Playwright timeout/heap flags (not an OS sandbox),
-CI `pip-audit`, and an enforced per-run `complete()` spend cap. Hosted
-stage-column apply still needs a Postgres URL or Dashboard SQL if the
-service role is the only credential.
+CI `pip-audit` (cryptography 50.0.0, h2 4.4.1, pillow 12.3.0, pytest 9.0.3;
+scan clean after bump), and an enforced per-run `complete()` spend cap.
+Hosted stage columns are present; the live spend-cap kill-test ran against
+the real row.
 
 ## Verification
 
 ```text
 ~/cortech-bd-agent/cortech/bin/python -m pytest tests/ -q
-1 failed, 343 passed, 2 skipped, 2 warnings in 12.93s
+346 passed, 2 warnings in 26.01s
 ```
 
-The one failure is `test_hosted_opportunity_processing_stage_columns_exist`:
-hosted `opportunity_processing` still lacks `pipeline_stage`, `checkpoint`,
-and `draft_fail_count`. PostgREST cannot run DDL; apply
-`supabase_migration_opportunity_stages.sql` via Dashboard SQL or
-`scripts/apply_sql_migration.py` with `DATABASE_URL` /
-`SUPABASE_ACCESS_TOKEN` / `SUPABASE_DB_PASSWORD`. The two skips are the
-hosted stage-write and spend-cap kill-tests, which require those columns.
+0 failed, 0 skipped. `check_supabase_stages.py` exit 0: hosted columns
+`pipeline_stage`, `checkpoint`, `draft_fail_count` exist. All three live
+tests in `tests/test_live_supabase_stages.py` passed (schema, stage-write,
+spend-cap kill-test). Hosted E2E probe queried the row after claim and each
+persist: discovered → extracted → scored → drafted (`state=completed`).
+Hosted kill-test: `$0` cap, `messages.create()` count stayed 0, row left
+`scored`/`failed` (not `dead_letter`); resume wrote `drafted`/`completed`.
 
 Golden extraction tests still pass at the Phase 0/1/2/3/4/5/6 baseline
 (consultancy P/R/acc 1.000). There has been no live `--once` or
-`--submit-url`. The `content_hash`, `organizations`, `opportunity_facts`,
-`award_relationships`, and `opportunity_stages` migrations were not
-applied (no Postgres URL / Management API token in the process environment).
-Phase 8 code is in-tree (ADR 012); the live spend-cap kill-test on real
-columns is blocked on the stages SQL.
+`--submit-url` against a real tender URL this session (E2E used a fixture
+URL with mocked fetch/analyze/draft; ledger writes and SELECT queries were
+real). The `content_hash`, `organizations`, `opportunity_facts`, and
+`award_relationships` migrations were not applied this session.
+`opportunity_stages` **was** applied via Dashboard SQL (not via script).
+Phase 8 is complete (ADR 012) including hosted-column kill-test and a
+clean `pip-audit`.
