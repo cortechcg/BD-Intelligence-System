@@ -330,3 +330,59 @@ def test_content_hash_migration_enforces_partial_unique_index():
     assert "WHERE content_hash IS NOT NULL" in sql
     assert "organizations" not in sql.lower()
     assert "competitor" not in sql.lower()
+
+
+def test_load_snapshot_when_stage_columns_missing_logs_and_does_not_drop(monkeypatch):
+    supabase_client.reset_opportunity_ledger_status()
+
+    class _Table:
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            raise RuntimeError(
+                "PGRST204: Could not find the 'pipeline_stage' column of "
+                "'opportunity_processing' in the schema cache"
+            )
+
+    class _Client:
+        def table(self, name):
+            assert name == "opportunity_processing"
+            return _Table()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    snap = supabase_client.load_processing_snapshot(
+        "https://procurement.example/tender"
+    )
+    assert snap["resume_available"] is False
+    assert snap["pipeline_stage"] == "discovered"
+    assert supabase_client._opportunity_stage_columns_available is False
+
+
+def test_persist_stage_when_rpc_missing_does_not_mark_ledger_gone(monkeypatch):
+    supabase_client.reset_opportunity_ledger_status()
+
+    class _Client:
+        def rpc(self, name, params):
+            assert name == "persist_opportunity_stage"
+
+            class _Call:
+                def execute(_self):
+                    raise RuntimeError(
+                        "PGRST202: Could not find the function "
+                        "public.persist_opportunity_stage in the schema cache"
+                    )
+            return _Call()
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    assert supabase_client.persist_opportunity_stage(
+        "https://procurement.example/tender", "tok", "extracted", {"full_text": "x"},
+    ) is False
+    assert supabase_client._opportunity_stage_columns_available is False
+    assert supabase_client._opportunity_ledger_available is not False

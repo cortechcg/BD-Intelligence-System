@@ -11,7 +11,7 @@ from loguru import logger
 
 from config import CLAUDE_MODEL
 from database.airtable_client import get_past_proposals, get_table
-from database.supabase_client import EmbeddingError, get_embedding, supabase
+from database.supabase_client import EmbeddingError, get_embedding, record_human_pipeline_stage, supabase
 from utils.llm import complete, get_text, loads_json_object
 from utils.money_scrub import strip_monetary_amounts
 from utils.untrusted import wrap_untrusted
@@ -368,6 +368,13 @@ def process_win_loss_outcomes() -> None:
 
     for record in resolved:
         opp_id = record["id"]
+        fields = record.get("fields") or {}
+        source_url = fields.get("source_url") or ""
+        if source_url:
+            try:
+                record_human_pipeline_stage(source_url, "outcome")
+            except Exception:
+                pass
         try:
             already = (
                 supabase.table("win_loss_memory")

@@ -88,6 +88,14 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
         "executive_summary": "Grounded in the tender.",
     })
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "load_processing_snapshot", lambda *args, **kwargs: {
+        "pipeline_stage": "discovered",
+        "checkpoint": {},
+        "draft_fail_count": 0,
+        "resume_available": True,
+    })
+    monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
     _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({
@@ -121,6 +129,14 @@ def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: analysis)
     monkeypatch.setattr(main, "create_opportunity", lambda payload: saved.append(payload) or "airtable-id")
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "load_processing_snapshot", lambda *args, **kwargs: {
+        "pipeline_stage": "discovered",
+        "checkpoint": {},
+        "draft_fail_count": 0,
+        "resume_available": True,
+    })
+    monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
     _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({

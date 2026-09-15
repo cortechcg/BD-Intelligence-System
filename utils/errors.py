@@ -13,6 +13,7 @@ class ErrorType:
     NETWORK_ERROR = "NETWORK_ERROR"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     SSRF_ERROR = "SSRF_ERROR"
+    DRAFTING_ERROR = "DRAFTING_ERROR"
 
 
 def classify_exception(exc: Exception) -> str:

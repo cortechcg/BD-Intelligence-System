@@ -30,6 +30,17 @@ _LEDGER_MISSING_MESSAGE = (
     "Manual python main.py --submit-url still works."
 )
 
+_STAGE_RESUME_UNAVAILABLE_MESSAGE = (
+    "CRITICAL: opportunity_processing exists but pipeline_stage/checkpoint "
+    "support is missing. Resume is unavailable until "
+    "supabase_migration_opportunity_stages.sql is applied. "
+    "This run will still attempt the opportunity from discovered — it will "
+    "not drop a BID/WATCH item — but a crash will reprocess from scratch."
+)
+
+# None = not probed. False = stage columns/RPC confirmed missing.
+_opportunity_stage_columns_available: bool | None = None
+
 
 class EmbeddingError(Exception):
     """OpenAI embedding call failed. CV matching must not treat this as 'no staff'."""
@@ -61,6 +72,42 @@ def _is_content_hash_unique_violation(exc: Exception) -> bool:
     return "23505" in msg or "duplicate" in msg or "unique" in msg
 
 
+def _is_missing_stage_support(exc: Exception) -> bool:
+    """True when pipeline_stage / checkpoint / stage RPCs are not migrated yet."""
+    msg = str(exc).lower()
+    tokens = (
+        "pipeline_stage",
+        "checkpoint",
+        "draft_fail_count",
+        "persist_opportunity_stage",
+        "dead_letter_opportunity_processing",
+        "record_human_pipeline_stage",
+        "p_increment_draft_fail",
+        "p_pipeline_stage",
+        "p_checkpoint",
+        "dead_letter",
+    )
+    if not any(token in msg for token in tokens):
+        return False
+    return (
+        "pgrst204" in msg
+        or "pgrst202" in msg
+        or "42703" in msg
+        or "schema cache" in msg
+        or "does not exist" in msg
+        or "could not find" in msg
+        or "unknown column" in msg
+        or "unexpected param" in msg
+        or "pgrst" in msg
+    )
+
+
+def _mark_stage_columns_unavailable(exc: Exception) -> None:
+    global _opportunity_stage_columns_available
+    _opportunity_stage_columns_available = False
+    logger.error(f"{_STAGE_RESUME_UNAVAILABLE_MESSAGE} Cause: {exc}")
+
+
 def _is_missing_processing_ledger(exc: Exception) -> bool:
     """True for PostgREST/Postgres 'relation or RPC does not exist' errors."""
     msg = str(exc)
@@ -86,8 +133,9 @@ def _mark_opportunity_ledger_unavailable(exc: Exception) -> None:
 
 def reset_opportunity_ledger_status() -> None:
     """Test helper — do not use to override a confirmed-missing production ledger."""
-    global _opportunity_ledger_available
+    global _opportunity_ledger_available, _opportunity_stage_columns_available
     _opportunity_ledger_available = None
+    _opportunity_stage_columns_available = None
 
 
 def opportunity_ledger_available() -> bool:
@@ -474,24 +522,196 @@ def complete_opportunity_processing(source_url: str, claim_token: str) -> bool:
         return False
 
 
-def fail_opportunity_processing(source_url: str, claim_token: str, error: str = "") -> bool:
+def fail_opportunity_processing(
+    source_url: str,
+    claim_token: str,
+    error: str = "",
+    *,
+    increment_draft_fail: bool = False,
+) -> bool:
     """Release this worker's failed lease; never overwrite a newer claim."""
     canonical = canonicalize_url(source_url) or source_url
     if not canonical or not claim_token:
         return False
+    payload = {
+        "p_source_url": canonical,
+        "p_claim_token": claim_token,
+        "p_error": str(error or "processing did not complete")[:2000],
+    }
+    if increment_draft_fail:
+        payload["p_increment_draft_fail"] = True
     try:
-        result = supabase.rpc("fail_opportunity_processing", {
-            "p_source_url": canonical,
-            "p_claim_token": claim_token,
-            "p_error": str(error or "processing did not complete")[:2000],
-        }).execute()
+        result = supabase.rpc("fail_opportunity_processing", payload).execute()
         data = result.data
         return bool(data[0] if isinstance(data, list) and data else data)
     except Exception as e:
+        if increment_draft_fail and _is_missing_stage_support(e):
+            _mark_stage_columns_unavailable(e)
+            payload.pop("p_increment_draft_fail", None)
+            try:
+                result = supabase.rpc("fail_opportunity_processing", payload).execute()
+                data = result.data
+                return bool(data[0] if isinstance(data, list) and data else data)
+            except Exception as inner:
+                e = inner
         if _is_missing_processing_ledger(e):
             _mark_opportunity_ledger_unavailable(e)
         else:
             logger.warning(f"Could not persist retryable opportunity failure: {e}")
+        return False
+
+
+def _as_rpc_bool(data) -> bool:
+    return bool(data[0] if isinstance(data, list) and data else data)
+
+
+def load_processing_snapshot(source_url: str) -> dict:
+    """Load pipeline_stage + checkpoint for resume. Never raises.
+
+    Returns a dict compatible with ``ProcessingSnapshot`` fields. If the
+    ledger table is missing, ``resume_available`` is False. If the table
+    exists but stage columns are missing, logs CRITICAL and still returns
+    a discovered snapshot so the caller attempts work rather than dropping
+    the opportunity.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    empty = {
+        "pipeline_stage": "discovered",
+        "checkpoint": {},
+        "draft_fail_count": 0,
+        "resume_available": False,
+    }
+    if not canonical:
+        return empty
+    global _opportunity_stage_columns_available
+    if _opportunity_stage_columns_available is False:
+        logger.error(_STAGE_RESUME_UNAVAILABLE_MESSAGE)
+        return empty
+    try:
+        result = supabase.table("opportunity_processing").select(
+            "pipeline_stage,checkpoint,draft_fail_count,state"
+        ).eq("source_url", canonical).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return {
+                "pipeline_stage": "discovered",
+                "checkpoint": {},
+                "draft_fail_count": 0,
+                "resume_available": True,
+            }
+        row = rows[0] if isinstance(rows[0], dict) else {}
+        checkpoint = row.get("checkpoint") or {}
+        if isinstance(checkpoint, str):
+            try:
+                checkpoint = json.loads(checkpoint)
+            except json.JSONDecodeError:
+                checkpoint = {}
+        if not isinstance(checkpoint, dict):
+            checkpoint = {}
+        _opportunity_stage_columns_available = True
+        return {
+            "pipeline_stage": row.get("pipeline_stage") or "discovered",
+            "checkpoint": checkpoint,
+            "draft_fail_count": int(row.get("draft_fail_count") or 0),
+            "resume_available": True,
+        }
+    except Exception as e:
+        if _is_missing_stage_support(e):
+            _mark_stage_columns_unavailable(e)
+            return empty
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+            return empty
+        logger.warning(f"Could not load opportunity checkpoint (resume off this run): {e}")
+        return empty
+
+
+def persist_opportunity_stage(
+    source_url: str,
+    claim_token: str,
+    pipeline_stage: str,
+    checkpoint: dict | None = None,
+) -> bool:
+    """Persist stage + checkpoint while this worker owns the lease."""
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical or not claim_token:
+        return False
+    global _opportunity_stage_columns_available
+    if _opportunity_stage_columns_available is False:
+        logger.error(_STAGE_RESUME_UNAVAILABLE_MESSAGE)
+        return False
+    payload = checkpoint if isinstance(checkpoint, dict) else {}
+    try:
+        result = supabase.rpc("persist_opportunity_stage", {
+            "p_source_url": canonical,
+            "p_claim_token": claim_token,
+            "p_pipeline_stage": pipeline_stage,
+            "p_checkpoint": payload,
+        }).execute()
+        _opportunity_stage_columns_available = True
+        return _as_rpc_bool(result.data)
+    except Exception as e:
+        if _is_missing_stage_support(e):
+            _mark_stage_columns_unavailable(e)
+            return False
+        if _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+            return False
+        logger.error(
+            f"Could not persist pipeline stage {pipeline_stage!r} for "
+            f"{canonical[:80]}: {e}"
+        )
+        return False
+
+
+def dead_letter_opportunity_processing(
+    source_url: str,
+    claim_token: str,
+    error: str = "",
+) -> bool:
+    """Mark BID/WATCH drafting as dead-lettered. Manual force may retry."""
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical or not claim_token:
+        return False
+    try:
+        result = supabase.rpc("dead_letter_opportunity_processing", {
+            "p_source_url": canonical,
+            "p_claim_token": claim_token,
+            "p_error": str(error or "drafting dead-lettered")[:2000],
+        }).execute()
+        return _as_rpc_bool(result.data)
+    except Exception as e:
+        if _is_missing_stage_support(e) or _is_missing_processing_ledger(e):
+            if _is_missing_processing_ledger(e):
+                _mark_opportunity_ledger_unavailable(e)
+            else:
+                _mark_stage_columns_unavailable(e)
+            # Fall back to a retryable fail so the item is not silently completed.
+            return fail_opportunity_processing(
+                canonical, claim_token, error or "drafting dead-lettered"
+            )
+        logger.warning(f"Could not persist drafting dead-letter: {e}")
+        return False
+
+
+def record_human_pipeline_stage(source_url: str, pipeline_stage: str) -> bool:
+    """Record reviewed/outcome from Airtable. Never raises. Never submits."""
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical or pipeline_stage not in ("reviewed", "outcome"):
+        return False
+    try:
+        result = supabase.rpc("record_human_pipeline_stage", {
+            "p_source_url": canonical,
+            "p_pipeline_stage": pipeline_stage,
+        }).execute()
+        return _as_rpc_bool(result.data)
+    except Exception as e:
+        if _is_missing_stage_support(e):
+            _mark_stage_columns_unavailable(e)
+        elif _is_missing_processing_ledger(e):
+            _mark_opportunity_ledger_unavailable(e)
+        else:
+            logger.warning(f"Could not record human pipeline stage {pipeline_stage}: {e}")
         return False
 
 

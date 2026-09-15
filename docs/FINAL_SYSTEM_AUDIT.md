@@ -280,13 +280,22 @@ held-out Brier is sample too small to trust.
   proposal-claim grounding exists (Phase 4 / ADR 008); a full source → page
   → chunk → every-sentence graph does not.
 - Implement DNS-pinned HTTP transport and document-parser isolation if the
-  threat model warrants it.
-- Break `main.process_opportunity()` and the large proposal writer into tested
-  stage services.
-- Add durable execution records, retries, and failure recovery.
-- Complete LLM usage accounting and a configurable spend cap.
+  threat model warrants it. **Phase 8 / later — not started.**
+- ~~Break `main.process_opportunity()` and the large proposal writer into tested
+  stage services.~~ **Phase 7:** `intelligence/pipeline_stages.py`
+  (`run_extract_stage` / `run_score_stage` / `run_draft_stage`) plus
+  `draft_bid_or_watch_proposal()`; unit-tested without the live pipeline.
+- ~~Add durable execution records, retries, and failure recovery.~~ **Phase 7:**
+  same `opportunity_processing` ledger (not a second table) plus
+  `pipeline_stage` + `checkpoint` (`supabase_migration_opportunity_stages.sql`,
+  **not applied** this session). Kill-mid-run after `scored` resumes at draft.
+  BID/WATCH empty drafts retry then `dead_letter` (3 failures). Optional intel
+  still fail-open. `reviewed` / `outcome` are human/Airtable only.
+- Complete LLM usage accounting and a configurable spend cap. **Phase 8 / later
+  — not started.**
 - Replace direct Airtable/Supabase imports with dependency injection where it
-  materially improves testing.
+  materially improves testing. StageDeps covers the opportunity pipeline;
+  a repo-wide DI rewrite was not in scope.
 
 ## 17. Remaining product gaps
 
@@ -320,8 +329,8 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 
 | Domain | Score | Evidence / concrete gap |
 |---|---:|---|
-| Architecture | 6 | Coherent modular single process; lacks durable workflow boundaries and knowledge layer. |
-| Reliability | 6 | Isolated source failures, quality gates, bounded downloads; no durable retry/state system. |
+| Architecture | 7 | Coherent modular single process with tested extract/score/draft stage services and durable workflow boundaries on the existing `opportunity_processing` ledger (`pipeline_stage` + checkpoint, ADR 011). Kill-mid-run after `scored` resumes at draft rather than re-fetching. Still one process; knowledge layer incomplete; stage migration not applied this session. Not 8. |
+| Reliability | 7 | Isolated source failures, quality gates, bounded downloads, plus durable stage resume and BID/WATCH drafting retry → `dead_letter` after 3 failures (not a silent skip). Consultancy FALSE still stops before CV/proposal tokens. Optional intel (orgs, market facts, calibrated P(win) INSUFFICIENT DATA) still fail-open. Gap: `supabase_migration_opportunity_stages.sql` not applied this session; no distributed retry queue. Not 8. |
 | Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance, org-name matcher (Phase 2). Still no freshness model; organizations migration also unapplied. |
 | AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail, named past-work claim verifier (Phase 4). Gap: live Claude extraction vs golden set is unmeasured; not a full sentence-level claim graph. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
@@ -336,7 +345,7 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Outcome Intelligence | 6 | Win/loss lesson storage exists. Phase 6 adds an offline held-out evaluator that only emits Brier when both classes meet the bar; production census has 0 LOST so the calibrated field is INSUFFICIENT DATA. Lessons still do not update the official heuristic. Harness exists; model not trusted. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, and Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open). Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open), and Phase 7 stage-unit + kill-mid-run resume + drafting dead-letter tests. Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -358,9 +367,13 @@ edges from Cortech past submissions (ADR 009; `award_relationships` migration
 file not applied this session). Phase 6 delivered a versioned calibration
 harness (ADR 010) and **refused to fit a model**: labeled n is 123 WON /
 0 LOST under Phase 2 rules; held-out Brier is “sample too small to trust”;
-heuristic WIN PROBABILITY was not replaced. Next: apply the hash, organizations,
-opportunity-facts, and award-relationships migrations, a **live** extraction
-(and later retrieval) pass against the golden set, a human approval/outcome
-schema that records Lost as well as Won, and only after both classes meet the
-bar, train and validate a calibrated win model against the heuristic on
-held-out data. **Phase 7 (reliability / architecture debt) was not started here.**
+heuristic WIN PROBABILITY was not replaced. Phase 7 delivered durable
+pipeline stages on the existing `opportunity_processing` ledger (ADR 011):
+extract → score → draft resume, BID/WATCH drafting dead-letter, kill-mid-run
+test. Stage migration file not applied this session. Next: apply the hash,
+organizations, opportunity-facts, award-relationships, and **opportunity-stages**
+migrations, a **live** extraction (and later retrieval) pass against the golden
+set, a human approval/outcome schema that records Lost as well as Won, and only
+after both classes meet the bar, train and validate a calibrated win model
+against the heuristic on held-out data. **Phase 8 (security / cost /
+observability hardening) was not started here.**

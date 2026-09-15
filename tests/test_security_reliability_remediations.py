@@ -67,6 +67,14 @@ def _pipeline_dependencies(monkeypatch):
         lambda *args, **kwargs: {"cover_letter": "Safe completed draft."},
     )
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *args, **kwargs: None)
+    monkeypatch.setattr(main, "load_processing_snapshot", lambda *args, **kwargs: {
+        "pipeline_stage": "discovered",
+        "checkpoint": {},
+        "draft_fail_count": 0,
+        "resume_available": True,
+    })
+    monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
     monkeypatch.setattr(
         main,
         "build_client_intelligence",
