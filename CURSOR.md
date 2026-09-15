@@ -53,17 +53,18 @@ check_schema.py            ← schema diagnostic, run before bulk writes
 4. SUPABASE_URL must have https://, no trailing slash, no quotes
 
 ## Pipeline flow (main.py process_opportunity)
-1. Fetch document text
-2. Store in Supabase cache (dedup on source_url)
-3. Claude analysis → structured JSON
+1. Claim `opportunity_processing` lease; load `pipeline_stage` + checkpoint (resume)
+2. Fetch document text (discovered → extracted)
+3. Claude analysis → structured JSON + deterministic score (extracted → scored)
 4. is_consultancy_contract gate — FALSE = save as NO-BID, return None
-5. Create Airtable OPPORTUNITIES record
+5. Create Airtable OPPORTUNITIES record (BID/WATCH)
 6. CV matching via Supabase pgvector
 7. Budget calculation via rate card
-8. Compliance matrix via Claude
-9. Proposal draft via Claude Sonnet 5 (section by section)
-10. Update Airtable status to Reviewing
-11. Send proposal email to full team
+8. Proposal/EOI draft via Claude Sonnet 5 (scored → drafted). Empty draft retries, then dead-letters.
+9. Update Airtable status to Reviewing
+10. Send proposal email to full team
+Human Airtable only: reviewed → outcome. Crash mid-run resumes at the last persisted stage.
+Store in Supabase cache only after durable complete (dedup on source_url).
 
 ## is_consultancy_contract gate (CRITICAL)
 The LLM returns this boolean in bid_analysis.

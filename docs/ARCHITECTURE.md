@@ -16,19 +16,15 @@ systemd timers (or python main.py --once)
                 │
                 ▼
         process_opportunity()
-           1. fetch_and_extract (SSRF guard, quality gate)
-           2. store_opportunity (canonical URL upsert)
-           3. analyze_rfp (untrusted wrap + get_text)
-           4. apply_bid_intelligence()   ← deterministic scores
-           5. is_consultancy_contract (default True)
-           6. NO-BID draft gate uses CODE recommendation, not the LLM number;
-              record remains New for human confirmation
-           7. Airtable create (existing fields; scores are the code scores)
-           8. CV match + geography/sector/language/availability overlay
-           9. apply_bid_intelligence() again with team coverage
-          10. evidence-bound personnel costing / EOI or full proposal
-          11. compliance_matrix (SATISFIED/PARTIAL/MISSING/UNKNOWN)
-          12. email humans
+           1. claim opportunity_processing lease
+           2. load pipeline_stage + checkpoint (resume if present)
+           3. extract  (discovered → extracted)
+           4. score    (analyze + bid_scorer + consultancy/NO-BID gates)
+           5. draft    (CV, budget fail-open, EOI/proposal; empty draft → retry/dead-letter)
+           6. complete lease at drafted; email humans
+           Human Airtable only: reviewed → outcome
+           Crash mid-run: next claim resumes at the last persisted stage.
+           7. store_opportunity after durable complete (canonical URL upsert)
 ```
 
 Nothing in this pipeline submits to a client.
@@ -37,7 +33,8 @@ Nothing in this pipeline submits to a client.
 
 | Path | Role |
 |---|---|
-| `main.py` | Orchestrator |
+| `main.py` | Orchestrator (lease + stage runner) |
+| `intelligence/pipeline_stages.py` | Extract / score / draft stage services + resume |
 | `config.py` | Constants, `CLAUDE_MODEL` / `CLAUDE_MODEL_PROPOSAL`, env validation |
 | `monitors/` | Discovery |
 | `processors/downloader.py` | Fetch + extract |
@@ -64,6 +61,7 @@ Nothing in this pipeline submits to a client.
 ## What is stored where
 
 - **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding, and (after `supabase_migration_content_hash.sql`) unique `content_hash` of the extracted body. Dedup = exact canonical URL + content-hash identity + (Assortis) title near-dup. The column is fail-open if the migration is not applied. After `supabase_migration_opportunity_facts.sql`, optional `thematic_areas` / `locations` / `donor` / `discovered_at` support the observed-data market digest; missing columns fail-open. The Supabase client is created lazily at first storage use, after configuration validation at the entry point.
+- **Supabase `opportunity_processing`**: lease/claim ledger (`pending|processing|failed|completed|dead_letter`) plus Phase 7 `pipeline_stage` (`discovered → extracted → scored → drafted → reviewed → outcome`) and a JSONB checkpoint. Additive migration `supabase_migration_opportunity_stages.sql` (not applied this session). If the table is missing, bulk discovery still refuses to treat URLs as new. If the table exists but stage columns are missing, the agent logs CRITICAL and still attempts the opportunity from `discovered` (does not drop BID/WATCH). When columns exist, resume is mandatory. `reviewed` / `outcome` are human/Airtable transitions, not autonomous submit.
 - **Supabase `organizations` / `organization_aliases` / `organization_observations`**: canonical client/donor entities and cited involvement. Matching is normalize+exact/fuzzy (ADR 006). Fail-open if `supabase_migration_organizations.sql` is not applied. Airtable was not given new fields.
 - **Supabase `award_observations` / `relationship_edges`**: Phase 5 cited Assortis award-firm rows and cited Cortech-submission relationship edges (ADR 009). Fail-open if `supabase_migration_award_relationships.sql` is not applied. Identity reuses `organizations`. Airtable was not given new fields.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
@@ -93,4 +91,4 @@ The digest aggregates stored rows; it is not external market research.
 
 ## Not in this architecture
 
-Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph. Phase 6 is a calibration *harness* that currently returns INSUFFICIENT DATA — not a trusted P(win) model and not Phase 7.
+Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph. Phase 6 is a calibration *harness* that currently returns INSUFFICIENT DATA — not a trusted P(win) model. Phase 7 adds durable `pipeline_stage` resume on the existing `opportunity_processing` ledger (ADR 011). Phase 8 (security/cost/observability hardening) is not started.

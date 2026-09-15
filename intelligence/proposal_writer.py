@@ -48,6 +48,33 @@ from config import (
 )
 
 
+class DraftingError(Exception):
+    """BID/WATCH drafting produced no usable client-facing prose.
+
+    Callers must dead-letter / retry rather than treating an empty dict as
+    a successful proposal.
+    """
+
+
+DRAFT_META_KEYS = frozenset({
+    "lightweight",
+    "lightweight_reason",
+    "submission_type",
+    "quality_score",
+    "claim_grounding",
+    "tender_brief",
+    "win_strategy",
+    "document_lock",
+    "section_order",
+    "omitted_financial",
+    "submission_outline",
+    "required_attachments",
+    "required_forms",
+    "format_compliance",
+})
+MIN_CLIENT_FACING_DRAFT_CHARS = 20
+
+
 # Fallback only. When the ToR/RFP/REOI lists required contents, that list
 # is the draft outline (see plan_draft_outline). This house skeleton is used
 # only when the documents prescribe nothing.
@@ -2498,6 +2525,86 @@ def generate_proposal(
         pass
     logger.success("Proposal generation complete!")
     return sections
+
+
+def draft_has_client_facing_prose(
+    sections: dict | None,
+    *,
+    min_chars: int = MIN_CLIENT_FACING_DRAFT_CHARS,
+) -> bool:
+    """True when at least one non-meta section has usable drafted text."""
+    if not isinstance(sections, dict):
+        return False
+    for key, value in sections.items():
+        if key in DRAFT_META_KEYS:
+            continue
+        if isinstance(value, str) and len(value.strip()) >= min_chars:
+            return True
+    return False
+
+
+def assert_usable_client_draft(sections: dict | None) -> dict:
+    """Refuse empty BID/WATCH output so the orchestrator cannot silent-skip."""
+    if not draft_has_client_facing_prose(sections):
+        raise DraftingError(
+            "proposal draft had no usable client-facing sections"
+        )
+    return sections if isinstance(sections, dict) else {}
+
+
+def draft_bid_or_watch_proposal(
+    analysis: dict,
+    matched_team_result: dict,
+    budget: dict | None = None,
+    opportunity_id: str | None = None,
+    tor_text: str = "",
+    submission_type: str = "FULL_PROPOSAL",
+) -> dict:
+    """Stage service around EOI / full proposal. Empty output is an error."""
+    try:
+        if (submission_type or "FULL_PROPOSAL") == "EOI":
+            sections = generate_eoi(
+                analysis,
+                matched_team_result,
+                opportunity_id=opportunity_id,
+                tor_text=tor_text,
+            )
+        else:
+            sections = generate_proposal(
+                analysis,
+                matched_team_result,
+                budget or {},
+                opportunity_id=opportunity_id,
+                tor_text=tor_text,
+            )
+    except DraftingError:
+        raise
+    except Exception as e:
+        try:
+            log_agent_action(
+                action_type="Proposal",
+                description=f"Drafting failed: {e}",
+                opportunity_id=opportunity_id,
+                status="Error",
+                error_message=str(e)[:2000],
+            )
+        except Exception:
+            pass
+        raise DraftingError(f"proposal writer failed: {e}") from e
+    try:
+        return assert_usable_client_draft(sections)
+    except DraftingError:
+        try:
+            log_agent_action(
+                action_type="Proposal",
+                description="Drafting failed: no usable client-facing sections",
+                opportunity_id=opportunity_id,
+                status="Error",
+                error_message="empty or meta-only draft",
+            )
+        except Exception:
+            pass
+        raise
 
 
 def generate_technical_proposal_body(

@@ -27,8 +27,6 @@ full proposal drafted. The human reviewer decides what to submit.
 
 import os
 import sys
-import json
-import uuid
 import schedule
 import time
 from contextvars import ContextVar
@@ -45,13 +43,25 @@ from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
-from processors.document_quality import assess_extraction
 from intelligence.analyzer import analyze_rfp
 from intelligence.bid_scorer import apply_bid_intelligence
 from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
 from intelligence.budget_calculator import calculate_budget
-from intelligence.proposal_writer import generate_proposal, generate_eoi
+from intelligence.proposal_writer import (
+    DraftingError,
+    assert_usable_client_draft,
+    generate_proposal,
+    generate_eoi,
+)
+from intelligence.pipeline_stages import (
+    MAX_DRAFT_FAILURES,
+    MIN_BLURB_CHARS,
+    MIN_FETCHED_CHARS,
+    ProcessingSnapshot,
+    StageDeps,
+    run_opportunity_pipeline,
+)
 from intelligence.organizations import (
     build_client_intelligence,
     empty_client_intelligence,
@@ -63,9 +73,12 @@ from database.supabase_client import (
     check_opportunity_exists,
     claim_opportunity_processing,
     complete_opportunity_processing,
+    dead_letter_opportunity_processing,
     fail_opportunity_processing,
     find_opportunity_by_content_hash,
+    load_processing_snapshot,
     opportunity_ledger_available,
+    persist_opportunity_stage,
     store_opportunity,
 )
 from database.airtable_client import (
@@ -80,15 +93,10 @@ from reporting.email_report import (
     send_market_digest_email,
     get_urgency_level,
 )
-from utils.errors import ErrorType
-from utils.hashing import content_hash
 from utils.observability import (
     configure_logging,
-    get_execution_id,
     log_stage,
     new_execution_id,
-    opportunity_usage,
-    reset_opportunity_usage,
 )
 from utils.urls import canonicalize_url
 from utils.healthcheck import ping_healthcheck
@@ -97,10 +105,7 @@ console = Console()
 
 # A fetched ToR/listing page below this is a fetch failure, not a short
 # document — matches MIN_USEFUL_CHARS in processors/downloader.py.
-MIN_FETCHED_CHARS = 200
-# A newsletter blurb is short by nature — matches MIN_BLURB_LENGTH in
-# monitors/assortis_email.py. Only ever applied to the fallback text.
-MIN_BLURB_CHARS = 40
+# Re-exported from pipeline_stages so existing imports keep working.
 
 
 @dataclass
@@ -114,6 +119,12 @@ _execution_budget: ContextVar[_ExecutionBudget | None] = ContextVar(
 )
 _pipeline_outcome: ContextVar[str] = ContextVar(
     "pipeline_outcome", default="retryable"
+)
+_pipeline_error: ContextVar[str] = ContextVar(
+    "pipeline_error", default=""
+)
+_pipeline_increment_draft: ContextVar[bool] = ContextVar(
+    "pipeline_increment_draft", default=False
 )
 
 
@@ -222,14 +233,21 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         return None
 
     token = _pipeline_outcome.set("retryable")
+    err_token = _pipeline_error.set("")
+    draft_token = _pipeline_increment_draft.set(False)
     try:
-        result = _process_opportunity_pipeline(raw_opportunity, force=force)
+        result = _process_opportunity_pipeline(
+            raw_opportunity, force=force, claim_token=claim_token,
+        )
         outcome = _pipeline_outcome.get()
+        stage_error = _pipeline_error.get()
     except BaseException as exc:
         fail_opportunity_processing(dedup_url, claim_token, f"unhandled pipeline error: {exc}")
         raise
     finally:
         _pipeline_outcome.reset(token)
+        _pipeline_error.reset(err_token)
+        _pipeline_increment_draft.reset(draft_token)
 
     if result:
         cache_text = result.pop("_cache_text", "")
@@ -271,438 +289,113 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
         # A confirmed staff vacancy or deterministic NO-BID is intentionally
         # terminal, unlike an infrastructure/analysis failure.
         complete_opportunity_processing(dedup_url, claim_token)
+    elif outcome == "dead_letter":
+        logger.error(
+            f"  Drafting dead-lettered after {MAX_DRAFT_FAILURES} failures: "
+            f"{title[:60]} — {stage_error}"
+        )
+        dead_letter_opportunity_processing(
+            dedup_url, claim_token, stage_error or "drafting dead-lettered",
+        )
     else:
-        fail_opportunity_processing(dedup_url, claim_token, "pipeline did not complete")
+        fail_opportunity_processing(
+            dedup_url,
+            claim_token,
+            stage_error or "pipeline did not complete",
+        )
     return None
 
 
-def _process_opportunity_pipeline(raw_opportunity: dict, force: bool = False) -> dict | None:
-    """
-    Runs the full pipeline for one opportunity.
-
-    Returns a result dict on success.
-    Returns None if the opportunity should be skipped — either because
-    text extraction failed, Claude confirmed it's a staff vacancy, or
-    a critical error occurred.
-
-    Every confirmed consultancy contract runs all the way through to
-    a drafted proposal and team email. No score thresholds block this.
-    The human reviewer makes the final call on what to submit.
-    """
-    title      = raw_opportunity.get("title") or "Unknown"
-    if not isinstance(title, str):
-        title = "Unknown"
-    source_url = raw_opportunity.get("source_url", "")
-    # Email-newsletter sources fetch and dedup on different URLs — the
-    # newsletter rewrites its access tokens daily. See monitors/assortis_email.py.
-    dedup_url  = raw_opportunity.get("dedup_url") or source_url
-    dedup_url  = canonicalize_url(dedup_url) or dedup_url
-    opp_id     = str(uuid.uuid4())
-    reset_opportunity_usage(opp_id)
-
-    console.print(f"\n[bold blue]Processing:[/bold blue] {title[:70]}")
-
-    # ── STEP 1: FETCH AND EXTRACT DOCUMENT TEXT ────────────────────────────
-    logger.info("  Step 1: Fetching document...")
-    # Newsletter sources carry a usable summary blurb inline. It is worth
-    # far less than the real listing page, so it is a fallback, not a
-    # replacement — and when the fetch works, both are passed to Claude:
-    # the blurb's metadata line (donor, country, deadline) is often
-    # cleaner than anything on the page itself.
-    fallback_text = raw_opportunity.get("fallback_text", "")
-    full_text = fetch_and_extract(source_url, opportunity_id=opp_id) if source_url else ""
-
-    if len(full_text) >= MIN_FETCHED_CHARS and fallback_text:
-        full_text = (
-            f"===== SOURCE FILE: newsletter listing =====\n\n{fallback_text}\n\n"
-            f"===== SOURCE FILE: {source_url} =====\n\n{full_text}"
-        )
-    elif len(full_text) < MIN_FETCHED_CHARS and len(fallback_text) >= MIN_BLURB_CHARS:
-        logger.warning(
-            f"  Listing page gave only {len(full_text)} chars — falling back to "
-            f"the {len(fallback_text)}-char newsletter blurb"
-        )
-        full_text = fallback_text
-    elif len(full_text) < MIN_FETCHED_CHARS:
-        logger.warning(
-            f"  Insufficient text ({len(full_text)} chars) — skipping "
-            f"error_type={ErrorType.DOCUMENT_ERROR}"
-        )
-        log_stage("fetch", "error", error_type=ErrorType.DOCUMENT_ERROR, chars=len(full_text))
-        return None
-
-    min_quality = MIN_BLURB_CHARS if (
-        fallback_text and full_text == fallback_text
-    ) else MIN_FETCHED_CHARS
-    quality = assess_extraction(full_text, source=source_url, min_chars=min_quality)
-    if not quality["ok"]:
-        logger.error(
-            f"  Document quality check failed: {quality['reason']} "
-            f"error_type={quality['error_type']}"
-        )
-        log_stage("fetch", "error", error_type=quality["error_type"], reason=quality["reason"])
-        return None
-
-    console.print(
-        f"  Extracted [green]{len(full_text):,}[/green] characters"
-    )
-    log_stage("fetch", "ok", chars=len(full_text), content_sha256=content_hash(full_text)[:12])
-
-    digest = content_hash(full_text)
-    if not force and digest:
-        existing_body = find_opportunity_by_content_hash(digest)
-        existing_url = ""
-        if isinstance(existing_body, dict):
-            existing_url = existing_body.get("source_url") or ""
-            existing_url = canonicalize_url(existing_url) or existing_url
-        if existing_url and existing_url != dedup_url:
-            logger.info(
-                f"  Same document body already cached under {existing_url[:80]} "
-                f"(content_hash {digest[:12]}) — skipping re-analysis"
+def _draft_via_main_hooks(
+    analysis,
+    matched_team_result,
+    budget=None,
+    opportunity_id=None,
+    tor_text="",
+    submission_type="FULL_PROPOSAL",
+):
+    """Draft through main.generate_proposal / generate_eoi so tests can patch them."""
+    try:
+        if (submission_type or "FULL_PROPOSAL") == "EOI":
+            sections = generate_eoi(
+                analysis,
+                matched_team_result,
+                opportunity_id=opportunity_id,
+                tor_text=tor_text,
             )
-            log_stage("analyze", "skip", reason="content_hash_duplicate")
-            _pipeline_outcome.set("terminal")
-            return None
-
-    # ── STEP 2: CLAUDE ANALYSIS ────────────────────────────────────────────
-    # The raw document is cached only after this opportunity completes. A
-    # pre-analysis cache write used to make transient analysis failures look
-    # permanently processed to future discovery runs.
-    logger.info("  Step 2: Analyzing...")
-    analysis = analyze_rfp(full_text, opportunity_id=opp_id, title=title)
-
-    if not analysis:
-        logger.error("  Analysis returned empty — skipping")
-        log_stage("analyze", "error", error_type=ErrorType.ANALYSIS_ERROR)
-        return None
-
-    # Hybrid score: LLM numbers become llm_* audit fields; code calculates
-    # FIT / WIN / recommendation. Consultancy boolean is not overwritten.
-    analysis = apply_bid_intelligence(analysis)
-
-    opportunity    = analysis.get("opportunity") or {}
-    if not isinstance(opportunity, dict):
-        opportunity = {}
-    bid_analysis   = analysis.get("bid_analysis") or {}
-    intelligence   = analysis.get("bid_intelligence") or {}
-    fit_score      = bid_analysis.get("cortech_fit_score", 0)
-    win_prob       = bid_analysis.get("win_probability", 0)
-    recommendation = bid_analysis.get("bid_recommendation") or "WATCH"
-
-    console.print(
-        f"  Score: [green]{fit_score}/100[/green] | "
-        f"Recommendation: [green]{recommendation}[/green] "
-        f"[dim]({intelligence.get('score_version', '')})[/dim]"
-    )
-    log_stage(
-        "score",
-        "ok",
-        fit=fit_score,
-        win=win_prob,
-        recommendation=recommendation,
-        score_version=intelligence.get("score_version", ""),
-    )
-
-    # ── CONSULTANCY CONTRACT GATE ──────────────────────────────────────────
-    # Claude has read the full document. If it is definitively a staff
-    # vacancy, stop here — do not write to Airtable at all. Staff vacancies
-    # are noise, not opportunities. Default is TRUE — fail open, not closed.
-    is_consultancy = bid_analysis.get("is_consultancy_contract", True)
-
-    if not is_consultancy and not force:
-        rationale = bid_analysis.get(
-            "rationale",
-            "Staff vacancy — not a firm-level consultancy contract",
-        )
-        console.print(
-            f"  [red]Staff vacancy — stopping pipeline[/red]\n"
-            f"  [dim]{rationale[:100]}[/dim]"
-        )
-        _pipeline_outcome.set("terminal")
-        return None
-    elif not is_consultancy and force:
-        logger.warning(
-            f"  Not flagged as a consultancy contract, but force=True — "
-            f"proceeding anyway: {title[:60]}"
-        )
-    else:
-        console.print(
-            "  [green]Confirmed consultancy contract — running full pipeline[/green]"
-        )
-
-    client_intelligence = _safe_client_intelligence(
-        analysis,
-        opportunity_id=opp_id,
-        title=str(opportunity.get("title") or title or ""),
-    )
-
-    # ── NO-BID GATE — stop before CV matching / budget / proposal ──────────
-    # The recommendation saves paid drafting effort, but it is not a final
-    # business decision. The CRM item remains New for a human to confirm or
-    # override; no automated process marks it as a final no-bid.
-    if recommendation == "NO-BID" and not force:
-        rationale = bid_analysis.get(
-            "rationale",
-            "Low fit — not recommended for bid",
-        )
-        console.print(
-            f"  [yellow]NO-BID recommendation — stopping before CV/proposal[/yellow]\n"
-            f"  [dim]{rationale[:100]}[/dim]"
-        )
-        try:
-            create_opportunity({
-                "title":              opportunity.get("title") or title,
-                "client":             opportunity.get("client", ""),
-                "source_portal":      raw_opportunity.get("source_portal", "Unknown"),
-                "source_url":         source_url,
-                "relevance_score":    fit_score,
-                "win_probability":    win_prob,
-                "bid_recommendation": "NO-BID",
-                "key_strengths":      "\n".join(bid_analysis.get("key_strengths") or []),
-                "key_gaps":           "\n".join(bid_analysis.get("key_gaps") or []),
-                "claude_analysis":    str(analysis)[:50000],
-                "status":             "New",
-            })
-        except Exception:
-            pass
-        log_stage(
-            "opportunity",
-            "skipped",
-            recommendation="NO-BID",
-            decision_state="HUMAN_REVIEW_REQUIRED",
-        )
-        _pipeline_outcome.set("terminal")
-        return None
-    elif recommendation == "NO-BID" and force:
-        logger.warning(
-            f"  NO-BID recommendation, but force=True — proceeding anyway: "
-            f"{title[:60]}"
-        )
-
-    title = opportunity.get("title") or title or "Unknown"
-    if not isinstance(title, str):
-        title = "Unknown"
-
-    # ── STEP 4: CREATE AIRTABLE OPPORTUNITY RECORD ─────────────────────────
-    airtable_record_id = create_opportunity({
-        "title": opportunity.get("title") or title,
-        "client": opportunity.get("client", ""),
-        "donor": opportunity.get("donor", ""),
-        "source_portal": raw_opportunity.get("source_portal", "Unknown"),
-        "source_url": source_url,
-        "submission_deadline": opportunity.get("submission_deadline", ""),
-        "estimated_budget_usd": opportunity.get("estimated_budget_usd", 0),
-        "location": opportunity.get("project_location", []),
-        "thematic_areas": (
-            (analysis.get("requirements") or {}).get("thematic_areas") or []
-            if isinstance(analysis.get("requirements") or {}, dict)
-            else []
-        ),
-        "relevance_score": fit_score,
-        "win_probability": win_prob,
-        "bid_recommendation": recommendation,
-        "claude_analysis": str(analysis)[:50000],  # Airtable long-text limit
-        "key_strengths": "\n".join(
-            bid_analysis.get("key_strengths") or []
-        ),
-        "key_gaps": "\n".join(
-            bid_analysis.get("key_gaps") or []
-        ),
-        "status": "New",
-    })
-
-    if airtable_record_id is None:
-        console.print(
-            "  [yellow]Could not save to Airtable (rate-limited or down) — "
-            "continuing anyway. No CRM record will exist for this run, but "
-            "the draft will still be generated and emailed.[/yellow]"
-        )
-
-    # ── STEP 5: CV MATCHING ────────────────────────────────────────────────
-    logger.info("  Step 3: Matching team from CV database...")
-    matched_team_result = {
-        "matched_team": {},
-        "gaps":         [],
-        "coverage_percent": 0,
-    }
-    team_requirements = analysis.get("team_requirements", [])
-
-    if team_requirements:
-        reqs = analysis.get("requirements") or {}
-        if not isinstance(reqs, dict):
-            reqs = {}
-        matched_team_result = match_team_to_requirements(
-            team_requirements,
-            opportunity_id=opp_id,
-            opportunity_title=title,
-            opportunity_context={
-                "thematic_areas": reqs.get("thematic_areas") or [],
-                "language_requirements": reqs.get("language_requirements") or [],
-                "geographic_experience": (
-                    reqs.get("geographic_experience")
-                    or opportunity.get("project_location")
-                    or []
-                ),
-            },
-        )
-        try:
-            if airtable_record_id:
-                update_opportunity(airtable_record_id, {
-                    "matched_team": str(matched_team_result),
-                })
-        except Exception as e:
-            logger.warning(f"  Airtable matched_team update failed: {e}")
-
-        # Re-score now that team_capacity is known. Weights version is stored
-        # with the result so later weight changes do not rewrite this record.
-        analysis = apply_bid_intelligence(analysis, matched_team_result)
-        bid_analysis = analysis.get("bid_analysis") or {}
-        intelligence = analysis.get("bid_intelligence") or {}
-        fit_score = bid_analysis.get("cortech_fit_score", fit_score)
-        win_prob = bid_analysis.get("win_probability", win_prob)
-        recommendation = bid_analysis.get("bid_recommendation") or recommendation
-        try:
-            if airtable_record_id:
-                update_opportunity(airtable_record_id, {
-                    "relevance_score": fit_score,
-                    "win_probability": win_prob,
-                    "bid_recommendation": recommendation,
-                    "claude_analysis": str(analysis)[:50000],
-                })
-        except Exception as e:
-            logger.warning(f"  Airtable score refresh failed (non-fatal): {e}")
-
-    # ── STEPS 6–7: BUDGET / DRAFT (branch on submission type) ───
-    # `or`, not a .get() default: Claude returns an explicit null here for
-    # anything it classified as a staff vacancy, and a null key is present,
-    # so the default never fires.
-    submission_type = (analysis.get("bid_analysis") or {}).get(
-        "submission_type"
-    ) or "FULL_PROPOSAL"
-
-    logger.info("  Step 4: Preparing internal budget for team review...")
-    project_locations = opportunity.get("project_location") or []
-    if isinstance(project_locations, str):
-        project_locations = [project_locations]
-    elif not isinstance(project_locations, list):
-        project_locations = []
-    primary_location = project_locations[0] if project_locations else "Nairobi"
-    try:
-        budget = calculate_budget(
-            analysis,
-            matched_team_result.get("matched_team", {}),
-            primary_location,
-        )
+        else:
+            sections = generate_proposal(
+                analysis,
+                matched_team_result,
+                budget or {},
+                opportunity_id=opportunity_id,
+                tor_text=tor_text,
+            )
+    except DraftingError:
+        raise
     except Exception as e:
-        logger.warning(f"  Budget calculation failed (non-fatal): {e}")
-        budget = {}
+        raise DraftingError(f"proposal writer failed: {e}") from e
+    return assert_usable_client_draft(sections)
 
-    if submission_type == "EOI":
-        logger.info("  Submission type: EOI — full shortlisting draft")
-        console.print(
-            "  [cyan]EOI submission — writing a complete shortlisting draft "
-            "(financial figures stay in the review email only)[/cyan]"
-        )
-        logger.info("  Step 5: Reading the tender documents, then writing the EOI...")
-        # full_text, not just `analysis`: the writer reads the tender pack
-        # itself before drafting — see intelligence/tender_reader.py.
-        proposal_sections = generate_eoi(
-            analysis,
-            matched_team_result,
-            opportunity_id=opp_id,
-            tor_text=full_text,
-        )
-    else:
-        logger.info("  Submission type: Full technical proposal")
-        logger.info("  Step 5: Reading the tender documents, then drafting...")
-        # The budget is passed for the internal review email only. No amount
-        # from it reaches the drafted proposal — see NO_MONETARY_RULE in
-        # intelligence/proposal_writer.py.
-        proposal_sections = generate_proposal(
-            analysis,
-            matched_team_result,
-            budget,
-            opportunity_id=opp_id,
-            tor_text=full_text,
-        )
 
-    # ── STEP 9: UPDATE AIRTABLE STATUS ────────────────────────────────────
-    matrix = build_compliance_matrix(
-        analysis, matched_team_result, proposal_sections
+def _process_opportunity_pipeline(
+    raw_opportunity: dict,
+    force: bool = False,
+    snapshot: ProcessingSnapshot | None = None,
+    claim_token: str = "",
+) -> dict | None:
+    """Stage runner. Resume from the last persisted pipeline_stage."""
+    raw_opportunity = raw_opportunity or {}
+    source_url = raw_opportunity.get("source_url", "")
+    dedup_url = raw_opportunity.get("dedup_url") or source_url
+    dedup_url = canonicalize_url(dedup_url) or dedup_url
+
+    if snapshot is None:
+        loaded = load_processing_snapshot(dedup_url) or {}
+        if force:
+            snapshot = ProcessingSnapshot()
+        else:
+            checkpoint = loaded.get("checkpoint") or {}
+            draft_fails = int(loaded.get("draft_fail_count") or 0)
+            if not draft_fails:
+                draft_fails = int(checkpoint.get("draft_fail_count") or 0)
+            snapshot = ProcessingSnapshot(
+                pipeline_stage=loaded.get("pipeline_stage") or "discovered",
+                checkpoint=checkpoint if isinstance(checkpoint, dict) else {},
+                draft_fail_count=draft_fails,
+                resume_available=bool(loaded.get("resume_available")),
+            )
+
+    deps = StageDeps(
+        fetch_and_extract=fetch_and_extract,
+        analyze_rfp=analyze_rfp,
+        apply_bid_intelligence=apply_bid_intelligence,
+        find_opportunity_by_content_hash=find_opportunity_by_content_hash,
+        create_opportunity=create_opportunity,
+        update_opportunity=update_opportunity,
+        match_team_to_requirements=match_team_to_requirements,
+        calculate_budget=calculate_budget,
+        draft_bid_or_watch_proposal=_draft_via_main_hooks,
+        build_compliance_matrix=build_compliance_matrix,
+        save_draft_memory=save_draft_memory,
+        build_client_intelligence=build_client_intelligence,
+        persist_stage=persist_opportunity_stage,
+        log_stage=log_stage,
     )
-    usage = opportunity_usage()
-    try:
-        if airtable_record_id:
-            update_opportunity(airtable_record_id, {
-                "status": "Reviewing",
-                "compliance_matrix": json.dumps(matrix),
-            })
-    except Exception as e:
-        logger.warning(f"  Airtable status update failed (non-fatal): {e}")
-
-    if submission_type == "EOI":
-        console.print(
-            "  [bold green]Expression of Interest draft complete — ready for review[/bold green]"
-        )
-    elif (proposal_sections or {}).get("lightweight"):
-        console.print(
-            "  [bold yellow]WATCH quick-flag sent — not a full draft[/bold yellow]"
-        )
-    elif recommendation == "BID":
-        console.print(
-            "  [bold green]Proposal draft complete — ready for team review[/bold green]"
-        )
-    else:
-        console.print(
-            "  [bold green]Full WATCH draft complete — ready for team review[/bold green]"
-        )
-
-    est_cost = usage.get("estimated_cost_usd") if usage.get("cost_known") else None
-    log_stage(
-        "opportunity",
-        "ok",
-        recommendation=recommendation,
-        estimated_cost_usd=est_cost if est_cost is not None else "UNKNOWN",
-        tokens_in=usage.get("input", 0),
-        tokens_out=usage.get("output", 0),
+    outcome = run_opportunity_pipeline(
+        raw_opportunity,
+        force=force,
+        snapshot=snapshot,
+        claim_token=claim_token,
+        deps=deps,
     )
-
-    try:
-        save_draft_memory(
-            opportunity_id=airtable_record_id or "",
-            title=title,
-            client=opportunity.get("client") or "",
-            donor=opportunity.get("donor") or "",
-            sections=proposal_sections,
-        )
-    except Exception as e:
-        logger.warning(f"  Draft memory save failed (non-fatal): {e}")
-
-    return {
-        "airtable_id":       airtable_record_id,
-        "title":             title,
-        "score":             fit_score,
-        "recommendation":    recommendation,
-        "source_url":        source_url,
-        "deadline":          opportunity.get("submission_deadline", "TBD"),
-        "client":            opportunity.get("client", ""),
-        "budget_cap":        opportunity.get("estimated_budget_usd", 0),
-        "analysis":          analysis,
-        "bid_intelligence":  intelligence,
-        "compliance_matrix": matrix,
-        "execution_id":      get_execution_id(),
-        "matched_team":      matched_team_result,
-        "budget":            budget,
-        "proposal_sections": proposal_sections,
-        "client_intelligence": client_intelligence,
-        # Exact provider-call records and aggregate measured/unknown usage for
-        # this opportunity; never a guessed section token constant.
-        "llm_usage": usage,
-        "estimated_cost_usd": est_cost,
-        # Private handoff to the outer state wrapper. It is removed before
-        # email/reporting callers receive the result.
-        "_cache_text": full_text,
-    }
+    if outcome.disposition == "success":
+        _pipeline_outcome.set("retryable")
+    else:
+        _pipeline_outcome.set(outcome.disposition)
+    _pipeline_error.set(outcome.error or "")
+    _pipeline_increment_draft.set(bool(outcome.increment_draft_fail))
+    return outcome.result
 
 
 def _refresh_outcome_learning() -> None:

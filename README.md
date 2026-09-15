@@ -57,6 +57,7 @@ cortech-bd-agent/
 ├── intelligence/
 │   ├── analyzer.py               # LLM extraction (advisory scores only)
 │   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
+│   ├── pipeline_stages.py        # Phase 7 extract/score/draft + resume
 │   ├── win_calibration.py        # Phase 6 P(win) harness (null unless labeled n meets the bar)
 │   ├── win_calibration_artifact.json  # v0.1.0 census; fitted: false — does not rewrite history
 │   ├── market_trends.py          # Observed-data 30/90-day digest (no LLM)
@@ -131,7 +132,10 @@ Before the first production run, open the Supabase SQL Editor and apply
 `supabase_migration_opportunity_state.sql`. It creates the ownership-bound
 lease ledger used for retryable opportunity processing; without it the agent
 fails open (never drops a tender), but cannot provide cross-process deduplication.
-Apply `supabase_migration_content_hash.sql` once so `opportunities_cache.content_hash`
+Apply `supabase_migration_opportunity_stages.sql` once after that so
+`pipeline_stage` + checkpoint resume work; until then the agent logs CRITICAL
+that resume is unavailable and still attempts the opportunity from discovered
+(it will not drop a BID/WATCH item). Apply `supabase_migration_content_hash.sql` once so `opportunities_cache.content_hash`
 is a unique document-body identity; until then the client fail-opens and omits the column.
 Apply `supabase_migration_organizations.sql` once so client/donor matching can persist
 canonical orgs; until then the matcher fail-opens (empty index, review email still
@@ -299,7 +303,7 @@ This validates the Airtable base's field names against what the code expects —
 
 ### Step 5 — Only run the SQL migrations if Supabase itself needed to be recreated from scratch
 
-If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent; apply `supabase_migration_organizations.sql` once if the `organizations` table is absent; apply `supabase_migration_opportunity_facts.sql` once if cache fact columns (`thematic_areas`, `locations`, `donor`, `discovered_at`) are absent; apply `supabase_migration_award_relationships.sql` once (after organizations) if `award_observations` / `relationship_edges` are absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
+If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_opportunity_stages.sql` once if `pipeline_stage` / `checkpoint` are absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent; apply `supabase_migration_organizations.sql` once if the `organizations` table is absent; apply `supabase_migration_opportunity_facts.sql` once if cache fact columns (`thematic_areas`, `locations`, `donor`, `discovered_at`) are absent; apply `supabase_migration_award_relationships.sql` once (after organizations) if `award_observations` / `relationship_edges` are absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
 
 ### Step 6 — Recreate the systemd timers
 
