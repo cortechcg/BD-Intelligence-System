@@ -101,7 +101,7 @@ def test_analysis_failure_is_not_cached_or_marked_complete_and_is_retryable(monk
     monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
     monkeypatch.setattr(main, "fail_opportunity_processing", lambda url, token, error: failed.append((url, token, error)) or True)
     monkeypatch.setattr(main, "complete_opportunity_processing", lambda url, token: completed.append((url, token)) or True)
-    monkeypatch.setattr(main, "store_opportunity", lambda *args: cached.append(args))
+    monkeypatch.setattr(main, "store_opportunity", lambda *args, **kwargs: cached.append(args))
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: {})
 
     source = {"title": "Retry me", "source_url": "https://procurement.example/tender"}
@@ -159,7 +159,7 @@ def test_content_hash_duplicate_still_runs_when_force(monkeypatch):
     monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "claim-1")
     monkeypatch.setattr(main, "complete_opportunity_processing", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "fail_opportunity_processing", lambda *args, **kwargs: True)
-    monkeypatch.setattr(main, "store_opportunity", lambda *args: "cache")
+    monkeypatch.setattr(main, "store_opportunity", lambda *args, **kwargs: "cache")
     monkeypatch.setattr(
         main,
         "find_opportunity_by_content_hash",
@@ -203,7 +203,7 @@ def test_lease_finalizers_are_ownership_bound_and_cache_is_indexed_after_complet
     events = []
     monkeypatch.setattr(main, "claim_opportunity_processing", lambda *args, **kwargs: "fresh-claim")
     monkeypatch.setattr(main, "complete_opportunity_processing", lambda url, token: events.append(("complete", url, token)) or True)
-    monkeypatch.setattr(main, "store_opportunity", lambda *args: events.append(("cache", args[0])) or "cache-id")
+    monkeypatch.setattr(main, "store_opportunity", lambda *args, **kwargs: events.append(("cache", args[0])) or "cache-id")
     monkeypatch.setattr(
         main,
         "_process_opportunity_pipeline",
@@ -357,6 +357,41 @@ def test_all_report_templates_escape_untrusted_values_and_reject_unsafe_hrefs(mo
     assert "&lt;img src=x" in proposal_sent["html"]
     assert "javascript:" not in proposal_sent["html"]
     assert "\r" not in proposal_sent["subject"] and "\n" not in proposal_sent["subject"]
+
+    from datetime import date
+    from intelligence.market_trends import ObservedOpportunity, build_market_digest
+
+    market_sent = {}
+    monkeypatch.setattr(
+        email_report,
+        "_send_email",
+        lambda subject, html, attachment_path=None: market_sent.update(
+            subject=subject, html=html
+        )
+        or True,
+    )
+    digest = build_market_digest(
+        [
+            ObservedOpportunity(
+                source_id=str(i),
+                source="supabase",
+                source_url=f"https://procurement.example/tender-{i}",
+                title=payload,
+                discovered_on=date(2026, 9, 15),
+                themes=(payload,),
+                locations=(payload,),
+                donor="",
+            )
+            for i in range(10)
+        ],
+        as_of=date(2026, 9, 15),
+        org_index=[],
+        orgs_available=False,
+    )
+    email_report.send_market_digest_email(digest)
+    assert "<script>alert" not in market_sent["html"]
+    assert "&lt;script&gt;" in market_sent["html"] or "&lt;img" in market_sent["html"]
+    assert "\r" not in market_sent["subject"] and "\n" not in market_sent["subject"]
 
 
 class _Route:

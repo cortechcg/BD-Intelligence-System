@@ -77,6 +77,7 @@ from reporting.email_report import (
     send_report,
     send_proposal_email,
     send_deadline_alert_email,
+    send_market_digest_email,
     get_urgency_level,
 )
 from utils.errors import ErrorType
@@ -240,7 +241,28 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
             logger.warning("Completion state was not persisted; leaving opportunity retryable")
             return result
         try:
-            store_opportunity(dedup_url, cache_title, cache_text)
+            analysis = result.get("analysis") if isinstance(result.get("analysis"), dict) else {}
+            opportunity = (
+                analysis.get("opportunity")
+                if isinstance(analysis.get("opportunity"), dict)
+                else {}
+            )
+            requirements = (
+                analysis.get("requirements")
+                if isinstance(analysis.get("requirements"), dict)
+                else {}
+            )
+            store_opportunity(
+                dedup_url,
+                cache_title,
+                cache_text,
+                facts={
+                    "thematic_areas": requirements.get("thematic_areas") or [],
+                    "locations": opportunity.get("project_location") or [],
+                    "donor": opportunity.get("donor") or "",
+                    "discovered_at": datetime.now().strftime("%Y-%m-%d"),
+                },
+            )
         except Exception as exc:
             logger.warning(f"Supabase successful-content cache write failed: {exc}")
         return result
@@ -1130,6 +1152,43 @@ def run_deadline_check() -> None:
     return _run_monitored("deadline", _run_deadline_check)
 
 
+def _run_market_digest() -> None:
+    """Observed-data trend digest from stored opportunities. No LLM. No live send in tests."""
+    new_execution_id()
+    from database.market_store import load_observed_opportunities, load_org_index_for_digest
+    from intelligence.market_trends import build_market_digest
+
+    records, truncated = load_observed_opportunities()
+    org_index, orgs_available, _org_count = load_org_index_for_digest()
+    digest = build_market_digest(
+        records,
+        as_of=datetime.now().date(),
+        org_index=org_index,
+        orgs_available=orgs_available,
+        truncated=truncated,
+    )
+    send_market_digest_email(digest)
+    try:
+        log_agent_action(
+            action_type="Report",
+            description=(
+                f"Observed-data market digest: store_rows={digest.store_row_count} "
+                f"dated={digest.dated_row_count} trend={digest.overall_is_trend()}"
+            ),
+            status="Success",
+        )
+    except Exception:
+        pass
+    logger.info(
+        f"Market digest complete — store_rows={digest.store_row_count}, "
+        f"dated={digest.dated_row_count}, sources={digest.sources}"
+    )
+
+
+def run_market_digest() -> None:
+    return _run_monitored("market_digest", _run_market_digest)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CONTINUOUS SCHEDULER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1168,11 +1227,14 @@ def start_scheduler() -> None:
     schedule.every().day.at("08:15").do(
         lambda: _run_monitored("winloss", process_win_loss_outcomes)
     )
+    # Weekly observed-data market digest (trailing 30/90 days). Daily send
+    # would repeat the same windows; Monday follows the morning digest cluster.
+    schedule.every().monday.at("08:30").do(run_market_digest)
 
     logger.info(
         f"Scheduler active — running every {CHECK_INTERVAL_HOURS} hours, "
         f"daily at 07:00, Assortis at 11:45, deadline check at 08:00, "
-        f"win/loss learning at 08:15"
+        f"win/loss learning at 08:15, market digest Mondays at 08:30"
     )
 
     while True:
@@ -1196,6 +1258,7 @@ if __name__ == "__main__":
             "  python main.py --run-assortis          Check the ICA/Assortis newsletter once\n"
             "  python main.py --run-deadline-check    Send deadline escalation digest\n"
             "  python main.py --run-winloss           Extract win/loss lessons\n"
+            "  python main.py --run-market-digest     Send observed-data market digest\n"
             "  python main.py                         Continuous scheduler (legacy)\n"
         )
         sys.exit(0)
@@ -1209,7 +1272,7 @@ if __name__ == "__main__":
         _run_monitored("manual_submission", lambda: submit_single_url(sys.argv[idx + 1]))
     elif "--once" in sys.argv:
         run_pipeline()
-    # The systemd timers (see README) invoke these three individually.
+    # The systemd timers (see README) invoke these individually.
     # Without them the flags fell through to start_scheduler(), so
     # `--run-assortis` started an endless polling loop instead of
     # checking the newsletter once and exiting.
@@ -1219,5 +1282,7 @@ if __name__ == "__main__":
         run_deadline_check()
     elif "--run-winloss" in sys.argv:
         _run_monitored("winloss", process_win_loss_outcomes)
+    elif "--run-market-digest" in sys.argv:
+        run_market_digest()
     else:
         _run_monitored("scheduler", start_scheduler)
