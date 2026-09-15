@@ -1160,12 +1160,20 @@ def _run_market_digest() -> None:
 
     records, truncated = load_observed_opportunities()
     org_index, orgs_available, _org_count = load_org_index_for_digest()
+    cited_awards = []
+    try:
+        from database.intelligence_facts import load_award_observations
+
+        cited_awards = load_award_observations(limit=50)
+    except Exception:
+        cited_awards = []
     digest = build_market_digest(
         records,
         as_of=datetime.now().date(),
         org_index=org_index,
         orgs_available=orgs_available,
         truncated=truncated,
+        cited_awards=cited_awards,
     )
     send_market_digest_email(digest)
     try:
@@ -1187,6 +1195,47 @@ def _run_market_digest() -> None:
 
 def run_market_digest() -> None:
     return _run_monitored("market_digest", _run_market_digest)
+
+
+def _run_extract_relationships() -> None:
+    """Scan data/proposals (and stored proposal chunks) for cited JV/consortium edges."""
+    from pathlib import Path
+
+    from intelligence.relationships import (
+        extract_from_proposal_embeddings,
+        extract_from_proposals_dir,
+    )
+
+    new_execution_id()
+    edges = extract_from_proposals_dir(Path("data/proposals"), persist=True)
+    extra = []
+    try:
+        from database.intelligence_facts import load_proposal_embedding_rows
+
+        extra = extract_from_proposal_embeddings(
+            load_proposal_embedding_rows(), persist=True
+        )
+    except Exception:
+        extra = []
+    logger.info(
+        f"Relationship extract complete — {len(edges)} file edge(s), "
+        f"{len(extra)} embedding chunk edge(s)"
+    )
+    try:
+        log_agent_action(
+            action_type="Extract",
+            description=(
+                f"Cited relationship edges: files={len(edges)} "
+                f"embeddings={len(extra)}"
+            ),
+            status="Success",
+        )
+    except Exception:
+        pass
+
+
+def run_extract_relationships() -> None:
+    return _run_monitored("relationships", _run_extract_relationships)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1259,6 +1308,7 @@ if __name__ == "__main__":
             "  python main.py --run-deadline-check    Send deadline escalation digest\n"
             "  python main.py --run-winloss           Extract win/loss lessons\n"
             "  python main.py --run-market-digest     Send observed-data market digest\n"
+            "  python main.py --extract-relationships Extract cited JV/consortium edges from data/proposals/\n"
             "  python main.py                         Continuous scheduler (legacy)\n"
         )
         sys.exit(0)
@@ -1284,5 +1334,7 @@ if __name__ == "__main__":
         _run_monitored("winloss", process_win_loss_outcomes)
     elif "--run-market-digest" in sys.argv:
         run_market_digest()
+    elif "--extract-relationships" in sys.argv:
+        run_extract_relationships()
     else:
         _run_monitored("scheduler", start_scheduler)

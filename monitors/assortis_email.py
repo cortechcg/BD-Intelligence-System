@@ -57,8 +57,10 @@ _ICA_BASE = "https://www.icaworld.net/Intranet/ProjectByNewsletter"
 
 # The newsletter also lists DataType=contract items — those are AWARD
 # notices (someone else already won), not open tenders. Only busop is
-# an opportunity to bid on.
+# an opportunity to bid on. Contract links are parsed separately for
+# cited Awarded Firm(s) (Phase 5); they never enter process_opportunity.
 _ASSORTIS_OPEN_TYPE = "busop"
+_ASSORTIS_AWARD_TYPE = "contract"
 
 
 def _norm(text: str) -> str:
@@ -96,6 +98,32 @@ def _assortis_urls(href: str) -> tuple[str, str] | None:
             f"&id={listing_id}&DataType={_ASSORTIS_OPEN_TYPE}"
         )
     dedup_url = f"{_ASSORTIS_BASE}?id={listing_id}&DataType={_ASSORTIS_OPEN_TYPE}"
+    return fetch_url, dedup_url
+
+
+def _assortis_contract_urls(href: str) -> tuple[str, str] | None:
+    """(fetch_url, dedup_url) for an Assortis award/contract notice, or None."""
+    parsed = urlparse(href)
+    if "assortis.com" not in parsed.netloc.lower():
+        return None
+    if not parsed.path.lower().endswith("bsc_view.asp"):
+        return None
+
+    query = parse_qs(parsed.query)
+    data_type = (query.get("DataType") or [""])[0].lower()
+    listing_id = (query.get("id") or [""])[0].strip()
+    open_token = (query.get("open") or [""])[0].strip()
+
+    if data_type != _ASSORTIS_AWARD_TYPE or not listing_id:
+        return None
+
+    fetch_url = f"{_ASSORTIS_BASE}?id={listing_id}&DataType={_ASSORTIS_AWARD_TYPE}"
+    if open_token:
+        fetch_url = (
+            f"{_ASSORTIS_BASE}?open={open_token}"
+            f"&id={listing_id}&DataType={_ASSORTIS_AWARD_TYPE}"
+        )
+    dedup_url = f"{_ASSORTIS_BASE}?id={listing_id}&DataType={_ASSORTIS_AWARD_TYPE}"
     return fetch_url, dedup_url
 
 
@@ -227,6 +255,56 @@ def _parse_newsletter(html: str, received_date: datetime) -> list[dict]:
     return listings
 
 
+def _parse_award_notices(html: str, received_date: datetime) -> list[dict]:
+    """Assortis DataType=contract links only. Not bid opportunities."""
+    if not html:
+        return []
+
+    soup = BeautifulSoup(html, "html.parser")
+    notices: list[dict] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        href = anchor["href"].replace("&amp;", "&")
+        resolved = _assortis_contract_urls(href)
+        if resolved is None:
+            continue
+        fetch_url, dedup_url = resolved
+        if dedup_url in seen:
+            continue
+        item = _listing_from_anchor(anchor, fetch_url, dedup_url, ASSORTIS_PORTAL)
+        if item is None:
+            title = _norm(anchor.get_text(" ", strip=True))
+            if len(title) < 5:
+                continue
+            item = {
+                "title": title,
+                "summary": "",
+                "source_url": fetch_url,
+                "dedup_url": dedup_url,
+                "source_portal": ASSORTIS_PORTAL,
+                "deadline_hint": "",
+                "fallback_text": title,
+            }
+        seen.add(dedup_url)
+        item["published"] = received_date.strftime("%Y-%m-%d")
+        item["notice_kind"] = "award_notice"
+        notices.append(item)
+    return notices
+
+
+def ingest_newsletter_awards(html: str, received_date: datetime) -> None:
+    """Extract cited winners from Assortis contract notices. Never raises."""
+    try:
+        notices = _parse_award_notices(html, received_date)
+        if not notices:
+            return
+        from intelligence.competitors import ingest_award_notices
+
+        ingest_award_notices(notices)
+    except Exception as e:
+        logger.warning(f"Assortis award ingest failed (fail-open): {e}")
+
+
 def _sender_matches(msg) -> bool:
     """
     Match on the envelope address OR the display name, case-insensitively.
@@ -296,6 +374,7 @@ def check_assortis_newsletter() -> list[dict]:
 
             for msg in messages:
                 listings = _parse_newsletter(msg.html, msg.date)
+                ingest_newsletter_awards(msg.html, msg.date)
                 logger.info(
                     f"  Parsed {len(listings)} listing(s) from newsletter "
                     f"dated {msg.date:%Y-%m-%d}"
