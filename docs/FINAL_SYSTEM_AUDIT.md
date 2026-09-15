@@ -86,7 +86,7 @@ unimplemented “intelligence domains” were added.
 | Opportunity | Functional discovery, canonical URL dedup, extraction, quality gates, deterministic bid recommendation. |
 | Capability | Semantic CV retrieval with explicit geography/language/years overlays; missing education remains unknown. |
 | Bid | Functional deterministic fit/win/strategic/risk dimensions; factors, evidence, weights, and score version stored in analysis JSON. |
-| Proposal | Drafting uses tender text, past proposal retrieval, style guides, compliance output, and human review. Claim-level verification is not present. |
+| Proposal | Drafting uses tender text, past proposal retrieval, style guides, compliance output, human review, and a named past-work claim verifier (`intelligence/grounding.py`). Unsupported names are tagged `[NOT VERIFIED]`. Not a full sentence-level source graph. |
 | Outcome | Airtable Won/Lost polling and lesson embedding exist; lessons are not yet a scored-model input. |
 | Client | Canonical org matching + cited observed-record roll-up in the review email (Phase 2). Migration unapplied; live history often UNKNOWN. Not an account CRM. |
 | Market/competitor/relationship/executive | Not operational as dedicated, evidence-backed products. No fake foundation was added. |
@@ -105,9 +105,11 @@ Current provenance is adequate for source URL, document cache, extracted
 analysis, score factors, retrieved proposal metadata, unique `content_hash`
 (when `supabase_migration_content_hash.sql` is applied), field-level ToR
 provenance (`extraction_provenance`: value → source file/chunk, page only
-if a PAGE marker exists), and org-name match status (VERIFIED exact /
-INFERRED fuzzy / UNKNOWN new-candidate). It is not yet a full source → page
-→ chunk → **proposal claim** graph. Hosted `content_hash` and `organizations`
+if a PAGE marker exists), org-name match status (VERIFIED exact /
+INFERRED fuzzy / UNKNOWN new-candidate), and **named past-work proposal
+claims** (Phase 4: claim → retrieved `proposal_embeddings` / static past-work
+chunk, else `[NOT VERIFIED]`). It is not yet a full source → page → chunk →
+every generated sentence graph. Hosted `content_hash` and `organizations`
 migrations were not applied in the Phase 1/2 sessions.
 
 ## 8. AI architecture
@@ -118,18 +120,19 @@ deterministic, and the original LLM numbers are audit-only. The budget engine
 does not call an LLM. Model IDs, timeout, retries, and estimated pricing are
 configuration-driven.
 
-Remaining gap: proposal claims do not yet have automated source-chunk
-verification. Extraction JSON is now schema-validated (Pydantic) with one
-repair retry then an explicit refuse; that is not a live-LLM accuracy
-measurement and is not a claim graph.
+Remaining gap: live Claude extraction vs the golden set is unmeasured.
+Named past-work claims in drafts are grounded to retrieved chunks (Phase 4);
+that is not a full source→proposal graph for every sentence. Extraction JSON
+is schema-validated (Pydantic) with one repair retry then an explicit refuse.
 
 ## 9. RAG architecture
 
 CV and historical proposal retrieval use Supabase vectors. Proposal retrieval
 deduplicates assignment chunks and preserves project metadata; writer context
 also includes tender documents, donor intelligence, and win/loss lessons when
-available. This is hybrid in intent but lacks a measured lexical/metadata
-ranking evaluation set and claim-level grounding checks.
+available. Named past-work claims in the draft are matched to those retrieved
+chunks after writing (ADR 008). This is hybrid in intent but lacks a measured
+lexical/metadata ranking evaluation set.
 
 ## 10. Bid scoring architecture
 
@@ -209,6 +212,16 @@ The two failures remain the pre-existing grounding cases. Golden extraction
 metrics on recorded JSON through the schema-validating `parse_analysis_payload`
 are unchanged from Phase 0 (consultancy P/R/acc 1.000).
 
+Phase 4 re-run locally on 2026-09-15:
+
+```text
+~/cortech-bd-agent/cortech/bin/python -m pytest tests/ -q
+284 passed in 14.46s
+```
+
+The two pre-existing `tests/test_grounding.py` failures are gone. Golden
+extraction metrics are unchanged from Phase 0 (consultancy P/R/acc 1.000).
+
 ## 15. Evaluation and regression results
 
 Regression cases added and passing:
@@ -239,8 +252,9 @@ calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
   not a second parser.
 - Store content hash uniqueness (`supabase_migration_content_hash.sql` — file
   present, not applied this session), then extraction version/freshness and a
-  fuller lifecycle. Field-level ToR provenance exists; proposal-claim
-  provenance does not.
+  fuller lifecycle. Field-level ToR provenance exists. Named past-work
+  proposal-claim grounding exists (Phase 4 / ADR 008); a full source → page
+  → chunk → every-sentence graph does not.
 - Implement DNS-pinned HTTP transport and document-parser isolation if the
   threat model warrants it.
 - Break `main.process_opportunity()` and the large proposal writer into tested
@@ -260,7 +274,8 @@ calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
 - Calibrated win probability based on sufficient historical Won/Lost data.
 - Verified pursuit cost and full financial-pricing workflow.
 - Formal partner discovery and relationship evidence.
-- Claim-to-source compliance verification and attachment/page-limit QA.
+- Claim-to-source compliance verification for **non-past-work** sentences,
+  and attachment/page-limit QA. Named past-work claims are grounded (Phase 4).
 - Human approvals, outcome reason codes, and structured lessons feeding scoring.
 
 ## 18. Production-readiness assessment
@@ -282,7 +297,7 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Architecture | 6 | Coherent modular single process; lacks durable workflow boundaries and knowledge layer. |
 | Reliability | 6 | Isolated source failures, quality gates, bounded downloads; no durable retry/state system. |
 | Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance, org-name matcher (Phase 2). Still no freshness model; organizations migration also unapplied. |
-| AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail. Gap: live Claude extraction vs golden set is unmeasured; proposal claim verifier is still absent. |
+| AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail, named past-work claim verifier (Phase 4). Gap: live Claude extraction vs golden set is unmeasured; not a full sentence-level claim graph. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
 | Opportunity Intelligence | 6 | Discovery, dedup, extraction, score; limited sources and stale-detection model. |
 | Market Intelligence | 4 | Observed-data digest over stored opportunities (Phase 3, ADR 007): trailing 30/90-day thematic and geography frequencies plus donor posting counts for organizations already in the Phase 2 table; weekly internal email (`cortech-market.timer`). Every shown number carries sample size and date range. n&lt;10 (tested at n=2) is “insufficient data for a trend”, never INFERRED-as-trend; no invented buckets (“Other WASH”, “East Africa”) or dummy donors. Code aggregation only — no Claude market narrative, no external research source. Gap: `supabase_migration_opportunity_facts.sql` and organizations migration are **not applied** this session; empty/thin history keeps live output at INSUFFICIENT DATA. Not a dashboard and not 8–10. |
@@ -291,11 +306,11 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Capability Intelligence | 6 | Semantic + explicit overlay; no complete requirement traceability/availability control. |
 | Relationship Intelligence | 0 | Not implemented. |
 | Bid Intelligence | 8 | Deterministic, versioned scoring with factors/evidence/audit values and tests proving LLM NO-BID cannot force an official NO-BID. Gap: win score is heuristic, not calibrated. |
-| Proposal Intelligence | 6 | Tender/past-proposal context and compliance output; no claim verification. |
+| Proposal Intelligence | 8 | Named past-work verifier is real (Phase 4, ADR 008): every “Cortech has done X before” named-client claim must resolve to a retrieved proposal chunk (`chunk_id` like `proposal:recARCH`) or stay in the draft tagged `[NOT VERIFIED]`. Invented clients are not passed through clean; empty retrieval / malformed sections / adversarial text do not crash and do not silent-accept. Generic boasts without an entity are `INSUFFICIENT EVIDENCE` in the report only (ADR 003). Gap: this is **not** a source→proposal graph for every sentence, and assignment details beyond named-entity presence are not proven. Not 10. |
 | Outcome Intelligence | 5 | Win/loss lesson storage exists; lessons do not update scoring. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), and observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3). Suite on 2026-09-15: 278 passed, 2 pre-existing grounding failures. Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), and named past-work grounding tests including a fabricated-claim writer injection (Phase 4). Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -309,10 +324,11 @@ file; not applied this session), and minimal field-level ToR provenance
 deterministic matcher, and a cited roll-up on the review email (ADR 006;
 migration file not applied this session). Phase 3 delivered an observed-data
 market digest from stored opportunities (ADR 007; `opportunity_facts`
-migration file not applied this session; thin-n refusal). Next: apply the
-hash, organizations, and opportunity-facts migrations, a **live** extraction
-(and later retrieval) pass against the golden set, a human approval/outcome
-schema, and only after enough structured outcomes exist, train and validate
-a calibrated win model. Competitors, relationships, and strategic
-recommendations remain later. Phase 4 (proposal claim verification) was
-**not** started here.
+migration file not applied this session; thin-n refusal). Phase 4 delivered
+named past-work claim grounding (ADR 008): generated “Cortech has done X”
+claims resolve to a retrieved chunk or are tagged `[NOT VERIFIED]`. Next:
+apply the hash, organizations, and opportunity-facts migrations, a **live**
+extraction (and later retrieval) pass against the golden set, a human
+approval/outcome schema, and only after enough structured outcomes exist,
+train and validate a calibrated win model. Competitors, relationships, and
+strategic recommendations remain later. **Phase 5 was not started here.**

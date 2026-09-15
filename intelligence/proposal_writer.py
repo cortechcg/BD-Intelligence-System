@@ -274,14 +274,23 @@ def _attach_claim_grounding(
     matched_team_result: dict | None,
 ) -> dict:
     """Label past-work claims against retrieved chunks. Never invent evidence."""
+    if not isinstance(sections, dict):
+        sections = {}
+    matches: list[dict] = []
     try:
-        matches = load_past_work_matches(analysis)
+        loaded = load_past_work_matches(analysis) or []
+        matches = loaded if isinstance(loaded, list) else []
+    except Exception as e:
+        logger.warning(f"  Past-work retrieval for grounding failed (non-fatal): {e}")
+        matches = []
+    static = "" if matches else CORTECH_PAST_WORK
+    try:
         grounded = ground_sections(
             sections,
             analysis,
             matched_team_result,
             past_matches=matches,
-            static_past_work=CORTECH_PAST_WORK,
+            static_past_work=static,
         )
         report = grounded.get("claim_grounding") or {}
         logger.info(
@@ -292,7 +301,29 @@ def _attach_claim_grounding(
         return grounded
     except Exception as e:
         logger.warning(f"  Claim grounding failed (non-fatal): {e}")
-        return sections
+        try:
+            return ground_sections(
+                sections,
+                analysis,
+                matched_team_result,
+                past_matches=[],
+                static_past_work=static or CORTECH_PAST_WORK,
+            )
+        except Exception as e2:
+            logger.warning(f"  Claim grounding retry failed (non-fatal): {e2}")
+            out = dict(sections)
+            out["claim_grounding"] = {
+                "claims": [],
+                "verified": 0,
+                "not_verified": 0,
+                "insufficient_evidence": 0,
+                "removed_unverified": [],
+                "annotated_unverified": [],
+                "chunk_count": 0,
+                "scope": "named_past_work",
+                "error": f"{e}; retry: {e2}",
+            }
+            return out
 
 
 def _finalize_client_draft(

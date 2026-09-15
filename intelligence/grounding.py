@@ -1,10 +1,16 @@
 """Deterministic claim-to-chunk grounding for drafted proposal text.
 
-LLM drafts are not evidence. A past-assignment or named-expert claim is
-VERIFIED only when a retrieved chunk (proposal embedding, CV match, or
-CORTECH_PROFILE) contains that entity. Otherwise: NOT VERIFIED or
-INSUFFICIENT EVIDENCE. Current-tender facts (this client, this title)
-are tagged this_tender — they are not past-work inventions.
+LLM drafts are not evidence. A named past-assignment claim is VERIFIED
+only when a retrieved assignment chunk (proposal embeddings, or the static
+CORTECH_PAST_WORK list when retrieval is empty) contains that entity.
+CORTECH_PROFILE KEY CLIENTS is not assignment evidence. Named-expert claims
+need a CV-match chunk. Otherwise: NOT VERIFIED (named, missing chunk) or
+INSUFFICIENT EVIDENCE (generic boast, report only). Current-tender facts
+(this client, this title) are this_tender — they are not past-work inventions.
+
+ADR 003 / ADR 008: unsupported named clients stay in the draft tagged
+[NOT VERIFIED] so a human reviewer can see them. Code/retrieval is official;
+do not ask Claude to confirm a claim without a chunk.
 """
 
 from __future__ import annotations
@@ -16,11 +22,26 @@ from utils.money_scrub import strip_monetary_amounts
 
 STATUSES = ("VERIFIED", "NOT VERIFIED", "INSUFFICIENT EVIDENCE")
 
+_PAST_WORK_SOURCES = frozenset({
+    "proposal_embeddings",
+    "PAST_PROPOSALS",
+    "CORTECH_PAST_WORK",
+})
+_SOURCE_RANK = {
+    "proposal_embeddings": 0,
+    "PAST_PROPOSALS": 1,
+    "CORTECH_PAST_WORK": 2,
+    "cv_match": 3,
+    "CORTECH_PROFILE": 4,
+    "opportunity_analysis": 5,
+}
+
 _PAST_MARKERS = re.compile(
     r"\b("
     r"previously|prior assignment|past assignment|commissioned|"
     r"track record|similar assignment|earlier (?:evaluation|assignment)|"
-    r"has delivered|have delivered|worked (?:for|with)|assignment for|"
+    r"has delivered|have delivered|has done|have done|done before|"
+    r"we (?:delivered|conducted|completed)|worked (?:for|with)|assignment for|"
     r"completed assignment|relevant experience|previous assignment|"
     r"endline evaluation|midline evaluation|baseline evaluation|"
     r"was retained|were retained"
@@ -80,10 +101,19 @@ _ORG_NOISE = re.compile(
     re.I,
 )
 _EMPTY_SECTION = "[INSUFFICIENT EVIDENCE]"
+_MAX_SENTENCE_CHARS = 8000
 
 
 def _norm(text: str) -> str:
     return _NON_ALNUM.sub(" ", (text or "").lower()).strip()
+
+
+def _as_list(value) -> list:
+    if isinstance(value, list):
+        return [x for x in value if x]
+    if value:
+        return [value]
+    return []
 
 
 def _sentences(text: str) -> list[str]:
@@ -91,7 +121,7 @@ def _sentences(text: str) -> list[str]:
     if not raw:
         return []
     parts = _SENTENCE_SPLIT.split(raw)
-    return [p.strip() for p in parts if p.strip()]
+    return [p.strip()[:_MAX_SENTENCE_CHARS] for p in parts if p.strip()]
 
 
 def _chunk(
@@ -121,6 +151,14 @@ def build_evidence_chunks(
     analysis: dict | None = None,
 ) -> list[dict]:
     chunks: list[dict] = []
+    if not isinstance(analysis, dict):
+        analysis = {}
+    if not isinstance(matched_team_result, dict):
+        matched_team_result = {}
+    if not isinstance(past_matches, list):
+        past_matches = []
+    static_past_work = str(static_past_work or "")
+
     profile, _ = strip_monetary_amounts(CORTECH_PROFILE)
     chunks.append(_chunk(
         "profile:cortech",
@@ -148,16 +186,20 @@ def build_evidence_chunks(
             or match.get("id")
             or f"idx-{i}"
         )
+        location = _as_list(meta.get("location") if meta.get("location") is not None else meta.get("locations"))
         blob = " ".join([
             title,
             str(meta.get("client") or ""),
             str(meta.get("year") or ""),
-            " ".join(str(x) for x in (meta.get("location") or []) if x),
+            " ".join(str(x) for x in location if x),
             str(match.get("content_chunk") or ""),
         ])
+        source = str(match.get("source") or "proposal_embeddings")
+        if source not in _PAST_WORK_SOURCES:
+            source = "proposal_embeddings"
         chunks.append(_chunk(
             f"proposal:{lookup}",
-            "proposal_embeddings",
+            source,
             title or f"past-proposal-{i}",
             "content_chunk",
             blob,
@@ -165,6 +207,7 @@ def build_evidence_chunks(
                 "project_title": title,
                 "client": meta.get("client") or "",
                 "year": meta.get("year") or "",
+                "location": location,
                 "similarity": match.get("similarity"),
             },
         ))
@@ -196,15 +239,9 @@ def build_evidence_chunks(
     this_client = str(opportunity.get("client") or "").strip()
     this_title = str(opportunity.get("title") or "").strip()
     this_donor = str(opportunity.get("donor") or "").strip()
-    locations = opportunity.get("project_location") or []
-    lots = opportunity.get("lots_or_sites") or []
-    targets = opportunity.get("target_groups") or []
-    if not isinstance(locations, list):
-        locations = [locations] if locations else []
-    if not isinstance(lots, list):
-        lots = [lots] if lots else []
-    if not isinstance(targets, list):
-        targets = [targets] if targets else []
+    locations = _as_list(opportunity.get("project_location"))
+    lots = _as_list(opportunity.get("lots_or_sites"))
+    targets = _as_list(opportunity.get("target_groups"))
     if this_client or this_title:
         chunks.append(_chunk(
             "this_tender",
@@ -264,19 +301,19 @@ def _entity_map(chunks: list[dict]) -> dict[str, list[str]]:
         add(str(meta.get("client") or ""), cid)
         add(str(meta.get("consultant_name") or ""), cid)
         add(str(meta.get("title") or ""), cid)
-        # Significant stretches from the chunk text (proper nouns already
-        # indexed via metadata). Also index the full normalized text for
-        # substring containment checks later.
         add(chunk.get("document") or "", cid)
         if chunk["chunk_id"] == "profile:cortech":
             for client in _profile_client_names(chunk.get("text") or ""):
                 add(client, cid)
-        for loc in meta.get("locations") or []:
+        for loc in _as_list(meta.get("locations")) + _as_list(meta.get("location")):
             add(str(loc), cid)
-        for lot in meta.get("lots") or []:
+        for lot in _as_list(meta.get("lots")):
             add(str(lot), cid)
-        for group in meta.get("targets") or []:
+        for group in _as_list(meta.get("targets")):
             add(str(group), cid)
+        if chunk.get("source") in _PAST_WORK_SOURCES:
+            for match in _PROPER_NOUN.finditer(chunk.get("text") or ""):
+                add(match.group(1), cid)
     return index
 
 
@@ -296,8 +333,30 @@ def _longest_entity_hits(sentence: str, entity_map: dict[str, list[str]]) -> lis
         if len(entity) < 4:
             continue
         if entity in hay:
-            hits.append((entity, entity_map[entity][0]))
+            for cid in entity_map[entity]:
+                hits.append((entity, cid))
     return hits
+
+
+def _filter_entity_map(entity_map: dict[str, list[str]], allowed_ids: set[str]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for entity, ids in entity_map.items():
+        keep = [cid for cid in ids if cid in allowed_ids]
+        if keep:
+            out[entity] = keep
+    return out
+
+
+def _best_support(hits: list[tuple[str, str]], by_id: dict[str, dict]) -> tuple[str, str] | None:
+    if not hits:
+        return None
+
+    def rank(item: tuple[str, str]) -> tuple[int, int]:
+        entity, cid = item
+        source = (by_id.get(cid) or {}).get("source") or ""
+        return (_SOURCE_RANK.get(source, 99), -len(entity))
+
+    return sorted(hits, key=rank)[0]
 
 
 def _this_tender_norms(chunks: list[dict]) -> set[str]:
@@ -367,74 +426,126 @@ def _unknown_people(
     return unknown
 
 
+def _fail_closed_named_past_claims(sections: dict) -> list[dict]:
+    """If extraction itself fails, named past-work sentences are NOT VERIFIED."""
+    claims: list[dict] = []
+    if not isinstance(sections, dict):
+        return claims
+    for section, body in sections.items():
+        if section in _SKIP_KEYS or not isinstance(body, str):
+            continue
+        for sentence in _sentences(body):
+            if "[NOT VERIFIED]" in sentence:
+                continue
+            if not _is_past_claim(sentence):
+                continue
+            if not _PROPER_NOUN.search(sentence):
+                continue
+            claims.append({
+                "section": section,
+                "sentence": sentence[:400],
+                "status": "NOT VERIFIED",
+                "chunk_id": "",
+                "source": "",
+                "inference_level": "UNKNOWN",
+            })
+    return claims
+
+
 def extract_claims(sections: dict, chunks: list[dict]) -> list[dict]:
-    entity_map = _entity_map(chunks)
-    blobs = _chunk_blob(chunks)
-    this_norms = _this_tender_norms(chunks)
+    if not isinstance(sections, dict):
+        return []
+    if not isinstance(chunks, list):
+        chunks = []
+    by_id = {c.get("chunk_id"): c for c in chunks if isinstance(c, dict) and c.get("chunk_id")}
+    entity_map = _entity_map([c for c in chunks if isinstance(c, dict)])
+    blobs = _chunk_blob([c for c in chunks if isinstance(c, dict)])
+    this_norms = _this_tender_norms([c for c in chunks if isinstance(c, dict)])
+    past_work_ids = {
+        c["chunk_id"] for c in chunks
+        if isinstance(c, dict) and c.get("source") in _PAST_WORK_SOURCES and c.get("chunk_id")
+    }
+    past_entity_map = _filter_entity_map(entity_map, past_work_ids)
+    past_blobs = {cid: blobs[cid] for cid in past_work_ids if cid in blobs}
 
     claims: list[dict] = []
     for section, body in sections.items():
         if section in _SKIP_KEYS or not isinstance(body, str):
             continue
         for sentence in _sentences(body):
-            if "[NOT VERIFIED]" in sentence or "[INSUFFICIENT EVIDENCE]" in sentence:
-                continue
-            past = _is_past_claim(sentence)
-            hits = _longest_entity_hits(sentence, entity_map)
-            supporting = [
-                (ent, cid) for ent, cid in hits
-                if cid != "this_tender" or not past
-            ]
-            unknown_orgs = (
-                _unknown_proper_nouns(sentence, entity_map, blobs, this_norms)
-                if past else []
-            )
-            unknown_people = _unknown_people(
-                sentence, entity_map, blobs, this_norms
-            )
+            try:
+                if "[NOT VERIFIED]" in sentence or "[INSUFFICIENT EVIDENCE]" in sentence:
+                    continue
+                past = _is_past_claim(sentence)
+                hits = _longest_entity_hits(sentence, past_entity_map if past else entity_map)
+                supporting = _best_support(
+                    [
+                        (ent, cid) for ent, cid in hits
+                        if cid != "this_tender" or not past
+                    ],
+                    by_id,
+                )
+                unknown_orgs = (
+                    _unknown_proper_nouns(sentence, past_entity_map, past_blobs, this_norms)
+                    if past else []
+                )
+                unknown_people = _unknown_people(
+                    sentence, entity_map, blobs, this_norms
+                )
 
-            if (past and unknown_orgs) or unknown_people:
-                status = "NOT VERIFIED"
-                chunk_id = ""
-                inference = "UNKNOWN"
-            elif past and supporting:
-                status = "VERIFIED"
-                chunk_id = supporting[0][1]
-                inference = "VERIFIED"
-            elif past and not supporting:
-                status = "INSUFFICIENT EVIDENCE"
-                chunk_id = ""
-                inference = "UNKNOWN"
-            elif supporting and blobs.get(supporting[0][1]) and supporting[0][0] in (blobs.get(supporting[0][1]) or ""):
-                continue
-            else:
-                continue
+                if (past and unknown_orgs) or unknown_people:
+                    status = "NOT VERIFIED"
+                    chunk_id = ""
+                    inference = "UNKNOWN"
+                elif past and supporting:
+                    status = "VERIFIED"
+                    chunk_id = supporting[1]
+                    inference = "VERIFIED"
+                elif past and not supporting:
+                    status = "INSUFFICIENT EVIDENCE"
+                    chunk_id = ""
+                    inference = "UNKNOWN"
+                elif supporting and blobs.get(supporting[1]) and supporting[0] in (blobs.get(supporting[1]) or ""):
+                    continue
+                else:
+                    continue
 
-            claims.append({
-                "section": section,
-                "sentence": sentence[:400],
-                "status": status,
-                "chunk_id": chunk_id,
-                "source": next(
-                    (c["source"] for c in chunks if c["chunk_id"] == chunk_id),
-                    "",
-                ),
-                "inference_level": inference,
-            })
+                claims.append({
+                    "section": section,
+                    "sentence": sentence[:400],
+                    "status": status,
+                    "chunk_id": chunk_id,
+                    "source": (by_id.get(chunk_id) or {}).get("source") or "",
+                    "inference_level": inference,
+                })
+            except Exception:
+                if _is_past_claim(sentence):
+                    claims.append({
+                        "section": section,
+                        "sentence": sentence[:400],
+                        "status": "NOT VERIFIED",
+                        "chunk_id": "",
+                        "source": "",
+                        "inference_level": "UNKNOWN",
+                    })
+                continue
     return claims
 
 
 def redact_unverified_claims(sections: dict, claims: list[dict]) -> tuple[dict, list[dict]]:
-    """Remove invented assertions from client-facing text.
+    """Drop invented assertions. Not the ADR 003 default (see annotate_unverified).
 
-    Tagging a false client or CV [NOT VERIFIED] still ships misinformation.
-    Unsupported named claims are dropped. Empty sections become an explicit
-    evidence gap rather than a plausible-sounding filler.
+    Kept for callers that explicitly want a stripped copy. The writer path
+    tags [NOT VERIFIED] in place so a human reviewer can see the sentence.
     """
+    if not isinstance(sections, dict):
+        return {}, []
+    if not isinstance(claims, list):
+        return sections, []
     flagged = {
         (c["section"], c["sentence"])
         for c in claims
-        if c["status"] == "NOT VERIFIED"
+        if isinstance(c, dict) and c.get("status") == "NOT VERIFIED"
     }
     if not flagged:
         return sections, []
@@ -461,10 +572,14 @@ def redact_unverified_claims(sections: dict, claims: list[dict]) -> tuple[dict, 
 
 def annotate_unverified(sections: dict, claims: list[dict]) -> dict:
     """Append [NOT VERIFIED] to sentences that cite unknown past clients."""
+    if not isinstance(sections, dict):
+        return {}
+    if not isinstance(claims, list):
+        claims = []
     flagged = {
         (c["section"], c["sentence"])
         for c in claims
-        if c["status"] == "NOT VERIFIED"
+        if isinstance(c, dict) and c.get("status") == "NOT VERIFIED"
     }
     if not flagged:
         return sections
@@ -484,7 +599,8 @@ def annotate_unverified(sections: dict, claims: list[dict]) -> dict:
                 rewritten.append(core)
             else:
                 rewritten.append(sentence)
-        out[section] = " ".join(rewritten)
+        joiner = "\n" if "|" in body else " "
+        out[section] = joiner.join(rewritten)
     return out
 
 
@@ -496,25 +612,41 @@ def ground_sections(
     past_matches: list[dict] | None = None,
     static_past_work: str = "",
 ) -> dict:
-    """Attach claim_grounding and strip unverified assertions from the draft."""
-    sections = sections or {}
-    chunks = build_evidence_chunks(
-        past_matches=past_matches,
-        matched_team_result=matched_team_result,
-        static_past_work=static_past_work,
-        analysis=analysis,
-    )
-    claims = extract_claims(sections, chunks)
-    redacted, removed = redact_unverified_claims(sections, claims)
-    verified = sum(1 for c in claims if c["status"] == "VERIFIED")
-    not_verified = sum(1 for c in claims if c["status"] == "NOT VERIFIED")
-    insufficient = sum(1 for c in claims if c["status"] == "INSUFFICIENT EVIDENCE")
-    redacted["claim_grounding"] = {
+    """Attach claim_grounding and tag unverified named past-work in the draft."""
+    if not isinstance(sections, dict):
+        sections = {}
+    try:
+        chunks = build_evidence_chunks(
+            past_matches=past_matches,
+            matched_team_result=matched_team_result,
+            static_past_work=static_past_work,
+            analysis=analysis,
+        )
+        claims = extract_claims(sections, chunks)
+        annotated = annotate_unverified(sections, claims)
+    except Exception:
+        chunks = []
+        claims = _fail_closed_named_past_claims(sections)
+        try:
+            annotated = annotate_unverified(sections, claims)
+        except Exception:
+            annotated = dict(sections)
+    verified = sum(1 for c in claims if c.get("status") == "VERIFIED")
+    not_verified = sum(1 for c in claims if c.get("status") == "NOT VERIFIED")
+    insufficient = sum(1 for c in claims if c.get("status") == "INSUFFICIENT EVIDENCE")
+    annotated_unverified = [
+        {"section": c.get("section"), "sentence": c.get("sentence")}
+        for c in claims
+        if c.get("status") == "NOT VERIFIED"
+    ]
+    annotated["claim_grounding"] = {
         "claims": claims,
         "verified": verified,
         "not_verified": not_verified,
         "insufficient_evidence": insufficient,
-        "removed_unverified": removed,
+        "removed_unverified": [],
+        "annotated_unverified": annotated_unverified,
         "chunk_count": len(chunks),
+        "scope": "named_past_work",
     }
-    return redacted
+    return annotated
