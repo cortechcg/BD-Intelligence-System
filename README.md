@@ -50,12 +50,17 @@ cortech-bd-agent/
 ├── config.py                    # All environment variables and constants, read once
 ├── database/
 │   ├── airtable_client.py       # CRM layer — human-facing records, NOT the source of truth for data
-│   └── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
+│   ├── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
+│   ├── organizations.py         # Fail-open org index (Phase 2)
+│   ├── market_store.py          # Fail-open observed-opportunity loaders (Phase 3)
+│   └── intelligence_facts.py    # Fail-open award/relationship citations (Phase 5)
 ├── intelligence/
 │   ├── analyzer.py               # LLM extraction (advisory scores only)
 │   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
 │   ├── market_trends.py          # Observed-data 30/90-day digest (no LLM)
 │   ├── organizations.py          # Canonical client/donor matching + roll-up
+│   ├── competitors.py            # Assortis Awarded Firm(s) citations (Phase 5)
+│   ├── relationships.py          # Cited JV/consortium edges from data/proposals/
 │   ├── scoring_model.json        # score_version 1.0.0 — changing this does not rewrite old records
 │   ├── cv_matcher.py             # Semantic CV matching + explicit capability overlay
 │   ├── compliance.py             # SATISFIED/PARTIAL/MISSING/UNKNOWN matrix
@@ -131,8 +136,11 @@ canonical orgs; until then the matcher fail-opens (empty index, review email sti
 renders N=0 / UNKNOWN). Apply `supabase_migration_opportunity_facts.sql` once so
 `opportunities_cache` can store thematic/location/donor/`discovered_at` for the
 observed-data market digest; until then the digest fail-opens (cache timestamps
-plus Airtable secondary fields, or an honest insufficient digest). Do not invent
-Airtable organization or trend fields.
+plus Airtable secondary fields, or an honest insufficient digest). Apply
+`supabase_migration_award_relationships.sql` once (after the organizations
+migration) so Assortis award-firm citations and Cortech-submission relationship
+edges can persist; until then those stores fail-open. Do not invent
+Airtable organization, competitor, or partner fields.
 
 ```bash
 python main.py --once
@@ -179,6 +187,7 @@ python main.py --run-assortis             # Manually trigger just the newsletter
 python main.py --run-deadline-check       # Manually trigger just the deadline-escalation check
 python main.py --run-winloss              # Manually trigger just the win/loss lesson extraction
 python main.py --run-market-digest        # Observed-data market digest (trailing 30/90 days)
+python main.py --extract-relationships    # Cited JV/consortium edges from data/proposals/
 python -m pytest tests/ -q                # Unit tests (no live APIs)
 ```
 
@@ -288,7 +297,7 @@ This validates the Airtable base's field names against what the code expects —
 
 ### Step 5 — Only run the SQL migrations if Supabase itself needed to be recreated from scratch
 
-If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent; apply `supabase_migration_organizations.sql` once if the `organizations` table is absent; apply `supabase_migration_opportunity_facts.sql` once if cache fact columns (`thematic_areas`, `locations`, `donor`, `discovered_at`) are absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
+If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent; apply `supabase_migration_organizations.sql` once if the `organizations` table is absent; apply `supabase_migration_opportunity_facts.sql` once if cache fact columns (`thematic_areas`, `locations`, `donor`, `discovered_at`) are absent; apply `supabase_migration_award_relationships.sql` once (after organizations) if `award_observations` / `relationship_edges` are absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
 
 ### Step 6 — Recreate the systemd timers
 

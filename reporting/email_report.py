@@ -342,6 +342,62 @@ def _client_intelligence_html(payload: dict | None) -> str:
     </table>"""
 
 
+def _relationship_facts_payload(opportunity_result: dict | None) -> list[dict]:
+    """Cited past-submission partners only. Fail-open to []."""
+    result = opportunity_result if isinstance(opportunity_result, dict) else {}
+    injected = result.get("relationship_facts")
+    if isinstance(injected, list) and injected:
+        return [row for row in injected if isinstance(row, dict)]
+    try:
+        from database.intelligence_facts import load_relationship_edges
+
+        return load_relationship_edges(limit=8)
+    except Exception:
+        return []
+
+
+def _relationship_facts_html(rows: list[dict] | None) -> str:
+    """Small cited-partner section. Omitted when the store is empty."""
+    facts = [r for r in (rows or []) if isinstance(r, dict)]
+    if not facts:
+        return ""
+    items = []
+    for row in facts[:8]:
+        name = row.get("observed_name") or ""
+        kind = row.get("relationship_kind") or ""
+        doc = row.get("document_name") or row.get("chunk_id") or ""
+        excerpt = row.get("excerpt") or ""
+        items.append(
+            "<li style='margin-bottom:8px'>"
+            f"<strong>{_html(name)}</strong> — {_html(kind)}"
+            f"<br><span style='color:#6B6458;font-size:12px'>"
+            f"{_html(doc)}</span>"
+            f"<br><span style='font-size:12px;color:#1C1914'>"
+            f"{_html(excerpt[:240])}</span>"
+            "</li>"
+        )
+    return f"""
+    {_named_anchor("c-partners")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;margin:0 0 28px;background:#F7F4EE">
+      <tr>
+        <td style="padding:16px 18px">
+          <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;
+                      color:#8A7A5A;font-weight:700;margin-bottom:8px;
+                      font-family:Arial,Helvetica,sans-serif">
+            Cited past partners · Cortech submissions only</div>
+          <p style="margin:0 0 8px;font-size:12px;color:#6B6458;
+                    font-family:Arial,Helvetica,sans-serif">
+            VERIFIED edges from data/proposals (document + excerpt).
+            Typical-partner language is not stored. Nothing has been sent.
+          </p>
+          <ul style="margin:0;padding-left:18px;color:#1C1914;font-size:13px;
+                     line-height:1.5">{"".join(items)}</ul>
+        </td>
+      </tr>
+    </table>"""
+
+
 def _status_color(status: str) -> str:
     return {
         "ok": "#28a745",
@@ -1006,6 +1062,46 @@ def _donor_section_html(window) -> str:
     """
 
 
+def _cited_awards_html(digest) -> str:
+    """Optional Assortis award-winner facts. Honest gap note when empty."""
+    note = getattr(digest, "cited_award_note", "") or (
+        "No cited Assortis award-winner rows in store."
+    )
+    rows = getattr(digest, "cited_awards", ()) or ()
+    items = []
+    for row in rows[:12]:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("observed_name") or ""
+        url = row.get("source_url") or ""
+        excerpt = row.get("excerpt") or ""
+        title = row.get("opportunity_title") or ""
+        if url.startswith("https://") or url.startswith("http://"):
+            href = (
+                f'<a href="{_html(url)}" style="color:#1F3864">{_html(url)}</a>'
+            )
+        else:
+            href = _html(url)
+        items.append(
+            "<li style='margin-bottom:8px'>"
+            f"<strong>{_html(name)}</strong>"
+            f"{' — ' + _html(title) if title else ''}"
+            f"<br>{href}"
+            f"<br><span style='font-size:12px;color:#555'>{_html(excerpt[:240])}</span>"
+            "</li>"
+        )
+    list_html = (
+        f"<ul style='margin:0;padding-left:18px;font-size:13px'>{''.join(items)}</ul>"
+        if items
+        else ""
+    )
+    return f"""
+        <h3 style="margin:20px 0 8px;font-size:16px">Cited award winners</h3>
+        <p style="margin:0 0 8px;font-size:13px;color:#555">{_html(note)}</p>
+        {list_html}
+    """
+
+
 def build_market_digest_html(digest) -> str:
     """Internal observed-data digest. Labels from the store are HTML-escaped."""
     from intelligence.market_trends import INSUFFICIENT_TREND_PHRASE, TREND_MIN_N
@@ -1100,6 +1196,7 @@ def build_market_digest_html(digest) -> str:
         {geo_html}
         {shift_html}
         {donor_html}
+        {_cited_awards_html(digest)}
         <p style="font-size:12px;color:#666;margin-top:16px">
             Human review only. Nothing in this digest submits or acts externally.
             Categories not present in the store are not shown.
@@ -1750,6 +1847,11 @@ def send_proposal_email(opportunity_result: dict) -> None:
         ("c-team", "Team"),
     ]
     client_history_html = _client_intelligence_html(client_intel)
+    relationship_html = _relationship_facts_html(
+        _relationship_facts_payload(opportunity_result)
+    )
+    if relationship_html:
+        nav_items.insert(2, ("c-partners", "Partners"))
     if lock_block or strategy_block:
         nav_items.append(("c-strategy", "Strategy"))
     nav_items.append(("c-draft", "Draft"))
@@ -1870,6 +1972,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
         {checklist}
 
         {client_history_html}
+
+        {relationship_html}
 
         {format_block}
 

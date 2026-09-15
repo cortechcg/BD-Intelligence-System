@@ -138,6 +138,8 @@ class MarketDigest:
     donor_org_count: int = 0
     donor_windows: dict[int, DonorWindow] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
+    cited_awards: tuple[dict, ...] = ()
+    cited_award_note: str = ""
 
     def overall_is_trend(self) -> bool:
         w30 = self.themes.get(30)
@@ -458,6 +460,7 @@ def build_market_digest(
     org_index: Sequence[OrgIndexEntry] | None = None,
     orgs_available: bool = False,
     truncated: bool = False,
+    cited_awards: Sequence[dict] | None = None,
 ) -> MarketDigest:
     """Aggregate stored rows. Empty/thin input → honest insufficient digest."""
     as_of = as_of or date.today()
@@ -473,6 +476,21 @@ def build_market_digest(
         notes.append(
             "No stored opportunities were found. INSUFFICIENT DATA. "
             "This digest does not invent market categories."
+        )
+    award_rows = [
+        row for row in (cited_awards or ())
+        if isinstance(row, dict) and row.get("observed_name") and row.get("source_url")
+    ]
+    if award_rows:
+        award_note = (
+            f"Cited Assortis award winners (n={len(award_rows)} VERIFIED rows "
+            "with URL + excerpt). Not a ranking and not inferred from silence."
+        )
+    else:
+        award_note = (
+            "No cited Assortis award-winner rows in store. Somali Jobs and RSS "
+            "do not publish winner names; a tender page without Awarded Firm(s) "
+            "stores nothing."
         )
     themes = {
         days: _frequency_window(rows, as_of=as_of, days=days, field="themes")
@@ -509,6 +527,8 @@ def build_market_digest(
         donor_org_count=org_count,
         donor_windows=donor_windows,
         notes=tuple(notes),
+        cited_awards=tuple(award_rows),
+        cited_award_note=award_note,
     )
 
 

@@ -1,6 +1,6 @@
 # Architecture (as implemented)
 
-This is the system after the P0/P1 pass. It is still a **single Python process** with Airtable + Supabase + Anthropic. There is no microservice mesh, no chatbot, no competitor graph.
+This is the system after the P0/P1 pass. It is still a **single Python process** with Airtable + Supabase + Anthropic. There is no microservice mesh, no chatbot, no competitor ranking graph.
 
 ## Runtime
 
@@ -51,7 +51,9 @@ Nothing in this pipeline submits to a client.
 | `intelligence/grounding.py` | Named past-work claim → retrieved chunk; `[NOT VERIFIED]` inline (ADR 008) |
 | `intelligence/organizations.py` | Canonical client/donor matching + observed-record roll-up (no LLM) |
 | `intelligence/market_trends.py` | Observed-data 30/90-day digest over stored opportunities (no LLM; thin-n refusal) |
-| `database/` | Airtable CRM, Supabase vectors, fail-open org persistence + opportunity fact columns |
+| `intelligence/competitors.py` | Assortis labelled Awarded Firm(s) → cited award rows (no likely-bidder inference) |
+| `intelligence/relationships.py` | Named JV/consortium edges from Cortech past submissions (excerpt-gated) |
+| `database/` | Airtable CRM, Supabase vectors, fail-open org persistence + opportunity fact columns + cited award/relationship facts |
 | `utils/errors.py` | Error taxonomy used at call sites |
 | `utils/urls.py` | Canonicalization + SSRF guard |
 | `utils/untrusted.py` | Document-as-data wrapping |
@@ -61,6 +63,7 @@ Nothing in this pipeline submits to a client.
 
 - **Supabase `opportunities_cache`**: canonical `source_url`, title, raw text, title embedding, and (after `supabase_migration_content_hash.sql`) unique `content_hash` of the extracted body. Dedup = exact canonical URL + content-hash identity + (Assortis) title near-dup. The column is fail-open if the migration is not applied. After `supabase_migration_opportunity_facts.sql`, optional `thematic_areas` / `locations` / `donor` / `discovered_at` support the observed-data market digest; missing columns fail-open. The Supabase client is created lazily at first storage use, after configuration validation at the entry point.
 - **Supabase `organizations` / `organization_aliases` / `organization_observations`**: canonical client/donor entities and cited involvement. Matching is normalize+exact/fuzzy (ADR 006). Fail-open if `supabase_migration_organizations.sql` is not applied. Airtable was not given new fields.
+- **Supabase `award_observations` / `relationship_edges`**: Phase 5 cited Assortis award-firm rows and cited Cortech-submission relationship edges (ADR 009). Fail-open if `supabase_migration_award_relationships.sql` is not applied. Identity reuses `organizations`. Airtable was not given new fields.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
 - **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model. If 429s persist, bulk-delete AGENT_LOGS in the Airtable UI (or `python populate_airtable.py --prune-logs`); do not invent a second log system.
 
@@ -88,4 +91,4 @@ The digest aggregates stored rows; it is not external market research.
 
 ## Not in this architecture
 
-Competitor intelligence, external market-research products, relationship graphs, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph and not Phase 5.
+Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph and not Phase 6.
