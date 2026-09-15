@@ -11115,3 +11115,1488 @@ RuntimeError: boom
 2026-09-15 09:35:48.586 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [work_plan] complete
 2026-09-15 09:35:48.590 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
 2026-09-15 09:35:48.590 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2462 - Proposal generation complete!
+2026-09-15 09:59:38.778 | SUCCESS  | database.airtable_client:create_opportunity:79 - Created opportunity: Tender
+2026-09-15 09:59:38.780 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.780 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 09:59:38.780 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.780 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 09:59:38.780 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.780 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 09:59:38.781 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.781 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 09:59:38.785 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.785 | ERROR    | intelligence.analyzer:analyze_rfp:447 -   JSON parse failed for 'Unknown': Expecting value: line 1 column 1 (char 0)
+2026-09-15 09:59:38.786 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.786 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 09:59:38.786 | ERROR    | intelligence.analyzer:analyze_rfp:403 -   Schema validation failed after retry for 'Unknown' — refusing. error_type=VALIDATION_ERROR. opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 09:59:38.787 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 09:59:38.787 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 09:59:38.787 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 09:59:38.860 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget PARTIAL: known personnel subtotal $14,800.00; 4 required input(s) unresolved
+2026-09-15 09:59:38.861 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 09:59:38.862 | WARNING  | intelligence.budget_calculator:calculate_budget:125 - Rate-card lookup failed; budget remains incomplete: 429
+2026-09-15 09:59:38.862 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 09:59:38.869 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.award_observations' in the schema cache
+2026-09-15 09:59:38.874 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 09:59:38.876 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 09:59:38.876 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Team Lead → Amina Hassan (score: 0%)
+2026-09-15 09:59:38.877 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 09:59:38.877 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Evaluator → Amina Hassan (score: 80%)
+2026-09-15 09:59:38.879 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 2 roles
+2026-09-15 09:59:38.879 | ERROR    | intelligence.cv_matcher:match_team_to_requirements:462 -   CV search unavailable for remaining roles (invalid key) — not treating this as a staffing gap
+2026-09-15 09:59:38.888 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 09:59:38.890 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 09:59:38.892 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: Document exceeds 5 byte limit while streaming error_type=INGESTION_ERROR
+2026-09-15 09:59:38.893 | WARNING  | processors.downloader:download_document:134 - Transient download failure (attempt 1/3); retrying in 1s: connection reset
+2026-09-15 09:59:38.893 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: too large error_type=INGESTION_ERROR
+2026-09-15 09:59:38.895 | WARNING  | processors.downloader:_list_gdrive_folder_files:447 - Drive folder has 3 files; limiting this opportunity to the first 2
+2026-09-15 09:59:38.896 | ERROR    | processors.downloader:extract_text_from_docx:209 - DOCX extraction failed: DOCX uncompressed content exceeds configured safety limit (32 bytes) error_type=DOCUMENT_ERROR
+2026-09-15 09:59:38.949 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:38.949 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Tender <img src=x onerror=alert(1)>
+Bcc: attacker
+2026-09-15 09:59:38.953 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:38.953 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 09:59:38.955 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 09:59:38.955 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: REOI for MEL
+2026-09-15 09:59:38.959 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:38.959 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 09:59:38.962 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:38.963 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: KPEEL EOI
+2026-09-15 09:59:38.966 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:38.966 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: SPREAD Learning Paper 2
+2026-09-15 09:59:38.970 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 09:59:38.977 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 09:59:38.978 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 09:59:38.978 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ian Luke Munyovi
+2026-09-15 09:59:38.978 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 2/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 09:59:38.979 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 15s then retrying Ian Luke Munyovi
+2026-09-15 09:59:38.979 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 3/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 09:59:38.981 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 45s then retrying after 3 consecutive failures
+2026-09-15 09:59:38.981 | INFO     | embed_cvs:embed_consultant_cv:474 - Already embedded, skipping Ada Lovelace (emb-already)
+2026-09-15 09:59:38.982 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/4): [Errno -3] Temporary failure in name resolution
+2026-09-15 09:59:38.983 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 09:59:38.983 | SUCCESS  | embed_cvs:embed_consultant_cv:532 - CV embedding inserted: Ahmed Adan Hassan (emb-new)
+2026-09-15 09:59:38.990 | INFO     | intelligence.proposal_writer:_build_past_work_context:211 -   Past-work evidence: 1 assignments matched, top = 
+2026-09-15 09:59:38.992 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (WATCH) for: Unknown Assignment
+2026-09-15 09:59:38.992 | INFO     | intelligence.proposal_writer:generate_proposal:2402 -   WATCH + FULL_DRAFT_FOR_WATCH disabled — quick flag only
+2026-09-15 09:59:38.997 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 09:59:38.997 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2425 - WATCH quick-flag generation complete!
+2026-09-15 09:59:38.998 | INFO     | intelligence.proposal_writer:generate_eoi:2091 - Generating EOI for: Unknown Assignment
+2026-09-15 09:59:38.998 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 7 sections in parallel (workers=4)
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [cover_letter] complete
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [approach_summary] complete
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [firm_profile] complete
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [understanding] complete
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [key_experts] complete
+2026-09-15 09:59:38.999 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [relevant_experience] complete
+2026-09-15 09:59:39.000 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [eligibility] complete
+2026-09-15 09:59:39.004 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 09:59:39.004 | SUCCESS  | intelligence.proposal_writer:generate_eoi:2350 - EOI generation complete!
+2026-09-15 09:59:39.016 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Consultancy to conduct a WASH KAP survey in Dadaab refugee c...
+2026-09-15 09:59:39.017 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: 1.0/100 | consultancy: True | submission: FULL_PROPOSAL
+2026-09-15 09:59:39.075 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 1 verified, 1 not verified, 0 insufficient
+2026-09-15 09:59:39.075 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 09:59:39.078 | WARNING  | intelligence.learning:fetch_win_loss_lessons:222 - Win/loss RPC unavailable (no rpc) — using table fallback
+2026-09-15 09:59:39.080 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: /tmp/pytest-of-sharahbill/pytest-36/test_save_and_load_draft_memor0/rec123.json
+2026-09-15 09:59:39.081 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 09:59:39.081 | INFO     | intelligence.proposal_writer:_build_past_work_context:245 -   Past-work evidence: 1 Airtable proposals ranked, top = Somalia MEL endline
+2026-09-15 09:59:39.085 | INFO     | intelligence.proposal_writer:_build_guidance_block:1090 -   Injected prior-bid lessons into trusted writer guidance
+2026-09-15 09:59:39.089 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=2, dated=2)
+2026-09-15 09:59:39.091 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 09:59:39.092 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 09:59:39.097 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=12, dated=12)
+2026-09-15 09:59:39.101 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 09:59:39.101 | WARNING  | database.market_store:load_supabase_opportunity_rows:204 - opportunities_cache unavailable (fail-open): PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 09:59:39.102 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 09:59:39.102 | INFO     | database.market_store:load_supabase_opportunity_rows:213 - Market digest loaded 1 opportunities_cache rows (select=id, source_url, title, created_at, truncated=False)
+2026-09-15 09:59:39.103 | WARNING  | database.market_store:load_airtable_opportunity_rows:229 - Airtable OPPORTUNITIES load skipped (fail-open): 429 rate limit
+2026-09-15 09:59:39.104 | WARNING  | database.supabase_client:update_opportunity_facts:717 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Cache row still stored; market digest fail-opens to timestamps and Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 09:59:39.107 | WARNING  | database.intelligence_facts:load_award_observations:225 - award_observations load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 09:59:39.107 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 09:59:39.108 | INFO     | main:_run_market_digest:1190 - Market digest complete — store_rows=0, dated=0, sources=()
+2026-09-15 09:59:39.113 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=849ce903-4775-40c6-aeca-e2716a0feb6b
+2026-09-15 09:59:40.118 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:40.118 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 09:59:40.118 | INFO     | main:_run_pipeline:862 -   Scrapers total: 37 passed filter
+2026-09-15 09:59:40.118 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:40.118 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 09:59:40.119 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:40.119 | ERROR    | main:_run_pipeline:909 - Skipping 37 bulk discoveries: opportunity_processing ledger is missing. Apply supabase_migration_opportunity_state.sql. Use python main.py --submit-url for a one-off.
+2026-09-15 09:59:40.124 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:40.125 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Somali Jobs tender
+2026-09-15 09:59:40.127 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:40.127 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://example.test/tor.pdf
+2026-09-15 09:59:40.127 | WARNING  | main:process_opportunity:241 - Completion state was not persisted; leaving opportunity retryable
+2026-09-15 09:59:40.140 | WARNING  | database.organizations:_mark_missing:71 - organizations tables missing — apply supabase_migration_organizations.sql. Client intelligence fail-opens (empty index, no crash). Cause: PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 09:59:40.140 | WARNING  | database.organizations:collect_matching_store_records:418 - org store scan skipped (fail-open): PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 09:59:40.142 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 09:59:40.142 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New Client A tender
+2026-09-15 09:59:40.144 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 09:59:40.144 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Brand new client
+2026-09-15 09:59:40.145 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:40.146 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:40.146 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 09:59:40.147 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=98 win=92 recommendation=BID score_version=1.0.0
+2026-09-15 09:59:40.148 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 09:59:40.148 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 09:59:40.148 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 09:59:40.148 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 09:59:40.148 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 09:59:40.149 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/airtable-id.json
+2026-09-15 09:59:40.150 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:40.151 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:40.151 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 09:59:40.152 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=12 win=32 recommendation=NO-BID score_version=1.0.0
+2026-09-15 09:59:40.152 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=skipped recommendation=NO-BID decision_state=HUMAN_REVIEW_REQUIRED
+2026-09-15 09:59:40.177 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.relationship_edges' in the schema cache
+2026-09-15 09:59:40.179 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New tender
+2026-09-15 09:59:41.697 | DEBUG    | monitors.scraper:parse_tenders_from_html:267 -   No structured items found for Somali Jobs Tenders — using anchor fallback
+2026-09-15 09:59:41.700 | INFO     | monitors.scraper:scrape_one_source:333 -   Scraping: Broken
+2026-09-15 09:59:41.700 | ERROR    | monitors.scraper:scrape_one_source:365 -   Scraper failed for Broken (non-fatal): 'url'
+2026-09-15 09:59:41.701 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 09:59:41.701 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 09:59:41.701 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 09:59:41.702 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via bundled
+2026-09-15 09:59:41.703 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 09:59:41.703 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 09:59:41.704 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 09:59:41.705 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 09:59:41.706 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 09:59:41.706 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 09:59:41.707 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:41.708 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:41.708 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 09:59:41.708 | ERROR    | main:_process_opportunity_pipeline:375 -   Analysis returned empty — skipping
+2026-09-15 09:59:41.708 | INFO     | utils.observability:log_stage:209 - stage=analyze status=error error_type=ANALYSIS_ERROR
+2026-09-15 09:59:41.709 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:41.709 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:41.709 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 09:59:41.710 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 09:59:41.710 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 09:59:41.710 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 09:59:41.710 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 09:59:41.710 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 09:59:41.710 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 09:59:41.711 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 09:59:41.712 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:41.712 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:41.713 | INFO     | main:_process_opportunity_pipeline:359 -   Same document body already cached under https://other.example/same-body (content_hash 66381db51815) — skipping re-analysis
+2026-09-15 09:59:41.713 | INFO     | utils.observability:log_stage:209 - stage=analyze status=skip reason=content_hash_duplicate
+2026-09-15 09:59:41.714 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 09:59:41.714 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 09:59:41.714 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 09:59:41.715 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 09:59:41.715 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 09:59:41.715 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 09:59:41.715 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 09:59:41.715 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 09:59:41.716 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 09:59:41.716 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 09:59:41.717 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 09:59:41.719 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 09:59:41.720 | INFO     | main:process_opportunity:218 - Processing cap reached (1); deferring 'Two'
+2026-09-15 09:59:41.721 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:42.726 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:42.726 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 0 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 09:59:42.727 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 0 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 09:59:42.728 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:43.733 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:43.733 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 1 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 09:59:43.733 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 1 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 09:59:43.736 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:44.741 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:44.741 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 2 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 09:59:44.741 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 2 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 09:59:44.743 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:45.747 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:45.747 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 3 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 09:59:45.749 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=a5406478-2a50-41d9-b014-7e7fc556727d
+2026-09-15 09:59:46.753 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:46.754 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 09:59:46.754 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 09:59:46.754 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:46.754 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 09:59:46.756 | WARNING  | main:_run_pipeline:938 - Run capped at 0 of 3 opportunities — 3 deferred to the next run
+2026-09-15 09:59:46.760 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=52d4c5d2-6171-49eb-bd84-e629f0a41153
+2026-09-15 09:59:47.764 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:47.764 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 09:59:47.764 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 09:59:47.764 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:47.764 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 09:59:47.766 | WARNING  | main:_run_pipeline:938 - Run capped at 1 of 3 opportunities — 2 deferred to the next run
+2026-09-15 09:59:47.769 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 09:59:48.774 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:48.777 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=9b0d0137-cdf4-4644-a72b-0d3742b32b84
+2026-09-15 09:59:49.781 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:49.781 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 09:59:49.781 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 09:59:49.781 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:49.781 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 09:59:49.783 | WARNING  | main:_run_pipeline:938 - Run capped at 2 of 3 opportunities — 1 deferred to the next run
+2026-09-15 09:59:49.786 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 09:59:50.790 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:50.792 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=bb35c2f3-370e-4563-a80e-adf2f3fd71fa
+2026-09-15 09:59:51.795 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:51.795 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 09:59:51.795 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 09:59:51.795 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 09:59:51.795 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 09:59:51.798 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 09:59:52.804 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 09:59:52.807 | SUCCESS  | reporting.email_report:send_deadline_alert_email:982 - Deadline alert email sent (1 items)
+2026-09-15 09:59:52.809 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 09:59:52.810 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: "'><img src=x onerror=alert(1)>&<script>alert(1)</
+2026-09-15 09:59:52.810 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 09:59:52.812 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 127.0.0.1
+2026-09-15 09:59:52.813 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::1
+2026-09-15 09:59:52.814 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::ffff:127.0.0.1
+2026-09-15 09:59:52.816 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 169.254.169.254
+2026-09-15 09:59:52.817 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 2130706433
+2026-09-15 09:59:52.818 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 09:59:52.818 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 09:59:52.819 | WARNING  | monitors.scraper:fetch_with_httpx:106 -   Static scraper fetch blocked: blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 09:59:52.822 | INFO     | intelligence.tender_reader:build_tor_brief:447 -   Reading the tender documents for proposal: Somalia MEL Evaluation
+2026-09-15 09:59:52.822 | INFO     | intelligence.tender_reader:build_tor_brief:486 -   [tor_brief] cached=0 input=0 output=0
+2026-09-15 09:59:52.822 | SUCCESS  | intelligence.tender_reader:build_tor_brief:491 -   Tender documents read — 42-char proposal compliance brief
+2026-09-15 09:59:52.824 | INFO     | intelligence.tender_reader:build_win_strategy:1365 -   Deciding the win strategy for EOI: Somalia MEL Evaluation
+2026-09-15 09:59:52.825 | INFO     | intelligence.tender_reader:build_win_strategy:1410 -   [win_strategy] cached=0 input=0 output=0
+2026-09-15 09:59:52.825 | SUCCESS  | intelligence.tender_reader:build_win_strategy:1414 -   Win strategy decided — 40-char EOI thesis
+2026-09-15 09:59:52.826 | INFO     | intelligence.proposal_writer:build_system_blocks:1175 -   No ToR-prescribed section list — using Cortech house structure
+2026-09-15 09:59:52.828 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 09:59:52.829 | INFO     | intelligence.proposal_writer:_generate_section:1520 -   Writing test...
+2026-09-15 09:59:52.829 | INFO     | intelligence.proposal_writer:_log_cache_usage:1363 -   [test] cached=0 input=0 output=0
+2026-09-15 09:59:52.834 | INFO     | utils.observability:record_usage:169 - llm_usage stage=first model=claude-sonnet-5 in=11 out=7 cached=0 est_cost_usd=9.199999999999999e-05
+2026-09-15 09:59:52.834 | INFO     | utils.observability:record_usage:169 - llm_usage stage=retry model=claude-sonnet-5 in=5 out=3 cached=0 est_cost_usd=4e-05
+2026-09-15 09:59:52.834 | INFO     | utils.observability:record_usage:169 - llm_usage stage=unknown model=claude-sonnet-5 in=UNKNOWN out=UNKNOWN cached=0 est_cost_usd=UNKNOWN
+2026-09-15 09:59:52.835 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:one model=claude-sonnet-5 in=13 out=8 cached=0 est_cost_usd=0.00010599999999999999
+2026-09-15 09:59:52.835 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:retry model=claude-sonnet-5 in=2 out=5 cached=0 est_cost_usd=5.4000000000000005e-05
+2026-09-15 09:59:52.843 | INFO     | intelligence.tender_reader:tender_documents_block:150 -   Redacted 1 financial figure(s) from the tender pack before any brief or draft is written
+2026-09-15 09:59:52.845 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [cover_letter]
+2026-09-15 09:59:52.845 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [quality_score.one_improvement]
+2026-09-15 09:59:52.845 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 09:59:52.846 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 09:59:52.846 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 09:59:52.846 | ERROR    | main:_run_monitored:183 - bad run failed
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     │      └ <function console_main at 0x752bb8e0bed0>
+                     └ <module 'pytest' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__init__.py'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 201, in console_main
+    code = main()
+           └ <function main at 0x752bb8e0bd70>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 175, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         │                │      │    │                          └ <_pytest.config.Config object at 0x752bb8ae3620>
+         │                │      │    └ <HookCaller 'pytest_cmdline_main'>
+         │                │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x752bb8ae3b60>
+         │                └ <_pytest.config.Config object at 0x752bb8ae3620>
+         └ <enum 'ExitCode'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'config': <_pytest.config.Config object at 0x752bb8ae3620>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_cmdline_main'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_cmdline_main'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_cmdline_main'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'config': <_pytest.config.Config object at 0x752bb8ae3620>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_cmdline_main'
+           │    └ <function _multicall at 0x752bb93ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x752bb8ae1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<_pytest.config.Config object at 0x752bb8ae3620>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 336, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           │            │       └ <function _main at 0x752bb8d1b8a0>
+           │            └ <_pytest.config.Config object at 0x752bb8ae3620>
+           └ <function wrap_session at 0x752bb8d1b5e0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 289, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    │       │            │    │       └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │       │            │    └ <_pytest.config.Config object at 0x752bb8ae3620>
+    │       │            └ <function _main at 0x752bb8d1b8a0>
+    │       └ <ExitCode.OK: 0>
+    └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 343, in _main
+    config.hook.pytest_runtestloop(session=session)
+    │      │    │                          └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │      │    └ <HookCaller 'pytest_runtestloop'>
+    │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x752bb8ae3b60>
+    └ <_pytest.config.Config object at 0x752bb8ae3620>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtestloop'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtestloop'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtestloop'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_runtestloop'
+           │    └ <function _multicall at 0x752bb93ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x752bb8ae1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 367, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    │    │                                        │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │    │                                        └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <member 'config' of 'Node' objects>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_protocol'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_protocol'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_protocol'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │               │          └ [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_runtest_protocol'
+           │    └ <function _multicall at 0x752bb93ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x752bb8ae1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>, <Function test_supabase_client_is_created_lazily_and_r...
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 117, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    │               │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    └ <function runtestprotocol at 0x752bb8d197a0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 136, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    │       │      │               │             └ True
+    │       │      │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │       │      └ <function call_and_report at 0x752bb8d1a140>
+    │       └ <method 'append' of 'list' objects>
+    └ [<TestReport 'tests/test_security_reliability_remediations.py::test_monitored_runner_only_pings_success_after_completion' whe...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 245, in call_and_report
+    call = CallInfo.from_call(
+           │        └ <classmethod(<function CallInfo.from_call at 0x752bb8d1a820>)>
+           └ <class '_pytest.runner.CallInfo'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 344, in from_call
+    result: TResult | None = func()
+            │                └ <function call_and_report.<locals>.<lambda> at 0x752ba820f8a0>
+            └ +TResult
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 246, in <lambda>
+    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise
+            │                 │       └ {}
+            │                 └ <Function test_monitored_runner_only_pings_success_after_completion>
+            └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ False
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ False
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from '/home/sharahbill/cortech-bd-agent/co...
+           │    │               └ 'pytest_runtest_call'
+           │    └ <function _multicall at 0x752bb93ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x752bb8ae1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 178, in pytest_runtest_call
+    item.runtest()
+    │    └ <function Function.runtest at 0x752bb8ca4bf0>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 1671, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    │    │                                   └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <property object at 0x752bb8deec50>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_pyfunc_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_pyfunc_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_pyfunc_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_pyfunc_call'
+           │    └ <function _multicall at 0x752bb93ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x752bb8ae1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 157, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             │              └ {'monkeypatch': <_pytest.monkeypatch.MonkeyPatch object at 0x752bb19de510>}
+             └ <function test_monitored_runner_only_pings_success_after_completion at 0x752bb19baf00>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in test_monitored_runner_only_pings_success_after_completion
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x752bb2c0a6c0>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+> File "/home/sharahbill/cortech-bd-agent/main.py", line 179, in _run_monitored
+    result = callback()
+             └ <function test_monitored_runner_only_pings_success_after_completion.<locals>.<lambda> at 0x752ba820fa00>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <lambda>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x752bb2c0a6c0>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <genexpr>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x752bb2c0a6c0>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+RuntimeError: boom
+2026-09-15 09:59:52.855 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:52.857 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:52.857 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 09:59:52.857 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://somalijobs.com/tenders/2/evaluation
+2026-09-15 09:59:52.859 | ERROR    | database.supabase_client:claim_opportunity_processing:433 - Opportunity-state claim did not return its ownership token
+2026-09-15 09:59:52.860 | ERROR    | database.supabase_client:get_embedding:177 - OpenAI rejected OPENAI_API_KEY (401 invalidated). .env on disk was last saved 2026-09-11 16:30. If you just pasted a new key in the editor, save the file (Ctrl+S) before rerunning. Embeddings power CV matching and past-proposal search — they are not the Anthropic drafting key. Create a new key at https://platform.openai.com/api-keys paste OPENAI_API_KEY=sk-... with no quotes, save, and rerun. error_type=AUTH_ERROR
+2026-09-15 09:59:52.862 | WARNING  | database.supabase_client:store_opportunity:620 - content_hash column missing — storing without uniqueness. Apply supabase_migration_content_hash.sql.
+2026-09-15 09:59:52.863 | INFO     | database.supabase_client:store_opportunity:610 - content_hash already stored (source_url=https://first.example/tender)
+2026-09-15 09:59:52.864 | WARNING  | database.supabase_client:find_opportunity_by_content_hash:550 - opportunities_cache.content_hash is missing — apply supabase_migration_content_hash.sql. Dedup stays URL-only.
+2026-09-15 09:59:52.887 | INFO     | intelligence.tender_reader:pack_tender_text:128 -   Packed tender 28,179 → 8,004 chars (assignment sections retained)
+2026-09-15 09:59:52.890 | SUCCESS  | intelligence.tender_reader:extract_document_lock:1323 -   Document lock extracted from the tender pack
+2026-09-15 09:59:52.898 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (BID) for: SPREAD Learning Paper 2
+2026-09-15 09:59:52.899 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 2 sections in parallel (workers=2)
+2026-09-15 09:59:52.899 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [suitability_statement] complete
+2026-09-15 09:59:52.899 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [work_plan] complete
+2026-09-15 09:59:52.902 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 09:59:52.902 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2462 - Proposal generation complete!
+2026-09-15 10:00:17.249 | SUCCESS  | database.airtable_client:create_opportunity:79 - Created opportunity: Tender
+2026-09-15 10:00:17.251 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.251 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:00:17.251 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.251 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:00:17.251 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.251 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:00:17.253 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.253 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 10:00:17.256 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.257 | ERROR    | intelligence.analyzer:analyze_rfp:447 -   JSON parse failed for 'Unknown': Expecting value: line 1 column 1 (char 0)
+2026-09-15 10:00:17.258 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.258 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:00:17.258 | ERROR    | intelligence.analyzer:analyze_rfp:403 -   Schema validation failed after retry for 'Unknown' — refusing. error_type=VALIDATION_ERROR. opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:00:17.258 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:00:17.259 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:00:17.259 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 10:00:17.330 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget PARTIAL: known personnel subtotal $14,800.00; 4 required input(s) unresolved
+2026-09-15 10:00:17.331 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 10:00:17.332 | WARNING  | intelligence.budget_calculator:calculate_budget:125 - Rate-card lookup failed; budget remains incomplete: 429
+2026-09-15 10:00:17.332 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 10:00:17.339 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.award_observations' in the schema cache
+2026-09-15 10:00:17.343 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:00:17.345 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 10:00:17.345 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Team Lead → Amina Hassan (score: 0%)
+2026-09-15 10:00:17.346 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 10:00:17.346 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Evaluator → Amina Hassan (score: 80%)
+2026-09-15 10:00:17.348 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 2 roles
+2026-09-15 10:00:17.348 | ERROR    | intelligence.cv_matcher:match_team_to_requirements:462 -   CV search unavailable for remaining roles (invalid key) — not treating this as a staffing gap
+2026-09-15 10:00:17.358 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 10:00:17.360 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 10:00:17.361 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: Document exceeds 5 byte limit while streaming error_type=INGESTION_ERROR
+2026-09-15 10:00:17.362 | WARNING  | processors.downloader:download_document:134 - Transient download failure (attempt 1/3); retrying in 1s: connection reset
+2026-09-15 10:00:17.362 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: too large error_type=INGESTION_ERROR
+2026-09-15 10:00:17.363 | WARNING  | processors.downloader:_list_gdrive_folder_files:447 - Drive folder has 3 files; limiting this opportunity to the first 2
+2026-09-15 10:00:17.365 | ERROR    | processors.downloader:extract_text_from_docx:209 - DOCX extraction failed: DOCX uncompressed content exceeds configured safety limit (32 bytes) error_type=DOCUMENT_ERROR
+2026-09-15 10:00:17.421 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.422 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Tender <img src=x onerror=alert(1)>
+Bcc: attacker
+2026-09-15 10:00:17.427 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.427 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 10:00:17.429 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.429 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: REOI for MEL
+2026-09-15 10:00:17.431 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.431 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 10:00:17.433 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 10:00:17.434 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: KPEEL EOI
+2026-09-15 10:00:17.438 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.439 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: SPREAD Learning Paper 2
+2026-09-15 10:00:17.443 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:00:17.449 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 10:00:17.450 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:00:17.450 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ian Luke Munyovi
+2026-09-15 10:00:17.450 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 2/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:00:17.451 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 15s then retrying Ian Luke Munyovi
+2026-09-15 10:00:17.451 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 3/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:00:17.452 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 45s then retrying after 3 consecutive failures
+2026-09-15 10:00:17.453 | INFO     | embed_cvs:embed_consultant_cv:474 - Already embedded, skipping Ada Lovelace (emb-already)
+2026-09-15 10:00:17.454 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/4): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:00:17.454 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 10:00:17.454 | SUCCESS  | embed_cvs:embed_consultant_cv:532 - CV embedding inserted: Ahmed Adan Hassan (emb-new)
+2026-09-15 10:00:17.462 | INFO     | intelligence.proposal_writer:_build_past_work_context:211 -   Past-work evidence: 1 assignments matched, top = 
+2026-09-15 10:00:17.463 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (WATCH) for: Unknown Assignment
+2026-09-15 10:00:17.463 | INFO     | intelligence.proposal_writer:generate_proposal:2402 -   WATCH + FULL_DRAFT_FOR_WATCH disabled — quick flag only
+2026-09-15 10:00:17.466 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:00:17.466 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2425 - WATCH quick-flag generation complete!
+2026-09-15 10:00:17.467 | INFO     | intelligence.proposal_writer:generate_eoi:2091 - Generating EOI for: Unknown Assignment
+2026-09-15 10:00:17.467 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 7 sections in parallel (workers=4)
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [cover_letter] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [approach_summary] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [firm_profile] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [understanding] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [key_experts] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [relevant_experience] complete
+2026-09-15 10:00:17.469 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [eligibility] complete
+2026-09-15 10:00:17.473 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:00:17.473 | SUCCESS  | intelligence.proposal_writer:generate_eoi:2350 - EOI generation complete!
+2026-09-15 10:00:17.486 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Consultancy to conduct a WASH KAP survey in Dadaab refugee c...
+2026-09-15 10:00:17.486 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: 1.0/100 | consultancy: True | submission: FULL_PROPOSAL
+2026-09-15 10:00:17.556 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 1 verified, 1 not verified, 0 insufficient
+2026-09-15 10:00:17.557 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 10:00:17.560 | WARNING  | intelligence.learning:fetch_win_loss_lessons:222 - Win/loss RPC unavailable (no rpc) — using table fallback
+2026-09-15 10:00:17.561 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: /tmp/pytest-of-sharahbill/pytest-37/test_save_and_load_draft_memor0/rec123.json
+2026-09-15 10:00:17.562 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 10:00:17.562 | INFO     | intelligence.proposal_writer:_build_past_work_context:245 -   Past-work evidence: 1 Airtable proposals ranked, top = Somalia MEL endline
+2026-09-15 10:00:17.565 | INFO     | intelligence.proposal_writer:_build_guidance_block:1090 -   Injected prior-bid lessons into trusted writer guidance
+2026-09-15 10:00:17.570 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=2, dated=2)
+2026-09-15 10:00:17.572 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 10:00:17.573 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:00:17.576 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=12, dated=12)
+2026-09-15 10:00:17.580 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 10:00:17.580 | WARNING  | database.market_store:load_supabase_opportunity_rows:204 - opportunities_cache unavailable (fail-open): PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 10:00:17.581 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 10:00:17.581 | INFO     | database.market_store:load_supabase_opportunity_rows:213 - Market digest loaded 1 opportunities_cache rows (select=id, source_url, title, created_at, truncated=False)
+2026-09-15 10:00:17.582 | WARNING  | database.market_store:load_airtable_opportunity_rows:229 - Airtable OPPORTUNITIES load skipped (fail-open): 429 rate limit
+2026-09-15 10:00:17.584 | WARNING  | database.supabase_client:update_opportunity_facts:717 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Cache row still stored; market digest fail-opens to timestamps and Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 10:00:17.587 | WARNING  | database.intelligence_facts:load_award_observations:225 - award_observations load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:17.587 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:00:17.587 | INFO     | main:_run_market_digest:1190 - Market digest complete — store_rows=0, dated=0, sources=()
+2026-09-15 10:00:17.592 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=a4647a7a-ab0f-4a2f-bb61-21cd1816ad2f
+2026-09-15 10:00:18.597 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:18.597 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:00:18.597 | INFO     | main:_run_pipeline:862 -   Scrapers total: 37 passed filter
+2026-09-15 10:00:18.597 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:18.597 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:00:18.598 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:18.598 | ERROR    | main:_run_pipeline:909 - Skipping 37 bulk discoveries: opportunity_processing ledger is missing. Apply supabase_migration_opportunity_state.sql. Use python main.py --submit-url for a one-off.
+2026-09-15 10:00:18.601 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:18.602 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Somali Jobs tender
+2026-09-15 10:00:18.603 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:18.603 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://example.test/tor.pdf
+2026-09-15 10:00:18.603 | WARNING  | main:process_opportunity:241 - Completion state was not persisted; leaving opportunity retryable
+2026-09-15 10:00:18.619 | WARNING  | database.organizations:_mark_missing:71 - organizations tables missing — apply supabase_migration_organizations.sql. Client intelligence fail-opens (empty index, no crash). Cause: PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 10:00:18.620 | WARNING  | database.organizations:collect_matching_store_records:418 - org store scan skipped (fail-open): PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 10:00:18.623 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 10:00:18.624 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New Client A tender
+2026-09-15 10:00:18.627 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:18.627 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Brand new client
+2026-09-15 10:00:18.628 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:18.629 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:18.629 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:00:18.630 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=98 win=92 recommendation=BID score_version=1.0.0
+2026-09-15 10:00:18.631 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:00:18.631 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:00:18.631 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:00:18.631 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:00:18.631 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:00:18.632 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/airtable-id.json
+2026-09-15 10:00:18.634 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:18.634 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:18.634 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:00:18.635 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=12 win=32 recommendation=NO-BID score_version=1.0.0
+2026-09-15 10:00:18.637 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=skipped recommendation=NO-BID decision_state=HUMAN_REVIEW_REQUIRED
+2026-09-15 10:00:18.663 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.relationship_edges' in the schema cache
+2026-09-15 10:00:18.664 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New tender
+2026-09-15 10:00:20.456 | DEBUG    | monitors.scraper:parse_tenders_from_html:267 -   No structured items found for Somali Jobs Tenders — using anchor fallback
+2026-09-15 10:00:20.459 | INFO     | monitors.scraper:scrape_one_source:333 -   Scraping: Broken
+2026-09-15 10:00:20.459 | ERROR    | monitors.scraper:scrape_one_source:365 -   Scraper failed for Broken (non-fatal): 'url'
+2026-09-15 10:00:20.460 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:00:20.460 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:00:20.460 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:00:20.462 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via bundled
+2026-09-15 10:00:20.463 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:00:20.463 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:00:20.463 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:00:20.465 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:00:20.465 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:00:20.465 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:00:20.467 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:20.468 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:20.468 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:00:20.468 | ERROR    | main:_process_opportunity_pipeline:375 -   Analysis returned empty — skipping
+2026-09-15 10:00:20.468 | INFO     | utils.observability:log_stage:209 - stage=analyze status=error error_type=ANALYSIS_ERROR
+2026-09-15 10:00:20.469 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:20.469 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:20.469 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:00:20.470 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 10:00:20.471 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:00:20.471 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:00:20.471 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:00:20.471 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:00:20.471 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:00:20.472 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 10:00:20.474 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:20.475 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:20.475 | INFO     | main:_process_opportunity_pipeline:359 -   Same document body already cached under https://other.example/same-body (content_hash 66381db51815) — skipping re-analysis
+2026-09-15 10:00:20.475 | INFO     | utils.observability:log_stage:209 - stage=analyze status=skip reason=content_hash_duplicate
+2026-09-15 10:00:20.476 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:00:20.477 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:00:20.477 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:00:20.478 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 10:00:20.478 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:00:20.478 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:00:20.478 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:00:20.478 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:00:20.479 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:00:20.479 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 10:00:20.480 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 10:00:20.484 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 10:00:20.487 | INFO     | main:process_opportunity:218 - Processing cap reached (1); deferring 'Two'
+2026-09-15 10:00:20.488 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:21.491 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:21.492 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 0 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:00:21.492 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 0 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:00:21.493 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:22.497 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:22.497 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 1 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:00:22.497 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 1 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:00:22.499 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:23.503 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:23.503 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 2 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:00:23.503 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 2 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:00:23.505 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:24.508 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:24.508 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 3 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:00:24.510 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=07f02db4-d7c4-4f00-94dc-b218b3eac094
+2026-09-15 10:00:25.514 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:25.514 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:00:25.514 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:00:25.514 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:25.514 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:00:25.515 | WARNING  | main:_run_pipeline:938 - Run capped at 0 of 3 opportunities — 3 deferred to the next run
+2026-09-15 10:00:25.519 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=034dd8c6-c169-477b-8446-d8fd62c26a07
+2026-09-15 10:00:26.522 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:26.522 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:00:26.522 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:00:26.522 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:26.522 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:00:26.524 | WARNING  | main:_run_pipeline:938 - Run capped at 1 of 3 opportunities — 2 deferred to the next run
+2026-09-15 10:00:26.526 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:00:27.532 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:27.535 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=ca9058f7-dcbd-44db-914d-60791e6557a7
+2026-09-15 10:00:28.538 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:28.538 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:00:28.539 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:00:28.539 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:28.539 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:00:28.540 | WARNING  | main:_run_pipeline:938 - Run capped at 2 of 3 opportunities — 1 deferred to the next run
+2026-09-15 10:00:28.542 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:00:29.546 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:29.549 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=0cd532a3-c9a0-4b39-b471-97efe218907b
+2026-09-15 10:00:30.553 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:30.553 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:00:30.553 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:00:30.553 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:00:30.553 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:00:30.557 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:00:31.565 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:00:31.568 | SUCCESS  | reporting.email_report:send_deadline_alert_email:982 - Deadline alert email sent (1 items)
+2026-09-15 10:00:31.571 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:00:31.572 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: "'><img src=x onerror=alert(1)>&<script>alert(1)</
+2026-09-15 10:00:31.573 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 10:00:31.576 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 127.0.0.1
+2026-09-15 10:00:31.580 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::1
+2026-09-15 10:00:31.584 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::ffff:127.0.0.1
+2026-09-15 10:00:31.587 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 169.254.169.254
+2026-09-15 10:00:31.590 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 2130706433
+2026-09-15 10:00:31.594 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:00:31.595 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:00:31.597 | WARNING  | monitors.scraper:fetch_with_httpx:106 -   Static scraper fetch blocked: blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:00:31.601 | INFO     | intelligence.tender_reader:build_tor_brief:447 -   Reading the tender documents for proposal: Somalia MEL Evaluation
+2026-09-15 10:00:31.601 | INFO     | intelligence.tender_reader:build_tor_brief:486 -   [tor_brief] cached=0 input=0 output=0
+2026-09-15 10:00:31.601 | SUCCESS  | intelligence.tender_reader:build_tor_brief:491 -   Tender documents read — 42-char proposal compliance brief
+2026-09-15 10:00:31.603 | INFO     | intelligence.tender_reader:build_win_strategy:1365 -   Deciding the win strategy for EOI: Somalia MEL Evaluation
+2026-09-15 10:00:31.603 | INFO     | intelligence.tender_reader:build_win_strategy:1410 -   [win_strategy] cached=0 input=0 output=0
+2026-09-15 10:00:31.603 | SUCCESS  | intelligence.tender_reader:build_win_strategy:1414 -   Win strategy decided — 40-char EOI thesis
+2026-09-15 10:00:31.604 | INFO     | intelligence.proposal_writer:build_system_blocks:1175 -   No ToR-prescribed section list — using Cortech house structure
+2026-09-15 10:00:31.607 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 10:00:31.608 | INFO     | intelligence.proposal_writer:_generate_section:1520 -   Writing test...
+2026-09-15 10:00:31.608 | INFO     | intelligence.proposal_writer:_log_cache_usage:1363 -   [test] cached=0 input=0 output=0
+2026-09-15 10:00:31.615 | INFO     | utils.observability:record_usage:169 - llm_usage stage=first model=claude-sonnet-5 in=11 out=7 cached=0 est_cost_usd=9.199999999999999e-05
+2026-09-15 10:00:31.615 | INFO     | utils.observability:record_usage:169 - llm_usage stage=retry model=claude-sonnet-5 in=5 out=3 cached=0 est_cost_usd=4e-05
+2026-09-15 10:00:31.616 | INFO     | utils.observability:record_usage:169 - llm_usage stage=unknown model=claude-sonnet-5 in=UNKNOWN out=UNKNOWN cached=0 est_cost_usd=UNKNOWN
+2026-09-15 10:00:31.616 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:one model=claude-sonnet-5 in=13 out=8 cached=0 est_cost_usd=0.00010599999999999999
+2026-09-15 10:00:31.617 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:retry model=claude-sonnet-5 in=2 out=5 cached=0 est_cost_usd=5.4000000000000005e-05
+2026-09-15 10:00:31.626 | INFO     | intelligence.tender_reader:tender_documents_block:150 -   Redacted 1 financial figure(s) from the tender pack before any brief or draft is written
+2026-09-15 10:00:31.629 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [cover_letter]
+2026-09-15 10:00:31.629 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [quality_score.one_improvement]
+2026-09-15 10:00:31.629 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 10:00:31.630 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 10:00:31.631 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 10:00:31.631 | ERROR    | main:_run_monitored:183 - bad run failed
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     │      └ <function console_main at 0x7d8bc528fed0>
+                     └ <module 'pytest' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__init__.py'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 201, in console_main
+    code = main()
+           └ <function main at 0x7d8bc528fd70>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 175, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         │                │      │    │                          └ <_pytest.config.Config object at 0x7d8bc4f67620>
+         │                │      │    └ <HookCaller 'pytest_cmdline_main'>
+         │                │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7d8bc4f67b60>
+         │                └ <_pytest.config.Config object at 0x7d8bc4f67620>
+         └ <enum 'ExitCode'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'config': <_pytest.config.Config object at 0x7d8bc4f67620>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_cmdline_main'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_cmdline_main'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_cmdline_main'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'config': <_pytest.config.Config object at 0x7d8bc4f67620>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_cmdline_main'
+           │    └ <function _multicall at 0x7d8bc5886350>
+           └ <_pytest.config.PytestPluginManager object at 0x7d8bc4f65be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<_pytest.config.Config object at 0x7d8bc4f67620>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 336, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           │            │       └ <function _main at 0x7d8bc51a38a0>
+           │            └ <_pytest.config.Config object at 0x7d8bc4f67620>
+           └ <function wrap_session at 0x7d8bc51a35e0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 289, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    │       │            │    │       └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │       │            │    └ <_pytest.config.Config object at 0x7d8bc4f67620>
+    │       │            └ <function _main at 0x7d8bc51a38a0>
+    │       └ <ExitCode.OK: 0>
+    └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 343, in _main
+    config.hook.pytest_runtestloop(session=session)
+    │      │    │                          └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │      │    └ <HookCaller 'pytest_runtestloop'>
+    │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7d8bc4f67b60>
+    └ <_pytest.config.Config object at 0x7d8bc4f67620>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtestloop'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtestloop'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtestloop'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_runtestloop'
+           │    └ <function _multicall at 0x7d8bc5886350>
+           └ <_pytest.config.PytestPluginManager object at 0x7d8bc4f65be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 367, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    │    │                                        │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │    │                                        └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <member 'config' of 'Node' objects>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_protocol'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_protocol'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_protocol'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │               │          └ [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_runtest_protocol'
+           │    └ <function _multicall at 0x7d8bc5886350>
+           └ <_pytest.config.PytestPluginManager object at 0x7d8bc4f65be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>, <Function test_supabase_client_is_created_lazily_and_r...
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 117, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    │               │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    └ <function runtestprotocol at 0x7d8bc51a17a0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 136, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    │       │      │               │             └ True
+    │       │      │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │       │      └ <function call_and_report at 0x7d8bc51a2140>
+    │       └ <method 'append' of 'list' objects>
+    └ [<TestReport 'tests/test_security_reliability_remediations.py::test_monitored_runner_only_pings_success_after_completion' whe...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 245, in call_and_report
+    call = CallInfo.from_call(
+           │        └ <classmethod(<function CallInfo.from_call at 0x7d8bc51a2820>)>
+           └ <class '_pytest.runner.CallInfo'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 344, in from_call
+    result: TResult | None = func()
+            │                └ <function call_and_report.<locals>.<lambda> at 0x7d8bb4623950>
+            └ +TResult
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 246, in <lambda>
+    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise
+            │                 │       └ {}
+            │                 └ <Function test_monitored_runner_only_pings_success_after_completion>
+            └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ False
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ False
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from '/home/sharahbill/cortech-bd-agent/co...
+           │    │               └ 'pytest_runtest_call'
+           │    └ <function _multicall at 0x7d8bc5886350>
+           └ <_pytest.config.PytestPluginManager object at 0x7d8bc4f65be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 178, in pytest_runtest_call
+    item.runtest()
+    │    └ <function Function.runtest at 0x7d8bc5124bf0>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 1671, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    │    │                                   └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <property object at 0x7d8bc5272c00>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_pyfunc_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_pyfunc_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_pyfunc_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_pyfunc_call'
+           │    └ <function _multicall at 0x7d8bc5886350>
+           └ <_pytest.config.PytestPluginManager object at 0x7d8bc4f65be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 157, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             │              └ {'monkeypatch': <_pytest.monkeypatch.MonkeyPatch object at 0x7d8bbddfde80>}
+             └ <function test_monitored_runner_only_pings_success_after_completion at 0x7d8bbddcafb0>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in test_monitored_runner_only_pings_success_after_completion
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7d8bbf01a770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+> File "/home/sharahbill/cortech-bd-agent/main.py", line 179, in _run_monitored
+    result = callback()
+             └ <function test_monitored_runner_only_pings_success_after_completion.<locals>.<lambda> at 0x7d8bb4623ab0>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <lambda>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7d8bbf01a770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <genexpr>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7d8bbf01a770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+RuntimeError: boom
+2026-09-15 10:00:31.639 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:31.639 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:31.640 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:00:31.640 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://somalijobs.com/tenders/2/evaluation
+2026-09-15 10:00:31.642 | ERROR    | database.supabase_client:claim_opportunity_processing:433 - Opportunity-state claim did not return its ownership token
+2026-09-15 10:00:31.643 | ERROR    | database.supabase_client:get_embedding:177 - OpenAI rejected OPENAI_API_KEY (401 invalidated). .env on disk was last saved 2026-09-11 16:30. If you just pasted a new key in the editor, save the file (Ctrl+S) before rerunning. Embeddings power CV matching and past-proposal search — they are not the Anthropic drafting key. Create a new key at https://platform.openai.com/api-keys paste OPENAI_API_KEY=sk-... with no quotes, save, and rerun. error_type=AUTH_ERROR
+2026-09-15 10:00:31.647 | WARNING  | database.supabase_client:store_opportunity:620 - content_hash column missing — storing without uniqueness. Apply supabase_migration_content_hash.sql.
+2026-09-15 10:00:31.648 | INFO     | database.supabase_client:store_opportunity:610 - content_hash already stored (source_url=https://first.example/tender)
+2026-09-15 10:00:31.650 | WARNING  | database.supabase_client:find_opportunity_by_content_hash:550 - opportunities_cache.content_hash is missing — apply supabase_migration_content_hash.sql. Dedup stays URL-only.
+2026-09-15 10:00:31.673 | INFO     | intelligence.tender_reader:pack_tender_text:128 -   Packed tender 28,179 → 8,004 chars (assignment sections retained)
+2026-09-15 10:00:31.677 | SUCCESS  | intelligence.tender_reader:extract_document_lock:1323 -   Document lock extracted from the tender pack
+2026-09-15 10:00:31.684 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (BID) for: SPREAD Learning Paper 2
+2026-09-15 10:00:31.684 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 2 sections in parallel (workers=2)
+2026-09-15 10:00:31.684 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [suitability_statement] complete
+2026-09-15 10:00:31.685 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [work_plan] complete
+2026-09-15 10:00:31.688 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:00:31.689 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2462 - Proposal generation complete!
+2026-09-15 10:01:36.385 | SUCCESS  | database.airtable_client:create_opportunity:79 - Created opportunity: Tender
+2026-09-15 10:01:36.387 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.387 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:01:36.387 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.387 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:01:36.387 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.387 | ERROR    | intelligence.analyzer:analyze_rfp:336 -   Empty document — refusing analysis for 'Unknown'
+2026-09-15 10:01:36.388 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.389 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 10:01:36.393 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.394 | ERROR    | intelligence.analyzer:analyze_rfp:447 -   JSON parse failed for 'Unknown': Expecting value: line 1 column 1 (char 0)
+2026-09-15 10:01:36.394 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.395 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:01:36.395 | ERROR    | intelligence.analyzer:analyze_rfp:403 -   Schema validation failed after retry for 'Unknown' — refusing. error_type=VALIDATION_ERROR. opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:01:36.396 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Unknown...
+2026-09-15 10:01:36.396 | WARNING  | intelligence.analyzer:analyze_rfp:374 -   Schema validation failed for 'Unknown' — retrying once: opportunity.estimated_budget_usd: Value error, not a number: dict
+2026-09-15 10:01:36.396 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: None/100 | consultancy: True | submission: None
+2026-09-15 10:01:36.479 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget PARTIAL: known personnel subtotal $14,800.00; 4 required input(s) unresolved
+2026-09-15 10:01:36.479 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 10:01:36.481 | WARNING  | intelligence.budget_calculator:calculate_budget:125 - Rate-card lookup failed; budget remains incomplete: 429
+2026-09-15 10:01:36.481 | INFO     | intelligence.budget_calculator:calculate_budget:225 - Budget INSUFFICIENT DATA: known personnel subtotal $0.00; 6 required input(s) unresolved
+2026-09-15 10:01:36.489 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.award_observations' in the schema cache
+2026-09-15 10:01:36.495 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:01:36.498 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 10:01:36.498 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Team Lead → Amina Hassan (score: 0%)
+2026-09-15 10:01:36.499 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 1 roles
+2026-09-15 10:01:36.499 | SUCCESS  | intelligence.cv_matcher:match_team_to_requirements:489 -   Evaluator → Amina Hassan (score: 80%)
+2026-09-15 10:01:36.502 | INFO     | intelligence.cv_matcher:match_team_to_requirements:394 - Matching team for 2 roles
+2026-09-15 10:01:36.502 | ERROR    | intelligence.cv_matcher:match_team_to_requirements:462 -   CV search unavailable for remaining roles (invalid key) — not treating this as a staffing gap
+2026-09-15 10:01:36.513 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 10:01:36.515 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: blocked HTTPS-to-HTTP redirect downgrade error_type=INGESTION_ERROR
+2026-09-15 10:01:36.516 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: Document exceeds 5 byte limit while streaming error_type=INGESTION_ERROR
+2026-09-15 10:01:36.517 | WARNING  | processors.downloader:download_document:134 - Transient download failure (attempt 1/3); retrying in 1s: connection reset
+2026-09-15 10:01:36.518 | ERROR    | processors.downloader:download_document:126 - Download failed for https://procurement.example/tender: too large error_type=INGESTION_ERROR
+2026-09-15 10:01:36.519 | WARNING  | processors.downloader:_list_gdrive_folder_files:447 - Drive folder has 3 files; limiting this opportunity to the first 2
+2026-09-15 10:01:36.521 | ERROR    | processors.downloader:extract_text_from_docx:209 - DOCX extraction failed: DOCX uncompressed content exceeds configured safety limit (32 bytes) error_type=DOCUMENT_ERROR
+2026-09-15 10:01:36.585 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.586 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Tender <img src=x onerror=alert(1)>
+Bcc: attacker
+2026-09-15 10:01:36.590 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.590 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 10:01:36.592 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 10:01:36.592 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: REOI for MEL
+2026-09-15 10:01:36.595 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.595 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Somalia MEL Endline
+2026-09-15 10:01:36.597 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.597 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: KPEEL EOI
+2026-09-15 10:01:36.601 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.602 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: SPREAD Learning Paper 2
+2026-09-15 10:01:36.607 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:01:36.611 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 10:01:36.612 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 1/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:01:36.613 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ian Luke Munyovi
+2026-09-15 10:01:36.613 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 2/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:01:36.614 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 15s then retrying Ian Luke Munyovi
+2026-09-15 10:01:36.614 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ian Luke Munyovi (attempt 3/3): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:01:36.616 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 45s then retrying after 3 consecutive failures
+2026-09-15 10:01:36.617 | INFO     | embed_cvs:embed_consultant_cv:474 - Already embedded, skipping Ada Lovelace (emb-already)
+2026-09-15 10:01:36.618 | WARNING  | embed_cvs:retry_on_transient:206 - Transient network error for Ahmed Adan Hassan (attempt 1/4): [Errno -3] Temporary failure in name resolution
+2026-09-15 10:01:36.618 | WARNING  | embed_cvs:announce_network_wait:176 - Network error — waiting 5s then retrying Ahmed Adan Hassan
+2026-09-15 10:01:36.618 | SUCCESS  | embed_cvs:embed_consultant_cv:532 - CV embedding inserted: Ahmed Adan Hassan (emb-new)
+2026-09-15 10:01:36.627 | INFO     | intelligence.proposal_writer:_build_past_work_context:211 -   Past-work evidence: 1 assignments matched, top = 
+2026-09-15 10:01:36.628 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (WATCH) for: Unknown Assignment
+2026-09-15 10:01:36.628 | INFO     | intelligence.proposal_writer:generate_proposal:2402 -   WATCH + FULL_DRAFT_FOR_WATCH disabled — quick flag only
+2026-09-15 10:01:36.632 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:01:36.633 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2425 - WATCH quick-flag generation complete!
+2026-09-15 10:01:36.634 | INFO     | intelligence.proposal_writer:generate_eoi:2091 - Generating EOI for: Unknown Assignment
+2026-09-15 10:01:36.634 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 7 sections in parallel (workers=4)
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [cover_letter] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [approach_summary] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [firm_profile] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [understanding] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [key_experts] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [relevant_experience] complete
+2026-09-15 10:01:36.635 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [eligibility] complete
+2026-09-15 10:01:36.640 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:01:36.640 | SUCCESS  | intelligence.proposal_writer:generate_eoi:2350 - EOI generation complete!
+2026-09-15 10:01:36.652 | INFO     | intelligence.analyzer:analyze_rfp:333 -   Analyzing: Consultancy to conduct a WASH KAP survey in Dadaab refugee c...
+2026-09-15 10:01:36.652 | SUCCESS  | intelligence.analyzer:analyze_rfp:428 -   Analysis complete — score: 1.0/100 | consultancy: True | submission: FULL_PROPOSAL
+2026-09-15 10:01:36.712 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 1 verified, 1 not verified, 0 insufficient
+2026-09-15 10:01:36.712 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 10:01:36.716 | WARNING  | intelligence.learning:fetch_win_loss_lessons:222 - Win/loss RPC unavailable (no rpc) — using table fallback
+2026-09-15 10:01:36.717 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: /tmp/pytest-of-sharahbill/pytest-38/test_save_and_load_draft_memor0/rec123.json
+2026-09-15 10:01:36.718 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 10:01:36.718 | INFO     | intelligence.proposal_writer:_build_past_work_context:245 -   Past-work evidence: 1 Airtable proposals ranked, top = Somalia MEL endline
+2026-09-15 10:01:36.721 | INFO     | intelligence.proposal_writer:_build_guidance_block:1090 -   Injected prior-bid lessons into trusted writer guidance
+2026-09-15 10:01:36.726 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=2, dated=2)
+2026-09-15 10:01:36.728 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 10:01:36.729 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:01:36.732 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=12, dated=12)
+2026-09-15 10:01:36.736 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 10:01:36.736 | WARNING  | database.market_store:load_supabase_opportunity_rows:204 - opportunities_cache unavailable (fail-open): PGRST205: Could not find the table 'public.opportunities_cache' in the schema cache
+2026-09-15 10:01:36.737 | WARNING  | database.market_store:load_supabase_opportunity_rows:198 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Market digest fail-opens to timestamps/title only, then Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 10:01:36.738 | INFO     | database.market_store:load_supabase_opportunity_rows:213 - Market digest loaded 1 opportunities_cache rows (select=id, source_url, title, created_at, truncated=False)
+2026-09-15 10:01:36.738 | WARNING  | database.market_store:load_airtable_opportunity_rows:229 - Airtable OPPORTUNITIES load skipped (fail-open): 429 rate limit
+2026-09-15 10:01:36.740 | WARNING  | database.supabase_client:update_opportunity_facts:717 - opportunities_cache observed-fact columns missing — apply supabase_migration_opportunity_facts.sql. Cache row still stored; market digest fail-opens to timestamps and Airtable secondary fields. Cause: PGRST204: Could not find the 'thematic_areas' column of 'opportunities_cache' in the schema cache
+2026-09-15 10:01:36.742 | WARNING  | database.intelligence_facts:load_award_observations:225 - award_observations load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:36.743 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=0, dated=0)
+2026-09-15 10:01:36.743 | INFO     | main:_run_market_digest:1190 - Market digest complete — store_rows=0, dated=0, sources=()
+2026-09-15 10:01:36.747 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=27b2f944-36e2-44ac-a4df-84f9d65d46b1
+2026-09-15 10:01:37.751 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:37.751 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:01:37.752 | INFO     | main:_run_pipeline:862 -   Scrapers total: 37 passed filter
+2026-09-15 10:01:37.752 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:37.752 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:01:37.752 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:37.752 | ERROR    | main:_run_pipeline:909 - Skipping 37 bulk discoveries: opportunity_processing ledger is missing. Apply supabase_migration_opportunity_state.sql. Use python main.py --submit-url for a one-off.
+2026-09-15 10:01:37.757 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:37.757 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Somali Jobs tender
+2026-09-15 10:01:37.758 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:37.758 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://example.test/tor.pdf
+2026-09-15 10:01:37.758 | WARNING  | main:process_opportunity:241 - Completion state was not persisted; leaving opportunity retryable
+2026-09-15 10:01:37.777 | WARNING  | database.organizations:_mark_missing:71 - organizations tables missing — apply supabase_migration_organizations.sql. Client intelligence fail-opens (empty index, no crash). Cause: PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 10:01:37.778 | WARNING  | database.organizations:collect_matching_store_records:418 - org store scan skipped (fail-open): PGRST205: Could not find the table 'public.organizations' in the schema cache
+2026-09-15 10:01:37.780 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 10:01:37.780 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New Client A tender
+2026-09-15 10:01:37.782 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): Server disconnected without sending a response.
+2026-09-15 10:01:37.782 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: Brand new client
+2026-09-15 10:01:37.784 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:37.784 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:37.784 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:01:37.785 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=98 win=92 recommendation=BID score_version=1.0.0
+2026-09-15 10:01:37.785 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:01:37.786 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:01:37.786 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:01:37.786 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:01:37.786 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:01:37.787 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/airtable-id.json
+2026-09-15 10:01:37.789 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:37.789 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:37.789 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:01:37.790 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=12 win=32 recommendation=NO-BID score_version=1.0.0
+2026-09-15 10:01:37.791 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=skipped recommendation=NO-BID decision_state=HUMAN_REVIEW_REQUIRED
+2026-09-15 10:01:37.814 | WARNING  | database.intelligence_facts:_mark_missing:57 - award_observations / relationship_edges missing — apply supabase_migration_award_relationships.sql. Phase 5 facts fail-open. Cause: PGRST205: Could not find the table 'public.relationship_edges' in the schema cache
+2026-09-15 10:01:37.815 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: New tender
+2026-09-15 10:01:39.554 | DEBUG    | monitors.scraper:parse_tenders_from_html:267 -   No structured items found for Somali Jobs Tenders — using anchor fallback
+2026-09-15 10:01:39.557 | INFO     | monitors.scraper:scrape_one_source:333 -   Scraping: Broken
+2026-09-15 10:01:39.557 | ERROR    | monitors.scraper:scrape_one_source:365 -   Scraper failed for Broken (non-fatal): 'url'
+2026-09-15 10:01:39.558 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:01:39.558 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:01:39.558 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:01:39.560 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via bundled
+2026-09-15 10:01:39.561 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:01:39.561 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:01:39.561 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:01:39.563 | WARNING  | utils.browser_security:_sanitize_playwright_browsers_path:118 - PLAYWRIGHT_BROWSERS_PATH is empty or has no Chromium; unsetting it so Playwright can fall back to system Chrome
+2026-09-15 10:01:39.563 | DEBUG    | utils.browser_security:launch_chromium:153 - Playwright bundled Chromium is not installed; using system Chrome
+2026-09-15 10:01:39.563 | DEBUG    | utils.browser_security:launch_chromium:166 - Playwright Chromium launched via chrome
+2026-09-15 10:01:39.564 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:39.565 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:39.565 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:01:39.565 | ERROR    | main:_process_opportunity_pipeline:375 -   Analysis returned empty — skipping
+2026-09-15 10:01:39.565 | INFO     | utils.observability:log_stage:209 - stage=analyze status=error error_type=ANALYSIS_ERROR
+2026-09-15 10:01:39.566 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:39.566 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:39.566 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:01:39.567 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 10:01:39.568 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:01:39.568 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:01:39.568 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:01:39.568 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:01:39.569 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:01:39.569 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 10:01:39.572 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:39.573 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:39.573 | INFO     | main:_process_opportunity_pipeline:359 -   Same document body already cached under https://other.example/same-body (content_hash 66381db51815) — skipping re-analysis
+2026-09-15 10:01:39.573 | INFO     | utils.observability:log_stage:209 - stage=analyze status=skip reason=content_hash_duplicate
+2026-09-15 10:01:39.575 | INFO     | main:_process_opportunity_pipeline:306 -   Step 1: Fetching document...
+2026-09-15 10:01:39.576 | INFO     | utils.observability:log_stage:209 - stage=fetch status=ok chars=570 content_sha256=66381db51815
+2026-09-15 10:01:39.576 | INFO     | main:_process_opportunity_pipeline:371 -   Step 2: Analyzing...
+2026-09-15 10:01:39.577 | INFO     | utils.observability:log_stage:209 - stage=score status=ok fit=100 win=93 recommendation=BID score_version=1.0.0
+2026-09-15 10:01:39.577 | INFO     | main:_process_opportunity_pipeline:522 -   Step 3: Matching team from CV database...
+2026-09-15 10:01:39.577 | INFO     | main:_process_opportunity_pipeline:583 -   Step 4: Preparing internal budget for team review...
+2026-09-15 10:01:39.577 | INFO     | main:_process_opportunity_pipeline:616 -   Submission type: Full technical proposal
+2026-09-15 10:01:39.578 | INFO     | main:_process_opportunity_pipeline:617 -   Step 5: Reading the tender documents, then drafting...
+2026-09-15 10:01:39.578 | INFO     | utils.observability:log_stage:209 - stage=opportunity status=ok recommendation=BID estimated_cost_usd=UNKNOWN tokens_in=0 tokens_out=0
+2026-09-15 10:01:39.579 | INFO     | intelligence.learning:save_draft_memory:278 -   Stored draft memory for learning: output/learning/rec-1.json
+2026-09-15 10:01:39.580 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 10:01:39.582 | INFO     | main:process_opportunity:211 - Opportunity already completed or actively claimed: Duplicate
+2026-09-15 10:01:39.584 | INFO     | main:process_opportunity:218 - Processing cap reached (1); deferring 'Two'
+2026-09-15 10:01:39.585 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:40.589 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:40.589 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 0 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:01:40.589 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 0 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:01:40.590 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:41.593 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:41.594 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 1 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:01:41.594 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 1 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:01:41.595 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:42.598 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:42.599 | WARNING  | main:_run_assortis_check:1065 - Assortis run capped at 2 of 3 opportunities; remainder will be rediscovered/retried next run
+2026-09-15 10:01:42.599 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 2 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:01:42.601 | INFO     | main:_run_assortis_check:1051 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:43.605 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:43.605 | INFO     | main:_run_assortis_check:1100 - Assortis check complete — 3 opportunity(ies) found, 0 drafted and emailed
+2026-09-15 10:01:43.607 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=6e1fb90b-3c77-4bd9-9b29-1b2396588b5d
+2026-09-15 10:01:44.610 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:44.610 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:01:44.610 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:01:44.610 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:44.610 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:01:44.612 | WARNING  | main:_run_pipeline:938 - Run capped at 0 of 3 opportunities — 3 deferred to the next run
+2026-09-15 10:01:44.615 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=e73c2d78-e672-462b-a751-79b1e007f16b
+2026-09-15 10:01:45.617 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:45.618 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:01:45.618 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:01:45.618 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:45.618 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:01:45.619 | WARNING  | main:_run_pipeline:938 - Run capped at 1 of 3 opportunities — 2 deferred to the next run
+2026-09-15 10:01:45.621 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:01:46.624 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:46.626 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=bfd37ebc-67ad-4e57-974a-8651142d87ba
+2026-09-15 10:01:47.629 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:47.629 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:01:47.629 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:01:47.629 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:47.629 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:01:47.631 | WARNING  | main:_run_pipeline:938 - Run capped at 2 of 3 opportunities — 1 deferred to the next run
+2026-09-15 10:01:47.633 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:01:48.636 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:48.639 | INFO     | utils.observability:log_stage:209 - stage=pipeline status=start execution_id=0e16c747-eb2d-4711-9621-3fdbd0fedd0a
+2026-09-15 10:01:49.642 | WARNING  | intelligence.learning:process_win_loss_outcomes:366 - Win/loss poll failed (non-fatal): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/OPPORTUNITIES?filterByFormula=OR%28%7Bstatus%7D%3D%27Won%27%2C+%7Bstatus%7D%3D%27Lost%27%29 (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:49.642 | INFO     | main:_run_pipeline:858 - Running web scrapers...
+2026-09-15 10:01:49.642 | INFO     | main:_run_pipeline:862 -   Scrapers total: 3 passed filter
+2026-09-15 10:01:49.642 | INFO     | main:_run_pipeline:879 - Checking Assortis/ICA newsletter...
+2026-09-15 10:01:49.642 | INFO     | main:_run_pipeline:883 -   Assortis total: 0 passed filter
+2026-09-15 10:01:49.645 | INFO     | main:_run_pipeline:997 - Sending pipeline summary report...
+2026-09-15 10:01:50.649 | WARNING  | database.airtable_client:log_agent_action:234 - Agent log write failed (non-fatal, continuing): HTTPSConnectionPool(host='api.airtable.com', port=443): Max retries exceeded with url: /v0/app2zoGNoagY5eLht/AGENT_LOGS (Caused by ProtocolError('Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')))
+2026-09-15 10:01:50.651 | SUCCESS  | reporting.email_report:send_deadline_alert_email:982 - Deadline alert email sent (1 items)
+2026-09-15 10:01:50.652 | WARNING  | database.intelligence_facts:load_relationship_edges:254 - relationship_edges load failed (fail-open): [Errno 104] Connection reset by peer
+2026-09-15 10:01:50.652 | SUCCESS  | reporting.email_report:send_proposal_email:2097 - Proposal email sent: "'><img src=x onerror=alert(1)>&<script>alert(1)</
+2026-09-15 10:01:50.652 | SUCCESS  | reporting.email_report:send_market_digest_email:1222 - Market digest email sent (store_rows=10, dated=10)
+2026-09-15 10:01:50.654 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 127.0.0.1
+2026-09-15 10:01:50.655 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::1
+2026-09-15 10:01:50.656 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: ::ffff:127.0.0.1
+2026-09-15 10:01:50.657 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 169.254.169.254
+2026-09-15 10:01:50.658 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked host: 2130706433
+2026-09-15 10:01:50.659 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:01:50.659 | WARNING  | utils.browser_security:guard_browser_request:28 - Browser request blocked (SSRF_ERROR): blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:01:50.661 | WARNING  | monitors.scraper:fetch_with_httpx:106 -   Static scraper fetch blocked: blocked HTTPS-to-HTTP redirect downgrade
+2026-09-15 10:01:50.663 | INFO     | intelligence.tender_reader:build_tor_brief:447 -   Reading the tender documents for proposal: Somalia MEL Evaluation
+2026-09-15 10:01:50.663 | INFO     | intelligence.tender_reader:build_tor_brief:486 -   [tor_brief] cached=0 input=0 output=0
+2026-09-15 10:01:50.663 | SUCCESS  | intelligence.tender_reader:build_tor_brief:491 -   Tender documents read — 42-char proposal compliance brief
+2026-09-15 10:01:50.665 | INFO     | intelligence.tender_reader:build_win_strategy:1365 -   Deciding the win strategy for EOI: Somalia MEL Evaluation
+2026-09-15 10:01:50.665 | INFO     | intelligence.tender_reader:build_win_strategy:1410 -   [win_strategy] cached=0 input=0 output=0
+2026-09-15 10:01:50.665 | SUCCESS  | intelligence.tender_reader:build_win_strategy:1414 -   Win strategy decided — 40-char EOI thesis
+2026-09-15 10:01:50.666 | INFO     | intelligence.proposal_writer:build_system_blocks:1175 -   No ToR-prescribed section list — using Cortech house structure
+2026-09-15 10:01:50.668 | WARNING  | intelligence.proposal_writer:_build_past_work_context:218 -   Past-work evidence: no semantic matches — ranking Airtable PAST_PROPOSALS
+2026-09-15 10:01:50.669 | INFO     | intelligence.proposal_writer:_generate_section:1520 -   Writing test...
+2026-09-15 10:01:50.669 | INFO     | intelligence.proposal_writer:_log_cache_usage:1363 -   [test] cached=0 input=0 output=0
+2026-09-15 10:01:50.673 | INFO     | utils.observability:record_usage:169 - llm_usage stage=first model=claude-sonnet-5 in=11 out=7 cached=0 est_cost_usd=9.199999999999999e-05
+2026-09-15 10:01:50.673 | INFO     | utils.observability:record_usage:169 - llm_usage stage=retry model=claude-sonnet-5 in=5 out=3 cached=0 est_cost_usd=4e-05
+2026-09-15 10:01:50.673 | INFO     | utils.observability:record_usage:169 - llm_usage stage=unknown model=claude-sonnet-5 in=UNKNOWN out=UNKNOWN cached=0 est_cost_usd=UNKNOWN
+2026-09-15 10:01:50.674 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:one model=claude-sonnet-5 in=13 out=8 cached=0 est_cost_usd=0.00010599999999999999
+2026-09-15 10:01:50.674 | INFO     | utils.observability:record_usage:169 - llm_usage stage=proposal_section:retry model=claude-sonnet-5 in=2 out=5 cached=0 est_cost_usd=5.4000000000000005e-05
+2026-09-15 10:01:50.683 | INFO     | intelligence.tender_reader:tender_documents_block:150 -   Redacted 1 financial figure(s) from the tender pack before any brief or draft is written
+2026-09-15 10:01:50.685 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [cover_letter]
+2026-09-15 10:01:50.685 | WARNING  | intelligence.proposal_writer:scrub:1624 -   Final money audit scrubbed 1 amount(s) from [quality_score.one_improvement]
+2026-09-15 10:01:50.685 | SUCCESS  | intelligence.proposal_writer:_final_money_audit:1667 -   Money audit clean — no financial information in the draft
+2026-09-15 10:01:50.686 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 10:01:50.686 | WARNING  | utils.healthcheck:ping_healthcheck:41 - Healthcheck ping failed (Exception)
+2026-09-15 10:01:50.687 | ERROR    | main:_run_monitored:183 - bad run failed
+Traceback (most recent call last):
+
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     │      └ <function console_main at 0x7abf41dd7ed0>
+                     └ <module 'pytest' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pytest/__init__.py'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 201, in console_main
+    code = main()
+           └ <function main at 0x7abf41dd7d70>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/config/__init__.py", line 175, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         │                │      │    │                          └ <_pytest.config.Config object at 0x7abf41ab3620>
+         │                │      │    └ <HookCaller 'pytest_cmdline_main'>
+         │                │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7abf41ab3b60>
+         │                └ <_pytest.config.Config object at 0x7abf41ab3620>
+         └ <enum 'ExitCode'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'config': <_pytest.config.Config object at 0x7abf41ab3620>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_cmdline_main'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_cmdline_main'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_cmdline_main'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'config': <_pytest.config.Config object at 0x7abf41ab3620>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_cmdline_main'
+           │    └ <function _multicall at 0x7abf423ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x7abf41ab1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<_pytest.config.Config object at 0x7abf41ab3620>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 336, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           │            │       └ <function _main at 0x7abf41ceb8a0>
+           │            └ <_pytest.config.Config object at 0x7abf41ab3620>
+           └ <function wrap_session at 0x7abf41ceb5e0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 289, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    │       │            │    │       └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │       │            │    └ <_pytest.config.Config object at 0x7abf41ab3620>
+    │       │            └ <function _main at 0x7abf41ceb8a0>
+    │       └ <ExitCode.OK: 0>
+    └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 343, in _main
+    config.hook.pytest_runtestloop(session=session)
+    │      │    │                          └ <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>
+    │      │    └ <HookCaller 'pytest_runtestloop'>
+    │      └ <_pytest.config.compat.PathAwareHookProxy object at 0x7abf41ab3b60>
+    └ <_pytest.config.Config object at 0x7abf41ab3620>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtestloop'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtestloop'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtestloop'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>}
+           │    │               │          └ [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/s...
+           │    │               └ 'pytest_runtestloop'
+           │    └ <function _multicall at 0x7abf423ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x7abf41ab1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=319>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='main', plugin=<module '_pytest.main' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/si...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/main.py", line 367, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    │    │                                        │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │    │                                        └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <member 'config' of 'Node' objects>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_protocol'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_protocol'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_protocol'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>, 'nextitem': <Function test_supabase_client_is_...
+           │    │               │          └ [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_runtest_protocol'
+           │    └ <function _multicall at 0x7abf423ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x7abf41ab1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>, <Function test_supabase_client_is_created_lazily_and_r...
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 117, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    │               │              └ <Function test_supabase_client_is_created_lazily_and_reused>
+    │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    └ <function runtestprotocol at 0x7abf41ce97a0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 136, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    │       │      │               │             └ True
+    │       │      │               └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │       │      └ <function call_and_report at 0x7abf41cea140>
+    │       └ <method 'append' of 'list' objects>
+    └ [<TestReport 'tests/test_security_reliability_remediations.py::test_monitored_runner_only_pings_success_after_completion' whe...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 245, in call_and_report
+    call = CallInfo.from_call(
+           │        └ <classmethod(<function CallInfo.from_call at 0x7abf41cea820>)>
+           └ <class '_pytest.runner.CallInfo'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 344, in from_call
+    result: TResult | None = func()
+            │                └ <function call_and_report.<locals>.<lambda> at 0x7abf29353950>
+            └ +TResult
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 246, in <lambda>
+    lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise
+            │                 │       └ {}
+            │                 └ <Function test_monitored_runner_only_pings_success_after_completion>
+            └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ False
+           │    │         │    │     │    │                  └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_runtest_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_runtest_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_runtest_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ False
+           │    │               │          │        └ {'item': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from '/home/sharahbill/cortech-bd-agent/co...
+           │    │               └ 'pytest_runtest_call'
+           │    └ <function _multicall at 0x7abf423ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x7abf41ab1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/runner.py", line 178, in pytest_runtest_call
+    item.runtest()
+    │    └ <function Function.runtest at 0x7abf41c70bf0>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 1671, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    │    │                                   └ <Function test_monitored_runner_only_pings_success_after_completion>
+    │    └ <property object at 0x7abf41dbacf0>
+    └ <Function test_monitored_runner_only_pings_success_after_completion>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           │    │         │    │     │    │                  │       └ True
+           │    │         │    │     │    │                  └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │         │    │     │    └ <member '_hookimpls' of 'HookCaller' objects>
+           │    │         │    │     └ <HookCaller 'pytest_pyfunc_call'>
+           │    │         │    └ <member 'name' of 'HookCaller' objects>
+           │    │         └ <HookCaller 'pytest_pyfunc_call'>
+           │    └ <member '_hookexec' of 'HookCaller' objects>
+           └ <HookCaller 'pytest_pyfunc_call'>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           │    │               │          │        │       └ True
+           │    │               │          │        └ {'pyfuncitem': <Function test_monitored_runner_only_pings_success_after_completion>}
+           │    │               │          └ [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3....
+           │    │               └ 'pytest_pyfunc_call'
+           │    └ <function _multicall at 0x7abf423ae350>
+           └ <_pytest.config.PytestPluginManager object at 0x7abf41ab1be0>
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/pluggy/_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          │         │         └ [<Function test_monitored_runner_only_pings_success_after_completion>]
+          │         └ <member 'function' of 'HookImpl' objects>
+          └ <HookImpl plugin_name='python', plugin=<module '_pytest.python' from '/home/sharahbill/cortech-bd-agent/cortech/lib/python3.1...
+  File "/home/sharahbill/cortech-bd-agent/cortech/lib/python3.14/site-packages/_pytest/python.py", line 157, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             │              └ {'monkeypatch': <_pytest.monkeypatch.MonkeyPatch object at 0x7abf3a9e1e80>}
+             └ <function test_monitored_runner_only_pings_success_after_completion at 0x7abf3a99efb0>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in test_monitored_runner_only_pings_success_after_completion
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7abf3bdfe770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+> File "/home/sharahbill/cortech-bd-agent/main.py", line 179, in _run_monitored
+    result = callback()
+             └ <function test_monitored_runner_only_pings_success_after_completion.<locals>.<lambda> at 0x7abf29353ab0>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <lambda>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7abf3bdfe770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+  File "/home/sharahbill/cortech-bd-agent/tests/test_security_reliability_remediations.py", line 770, in <genexpr>
+    main._run_monitored("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")), heartbeat=True)
+    │    └ <function _run_monitored at 0x7abf3bdfe770>
+    └ <module 'main' from '/home/sharahbill/cortech-bd-agent/main.py'>
+
+RuntimeError: boom
+2026-09-15 10:01:50.692 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:50.693 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:50.693 | ERROR    | database.supabase_client:_mark_opportunity_ledger_unavailable:84 - CRITICAL: opportunity_processing is missing in this Supabase project. Bulk discovery will not treat URLs as new and will skip drafting until supabase_migration_opportunity_state.sql is applied. Manual python main.py --submit-url still works. Cause: PGRST205: Could not find the table 'public.opportunity_processing' in the schema cache
+2026-09-15 10:01:50.693 | ERROR    | database.supabase_client:claim_opportunity_processing:440 - Manual submit proceeding without processing ledger for https://somalijobs.com/tenders/2/evaluation
+2026-09-15 10:01:50.695 | ERROR    | database.supabase_client:claim_opportunity_processing:433 - Opportunity-state claim did not return its ownership token
+2026-09-15 10:01:50.696 | ERROR    | database.supabase_client:get_embedding:177 - OpenAI rejected OPENAI_API_KEY (401 invalidated). .env on disk was last saved 2026-09-11 16:30. If you just pasted a new key in the editor, save the file (Ctrl+S) before rerunning. Embeddings power CV matching and past-proposal search — they are not the Anthropic drafting key. Create a new key at https://platform.openai.com/api-keys paste OPENAI_API_KEY=sk-... with no quotes, save, and rerun. error_type=AUTH_ERROR
+2026-09-15 10:01:50.697 | WARNING  | database.supabase_client:store_opportunity:620 - content_hash column missing — storing without uniqueness. Apply supabase_migration_content_hash.sql.
+2026-09-15 10:01:50.698 | INFO     | database.supabase_client:store_opportunity:610 - content_hash already stored (source_url=https://first.example/tender)
+2026-09-15 10:01:50.699 | WARNING  | database.supabase_client:find_opportunity_by_content_hash:550 - opportunities_cache.content_hash is missing — apply supabase_migration_content_hash.sql. Dedup stays URL-only.
+2026-09-15 10:01:50.720 | INFO     | intelligence.tender_reader:pack_tender_text:128 -   Packed tender 28,179 → 8,004 chars (assignment sections retained)
+2026-09-15 10:01:50.723 | SUCCESS  | intelligence.tender_reader:extract_document_lock:1323 -   Document lock extracted from the tender pack
+2026-09-15 10:01:50.732 | INFO     | intelligence.proposal_writer:generate_proposal:2392 - Generating proposal (BID) for: SPREAD Learning Paper 2
+2026-09-15 10:01:50.732 | INFO     | intelligence.proposal_writer:_run_parallel_sections:1586 -   Writing 2 sections in parallel (workers=2)
+2026-09-15 10:01:50.732 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [suitability_statement] complete
+2026-09-15 10:01:50.733 | SUCCESS  | intelligence.proposal_writer:_run_parallel_sections:1599 -   [work_plan] complete
+2026-09-15 10:01:50.736 | INFO     | intelligence.proposal_writer:_attach_claim_grounding:296 -   Claim grounding: 0 verified, 0 not verified, 0 insufficient
+2026-09-15 10:01:50.736 | SUCCESS  | intelligence.proposal_writer:generate_proposal:2462 - Proposal generation complete!

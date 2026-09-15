@@ -85,9 +85,9 @@ unimplemented “intelligence domains” were added.
 |---|---|
 | Opportunity | Functional discovery, canonical URL dedup, extraction, quality gates, deterministic bid recommendation. |
 | Capability | Semantic CV retrieval with explicit geography/language/years overlays; missing education remains unknown. |
-| Bid | Functional deterministic fit/win/strategic/risk dimensions; factors, evidence, weights, and score version stored in analysis JSON. |
+| Bid | Functional deterministic fit/win/strategic/risk dimensions; factors, evidence, weights, and score version stored in analysis JSON. Phase 6 adds a null `calibrated_win_probability` audit field (123 WON / 0 LOST → INSUFFICIENT DATA). Heuristic WIN remains official. |
 | Proposal | Drafting uses tender text, past proposal retrieval, style guides, compliance output, human review, and a named past-work claim verifier (`intelligence/grounding.py`). Unsupported names are tagged `[NOT VERIFIED]`. Not a full sentence-level source graph. |
-| Outcome | Airtable Won/Lost polling and lesson embedding exist; lessons are not yet a scored-model input. |
+| Outcome | Airtable Won/Lost polling and lesson embedding exist. Phase 6 harness will not emit P(win) until Lost labels exist (current n_lost=0). Lessons are not a scored-model input. |
 | Client | Canonical org matching + cited observed-record roll-up in the review email (Phase 2). Migration unapplied; live history often UNKNOWN. Not an account CRM. |
 | Market/competitor/relationship/executive | Market: observed digest only (Phase 3). Competitor: Assortis labelled Awarded Firm(s) citations (Phase 5); Somali Jobs/RSS have no winner field and were not stubbed. Relationship: cited JV/consortium edges from Cortech past submissions (Phase 5). Not likely-bidder inference, not an account CRM, not executive briefs. |
 
@@ -147,8 +147,13 @@ STRATEGIC VALUE, RISK, and expected value.
 
 The win score is explicitly **not** a calibrated probability. Expected value
 stays `INSUFFICIENT DATA` without verified contract value, pursuit cost, and
-risk adjustment. Financial preparation now costs only exact effort/rate inputs
-and deliberately returns no grand total without additional sourced costs.
+risk adjustment. Phase 6 (`intelligence/win_calibration.py`) attaches
+`calibrated_win_probability` as an audit field. A 2026-09-15 census found
+123 WON and **0 LOST** under Phase 2 rules, so the field is null /
+INSUFFICIENT DATA and held-out Brier is “sample too small to trust.” The
+heuristic was not replaced. Financial preparation now costs only exact
+effort/rate inputs and deliberately returns no grand total without additional
+sourced costs.
 
 ## 11. Security review
 
@@ -224,6 +229,17 @@ Phase 5 re-run locally on 2026-09-15:
 
 Golden extraction metrics are unchanged from Phase 0 (consultancy P/R/acc 1.000).
 
+Phase 6 re-run locally on 2026-09-15:
+
+```text
+~/cortech-bd-agent/cortech/bin/python -m pytest tests/ -q
+319 passed, 2 warnings in 16.95s
+```
+
+Golden extraction metrics are unchanged from Phase 0 (consultancy P/R/acc 1.000).
+Held-out win-model Brier on production labels: sample too small to trust
+(123 WON / 0 LOST).
+
 ## 15. Evaluation and regression results
 
 Regression cases added and passing:
@@ -238,14 +254,20 @@ Regression cases added and passing:
 - incomplete budget email has no fake `$0` total and escapes hostile HTML;
 - create preserves lifecycle state;
 - a deterministic NO-BID stays a human-reviewable `New` record;
-- Supabase client construction is deferred and missing config fails explicitly.
+- Supabase client construction is deferred and missing config fails explicitly;
+- thin labeled n and one-class WON piles do not emit a numeric calibrated P(win);
+- `won=False` stays UNKNOWN, not Lost;
+- malformed factors / missing org history fail-open to a null calibrated field;
+- heuristic WIN PROBABILITY remains the bid-decision input.
 
 Phase 0 (2026-09-14) added `tests/golden/` — 36 anonymized items with an
 offline harness. Recorded-JSON parse vs labels: consultancy precision/recall
 1.000 (29 true / 7 false). Scorer recommendation accuracy 1.000 on the 29
 items with an expected BID/WATCH/NO-BID band. That is a **harness baseline**,
 not live Claude extraction accuracy, not retrieval quality, and not a
-calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
+calibrated Brier score. All golden-set outcomes are UNKNOWN (Airtable was not
+read for that set). Phase 6 counted live stores separately: 123 WON / 0 LOST;
+held-out Brier is sample too small to trust.
 
 ## 16. Remaining technical debt
 
@@ -274,7 +296,8 @@ calibrated Brier score. All outcomes are UNKNOWN (Airtable was not read).
   beyond named JV/consortium language already in `data/proposals/`. Market
   views exist as an observed digest (Phase 3) but live windows are thin until
   migrations are applied and dated rows accumulate.
-- Calibrated win probability based on sufficient historical Won/Lost data.
+- Calibrated win probability based on sufficient historical Won **and Lost**
+  labels (Phase 6 harness exists; current n_lost=0 so no trusted model).
 - Verified pursuit cost and full financial-pricing workflow.
 - Formal partner discovery beyond cited edges already in Cortech submissions.
 - Claim-to-source compliance verification for **non-past-work** sentences,
@@ -308,12 +331,12 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 | Competitor Intelligence | 4 | Assortis `DataType=contract` pages already in the ICA newsletter HTML publish a labelled **Awarded Firm(s):** block; extraction stores VERIFIED rows only with `source_url` + excerpt containing the name (`intelligence/competitors.py`, ADR 009). Tests: fabricated winner not on the page is not stored; a tender page with no winner field stores nothing; injection without the label is not a winner; two firms are not merged below the Phase 2 matcher threshold. Somali Jobs (`/tenders/` listings) and empty RSS have no winner field and were **not stubbed**. Live store is empty until the newsletter contains contract items and `supabase_migration_award_relationships.sql` is applied (not applied this session; fail-open). Not a ranking, not likely bidders, not 8–10. |
 | Capability Intelligence | 6 | Semantic + explicit overlay; no complete requirement traceability/availability control. |
 | Relationship Intelligence | 5 | Named JV/consortium/commissioned-partner edges extracted from Cortech’s own `data/proposals/` with document + chunk + verbatim excerpt (`intelligence/relationships.py`, ADR 009). Real counterparts on disk include SPI, IBF Expertise, BK Plus Europe, FFTA, and SFERE. Partner name not in the excerpt is not stored; “typically work with”, sole-firm/no-JV, client-side consortia, and Lead Consultant person roles store nothing. Same org matcher; same unapplied migration / fail-open. Optional cited section on the review email; not an account-management graph. Not 9. |
-| Bid Intelligence | 8 | Deterministic, versioned scoring with factors/evidence/audit values and tests proving LLM NO-BID cannot force an official NO-BID. Gap: win score is heuristic, not calibrated. |
+| Bid Intelligence | 8 | Deterministic, versioned scoring with factors/evidence/audit values and tests proving LLM NO-BID cannot force an official NO-BID. Phase 6 harness exists (`win_calibration.py` + versioned artifact v0.1.0) but **no model was fit**: census 123 WON / 0 LOST, bar is n≥30 and ≥10 per class, held-out Brier is “sample too small to trust.” Heuristic WIN PROBABILITY remains official. Not 9. |
 | Proposal Intelligence | 8 | Named past-work verifier is real (Phase 4, ADR 008): every “Cortech has done X before” named-client claim must resolve to a retrieved proposal chunk (`chunk_id` like `proposal:recARCH`) or stay in the draft tagged `[NOT VERIFIED]`. Invented clients are not passed through clean; empty retrieval / malformed sections / adversarial text do not crash and do not silent-accept. Generic boasts without an entity are `INSUFFICIENT EVIDENCE` in the report only (ADR 003). Gap: this is **not** a source→proposal graph for every sentence, and assignment details beyond named-entity presence are not proven. Not 10. |
-| Outcome Intelligence | 5 | Win/loss lesson storage exists; lessons do not update scoring. |
+| Outcome Intelligence | 6 | Win/loss lesson storage exists. Phase 6 adds an offline held-out evaluator that only emits Brier when both classes meet the bar; production census has 0 LOST so the calibrated field is INSUFFICIENT DATA. Lessons still do not update the official heuristic. Harness exists; model not trusted. |
 | Security | 7 | Per-hop SSRF validation, capped downloads, TLS, input boundaries, escaped email; no DNS pin/parser sandbox. |
 | Observability | 6 | Execution/stage/cost hooks; incomplete proposal token recording and no metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), and Phase 5 award/relationship tests (fabricated winner not on page, partner not in excerpt, silence, injection, huge strings, missing tables fail-open, matcher non-merge). Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, and Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open). Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call; no enforced spend cap. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -332,8 +355,12 @@ named past-work claim grounding (ADR 008): generated “Cortech has done X”
 claims resolve to a retrieved chunk or are tagged `[NOT VERIFIED]`. Phase 5
 delivered cited Assortis Awarded Firm(s) observations and cited relationship
 edges from Cortech past submissions (ADR 009; `award_relationships` migration
-file not applied this session). Next: apply the hash, organizations,
+file not applied this session). Phase 6 delivered a versioned calibration
+harness (ADR 010) and **refused to fit a model**: labeled n is 123 WON /
+0 LOST under Phase 2 rules; held-out Brier is “sample too small to trust”;
+heuristic WIN PROBABILITY was not replaced. Next: apply the hash, organizations,
 opportunity-facts, and award-relationships migrations, a **live** extraction
 (and later retrieval) pass against the golden set, a human approval/outcome
-schema, and only after enough structured outcomes exist, train and validate a
-calibrated win model. **Phase 6 (calibrated win model) was not started here.**
+schema that records Lost as well as Won, and only after both classes meet the
+bar, train and validate a calibrated win model against the heuristic on
+held-out data. **Phase 7 (reliability / architecture debt) was not started here.**

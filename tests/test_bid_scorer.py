@@ -48,6 +48,9 @@ def test_does_not_use_llm_number_as_final_score():
     assert result["recommendation"] == "BID"
     assert result["score_version"] == "1.0.0"
     assert "fit" in result["weights"]
+    assert result["calibrated_win_probability"]["value"] is None
+    assert result["calibrated_win_probability"]["status"] == "INSUFFICIENT DATA"
+    assert result["win_probability"]["unit"] == "percent"
 
 
 def test_apply_preserves_consultancy_flag_and_stashes_llm():

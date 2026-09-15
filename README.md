@@ -57,6 +57,8 @@ cortech-bd-agent/
 ├── intelligence/
 │   ├── analyzer.py               # LLM extraction (advisory scores only)
 │   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
+│   ├── win_calibration.py        # Phase 6 P(win) harness (null unless labeled n meets the bar)
+│   ├── win_calibration_artifact.json  # v0.1.0 census; fitted: false — does not rewrite history
 │   ├── market_trends.py          # Observed-data 30/90-day digest (no LLM)
 │   ├── organizations.py          # Canonical client/donor matching + roll-up
 │   ├── competitors.py            # Assortis Awarded Firm(s) citations (Phase 5)
@@ -245,7 +247,7 @@ These have each caused real, confirmed production failures. Documented here spec
 - **Railway SMTP is blocked at the platform level** (irrelevant now that this runs locally, but relevant again if ever redeployed to a similar host) — `email_report.py` tries Gmail SMTP first, falls back to Resend's HTTP API. Both paths need real, working credentials for delivery to succeed; a failure in one silently masks whether the other is even configured.
 - **`.env` must never be committed.** It was tracked in git history for a period early in this project before being corrected — if that history was ever shared or the repo was ever public, treat every credential used at that time as compromised and rotate it, regardless of whether this has already been done.
 - **NO-BID and EOI-stage opportunities intentionally skip CV matching and budget calculation** — this is a deliberate cost optimization, not a bug. A NO-BID is stored as a recommendation on a `New` record for human confirmation; it is not an automated final business decision. The label comes from the deterministic scorer, not Claude's integer.
-- **The LLM `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting the model to return a different number.
+- **The LLM `cortech_fit_score` is advisory.** Official FIT/WIN/recommendation are calculated in `intelligence/bid_scorer.py`. Do not "fix" a score by prompting the model to return a different number. `calibrated_win_probability` is an audit field that is currently INSUFFICIENT DATA — it is not the official WIN score.
 - **`.env.example` must never contain live keys.**
 
 ---

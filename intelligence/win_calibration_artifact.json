@@ -1,0 +1,69 @@
+{
+  "artifact_version": "0.1.0",
+  "score_version_paired": "1.0.0",
+  "status": "INSUFFICIENT DATA",
+  "fitted": false,
+  "coefficients": null,
+  "feature_names": [
+    "intercept",
+    "fit",
+    "deadline_feasibility",
+    "known_client",
+    "eligibility",
+    "org_won_count",
+    "org_lost_count"
+  ],
+  "min_labeled_n": 30,
+  "min_per_class": 10,
+  "census": {
+    "as_of": "2026-09-15",
+    "golden": {"n": 36, "won": 0, "lost": 0, "unknown": 36},
+    "output_learning": {"n": 5, "with_outcome_field": 0},
+    "data_proposals_sidecars": 0,
+    "win_loss_memory": {
+      "available": false,
+      "reason": "table missing (PGRST205 schema cache)",
+      "n": 0,
+      "won": 0,
+      "lost": 0
+    },
+    "past_proposals_airtable": {
+      "n": 216,
+      "won": 84,
+      "lost": 0,
+      "unknown": 132,
+      "note": "won checkbox present only on 84 rows; absent checkbox is UNKNOWN, not Lost"
+    },
+    "proposal_embeddings": {
+      "n": 270,
+      "won": 123,
+      "lost": 0,
+      "unknown": 147,
+      "note": "won=False is UNKNOWN not Lost (ADR 006 / Phase 2)"
+    },
+    "opportunities_airtable": {
+      "n": 1,
+      "won": 0,
+      "lost": 0,
+      "unknown": 1,
+      "note": "status Reviewing — not Won/Lost"
+    },
+    "union_distinct_won": 123,
+    "union_distinct_lost": 0,
+    "n_labeled": 123,
+    "n_won": 123,
+    "n_lost": 0
+  },
+  "held_out": {
+    "status": "INSUFFICIENT DATA",
+    "brier": null,
+    "log_loss": null,
+    "precision": null,
+    "recall": null,
+    "heuristic_brier": null,
+    "outperforms_heuristic": false,
+    "note": "sample too small to trust — 0 LOST labels; binary calibration is degenerate"
+  },
+  "official_win_probability_source": "bid_scorer_heuristic",
+  "notes": "Phase 6 refused to fit. Heuristic WIN PROBABILITY in bid_scorer.py remains official. This artifact does not rewrite historical scores."
+}
