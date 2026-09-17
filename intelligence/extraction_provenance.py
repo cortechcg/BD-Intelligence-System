@@ -129,10 +129,15 @@ def _contains(haystack: str, needle: str) -> bool:
         return False
     hay = haystack.lower()
     need = needle.lower()
-    if len(need) >= _MIN_NEEDLE:
-        return need in hay
-    pattern = r"(?<![A-Za-z0-9])" + re.escape(need) + r"(?![A-Za-z0-9])"
-    return re.search(pattern, hay) is not None
+    if len(need) < _MIN_NEEDLE:
+        pattern = r"(?<![A-Za-z0-9])" + re.escape(need) + r"(?![A-Za-z0-9])"
+        return re.search(pattern, hay) is not None
+    if need in hay:
+        return True
+    # Hyphen / whitespace identity only — "end-line" locates "endline".
+    compact_hay = re.sub(r"[^a-z0-9]+", "", hay)
+    compact_need = re.sub(r"[^a-z0-9]+", "", need)
+    return bool(compact_need) and compact_need in compact_hay
 
 
 def _locate(value: Any, chunks: list[dict]) -> Optional[dict]:

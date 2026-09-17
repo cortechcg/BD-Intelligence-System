@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,11 @@ GOLDEN_PATH = GOLDEN_DIR / "opportunities.json"
 
 VALID_OUTCOMES = {"WON", "LOST", "UNKNOWN"}
 VALID_RECOMMENDATIONS = {"BID", "WATCH", "NO-BID"}
+VALID_SOURCE_KINDS = {
+    "past_proposal",
+    "synthetic_consultancy",
+    "synthetic_vacancy",
+}
 REQUIRED_TOP = ("id", "source_kind", "title", "document_text", "labels")
 REQUIRED_LABELS = (
     "is_consultancy_contract",
@@ -32,11 +38,11 @@ def _is_null_or_iso_date(value: Any) -> bool:
         return True
     if not isinstance(value, str) or len(value) != 10:
         return False
-    parts = value.split("-")
-    if len(parts) != 3:
+    try:
+        date.fromisoformat(value)
+    except ValueError:
         return False
-    year, month, day = parts
-    return year.isdigit() and month.isdigit() and day.isdigit()
+    return True
 
 
 def validate_golden_item(item: Any, *, index: int | None = None) -> None:
@@ -56,6 +62,10 @@ def validate_golden_item(item: Any, *, index: int | None = None) -> None:
         raise GoldenSetError(f"{where} document_text must be a non-empty string")
     if not isinstance(item["source_kind"], str) or not item["source_kind"].strip():
         raise GoldenSetError(f"{where} source_kind must be a non-empty string")
+    if item["source_kind"] not in VALID_SOURCE_KINDS:
+        raise GoldenSetError(
+            f"{where} source_kind must be one of {sorted(VALID_SOURCE_KINDS)}"
+        )
 
     labels = item["labels"]
     if not isinstance(labels, dict):

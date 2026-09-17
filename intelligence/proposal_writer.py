@@ -31,7 +31,7 @@ from intelligence.tender_reader import (
     tender_documents_block,
     word_count,
 )
-from intelligence.grounding import ground_sections
+from intelligence.grounding import fail_closed_ground_sections, ground_sections
 from database.airtable_client import get_winning_proposals, log_agent_action, get_table
 from database.supabase_client import search_past_proposals
 from intelligence.learning import (
@@ -339,19 +339,10 @@ def _attach_claim_grounding(
             )
         except Exception as e2:
             logger.warning(f"  Claim grounding retry failed (non-fatal): {e2}")
-            out = dict(sections)
-            out["claim_grounding"] = {
-                "claims": [],
-                "verified": 0,
-                "not_verified": 0,
-                "insufficient_evidence": 0,
-                "removed_unverified": [],
-                "annotated_unverified": [],
-                "chunk_count": 0,
-                "scope": "named_past_work",
-                "error": f"{e}; retry: {e2}",
-            }
-            return out
+            return fail_closed_ground_sections(
+                sections,
+                error=f"{e}; retry: {e2}",
+            )
 
 
 def _finalize_client_draft(

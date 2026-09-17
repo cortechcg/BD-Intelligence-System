@@ -625,12 +625,7 @@ def ground_sections(
         claims = extract_claims(sections, chunks)
         annotated = annotate_unverified(sections, claims)
     except Exception:
-        chunks = []
-        claims = _fail_closed_named_past_claims(sections)
-        try:
-            annotated = annotate_unverified(sections, claims)
-        except Exception:
-            annotated = dict(sections)
+        return fail_closed_ground_sections(sections, error="extract/annotate failed")
     verified = sum(1 for c in claims if c.get("status") == "VERIFIED")
     not_verified = sum(1 for c in claims if c.get("status") == "NOT VERIFIED")
     insufficient = sum(1 for c in claims if c.get("status") == "INSUFFICIENT EVIDENCE")
@@ -648,5 +643,36 @@ def ground_sections(
         "annotated_unverified": annotated_unverified,
         "chunk_count": len(chunks),
         "scope": "named_past_work",
+    }
+    return annotated
+
+
+def fail_closed_ground_sections(sections: dict, *, error: str = "") -> dict:
+    """Tag named past-work sentences NOT VERIFIED when the verifier cannot run.
+
+    Passing claims through untagged would be silent-accept. Reviewers must see
+    ``[NOT VERIFIED]`` on named past-work sentences.
+    """
+    if not isinstance(sections, dict):
+        sections = {}
+    claims = _fail_closed_named_past_claims(sections)
+    try:
+        annotated = annotate_unverified(sections, claims)
+    except Exception:
+        annotated = dict(sections)
+    annotated["claim_grounding"] = {
+        "claims": claims,
+        "verified": 0,
+        "not_verified": sum(1 for c in claims if c.get("status") == "NOT VERIFIED"),
+        "insufficient_evidence": 0,
+        "removed_unverified": [],
+        "annotated_unverified": [
+            {"section": c.get("section"), "sentence": c.get("sentence")}
+            for c in claims
+            if c.get("status") == "NOT VERIFIED"
+        ],
+        "chunk_count": 0,
+        "scope": "named_past_work",
+        "error": error or "verifier failed closed",
     }
     return annotated

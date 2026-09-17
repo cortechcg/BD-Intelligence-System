@@ -80,7 +80,9 @@ those tests. `redact_unverified_claims` is not the default path.
    tagged `[NOT VERIFIED]` inline so a human reviewer sees the sentence.
    Generic boasts without a named entity are `INSUFFICIENT EVIDENCE` in
    `claim_grounding` only — the prose is not rewritten. Do not silently
-   pass. Do not invent past work.
+   pass. Do not invent past work. If `ground_sections` itself throws,
+   `fail_closed_ground_sections()` still tags named past-work sentences
+   `[NOT VERIFIED]` — the writer must not return untagged claims.
 
 5. **Wire-up stays in `proposal_writer._attach_claim_grounding`.** Same
    retrieved matches the writer was given, plus the static list only when
@@ -110,3 +112,7 @@ Pytest on 2026-09-15 (`~/cortech-bd-agent/cortech/bin/python -m pytest tests/ -q
 ```text
 284 passed in 14.46s
 ```
+
+Hardening pass 2026-09-17: verifier-crash fail-closed; fabricated-claim writer
+injection still `[NOT VERIFIED]`. Offline suite 366 passed (hosted live tests
+not run this session).

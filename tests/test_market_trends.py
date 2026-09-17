@@ -176,6 +176,34 @@ def test_n10_shows_observed_labels_with_sample_size_inline(monkeypatch):
     assert "70% of n=10" in html
 
 
+def test_submission_deadline_is_not_a_discovery_date():
+    from database.market_store import _from_airtable_record, _from_cache_row
+
+    cache = _from_cache_row({
+        "id": "row-deadline",
+        "source_url": "https://procurement.example/deadline-only",
+        "title": "Evaluation",
+        "submission_deadline": "2026-12-01",
+        "thematic_areas": ["Evaluation"],
+        "locations": ["Somalia"],
+        "donor": "Client W",
+    })
+    assert cache is not None
+    assert cache.discovered_on is None
+    airtable = _from_airtable_record({
+        "id": "recDEAD",
+        "fields": {
+            "source_url": "https://procurement.example/airtable-deadline",
+            "title": "Evaluation",
+            "submission_deadline": "2026-12-01",
+            "thematic_areas": ["Evaluation"],
+            "location": ["Somalia"],
+        },
+    })
+    assert airtable is not None
+    assert airtable.discovered_on is None
+
+
 def test_empty_store_is_honest_and_does_not_crash(monkeypatch):
     digest = build_market_digest([], as_of=AS_OF, org_index=[], orgs_available=False)
     assert digest.store_row_count == 0

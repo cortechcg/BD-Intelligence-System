@@ -189,6 +189,24 @@ def test_extracted_value_not_in_source_is_unknown_not_a_citation():
     assert client["excerpt"] is None
 
 
+def test_hyphen_identity_locates_endline_and_capacity_building():
+    source = (
+        "TERMS OF REFERENCE — END-LINE EVALUATION\n\n"
+        "Capacity-building workshops in Somalia."
+    )
+    analysis = {
+        "opportunity": {"client": "Client E", "title": "end-line"},
+        "requirements": {"thematic_areas": ["endline", "capacity building"]},
+        "bid_analysis": {"is_consultancy_contract": True},
+    }
+    attach_extraction_provenance(analysis, source)
+    endline = analysis["extraction_provenance"]["requirements.thematic_areas[0]"]
+    capacity = analysis["extraction_provenance"]["requirements.thematic_areas[1]"]
+    assert endline["status"] == STATUS_VERIFIED
+    assert capacity["status"] == STATUS_VERIFIED
+    assert endline["page"] is None
+
+
 def test_page_is_recorded_only_when_marker_exists():
     source = (
         "===== SOURCE FILE: annex-ii.pdf =====\n\n"
@@ -223,3 +241,71 @@ def test_malformed_provenance_does_not_keep_invented_page():
     assert cleaned["page"] is None
     assert cleaned["status"] != STATUS_VERIFIED
     assert cleaned["excerpt"] is None
+
+
+def test_llm_supplied_provenance_is_stripped_not_trusted():
+    payload = json.dumps({
+        "opportunity": {"title": "Endline", "client": "UNICEF"},
+        "bid_analysis": {"is_consultancy_contract": True},
+        "extraction_provenance": {
+            "opportunity.client": {
+                "status": STATUS_VERIFIED,
+                "page": 99,
+                "excerpt": "invented citation",
+                "source_file": "hallucinated.pdf",
+            }
+        },
+    })
+    parsed = parse_analysis_payload(payload, "Endline", source_text=_TOR)
+    client = parsed["extraction_provenance"]["opportunity.client"]
+    assert client["status"] == STATUS_VERIFIED
+    assert client["page"] is None
+    assert "invented citation" not in (client.get("excerpt") or "")
+    assert client.get("source_file") != "hallucinated.pdf"
+    assert "UNICEF" in (client.get("excerpt") or "")
+
+
+def test_non_finite_budget_is_schema_failure_not_a_record():
+    for budget in (float("nan"), float("inf"), float("-inf")):
+        payload = json.dumps({
+            "opportunity": {
+                "title": "X",
+                "client": "Y",
+                "estimated_budget_usd": budget,
+            },
+            "bid_analysis": {"is_consultancy_contract": True},
+        })
+        with pytest.raises(AnalysisSchemaError, match="estimated_budget_usd"):
+            parse_analysis_payload(payload, "Title")
+
+
+def test_team_requirements_string_list_is_schema_failure():
+    payload = json.dumps({
+        "opportunity": {"title": "X", "client": "Y"},
+        "team_requirements": ["Team Leader"],
+        "bid_analysis": {"is_consultancy_contract": True},
+    })
+    with pytest.raises(AnalysisSchemaError):
+        parse_analysis_payload(payload, "Title")
+
+
+def test_schema_refuse_does_not_crash_if_log_agent_action_raises(monkeypatch):
+    bad = json.dumps({
+        "opportunity": {
+            "title": "X",
+            "client": "Y",
+            "estimated_budget_usd": {"n": 1},
+        },
+        "bid_analysis": {"is_consultancy_contract": True},
+    })
+
+    def complete(**kwargs):
+        return _response(bad)
+
+    def boom(**kwargs):
+        raise RuntimeError("log table 429")
+
+    monkeypatch.setattr("intelligence.analyzer.complete", complete)
+    monkeypatch.setattr("intelligence.analyzer.usage_totals", lambda _r: (1, 1))
+    monkeypatch.setattr("intelligence.analyzer.log_agent_action", boom)
+    assert analyze_rfp(_TOR) == {}

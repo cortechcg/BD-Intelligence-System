@@ -2,6 +2,7 @@ from intelligence.grounding import (
     annotate_unverified,
     build_evidence_chunks,
     extract_claims,
+    fail_closed_ground_sections,
     ground_sections,
 )
 
@@ -252,3 +253,39 @@ def test_fabricated_claim_injected_into_writer_is_flagged_not_passed_clean(monke
     assert verified
     assert verified[0]["chunk_id"] == "proposal:recARCH"
     assert "[NOT VERIFIED]" not in result["cover_letter"]
+
+
+def test_verifier_crash_fail_closes_named_claim_not_silent_accept():
+    sections = {
+        "org_profile_and_track_record": (
+            "Cortech previously delivered a classified lunar-mining evaluation "
+            "for Zephyr Quantum Holdings in 2019."
+        )
+    }
+    result = fail_closed_ground_sections(sections, error="forced")
+    assert "[NOT VERIFIED]" in result["org_profile_and_track_record"]
+    assert "Zephyr Quantum Holdings" in result["org_profile_and_track_record"]
+    assert result["claim_grounding"]["not_verified"] >= 1
+    assert result["claim_grounding"]["verified"] == 0
+
+
+def test_writer_tags_fabricated_claim_when_ground_sections_raises(monkeypatch):
+    from intelligence import proposal_writer
+
+    monkeypatch.setattr(
+        proposal_writer,
+        "ground_sections",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("grounding exploded")),
+    )
+    fabricated = (
+        "Cortech previously delivered a classified lunar-mining evaluation "
+        "for Zephyr Quantum Holdings in 2019."
+    )
+    result = proposal_writer._finalize_client_draft(
+        {"org_profile_and_track_record": fabricated},
+        {"opportunity": {"title": "Energy evaluation", "client": "Christian Aid"}},
+        None,
+    )
+    assert "[NOT VERIFIED]" in result["org_profile_and_track_record"]
+    assert "Zephyr Quantum Holdings" in result["org_profile_and_track_record"]
+    assert result["claim_grounding"]["not_verified"] >= 1

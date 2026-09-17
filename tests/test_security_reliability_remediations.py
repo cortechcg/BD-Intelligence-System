@@ -18,6 +18,7 @@ from utils import browser_security, healthcheck, urls
 from utils.llm import complete
 from utils.money_scrub import contains_monetary_amount, strip_monetary_amounts
 from utils.observability import opportunity_usage, record_usage, reset_opportunity_usage, reset_run_spend_cap
+from config import CLAUDE_MODEL_PROPOSAL
 
 
 @pytest.fixture(autouse=True)
@@ -672,9 +673,9 @@ def test_provider_boundary_aggregates_actual_and_unknown_usage(monkeypatch):
     ])
     monkeypatch.setattr(llm, "get_anthropic_client", lambda **kwargs: client)
     reset_opportunity_usage("opp-1")
-    complete("claude-sonnet-5", [{"role": "user", "content": "a"}], stage="first")
-    complete("claude-sonnet-5", [{"role": "user", "content": "b"}], stage="retry")
-    complete("claude-sonnet-5", [{"role": "user", "content": "c"}], stage="unknown")
+    complete(CLAUDE_MODEL_PROPOSAL, [{"role": "user", "content": "a"}], stage="first")
+    complete(CLAUDE_MODEL_PROPOSAL, [{"role": "user", "content": "b"}], stage="retry")
+    complete(CLAUDE_MODEL_PROPOSAL, [{"role": "user", "content": "c"}], stage="unknown")
     usage = opportunity_usage()
     assert (usage["input"], usage["output"], usage["call_count"]) == (16, 10, 3)
     assert usage["unknown_usage_calls"] == 1
@@ -686,8 +687,8 @@ def test_proposal_action_uses_measured_generation_delta_not_fixed_tokens(monkeyp
     logged = {}
     reset_opportunity_usage("opp-usage")
     before = opportunity_usage()
-    record_usage(_response(13, 8, "proposal-call-1"), "claude-sonnet-5", "proposal_section:one")
-    record_usage(_response(2, 5, "proposal-call-2"), "claude-sonnet-5", "proposal_section:retry")
+    record_usage(_response(13, 8, "proposal-call-1"), CLAUDE_MODEL_PROPOSAL, "proposal_section:one")
+    record_usage(_response(2, 5, "proposal-call-2"), CLAUDE_MODEL_PROPOSAL, "proposal_section:retry")
     monkeypatch.setattr(proposal_writer, "log_agent_action", lambda **kwargs: logged.update(kwargs))
     proposal_writer._log_proposal_usage("Generated draft", "opp-usage", before)
     assert logged["tokens_used"] == 28

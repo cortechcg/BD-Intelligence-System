@@ -45,12 +45,14 @@ This is **not** a kernel namespace, cgroup memory kill, or gVisor jail.
 
 ## CI dependency scan
 
-`.github/workflows/ci.yml` runs `pip-audit -r requirements.txt` then pytest.
+`.github/workflows/ci.yml` runs `pip-audit -r requirements.txt` then pytest
+excluding `tests/test_live_supabase_stages.py` (CI must not write hosted
+`opportunity_processing`).
 A 2026-09-15 scan reported PYSEC findings in `cryptography` 49.0.0,
 `h2` 4.3.0, `pillow` 12.2.0, and `pytest` 8.4.2. Those were bumped to
 `cryptography==50.0.0`, `h2==4.4.1`, `pillow==12.3.0`, `pytest==9.0.3`.
-Re-scan: no known vulnerabilities. Full suite still 346 passed, 0 failed,
-0 skipped.
+Re-scan: no known vulnerabilities. Offline suite 2026-09-17: 366 passed,
+0 failed, 0 skipped (hosted live tests not run).
 
 ## Outbound review email
 

@@ -58,7 +58,9 @@ not replaced; wrap_untrusted stays on untrusted document prompts.
    jail, not a proof against a malicious PDF.
 
 3. **CI `pip-audit`.** `.github/workflows/ci.yml` installs requirements,
-   runs `pip-audit -r requirements.txt`, then pytest.
+   runs `pip-audit -r requirements.txt`, then pytest **excluding**
+   `tests/test_live_supabase_stages.py` so CI cannot mutate hosted
+   `opportunity_processing` even if project secrets are present.
 
 4. **Enforced spend cap.** `MAX_RUN_COST_USD` (default 25, zero is a valid
    hard stop). `complete()` calls `assert_under_spend_cap()` **before**
@@ -88,3 +90,12 @@ not replaced; wrap_untrusted stays on untrusted document prompts.
   `discovered`. The live kill-test seeds `scored` so the halt is mid-draft.
 - Scores in the audit scorecard move only with the evidence below, not to
   an 8–10 security product.
+
+Hardening pass 2026-09-17 (`./cortech/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --override-ini='addopts=' -q --tb=line`):
+
+```text
+366 passed, 2 warnings in 17.30s
+```
+
+CI pytest now ignores the three hosted live tests. Spend-cap unit tests call
+`complete()` with `CLAUDE_MODEL` / `CLAUDE_MODEL_PROPOSAL` from `config.py`.
