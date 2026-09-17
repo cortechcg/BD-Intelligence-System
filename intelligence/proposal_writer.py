@@ -474,6 +474,9 @@ _EXEMPLAR_KEY_FOR = {
     "understanding": "understanding",
     "approach_summary": "methodology",
     "eligibility": "org_profile",
+    "firm_profile": "org_profile",
+    "relevant_experience": "experience",
+    "key_experts": "team",
     "compliance_matrix": "experience",
 }
 
@@ -964,6 +967,17 @@ _CONTINUE_INSTRUCTION = (
     "nothing else. Never address the reader, never ask which section to write "
     "next, and never describe the state of the document — anything you write "
     "here goes straight into the client's proposal."
+)
+
+# Used when a continuation returned SECTION_COMPLETE / operator chat but the
+# assembled section still ends mid-sentence. The first continue prompt must
+# not be allowed to abandon a truncated client-facing chapter.
+_RESUME_UNFINISHED_INSTRUCTION = (
+    "The section is NOT complete: it ends mid-sentence, on a heading with no "
+    "body, or on an unfinished table. Ignore SECTION_COMPLETE. Continue the "
+    "proposal prose from exactly where the last characters left off. Do not "
+    "restart, do not address the operator, and write only remaining "
+    "client-facing text."
 )
 
 _SECTION_COMPLETE_SENTINEL = "SECTION_COMPLETE"
@@ -1484,6 +1498,7 @@ def _section_user_messages(
     system_blocks: list[dict],
     live_prompt: str,
     assembled: str = "",
+    continue_instruction: str = "",
 ) -> list[dict]:
     """Tender pack first (cached), then the section prompt. Never the reverse."""
     assignment_parts = []
@@ -1522,7 +1537,10 @@ def _section_user_messages(
     messages = [{"role": "user", "content": user_content}]
     if assembled:
         messages.append({"role": "assistant", "content": assembled})
-        messages.append({"role": "user", "content": _CONTINUE_INSTRUCTION})
+        messages.append({
+            "role": "user",
+            "content": continue_instruction or _CONTINUE_INSTRUCTION,
+        })
     return messages
 
 
@@ -1576,11 +1594,23 @@ def _generate_section(
         stop = finish_reason(response)
 
         if attempt > 0 and _is_meta_reply(chunk):
-            logger.info(
-                f"  [{section_name}] continuation reported the section already "
-                f"complete — discarding the reply and closing"
+            if not _looks_truncated(assembled):
+                logger.info(
+                    f"  [{section_name}] continuation reported the section already "
+                    f"complete — discarding the reply and closing"
+                )
+                break
+            logger.warning(
+                f"  [{section_name}] continuation was not proposal prose but "
+                "the section still ends unfinished — asking for the rest"
             )
-            break
+            messages = _section_user_messages(
+                system_blocks,
+                live_prompt,
+                assembled,
+                continue_instruction=_RESUME_UNFINISHED_INSTRUCTION,
+            )
+            continue
 
         assembled += chunk
         if stop not in ("max_tokens", "length") and not _looks_truncated(assembled):
@@ -1830,6 +1860,13 @@ def _apply_item_constraints(text: str, item: dict) -> str:
 
 
 def _apply_outline_constraints(sections: dict, outline: dict) -> dict:
+    """Apply per-heading page limits. Envelope group limits are not clipped.
+
+    A 10-page technical envelope shared across methodology, team, risk and
+    service chapters used to clip the longest chapter to 80 words. That is
+    how a real methods section became an empty stub. Page-limit overage is
+    reported in format_compliance for the human to trim.
+    """
     outline = outline if isinstance(outline, dict) else {}
     for item in outline.get("sections") or []:
         if not isinstance(item, dict):
@@ -1837,30 +1874,6 @@ def _apply_outline_constraints(sections: dict, outline: dict) -> dict:
         key = item.get("key")
         if key in sections and isinstance(sections.get(key), str):
             sections[key] = _apply_item_constraints(sections[key], item)
-    groups: dict[str, dict] = {}
-    for item in outline.get("sections") or []:
-        if not isinstance(item, dict):
-            continue
-        gid = item.get("group_id")
-        if not gid:
-            continue
-        groups.setdefault(gid, {
-            "max_words": int(item.get("group_max_words") or 0),
-            "keys": [],
-        })
-        groups[gid]["keys"].append(item.get("key"))
-    for group in groups.values():
-        max_w = int(group.get("max_words") or 0)
-        keys = [k for k in group["keys"] if isinstance(sections.get(k), str)]
-        if max_w <= 0 or not keys:
-            continue
-        total = sum(word_count(sections[k]) for k in keys)
-        if total <= int(max_w * 1.08):
-            continue
-        overflow = total - max_w
-        longest = max(keys, key=lambda k: word_count(sections[k]))
-        keep = max(80, word_count(sections[longest]) - overflow)
-        sections[longest] = _clip_words(sections[longest], keep)
     return sections
 
 
@@ -1983,7 +1996,9 @@ def _house_writer_for(
             analysis, matched_team_result, system_blocks,
             draft_rules=rules,
         )
-    if route == "org_profile_and_track_record":
+    if route == "org_profile_and_track_record" or (
+        route == "firm_profile" and submission_type != "EOI"
+    ):
         return lambda: generate_org_profile_and_track_record(
             analysis, system_blocks, draft_rules=rules,
         )
@@ -2605,6 +2620,68 @@ def draft_bid_or_watch_proposal(
         raise
 
 
+_TECHNICAL_BODY_CHAPTERS = (
+    (
+        "introduction_and_framework",
+        "Understanding of the Terms of Reference",
+        ("introduction_and_framework", "understanding"),
+    ),
+    (
+        "methodology",
+        "Methodology and tools",
+        ("methodology", "approach_summary"),
+    ),
+    (
+        "analysis_plan",
+        "Sampling and analysis plan",
+        ("analysis_plan",),
+    ),
+    (
+        "qa_and_ethics",
+        "Quality assurance, ethics and safeguarding",
+        ("qa_and_ethics",),
+    ),
+    (
+        "risk_register",
+        "Risk register",
+        ("risk_register",),
+    ),
+    (
+        "work_plan",
+        "Work plan",
+        ("work_plan",),
+    ),
+    (
+        "team_section",
+        "Proposed team",
+        ("team_section", "key_experts"),
+    ),
+)
+
+_EOI_BODY_CHAPTERS = (
+    (
+        "understanding",
+        "Understanding of the assignment",
+        ("understanding", "introduction_and_framework"),
+    ),
+    (
+        "approach_summary",
+        "Proposed technical approach",
+        ("approach_summary", "methodology"),
+    ),
+    (
+        "relevant_experience",
+        "Relevant experience",
+        ("relevant_experience", "org_profile_and_track_record", "firm_profile"),
+    ),
+    (
+        "key_experts",
+        "Resources in staff",
+        ("key_experts", "team_section"),
+    ),
+)
+
+
 def generate_technical_proposal_body(
     analysis: dict,
     system_blocks: list[dict],
@@ -2614,12 +2691,122 @@ def generate_technical_proposal_body(
     submission_type: str = "FULL_PROPOSAL",
     draft_rules: str = "",
 ) -> str:
-    """Full technical-proposal body when the ToR names the envelope as one chapter."""
+    """Write the ToR 'Technical Proposal' chapter as Cortech house sections.
+
+    One LLM call cannot hold a scored methodology, sampling plan, Gantt,
+    QA, and risk register — that path produced the truncated mashed blob.
+    Each house generator runs on its own token budget, then this function
+    stitches them under the tender's envelope heading.
+    """
     item = item if isinstance(item, dict) else {}
     analysis = analysis or {}
     skip = {str(r) for r in (sibling_routes or []) if r}
     heading = str(item.get("heading") or "Technical proposal").strip()
     _opportunity, title, client_name, _donor, _deadline = _opportunity_fields(analysis)
+    rules = draft_rules or _draft_rules_for(item)
+
+    if submission_type == "EOI":
+        jobs = {}
+        order = []
+        for key, child_heading, aliases in _EOI_BODY_CHAPTERS:
+            if any(alias in skip for alias in aliases):
+                continue
+            child_item = {
+                "heading": child_heading,
+                "route": key,
+                "kind": "technical",
+                "must_include": [],
+                "page_limit": "",
+            }
+            jobs[key] = lambda child_item=child_item: generate_prescribed_section(
+                child_item,
+                analysis,
+                system_blocks,
+                matched_team_result=matched_team_result,
+                submission_type="EOI",
+            )
+            order.append((key, child_heading))
+        if jobs:
+            written = _run_parallel_sections(jobs)
+            parts = []
+            for key, child_heading in order:
+                text = (written.get(key) or "").strip()
+                if text:
+                    parts.append(f"## {child_heading}\n\n{text}")
+            body = "\n\n".join(parts).strip()
+            if body:
+                return body
+        return _generate_technical_proposal_body_fallback(
+            analysis, system_blocks, matched_team_result, item,
+            skip, heading, title, client_name, submission_type, rules,
+        )
+
+    jobs = {}
+    order = []
+    writers = {
+        "introduction_and_framework": lambda: generate_introduction_and_framework(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "methodology": lambda: generate_methodology(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "analysis_plan": lambda: generate_analysis_plan(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "qa_and_ethics": lambda: generate_qa_and_ethics(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "risk_register": lambda: generate_risk_register(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "work_plan": lambda: generate_work_plan(
+            analysis, system_blocks, draft_rules=rules,
+        ),
+        "team_section": lambda: generate_team_section(
+            matched_team_result or {}, title, system_blocks, analysis,
+            draft_rules=rules,
+        ),
+    }
+    for key, child_heading, aliases in _TECHNICAL_BODY_CHAPTERS:
+        if any(alias in skip for alias in aliases):
+            continue
+        writer = writers.get(key)
+        if writer is None:
+            continue
+        jobs[key] = writer
+        order.append((key, child_heading))
+    if not jobs:
+        return _generate_technical_proposal_body_fallback(
+            analysis, system_blocks, matched_team_result, item,
+            skip, heading, title, client_name, submission_type, rules,
+        )
+    written = _run_parallel_sections(jobs)
+    parts = []
+    for key, child_heading in order:
+        text = (written.get(key) or "").strip()
+        if text:
+            parts.append(f"## {child_heading}\n\n{text}")
+    body = "\n\n".join(parts).strip()
+    if body:
+        return body
+    return _generate_technical_proposal_body_fallback(
+        analysis, system_blocks, matched_team_result, item,
+        skip, heading, title, client_name, submission_type, rules,
+    )
+
+
+def _generate_technical_proposal_body_fallback(
+    analysis: dict,
+    system_blocks: list[dict],
+    matched_team_result: dict | None,
+    item: dict,
+    skip: set[str],
+    heading: str,
+    title: str,
+    client_name: str,
+    submission_type: str,
+    rules: str,
+) -> str:
     include = []
     if "org_profile_and_track_record" not in skip and "relevant_experience" not in skip:
         include.append(
@@ -2650,7 +2837,6 @@ def generate_technical_proposal_body(
     topics = "\n".join(f"- {t}" for t in include) or (
         "- A complete technical offer for this assignment"
     )
-    rules = draft_rules or _draft_rules_for(item)
     team_note = _team_digest(matched_team_result) if matched_team_result else ""
     stage = (
         "Expression of Interest"
