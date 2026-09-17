@@ -13,6 +13,7 @@ Live Claude is **not** required. `pytest tests/ -q` must pass offline.
 | `opportunities.json` | Canonical dataset (JSON array) |
 | `loader.py` | Load + validate + `analysis_from_labels()` |
 | `metrics.py` | Precision/recall, MAE, Jaccard; missing → `None` / skip |
+| `grounding.py` | Labeled client/deadline/budget/geo/theme must appear in `document_text` |
 
 ## Schema (each item)
 
@@ -45,8 +46,12 @@ Rules:
 
 - Missing facts are `null` / `[]` / `UNKNOWN`. Never invent a deadline, budget, or win.
 - `budget_usd` is only a positive number when the ToR-like text actually states it.
+- Every non-null labeled client, deadline, budget, geography token, and thematic
+  must appear in `document_text` (hyphen/space and light aliases allowed for
+  themes). Vacancies must contain HR/staff language. Tests fail the set if a
+  label is not grounded — recorded JSON that copies labels is not enough.
 - `expected_recommendation` is null for staff vacancies: the boolean gate, not FIT, should stop them.
-- `recorded_analyzer_json` is a recorded extraction object for the **offline parse harness**. It is not a live LLM result.
+- `recorded_analyzer_json` is a recorded extraction object for the **offline parse harness**. It is not a live LLM result. Extra keys and comma-formatted budget strings are allowed so parse/coerce is exercised.
 
 ## What the tests measure vs what they do not
 

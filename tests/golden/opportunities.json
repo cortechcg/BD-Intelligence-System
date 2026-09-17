@@ -3,7 +3,7 @@
     "id": "g-001",
     "source_kind": "past_proposal",
     "title": "Consultancy to conduct a WASH KAP survey in Dadaab refugee camps, Garissa, Kenya",
-    "document_text": "TERMS OF REFERENCE \u2014 FIRM CONSULTANCY\nAssignment: Knowledge, Attitudes and Practices (KAP) survey of WASH interventions\nin Dadaab refugee camps, Garissa County, Kenya.\nThe contracting organisation (Client A) seeks a consulting firm to design and\nimplement a mixed-methods KAP survey, identify gaps in current WASH programming,\nand deliver a findings report with recommendations.\nDeliverables: inception report, cleaned dataset, draft and final survey report.\nThis is not a staff vacancy.",
+    "document_text": "TERMS OF REFERENCE \u2014 FIRM CONSULTANCY\nAssignment: Knowledge, Attitudes and Practices (KAP) survey of WASH interventions\nin Dadaab refugee camps, Garissa County, Kenya.\nThe contracting organisation (Client A) seeks a consulting firm to design and\nimplement a mixed-methods KAP survey, identify gaps in current WASH programming,\nand deliver a findings report with recommendations.\nDeliverables: inception report, cleaned dataset, draft and final survey report.\nThis is not a staff vacancy.\nThematic scope: WASH assessment (KAP survey), not a staff vacancy.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client A",
@@ -61,14 +61,15 @@
         "key_strengths": [],
         "key_gaps": [],
         "is_consultancy_contract": true
-      }
+      },
+      "advisory_comment": "schema extra=allow noise; labeled client/themes must still parse"
     }
   },
   {
     "id": "g-002",
     "source_kind": "past_proposal",
     "title": "Consultancy to conduct a labour market assessment in Jowhar focusing on IDPs and host communities",
-    "document_text": "TERMS OF REFERENCE \u2014 CONSULTANCY CONTRACT\nClient B requests a consulting firm to conduct a labour market assessment in\nJowhar, Somalia, with particular focus on internally displaced persons and\nvulnerable host communities. Duration approximately 30 days.\nDeliverables: methodology, field assessment, labour market report.\nFirm-level assignment with a defined scope of work.",
+    "document_text": "TERMS OF REFERENCE \u2014 CONSULTANCY CONTRACT\nClient B requests a consulting firm to conduct a labour market assessment in\nJowhar, Somalia, with particular focus on internally displaced persons and\nvulnerable host communities. Duration approximately 30 days.\nDeliverables: methodology, field assessment, labour market report.\nFirm-level assignment with a defined scope of work.\nThematic scope: livelihoods and labour market assessment.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client B",
@@ -562,7 +563,7 @@
     "id": "g-010",
     "source_kind": "past_proposal",
     "title": "Institutional strengthening for Somalia's accession to a regional economic community",
-    "document_text": "REQUEST FOR CONSULTING SERVICES\nThe assignment is to support institutional strengthening and capacity building\nfor Somalia's accession to a regional economic community, including alignment\nof national systems with the community framework.\nClient I. Deliverables: capacity-building plan, institutional assessments,\nprogress reports. Firm-level consultancy.",
+    "document_text": "REQUEST FOR CONSULTING SERVICES\nThe assignment is to support institutional strengthening and capacity building\nfor Somalia's accession to a regional economic community, including alignment\nof national systems with the community framework.\nClient I. Deliverables: capacity-building plan, institutional assessments,\nprogress reports. Firm-level consultancy.\nThematic scope: capacity building and policy alignment for accession.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client I",
@@ -621,7 +622,7 @@
     "id": "g-011",
     "source_kind": "past_proposal",
     "title": "Livelihood development through SME and MSME support for IDPs and host communities in Bossaso, Somalia",
-    "document_text": "CONSULTANCY SERVICE\nReference noted in the source proposal as a UN-agency country procurement code.\nClient J requests a firm to enhance livelihood development through SME and MSME\nsupport for IDPs and host communities in Bossaso, Somalia.\nDeliverables: technical approach, implementation support, reporting.",
+    "document_text": "CONSULTANCY SERVICE\nReference noted in the source proposal as a UN-agency country procurement code.\nClient J requests a firm to enhance livelihood development through SME and MSME\nsupport for IDPs and host communities in Bossaso, Somalia.\nDeliverables: technical approach, implementation support, reporting.\nThematic scope: livelihoods and economic inclusion of IDPs and hosts.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client J",
@@ -800,7 +801,7 @@
     "id": "g-014",
     "source_kind": "past_proposal",
     "title": "Scaling up women-led micro and small enterprises for social and economic inclusion of IDPs in Baidoa",
-    "document_text": "CONSULTANCY / TECHNICAL SUBMISSION\nAssignment: scaling up women-led micro and small enterprises for the social\nand economic inclusion of internally displaced persons in Baidoa, Somalia.\nA firm is proposed to deliver the technical approach, not a salaried post.\nDeliverables: technical methodology and implementation plan.",
+    "document_text": "CONSULTANCY / TECHNICAL SUBMISSION\nAssignment: scaling up women-led micro and small enterprises for the social\nand economic inclusion of internally displaced persons in Baidoa, Somalia.\nA firm is proposed to deliver the technical approach, not a salaried post.\nDeliverables: technical methodology and implementation plan.\nClient M commissions this firm consultancy. Thematic scope: livelihoods and economic inclusion.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client M",
@@ -862,7 +863,7 @@
     "id": "g-015",
     "source_kind": "past_proposal",
     "title": "Operating-model design for a local organisation in Kismayo, Jubaland",
-    "document_text": "TERMS OF REFERENCE \u2014 TECHNICAL CONSULTANCY\nDevelop an operating model for a local organisation in Kismayo, Jubaland,\nSomalia. Client N. Deliverables: operating-model report and implementation\nrecommendations. Company assignment with defined outputs.",
+    "document_text": "TERMS OF REFERENCE \u2014 TECHNICAL CONSULTANCY\nDevelop an operating model for a local organisation in Kismayo, Jubaland,\nSomalia. Client N. Deliverables: operating-model report and implementation\nrecommendations. Company assignment with defined outputs.\nThematic scope: organisational assessment to design the operating model.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client N",
@@ -1053,7 +1054,7 @@
     "id": "g-018",
     "source_kind": "past_proposal",
     "title": "Survey of applicable expert remuneration fees in comparable organisations in Kenya",
-    "document_text": "REQUEST FOR PROPOSAL\nClient C seeks a consulting firm to survey applicable expert remuneration fees\nin comparable organisations in Kenya and produce a benchmark report.\nDeliverables: methodology, survey, remuneration benchmark report.\nFirm consultancy, not a human-resources staff vacancy.",
+    "document_text": "REQUEST FOR PROPOSAL\nClient C seeks a consulting firm to survey applicable expert remuneration fees\nin comparable organisations in Kenya and produce a benchmark report.\nDeliverables: methodology, survey, remuneration benchmark report.\nFirm consultancy, not a human-resources staff vacancy.\nThematic scope: research assessment (fee survey), not an HR staff vacancy.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client C",
@@ -1112,7 +1113,7 @@
     "id": "g-019",
     "source_kind": "past_proposal",
     "title": "Design and delivery of a community-based anticipatory action pilot in the Mandera and Moyale clusters",
-    "document_text": "REQUEST FOR PROPOSALS\nClient Q (regional climate centre, Kenya) seeks consulting services to design\nand deliver a community-based anticipatory action pilot within the Mandera and\nMoyale clusters. RFP dated 10 August 2026 (issue date, not a submission deadline).\nDeliverables: design, delivery, pilot documentation.",
+    "document_text": "REQUEST FOR PROPOSALS\nClient Q (regional climate centre, Kenya) seeks consulting services to design\nand deliver a community-based anticipatory action pilot within the Mandera and\nMoyale clusters. RFP dated 10 August 2026 (issue date, not a submission deadline).\nDeliverables: design, delivery, pilot documentation.\nThe Mandera and Moyale clusters straddle Kenya and Ethiopia. Thematic scope: climate and capacity building for local actors.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client Q",
@@ -1296,7 +1297,7 @@
     "id": "g-022",
     "source_kind": "past_proposal",
     "title": "Development of a country nutrition cluster strategy and response plan for Somalia",
-    "document_text": "REQUEST FOR CONSULTANCY\nClient R seeks a firm to lead development of the Somalia Nutrition Cluster\nStrategy and Response Plan for a multi-year period.\nDeliverables: strategy and response plan. Firm-level consultancy.",
+    "document_text": "REQUEST FOR CONSULTANCY\nClient R seeks a firm to lead development of the Somalia Nutrition Cluster\nStrategy and Response Plan for a multi-year period.\nDeliverables: strategy and response plan. Firm-level consultancy.\nThematic scope: nutrition policy (cluster strategy and response plan).",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client R",
@@ -1412,7 +1413,7 @@
     "id": "g-024",
     "source_kind": "past_proposal",
     "title": "Agritech landscape study in Kenya",
-    "document_text": "PROVISION OF CONSULTANCY SERVICES\nClient T (Kenya) requests a firm to undertake an agritech landscape study in\nKenya. Deliverables: landscape study report.\nReference on the source proposal is a Kenya country-office procurement code.",
+    "document_text": "PROVISION OF CONSULTANCY SERVICES\nClient T (Kenya) requests a firm to undertake an agritech landscape study in\nKenya. Deliverables: landscape study report.\nReference on the source proposal is a Kenya country-office procurement code.\nThematic scope: research on agritech livelihoods.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client T",
@@ -1587,7 +1588,7 @@
     "id": "g-027",
     "source_kind": "synthetic_consultancy",
     "title": "Endline evaluation of a livelihoods programme in Somalia (synthetic ToR with stated budget and deadline)",
-    "document_text": "TERMS OF REFERENCE\nClient W hires a consulting firm for an endline evaluation of a livelihoods\nprogramme in Somalia.\nSubmission deadline: 2026-12-01.\nEstimated budget: USD 45000 (forty-five thousand), as stated in this ToR.\nDeliverables: inception, fieldwork, draft and final evaluation report.\nLanguages: English and Somali. PSEA policy required of the firm.",
+    "document_text": "TERMS OF REFERENCE\nClient W hires a consulting firm for an endline evaluation of a livelihoods\nprogramme in Somalia.\nSubmission deadline: 2026-12-01.\nEstimated budget: USD 45000 (forty-five thousand), as stated in this ToR.\nDeliverables: inception, fieldwork, draft and final evaluation report.\nLanguages: English and Somali. PSEA policy required of the firm.\nThematic scope: MEL (monitoring, evaluation and learning) plus livelihoods.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Client W",
@@ -1623,7 +1624,7 @@
         "project_location": [
           "Somalia"
         ],
-        "estimated_budget_usd": 45000,
+        "estimated_budget_usd": "45,000",
         "currency": "USD"
       },
       "requirements": {
@@ -1651,19 +1652,20 @@
         "key_strengths": [],
         "key_gaps": [],
         "is_consultancy_contract": true
-      }
+      },
+      "advisory_comment": "extra key allowed by schema extra=allow; must not change labeled fields"
     }
   },
   {
     "id": "g-028",
     "source_kind": "synthetic_consultancy",
     "title": "Extractive mining geology study in Brazil",
-    "document_text": "REQUEST FOR PROPOSAL\nUnknown Corp seeks a consulting firm for a mining geology study in Brazil.\nDeliverables: geological study report. This is a firm consultancy (not a job\nposting) but it is outside Cortech's geography and thematics.",
+    "document_text": "REQUEST FOR PROPOSAL\nUnknown Corp seeks a consulting firm for a mining geology study in Brazil.\nDeliverables: geological study report. This is a firm consultancy (not a job\nposting) but it is outside Cortech's geography and thematics.\nSubmission deadline: 2026-12-01.\nThematic scope: extractive mining geology.\nEstimated budget is not stated as a round personnel total in the opening paragraph; a later sentence of this synthetic ToR states USD 80000.",
     "labels": {
       "is_consultancy_contract": true,
       "client": "Unknown Corp",
       "deadline": "2026-12-01",
-      "budget_usd": null,
+      "budget_usd": 80000,
       "thematic_areas": [
         "extractive mining geology"
       ],
@@ -1677,7 +1679,7 @@
       "submission_type": "FULL_PROPOSAL"
     },
     "expected_recommendation": "NO-BID",
-    "notes": "Mirrors tests/test_bid_scorer.py wrong-geography case. Consultancy true; expected recommendation NO-BID.",
+    "notes": "Mirrors tests/test_bid_scorer.py wrong-geography case. Consultancy true; expected recommendation NO-BID. Deadline and USD 80000 are written in document_text so MAE is defined on two numeric ToRs (with g-027).",
     "recorded_analyzer_json": {
       "opportunity": {
         "title": "Extractive mining geology study in Brazil",
@@ -1687,8 +1689,8 @@
         "project_location": [
           "Brazil"
         ],
-        "estimated_budget_usd": null,
-        "currency": null
+        "estimated_budget_usd": 80000,
+        "currency": "USD"
       },
       "requirements": {
         "thematic_areas": [
@@ -1762,7 +1764,7 @@
     "id": "g-030",
     "source_kind": "synthetic_vacancy",
     "title": "Vacancy announcement: MEAL Officer, Nairobi",
-    "document_text": "VACANCY ANNOUNCEMENT\nWe are recruiting a Monitoring, Evaluation, Accountability and Learning Officer\nin Nairobi, Kenya. This is a salaried staff position. Benefits include leave\nentitlement, medical cover, and a monthly salary. Report to the Country Director.\nNo firm deliverables. Individual employment contract only.",
+    "document_text": "VACANCY ANNOUNCEMENT\nWe are recruiting a Monitoring, Evaluation, Accountability and Learning Officer\nin Nairobi, Kenya. This is a salaried staff position. Benefits include leave\nentitlement, medical cover, and a monthly salary. Report to the Country Director.\nNo firm deliverables. Individual employment contract only.\nEmployer: Client X. MEAL / MEL officer role. Individual staff contract only.",
     "labels": {
       "is_consultancy_contract": false,
       "client": "Client X",
@@ -1822,7 +1824,7 @@
     "id": "g-031",
     "source_kind": "synthetic_vacancy",
     "title": "We are hiring a Programme Officer in Somalia",
-    "document_text": "WE ARE HIRING\nProgramme Officer \u2014 Mogadishu, Somalia. Permanent staff. HR will process\napplications. Leave days, pension, and a job description for one employee.\nThere is no scope of work for a consulting firm and no deliverables schedule.",
+    "document_text": "WE ARE HIRING\nProgramme Officer \u2014 Mogadishu, Somalia. Permanent staff. HR will process\napplications. Leave days, pension, and a job description for one employee.\nThere is no scope of work for a consulting firm and no deliverables schedule.\nEmployer: Client Y. Permanent staff vacancy in Somalia.",
     "labels": {
       "is_consultancy_contract": false,
       "client": "Client Y",
@@ -1878,7 +1880,7 @@
     "id": "g-032",
     "source_kind": "synthetic_vacancy",
     "title": "Job opening: Driver, Mogadishu",
-    "document_text": "JOB OPENING\nDriver wanted for the Mogadishu office. Staff vacancy. Driving licence required.\nMonthly salary. This is not a consultancy and has no evaluation deliverables.",
+    "document_text": "JOB OPENING\nDriver wanted for the Mogadishu office. Staff vacancy. Driving licence required.\nMonthly salary. This is not a consultancy and has no evaluation deliverables.\nEmployer: Client Z. Staff vacancy at the Mogadishu office in Somalia.",
     "labels": {
       "is_consultancy_contract": false,
       "client": "Client Z",
@@ -1934,7 +1936,7 @@
     "id": "g-033",
     "source_kind": "synthetic_vacancy",
     "title": "Employment opportunity: Finance Manager, Kenya",
-    "document_text": "EMPLOYMENT OPPORTUNITY\nFinance Manager, Nairobi, Kenya. Full-time salaried post. Benefits, probation,\nand annual leave. Individual employment \u2014 not an RFP for a firm.",
+    "document_text": "EMPLOYMENT OPPORTUNITY\nFinance Manager, Nairobi, Kenya. Full-time salaried post. Benefits, probation,\nand annual leave. Individual employment \u2014 not an RFP for a firm.\nEmployer: Client AA. Full-time salaried staff vacancy in Kenya.",
     "labels": {
       "is_consultancy_contract": false,
       "client": "Client AA",
@@ -2047,7 +2049,7 @@
     "id": "g-035",
     "source_kind": "synthetic_vacancy",
     "title": "Intern wanted: Research Assistant, Nairobi",
-    "document_text": "INTERN WANTED\nResearch Assistant internship in Nairobi. Stipend, leave, and supervision by HR.\nIndividual trainee post. No firm-level scope of work.",
+    "document_text": "INTERN WANTED\nResearch Assistant internship in Nairobi. Stipend, leave, and supervision by HR.\nIndividual trainee post. No firm-level scope of work.\nEmployer: Client AB. Research internship (not a firm consultancy) in Kenya.",
     "labels": {
       "is_consultancy_contract": false,
       "client": "Client AB",

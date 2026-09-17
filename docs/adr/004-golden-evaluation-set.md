@@ -52,6 +52,12 @@ Supabase table, a calibrated win model, or any later-phase product.
    analysis input must not crash the scorer.
 8. Record baseline metrics in `docs/CURRENT_STATE.md` as what was actually
    measured (offline harness), not as live extraction accuracy.
+9. Every non-null labeled client, ISO deadline, positive budget, geography
+   token, and thematic must appear in `document_text`. Vacancy items must
+   contain HR/staff language. Impossible dates, zero/boolean budgets,
+   unknown `source_kind` values, duplicate ids, and non-array files fail
+   the loader explicitly. Recorded JSON may include extra keys and comma-
+   formatted numbers so `parse_analysis_payload` is not an identity test.
 
 ## Consequences
 
@@ -61,15 +67,21 @@ Supabase table, a calibrated win model, or any later-phase product.
   / recommendation tests therefore exercise geography and thematics, not name
   overlap.
 - Won/Lost calibration remains blocked until outcomes are labeled.
-- Phase 1 (calibrated win model) is still forbidden until this set has real
-  outcomes and a live extraction pass.
+- Phase 6 (calibrated win model) is still forbidden until this set has real
+  outcomes and a live extraction pass. Phase 1 of the upgrade is schema
+  validation / provenance, not a win model.
+- Labeled client, deadline, budget, geography, and thematics must appear in
+  `document_text` (or stay null because the text does not state them). A
+  recorded JSON object that copies labels is not a substitute for grounded
+  fixtures. Extra keys and comma-formatted budget strings in recorded JSON
+  exercise parse/coerce, not identity copy.
 
-Pytest on 2026-09-14 (`./cortech/bin/python -m pytest tests/ -q`):
+Pytest on 2026-09-17 (`./cortech/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --override-ini='addopts=' -q --tb=line`):
 
 ```text
-2 failed, 219 passed in 14.50s
+366 passed, 2 warnings in 17.30s
 ```
 
-The two failures are pre-existing `tests/test_grounding.py` cases, not Phase 0.
-New tests: `tests/test_golden_extraction.py` (10) and
-`tests/test_golden_scoring.py` (7), all passing.
+0 failed, 0 skipped. Hosted `tests/test_live_supabase_stages.py` (3 tests) were not run
+in this session (live Supabase). Golden files:
+`tests/test_golden_extraction.py` and `tests/test_golden_scoring.py` — 29 passed.

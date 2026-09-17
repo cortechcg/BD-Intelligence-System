@@ -332,6 +332,14 @@ def test_content_hash_migration_enforces_partial_unique_index():
     assert "competitor" not in sql.lower()
 
 
+def test_content_hash_normalizes_whitespace_and_case():
+    from utils.hashing import content_hash
+
+    assert content_hash("Hello\n\nWorld") == content_hash("hello world")
+    assert content_hash("  ") == content_hash("")
+    assert content_hash("A") != content_hash("B")
+
+
 def test_load_snapshot_when_stage_columns_missing_logs_and_does_not_drop(monkeypatch):
     supabase_client.reset_opportunity_ledger_status()
 

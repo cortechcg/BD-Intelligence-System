@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import main
+from config import CLAUDE_MODEL, CLAUDE_MODEL_PROPOSAL
 from tests.test_pipeline_resume import MemoryLedger, _analysis, _wire_ledger
 from utils.errors import SpendCapError
 from utils.llm import complete
@@ -54,14 +55,14 @@ def test_zero_cap_blocks_complete_before_provider(monkeypatch):
     )
     start_run_spend_cap(0.0)
     with pytest.raises(SpendCapError, match="spend cap"):
-        complete("claude-haiku-4-5", [{"role": "user", "content": "x"}], stage="kill")
+        complete(CLAUDE_MODEL, [{"role": "user", "content": "x"}], stage="kill")
     assert messages.calls == []
     snap = run_spend_snapshot()
     assert snap["blocked_calls"] == 1
     assert snap["provider_calls"] == 0
 
     with pytest.raises(SpendCapError):
-        complete("claude-haiku-4-5", [{"role": "user", "content": "y"}], stage="kill2")
+        complete(CLAUDE_MODEL, [{"role": "user", "content": "y"}], stage="kill2")
     assert messages.calls == []
     assert run_spend_snapshot()["blocked_calls"] == 2
 
@@ -75,10 +76,10 @@ def test_tiny_cap_allows_one_then_halts(monkeypatch):
     # First call is ~$4.6e-5 at haiku list prices with 11/7 tokens — too small
     # for a $0.01 cap. Use a cap below that so the second complete() is blocked.
     start_run_spend_cap(0.0000001)
-    complete("claude-haiku-4-5", [{"role": "user", "content": "a"}], stage="one")
+    complete(CLAUDE_MODEL, [{"role": "user", "content": "a"}], stage="one")
     assert len(messages.calls) == 1
     with pytest.raises(SpendCapError):
-        complete("claude-haiku-4-5", [{"role": "user", "content": "b"}], stage="two")
+        complete(CLAUDE_MODEL, [{"role": "user", "content": "b"}], stage="two")
     assert len(messages.calls) == 1
 
 
@@ -101,7 +102,7 @@ def test_spend_cap_during_draft_leaves_scored_retryable(monkeypatch):
 
     def draft_hits_cap(*args, **kwargs):
         complete(
-            "claude-sonnet-5",
+            CLAUDE_MODEL_PROPOSAL,
             [{"role": "user", "content": "draft"}],
             stage="killtest_draft",
         )

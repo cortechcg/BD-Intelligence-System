@@ -205,15 +205,17 @@ The new mocked vertical slice covers fetch → quality → cache → LLM analysi
 deterministic BID override → financial status → proposal → compliance → CRM
 reviewing status. Tests make no live API calls.
 
-Phase 0 re-run locally on 2026-09-14:
+Phase 0 grounding re-run locally on 2026-09-17; Phases 1–8 hardening the same day:
 
 ```text
-./cortech/bin/python -m pytest tests/ -q
-2 failed, 219 passed in 14.50s
+./cortech/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --override-ini='addopts=' -q --tb=line
+366 passed, 2 warnings in 17.30s
 ```
 
-The two failures are pre-existing `tests/test_grounding.py` cases, not this
-phase. New golden tests all passed.
+0 failed, 0 skipped (hosted live tests not run this session). Golden
+extraction/scoring: 29 passed. Recorded-JSON parse vs labels: consultancy
+P/R/acc 1.000 (29 true / 7 false). Budget MAE 0.000 on 2 labeled numeric
+ToRs. Labels are now required to appear in `document_text`.
 
 Phase 1 re-run locally on 2026-09-14:
 
@@ -272,10 +274,12 @@ Regression cases added and passing:
 - spend-cap during draft leaves in-memory ledger `pipeline_stage=scored`,
   `state=failed`, not `dead_letter`.
 
-Phase 8 pytest (2026-09-15, after hosted stages SQL + dependency bumps):
+Phase 8 pytest (2026-09-15, after hosted stages SQL + dependency bumps;
+reconfirmed same day after the documentation pass):
 
 ```text
-346 passed, 2 warnings in 26.01s
+~/cortech-bd-agent/cortech/bin/python -m pytest tests/ --override-ini='addopts=' -q --tb=line
+346 passed, 2 warnings in 33.45s
 ```
 
 0 failed, 0 skipped. `check_supabase_stages.py` exit 0. All three tests in
@@ -285,13 +289,15 @@ discovered → extracted → scored → drafted. Hosted spend-cap kill-test:
 resume `drafted`/`completed`. Prior to the Dashboard SQL apply the same
 suite was 1 failed, 343 passed, 2 skipped.
 
-Phase 0 (2026-09-14) added `tests/golden/` — 36 anonymized items with an
-offline harness. Recorded-JSON parse vs labels: consultancy precision/recall
-1.000 (29 true / 7 false). Scorer recommendation accuracy 1.000 on the 29
-items with an expected BID/WATCH/NO-BID band. That is a **harness baseline**,
-not live Claude extraction accuracy, not retrieval quality, and not a
-calibrated Brier score. All golden-set outcomes are UNKNOWN (Airtable was not
-read for that set). Phase 6 counted live stores separately: 123 WON / 0 LOST;
+Phase 0 (2026-09-14, grounding pass 2026-09-17) added `tests/golden/` — 36
+anonymized items with an offline harness. Recorded-JSON parse vs labels:
+consultancy precision/recall 1.000 (29 true / 7 false). Scorer
+recommendation accuracy 1.000 on the 29 items with an expected BID/WATCH/
+NO-BID band. Budget MAE 0.000 on 2 labeled numeric ToRs. Labeled fields must
+appear in `document_text` or stay null. That is a **harness baseline**, not
+live Claude extraction accuracy, not retrieval quality, and not a calibrated
+Brier score. All golden-set outcomes are UNKNOWN (Airtable was not read for
+that set). Phase 6 counted live stores separately: 123 WON / 0 LOST;
 held-out Brier is sample too small to trust.
 
 ## 16. Remaining technical debt
@@ -362,21 +368,21 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 |---|---:|---|
 | Architecture | 7 | Coherent modular single process with tested extract/score/draft stage services and durable workflow boundaries on the existing `opportunity_processing` ledger (`pipeline_stage` + checkpoint, ADR 011). Hosted columns exist (`check_supabase_stages.py` exit 0). Kill-mid-run after `scored` resumes at draft rather than re-fetching (proven on the hosted row). Still one process; knowledge layer incomplete. Not 8. |
 | Reliability | 7 | Isolated source failures, quality gates, bounded downloads, plus durable stage resume and BID/WATCH drafting retry → `dead_letter` after 3 failures (not a silent skip). Consultancy FALSE still stops before CV/proposal tokens. Optional intel (orgs, market facts, calibrated P(win) INSUFFICIENT DATA) still fail-open. Hosted `opportunity_stages` SQL is applied. Gap: no distributed retry queue. Not 8. |
-| Data Quality | 6 | Canonical URL, extraction checks, explicit unknowns, `content_hash` unique index in migration (not applied this session), field-level ToR provenance, org-name matcher (Phase 2). Still no freshness model; organizations migration also unapplied. |
-| AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail, named past-work claim verifier (Phase 4). Gap: live Claude extraction vs golden set is unmeasured; not a full sentence-level claim graph. |
+| Data Quality | 7 | Canonical URL, extraction checks, explicit unknowns, hosted `opportunities_cache.content_hash` unique index (`opportunities_cache_content_hash_uidx`, 2026-09-17 query), field-level ToR provenance, org-name matcher with hosted `organizations` tables (occupancy 0 after probe cleanup). Gap: no freshness model; 1210 existing cache rows have NULL `content_hash` (not back-hashed). Not 8. |
+| AI Quality | 7 | Untrusted boundaries, deterministic score boundary, Pydantic extraction schema with one repair retry then explicit fail, LLM-supplied provenance stripped and recomputed, named past-work claim verifier with fail-closed tagging (Phase 4). Gap: live Claude extraction vs golden set is unmeasured; not a full sentence-level claim graph. |
 | RAG Quality | 6 | Vector retrieval with metadata and dedup; no measured hybrid retrieval evaluation. |
 | Opportunity Intelligence | 6 | Discovery, dedup, extraction, score; limited sources and stale-detection model. |
-| Market Intelligence | 4 | Observed-data digest over stored opportunities (Phase 3, ADR 007): trailing 30/90-day thematic and geography frequencies plus donor posting counts for organizations already in the Phase 2 table; weekly internal email (`cortech-market.timer`). Every shown number carries sample size and date range. n&lt;10 (tested at n=2) is “insufficient data for a trend”, never INFERRED-as-trend; no invented buckets (“Other WASH”, “East Africa”) or dummy donors. Code aggregation only — no Claude market narrative, no external research source. Gap: `supabase_migration_opportunity_facts.sql` and organizations migration are **not applied** this session; empty/thin history keeps live output at INSUFFICIENT DATA. Not a dashboard and not 8–10. |
-| Client Intelligence | 5 | Canonical org table + normalize/exact/fuzzy matcher + cited review-email roll-up from stored rows (Phase 2, ADR 006). Exact match is VERIFIED; fuzzy ≥ 0.95 with length/first-token guards is INFERRED; below threshold is a new candidate / UNKNOWN, never a silent merge. Counts are code aggregations; unknown outcomes stay UNKNOWN (golden set is all UNKNOWN — not faked as wins). Gap: migration `supabase_migration_organizations.sql` is not applied this session; live Airtable/proposal history is therefore often empty; explicit alias list is empty; this is not an account-management or relationship product. |
-| Competitor Intelligence | 4 | Assortis `DataType=contract` pages already in the ICA newsletter HTML publish a labelled **Awarded Firm(s):** block; extraction stores VERIFIED rows only with `source_url` + excerpt containing the name (`intelligence/competitors.py`, ADR 009). Tests: fabricated winner not on the page is not stored; a tender page with no winner field stores nothing; injection without the label is not a winner; two firms are not merged below the Phase 2 matcher threshold. Somali Jobs (`/tenders/` listings) and empty RSS have no winner field and were **not stubbed**. Live store is empty until the newsletter contains contract items and `supabase_migration_award_relationships.sql` is applied (not applied this session; fail-open). Not a ranking, not likely bidders, not 8–10. |
+| Market Intelligence | 4 | Observed-data digest over stored opportunities (Phase 3, ADR 007): trailing 30/90-day thematic and geography frequencies plus donor posting counts for organizations already in the Phase 2 table; weekly internal email (`cortech-market.timer`). Every shown number carries sample size and date range. n&lt;10 (tested at n=2) is “insufficient data for a trend”, never INFERRED-as-trend; no invented buckets (“Other WASH”, “East Africa”) or dummy donors. Code aggregation only — no Claude market narrative, no external research source. `supabase_migration_opportunity_facts.sql` **is applied**; occupancy **0/1210** on thematic_areas, locations, donor. Live digest remains INSUFFICIENT DATA until enough dated fact rows exist. Not a dashboard and not 8–10. |
+| Client Intelligence | 5 | Canonical org table + normalize/exact/fuzzy matcher + cited review-email roll-up from stored rows (Phase 2, ADR 006). Exact match is VERIFIED; fuzzy ≥ 0.95 with length/first-token guards is INFERRED; below threshold is a new candidate / UNKNOWN, never a silent merge. Counts are code aggregations; unknown outcomes stay UNKNOWN (golden set is all UNKNOWN — not faked as wins). `supabase_migration_organizations.sql` **is applied** (2026-09-17). Production occupancy is **0** organizations (probe rows deleted). Explicit alias list is empty; this is not an account-management or relationship product. |
+| Competitor Intelligence | 4 | Assortis `DataType=contract` pages already in the ICA newsletter HTML publish a labelled **Awarded Firm(s):** block; extraction stores VERIFIED rows only with `source_url` + excerpt containing the name (`intelligence/competitors.py`, ADR 009). Tests: fabricated winner not on the page is not stored; a tender page with no winner field stores nothing; injection without the label is not a winner; two firms are not merged below the Phase 2 matcher threshold. Somali Jobs (`/tenders/` listings) and empty RSS have no winner field and were **not stubbed**. `supabase_migration_award_relationships.sql` **is applied**; `award_observations` occupancy **0**. Not a ranking, not likely bidders, not 8–10. |
 | Capability Intelligence | 6 | Semantic + explicit overlay; no complete requirement traceability/availability control. |
-| Relationship Intelligence | 5 | Named JV/consortium/commissioned-partner edges extracted from Cortech’s own `data/proposals/` with document + chunk + verbatim excerpt (`intelligence/relationships.py`, ADR 009). Real counterparts on disk include SPI, IBF Expertise, BK Plus Europe, FFTA, and SFERE. Partner name not in the excerpt is not stored; “typically work with”, sole-firm/no-JV, client-side consortia, and Lead Consultant person roles store nothing. Same org matcher; same unapplied migration / fail-open. Optional cited section on the review email; not an account-management graph. Not 9. |
+| Relationship Intelligence | 5 | Named JV/consortium/commissioned-partner edges extracted from Cortech’s own `data/proposals/` with document + chunk + verbatim excerpt (`intelligence/relationships.py`, ADR 009). Real counterparts on disk include SPI, IBF Expertise, BK Plus Europe, FFTA, and SFERE. Partner name not in the excerpt is not stored; “typically work with”, sole-firm/no-JV, client-side consortia, and Lead Consultant person roles store nothing. Same org matcher. `relationship_edges` table **exists** (occupancy **0**). Optional cited section on the review email; not an account-management graph. Not 9. |
 | Bid Intelligence | 8 | Deterministic, versioned scoring with factors/evidence/audit values and tests proving LLM NO-BID cannot force an official NO-BID. Phase 6 harness exists (`win_calibration.py` + versioned artifact v0.1.0) but **no model was fit**: census 123 WON / 0 LOST, bar is n≥30 and ≥10 per class, held-out Brier is “sample too small to trust.” Heuristic WIN PROBABILITY remains official. Not 9. |
-| Proposal Intelligence | 8 | Named past-work verifier is real (Phase 4, ADR 008): every “Cortech has done X before” named-client claim must resolve to a retrieved proposal chunk (`chunk_id` like `proposal:recARCH`) or stay in the draft tagged `[NOT VERIFIED]`. Invented clients are not passed through clean; empty retrieval / malformed sections / adversarial text do not crash and do not silent-accept. Generic boasts without an entity are `INSUFFICIENT EVIDENCE` in the report only (ADR 003). Gap: this is **not** a source→proposal graph for every sentence, and assignment details beyond named-entity presence are not proven. Not 10. |
+| Proposal Intelligence | 8 | Named past-work verifier is real (Phase 4, ADR 008): every “Cortech has done X before” named-client claim must resolve to a retrieved proposal chunk (`chunk_id` like `proposal:recARCH`) or stay in the draft tagged `[NOT VERIFIED]`. Invented clients are not passed through clean; empty retrieval / malformed sections / adversarial text / verifier crash do not crash and do not silent-accept (`fail_closed_ground_sections`). Generic boasts without an entity are `INSUFFICIENT EVIDENCE` in the report only (ADR 003). Gap: this is **not** a source→proposal graph for every sentence, and assignment details beyond named-entity presence are not proven. Not 10. |
 | Outcome Intelligence | 6 | Win/loss lesson storage exists. Phase 6 adds an offline held-out evaluator that only emits Brier when both classes meet the bar; production census has 0 LOST so the calibrated field is INSUFFICIENT DATA. Lessons still do not update the official heuristic. Harness exists; model not trusted. |
 | Security | 8 | Per-hop SSRF validation, DNS-pinned download GET (resolve once, connect to that IP, reject private/mixed DNS), capped downloads, TLS, input boundaries, escaped email, CI `pip-audit` with patched `cryptography` 50.0.0 / `h2` 4.4.1 / `pillow` 12.3.0 / `pytest` 9.0.3 (re-scan clean). Playwright/parser still not an OS sandbox. Not 9. |
 | Observability | 7 | Execution/stage/cost hooks plus enforced per-run spend cap at `complete()`. No metrics backend. |
-| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), schema/retry/provenance failure tests (Phase 1), org matcher/roll-up/email failure-mode tests (Phase 2), observed-digest thin-n / empty-store / malformed-row / fail-open tests (Phase 3), named past-work grounding tests including a fabricated-claim writer injection (Phase 4), Phase 5 award/relationship tests, Phase 6 calibration tests (thin n → INSUFFICIENT DATA, won=False is UNKNOWN, held-out eval on injected labels, heuristic not replaced, malformed/org-history fail-open), Phase 7 stage-unit + kill-mid-run resume + drafting dead-letter tests, and Phase 8 DNS-pin / spend-cap / Playwright-limit / hosted stage-schema + hosted stage-write + hosted spend-cap kill-tests (346 passed, 0 failed, 0 skipped). Still no staging environment or live-LLM extraction evaluation. |
+| Testing | 7 | Golden set of 36 items plus offline parse/scorer metrics (Phase 0), with labels grounded in `document_text`, loader failure tests, and labeled-field provenance VERIFIED (Phase 1). Schema/retry/provenance failure tests including LLM-supplied provenance stripped, non-finite budget refuse, and `log_agent_action` raise on refuse (Phase 1). Org matcher/roll-up/email failure-mode tests including golden-set format variants of the same client (Phase 2). Observed-digest thin-n / empty-store / malformed-row / fail-open / `submission_deadline` is not a discovery date (Phase 3). Named past-work grounding tests including a fabricated-claim writer injection and verifier-crash fail-closed (Phase 4). Phase 5 award/relationship tests. Phase 6 calibration tests. Phase 7 stage-unit + kill-mid-run resume + drafting dead-letter tests. Phase 8 DNS-pin / spend-cap (`CLAUDE_MODEL` from config) / Playwright-limit / CI `pip-audit` with hosted live tests ignored. Offline suite 2026-09-17: **370 passed**, 0 failed, 0 skipped. Hosted: `test_live_supabase_migrations.py` 4 passed, `test_live_supabase_stages.py` 3 passed. Still no staging environment or live-LLM extraction evaluation. |
 | Cost Efficiency | 7 | Dedup, capped run, configured model cost, removed budget LLM call, plus `MAX_RUN_COST_USD` enforced at `complete()` (unit and hosted `$0` kill-test: no `messages.create()`; hosted row left `scored`/`failed` then resumed to `drafted`). Not 9. |
 | UX | 5 | Useful emails/Airtable review; no dedicated intelligence UI/action queue. |
 | Business Value | 7 | Safer opportunity triage, explainable scoring, and grounded financial handoff; organizational intelligence remains incomplete. |
@@ -384,30 +390,30 @@ script run.” Scores of 8 include evidence; lower scores state the main gap.
 ## 20. Recommended next phase
 
 Phase 0 delivered the small golden dataset (`tests/golden/`, ADR 004). Phase 1
-delivered schema-validated extraction, `content_hash` uniqueness (migration
-file; not applied this session), and minimal field-level ToR provenance
-(ADR 005). Phase 2 delivered canonical client/donor organizations, a
-deterministic matcher, and a cited roll-up on the review email (ADR 006;
-migration file not applied this session). Phase 3 delivered an observed-data
-market digest from stored opportunities (ADR 007; `opportunity_facts`
-migration file not applied this session; thin-n refusal). Phase 4 delivered
-named past-work claim grounding (ADR 008): generated “Cortech has done X”
-claims resolve to a retrieved chunk or are tagged `[NOT VERIFIED]`. Phase 5
-delivered cited Assortis Awarded Firm(s) observations and cited relationship
-edges from Cortech past submissions (ADR 009; `award_relationships` migration
-file not applied this session). Phase 6 delivered a versioned calibration
-harness (ADR 010) and **refused to fit a model**: labeled n is 123 WON /
-0 LOST under Phase 2 rules; held-out Brier is “sample too small to trust”;
-heuristic WIN PROBABILITY was not replaced. Phase 7 delivered durable
-pipeline stages on the existing `opportunity_processing` ledger (ADR 011):
-extract → score → draft resume, BID/WATCH drafting dead-letter, kill-mid-run
-test. `opportunity_stages` SQL **was applied** to hosted Supabase (Dashboard
-SQL, 2026-09-15). Next: apply the hash, organizations, opportunity-facts, and
-award-relationships migrations, a **live** extraction (and later retrieval)
-pass against the golden set, a human approval/outcome schema that records Lost
-as well as Won, and only after both classes meet the bar, train and validate a
-calibrated win model against the heuristic on held-out data. **Phase 8**
-(ADR 012) is complete: download-path DNS pin, Playwright timeout/heap flags
-(not an OS sandbox), CI `pip-audit` (scan clean after bumps listed in
+delivered schema-validated extraction, `content_hash` uniqueness (**applied**
+to hosted `opportunities_cache` 2026-09-17; 1210 existing rows remain NULL
+hash), and minimal field-level ToR provenance (ADR 005). Phase 2 delivered
+canonical client/donor organizations, a deterministic matcher, and a cited
+roll-up on the review email (ADR 006; **tables applied**, production occupancy
+0). Phase 3 delivered an observed-data market digest from stored opportunities
+(ADR 007; fact columns **applied**; 0/1210 thematic/location/donor occupancy;
+thin-n refusal). Phase 4 delivered named past-work claim grounding (ADR 008):
+generated “Cortech has done X” claims resolve to a retrieved chunk or are
+tagged `[NOT VERIFIED]`. Phase 5 delivered cited Assortis Awarded Firm(s)
+observations and cited relationship edges from Cortech past submissions
+(ADR 009; `award_relationships` **applied**; occupancy 0/0). Phase 6 delivered
+a versioned calibration harness (ADR 010) and **refused to fit a model**:
+labeled n is 123 WON / 0 LOST under Phase 2 rules; held-out Brier is “sample
+too small to trust”; heuristic WIN PROBABILITY was not replaced. Phase 7
+delivered durable pipeline stages on the existing `opportunity_processing`
+ledger (ADR 011): extract → score → draft resume, BID/WATCH drafting
+dead-letter, kill-mid-run test. `opportunity_stages` SQL **was applied** to
+hosted Supabase (Dashboard SQL, 2026-09-15). Next: a **live** extraction (and
+later retrieval) pass against the golden set, a human approval/outcome schema
+that records Lost as well as Won, and only after both classes meet the bar,
+train and validate a calibrated win model against the heuristic on held-out
+data. `win_loss_memory` is still absent. **Phase 8** (ADR 012) is complete:
+download-path DNS pin, Playwright timeout/heap flags (not an OS sandbox),
+CI `pip-audit` (scan clean after bumps listed in
 `docs/SECURITY.md`), enforced `MAX_RUN_COST_USD` at `complete()`, and the
 hosted spend-cap kill-test on the real `opportunity_processing` row.

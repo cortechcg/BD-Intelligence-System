@@ -272,6 +272,28 @@ def test_same_client_and_donor_name_is_one_org():
     assert "same organization as the client" in payload["donor"]["headline"]
 
 
+def test_golden_set_repeat_client_format_variants_resolve_to_one_org():
+    """DoD: two differently-formatted mentions of the same golden-set client."""
+    items = load_golden_set()
+    names = [
+        (item["labels"].get("client") or "").strip()
+        for item in items
+        if (item["labels"].get("client") or "").strip()
+    ]
+    assert names.count("Client E") >= 2
+    first = match_organization("Client E")
+    index = index_with_match([], first)
+    spaced = match_organization("CLIENT  E", index)
+    legal = match_organization("Client E Ltd.", index)
+    assert spaced.organization_id == first.organization_id
+    assert legal.organization_id == first.organization_id
+    assert spaced.status == STATUS_VERIFIED
+    assert legal.status == STATUS_VERIFIED
+    other = match_organization("Client F", index)
+    assert other.organization_id != first.organization_id
+    assert other.status == STATUS_UNKNOWN
+
+
 def test_golden_set_clients_stay_distinct_and_outcomes_unknown():
     items = load_golden_set()
     index = []

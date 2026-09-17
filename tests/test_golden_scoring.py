@@ -159,3 +159,12 @@ def test_internal_audit_item_is_watch_not_forced_bid():
     assert result["recommendation"] == "WATCH"
     assert result["fit"]["score"] is not None
     assert 45 <= result["fit"]["score"] < 70
+
+
+def test_wrong_geography_item_stays_no_bid_even_with_stated_budget():
+    items = {item["id"]: item for item in load_golden_set()}
+    analysis = analysis_from_labels(items["g-028"])
+    assert analysis["opportunity"]["estimated_budget_usd"] == 80000
+    result = compute_bid_intelligence(analysis)
+    assert result["recommendation"] == "NO-BID"
+    assert result["commercial_value"]["contract_value_usd"] == 80000

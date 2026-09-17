@@ -66,8 +66,9 @@ claim verifier has somewhere real to look.
    not found in the text), `INSUFFICIENT DATA` (no value or no source text).
    `page` is recorded only when a `----- PAGE N -----` marker is actually in
    the extracted text (PDF extractor writes these). Missing page → `null`,
-   never a guessed number. This is **not** a source → page → chunk → proposal
-   claim graph.
+   never a guessed number. Hyphen/space identity is locating (`end-line`
+   locates `endline`); it is not a new field. This is **not** a source →
+   page → chunk → proposal claim graph.
 
 Schema fields (sourced from current readers, not invented):
 
@@ -99,12 +100,25 @@ Pytest on 2026-09-14 (`./cortech/bin/python -m pytest tests/ -q`):
 ```
 
 The two failures are pre-existing `tests/test_grounding.py` cases, not Phase 1.
-Golden-set extraction vs Phase 0 baseline: consultancy P/R/acc 1.000 (29/7),
-client/deadline exact 1.000, budget MAE 0.000, geography/thematic Jaccard 1.000.
-Equal, not worse.
 
-`supabase_migration_content_hash.sql` was **not** applied to a live project in
-this session (no local Supabase; hosted credentials were not used).
+Hardening pass 2026-09-17 (`./cortech/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --override-ini='addopts=' -q --tb=line`):
+
+```text
+366 passed, 2 warnings in 17.30s
+```
+
+Golden-set labeled non-null fields now require `extraction_provenance` status
+VERIFIED against `document_text` (hyphen/space identity only). LLM-supplied
+`extraction_provenance` is stripped. Schema-invalid JSON retries once then
+refuses; `log_agent_action` raising on that refuse does not crash.
+Non-finite budgets and string-list `team_requirements` are schema failures,
+not silent records. Golden extraction vs Phase 0 baseline: consultancy
+P/R/acc 1.000 (29/7), client/deadline exact 1.000, budget MAE 0.000 (n=2),
+geography/thematic Jaccard 1.000. Equal, not worse.
+
+`supabase_migration_content_hash.sql` **was applied** to hosted
+`cnmynhgjkxkojhlereoj` on 2026-09-17 (`APPLY_OK via=psql`; unique index
+query-confirmed; 1210 existing rows have NULL `content_hash`).
 
 ## Consequences
 
@@ -115,6 +129,6 @@ this session (no local Supabase; hosted credentials were not used).
   proposal claim verification are not.
 - Data Quality still has no canonical organization/freshness model. `content_hash`
   uniqueness is identity for document bodies, not an entity graph.
-- `supabase_migration_content_hash.sql` must be applied in the Supabase SQL
-  editor before uniqueness is enforced in a given project. This session does
-  not apply it to production.
+- `supabase_migration_content_hash.sql` is applied on hosted
+  `opportunities_cache`. Existing rows stay NULL until rewritten with a hash.
+  Uniqueness is identity for document bodies, not an entity graph.
