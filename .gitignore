@@ -7,3 +7,17 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# --- Runtime artifacts (never source) -----------------------------------
+# *.log: populate_airtable.py adds a loguru sink at populate_airtable.log;
+#        agent.log / cron.log are nohup/cron stdout captures of main.py.
+*.log
+# output/: main.py writes output/draft_<ts>.md, reporting/docx_builder.py
+#          writes output/proposals/*.docx, intelligence/learning.py keeps
+#          per-opportunity draft memory in output/learning/*.json.
+output/
+# failed_saves/: database/airtable_client.py dumps a JSON per opportunity
+#                whose Airtable save failed, for later replay.
+failed_saves/
+# scraper_diagnosis.txt: empty 0-byte diagnostic capture, no code writes it.
+scraper_diagnosis.txt
