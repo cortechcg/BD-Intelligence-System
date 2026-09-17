@@ -189,6 +189,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 python main.py --once                    # Run the full discovery pipeline once
 python main.py                            # Old always-on scheduler loop — superseded by systemd, kept for reference
 python main.py --submit-url "<url>"       # Manually process one specific tender URL immediately
+python main.py --submit -url "<url>"      # Same (accepted alias of --submit-url)
 python main.py --run-assortis             # Manually trigger just the newsletter check
 python main.py --run-deadline-check       # Manually trigger just the deadline-escalation check
 python main.py --run-winloss              # Manually trigger just the win/loss lesson extraction

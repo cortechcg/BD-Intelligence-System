@@ -7,6 +7,7 @@ Entry points:
   python main.py --once        → single run (used by crontab + manual testing)
   python main.py --submit-url  → process one URL on demand (web page, PDF, or
                                  a Google Drive folder with multiple annexes)
+                                 also accepts: --submit -url <url>
   python main.py               → continuous scheduler every CHECK_INTERVAL_HOURS
 
 Pipeline (runs for every opportunity that passes the three-gate filter):
@@ -993,46 +994,143 @@ def start_scheduler() -> None:
 # ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
-    # --help must not fall through to start_scheduler(), which fires a full
-    # discovery run immediately (emails + Airtable + Claude).
-    if "--help" in sys.argv or "-h" in sys.argv:
-        print(
-            "Cortech BD Intelligence Agent\n"
-            "\n"
-            "  python main.py --once                  Run the full discovery pipeline once\n"
-            "  python main.py --submit-url <url>      Process one URL immediately\n"
-            "  python main.py --run-assortis          Check the ICA/Assortis newsletter once\n"
-            "  python main.py --run-deadline-check    Send deadline escalation digest\n"
-            "  python main.py --run-winloss           Extract win/loss lessons\n"
-            "  python main.py --run-market-digest     Send observed-data market digest\n"
-            "  python main.py --extract-relationships Extract cited JV/consortium edges from data/proposals/\n"
-            "  python main.py                         Continuous scheduler (legacy)\n"
+_CLI_USAGE = (
+    "Cortech BD Intelligence Agent\n"
+    "\n"
+    "  python main.py --once                  Run the full discovery pipeline once\n"
+    "  python main.py --submit-url <url>      Process one URL immediately\n"
+    "  python main.py --submit -url <url>     Same (common mistype of --submit-url)\n"
+    "  python main.py --run-assortis          Check the ICA/Assortis newsletter once\n"
+    "  python main.py --run-deadline-check    Send deadline escalation digest\n"
+    "  python main.py --run-winloss           Extract win/loss lessons\n"
+    "  python main.py --run-market-digest     Send observed-data market digest\n"
+    "  python main.py --extract-relationships Extract cited JV/consortium edges from data/proposals/\n"
+    "  python main.py                         Continuous scheduler (legacy)\n"
+)
+
+_SINGLE_FLAGS = {
+    "--once": "once",
+    "--run-assortis": "assortis",
+    "--run-deadline-check": "deadline",
+    "--run-winloss": "winloss",
+    "--run-market-digest": "market",
+    "--extract-relationships": "relationships",
+}
+
+
+class CliError(ValueError):
+    """Invalid argv. Must not fall through to the continuous scheduler."""
+
+
+def parse_main_argv(argv: list[str]) -> dict:
+    """Parse CLI tokens. Unknown or incomplete submit flags never mean scheduler."""
+    args = list(argv[1:])
+    if not args:
+        return {"mode": "scheduler"}
+    if "-h" in args or "--help" in args:
+        return {"mode": "help"}
+
+    url = None
+    wanted_submit = False
+    mode_flags: list[str] = []
+    leftovers: list[str] = []
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token in ("-h", "--help"):
+            return {"mode": "help"}
+        if token in ("--submit-url", "--url", "-url"):
+            if i + 1 >= len(args):
+                raise CliError(
+                    "Usage: python main.py --submit-url <url>\n"
+                    "   or: python main.py --submit -url <url>"
+                )
+            nxt = args[i + 1]
+            if nxt.startswith("-") and not nxt.lower().startswith("http"):
+                raise CliError(
+                    "Usage: python main.py --submit-url <url>\n"
+                    "   or: python main.py --submit -url <url>"
+                )
+            url = nxt
+            wanted_submit = True
+            i += 2
+            continue
+        if token.startswith("--submit-url="):
+            url = token.split("=", 1)[1]
+            wanted_submit = True
+            i += 1
+            continue
+        if token == "--submit":
+            wanted_submit = True
+            i += 1
+            continue
+        if token in _SINGLE_FLAGS:
+            mode_flags.append(token)
+            i += 1
+            continue
+        if token.startswith("-"):
+            raise CliError(f"Unknown option: {token}\n\n{_CLI_USAGE}")
+        leftovers.append(token)
+        i += 1
+
+    if wanted_submit:
+        if not url and leftovers:
+            url = leftovers[0]
+            leftovers = leftovers[1:]
+        if not url:
+            raise CliError(
+                "Usage: python main.py --submit-url <url>\n"
+                "   or: python main.py --submit -url <url>"
+            )
+        return {"mode": "submit", "url": url}
+
+    if len(mode_flags) > 1:
+        raise CliError(
+            "Use only one of: "
+            + ", ".join(_SINGLE_FLAGS)
+            + f"\n\n{_CLI_USAGE}"
         )
+    if mode_flags:
+        return {"mode": _SINGLE_FLAGS[mode_flags[0]]}
+    if leftovers:
+        raise CliError(f"Unknown arguments: {' '.join(leftovers)}\n\n{_CLI_USAGE}")
+    return {"mode": "scheduler"}
+
+
+if __name__ == "__main__":
+    # --help / incomplete --submit must not fall through to start_scheduler(),
+    # which fires a full discovery run immediately (emails + Airtable + Claude).
+    try:
+        parsed = parse_main_argv(sys.argv)
+    except CliError as exc:
+        print(exc)
+        sys.exit(1)
+    if parsed["mode"] == "help":
+        print(_CLI_USAGE)
         sys.exit(0)
     require_env()
     configure_logging()
-    if "--submit-url" in sys.argv:
-        idx = sys.argv.index("--submit-url")
-        if idx + 1 >= len(sys.argv):
-            print("Usage: python main.py --submit-url <url>")
-            sys.exit(1)
-        _run_monitored("manual_submission", lambda: submit_single_url(sys.argv[idx + 1]))
-    elif "--once" in sys.argv:
+    mode = parsed["mode"]
+    if mode == "submit":
+        _run_monitored(
+            "manual_submission",
+            lambda submitted=parsed["url"]: submit_single_url(submitted),
+        )
+    elif mode == "once":
         run_pipeline()
     # The systemd timers (see README) invoke these individually.
     # Without them the flags fell through to start_scheduler(), so
     # `--run-assortis` started an endless polling loop instead of
     # checking the newsletter once and exiting.
-    elif "--run-assortis" in sys.argv:
+    elif mode == "assortis":
         run_assortis_check()
-    elif "--run-deadline-check" in sys.argv:
+    elif mode == "deadline":
         run_deadline_check()
-    elif "--run-winloss" in sys.argv:
+    elif mode == "winloss":
         _run_monitored("winloss", process_win_loss_outcomes)
-    elif "--run-market-digest" in sys.argv:
+    elif mode == "market":
         run_market_digest()
-    elif "--extract-relationships" in sys.argv:
+    elif mode == "relationships":
         run_extract_relationships()
     else:
         _run_monitored("scheduler", start_scheduler)
