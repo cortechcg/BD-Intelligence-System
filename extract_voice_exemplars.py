@@ -27,8 +27,15 @@ from docx import Document
 from loguru import logger
 
 from utils.money_scrub import strip_monetary_amounts
+from utils.proposal_corpus import (
+    pdf_blocks,
+    pdf_text_has_layer,
+    rank_by_date,
+    read_pdf_pages,
+)
 
 OUT_PATH = Path("intelligence/style_guides/voice_exemplars.md")
+CORPUS_SUFFIXES = (".docx", ".pdf")
 
 # Checked in order — first match wins, so specific patterns precede the
 # generic ones. "understanding" is last because "Introduction" and
@@ -130,23 +137,49 @@ def _is_prose(text: str) -> bool:
     return sum(c.isdigit() for c in t) / len(t) <= 0.12
 
 
-def harvest(docx_path: Path) -> dict[str, list[str]]:
+def _docx_blocks(docx_path: Path) -> list[tuple[str, str]]:
+    """("heading"|"para", text) in document order from explicit Heading styles."""
+    doc = Document(str(docx_path))
+    blocks: list[tuple[str, str]] = []
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+        kind = "heading" if para.style.name.startswith("Heading") else "para"
+        blocks.append((kind, text))
+    return blocks
+
+
+def _pdf_blocks(pdf_path: Path) -> list[tuple[str, str]]:
+    """
+    Same block shape from a PDF via pdfplumber. Headings here are
+    HEURISTIC (line shape, see utils.proposal_corpus.is_pdf_heading), not
+    document styles. Returns [] for a scanned PDF with no text layer.
+    """
+    pages = read_pdf_pages(pdf_path)
+    if not pdf_text_has_layer(pages):
+        logger.warning(f"Skipping PDF with no text layer: {pdf_path.name}")
+        return []
+    return pdf_blocks(pages)
+
+
+def harvest(path: Path) -> dict[str, list[str]]:
     """Section key → prose excerpts found under matching headings."""
     try:
-        doc = Document(str(docx_path))
+        if path.suffix.lower() == ".pdf":
+            blocks = _pdf_blocks(path)
+        else:
+            blocks = _docx_blocks(path)
     except Exception as e:
-        logger.warning(f"Could not open {docx_path.name}: {e}")
+        logger.warning(f"Could not open {path.name}: {e}")
         return {}
 
     found: dict[str, list[str]] = {}
     current: str | None = None
     words_taken: dict[str, int] = {}
 
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if not text:
-            continue
-        if para.style.name.startswith("Heading"):
+    for kind, text in blocks:
+        if kind == "heading":
             current = _section_for(text)
             continue
         if current is None or words_taken.get(current, 0) >= WORDS_PER_DOC:
@@ -160,6 +193,32 @@ def harvest(docx_path: Path) -> dict[str, list[str]]:
         words_taken[current] = words_taken.get(current, 0) + len(cleaned.split())
 
     return found
+
+
+def corpus_files(proposals_dir: Path) -> list[Path]:
+    return sorted(
+        f for f in proposals_dir.glob("*")
+        if f.is_file()
+        and f.suffix.lower() in CORPUS_SUFFIXES
+        and not f.name.startswith("~$")
+    )
+
+
+def most_recent(files: list[Path], limit: int) -> list[Path]:
+    """
+    The `limit` most recent corpus files by REAL date — the YYYYMMDD_
+    filename prefix, else a cover-page date. Filesystem mtime is never
+    used: after a clone or archive extraction it is checkout time. Files
+    with no discoverable date are excluded and each exclusion is logged.
+    """
+    dated, undated = rank_by_date(files)
+    for path in undated:
+        logger.warning(
+            f"Excluded from recency ranking (no filename or cover-page date): {path.name}"
+        )
+    for path, d, source in dated[:limit]:
+        logger.info(f"  {d.isoformat()} [{source:8}] {path.name}")
+    return [path for path, _, _ in dated[:limit]]
 
 
 def build(corpus: list[Path]) -> dict[str, list[tuple[str, str]]]:
@@ -221,7 +280,7 @@ def main() -> None:
         "--docs",
         type=int,
         default=18,
-        help="How many of the most recent .docx proposals to sample (default 18)",
+        help="How many of the most recent .docx/.pdf proposals to sample (default 18)",
     )
     args = parser.parse_args()
 
@@ -231,18 +290,14 @@ def main() -> None:
         return
 
     # Most recent first — recent submissions reflect the current house voice,
-    # and are the ones the team is actually happy to be judged on.
-    candidates = sorted(
-        (
-            f for f in proposals_dir.glob("*.docx")
-            if f.is_file() and not f.name.startswith("~$")
-        ),
-        key=lambda f: f.stat().st_mtime,
-        reverse=True,
-    )[: args.docs]
+    # and are the ones the team is actually happy to be judged on. "Recent"
+    # means the document's real date, never mtime.
+    files = corpus_files(proposals_dir)
+    logger.info(f"Ranking {len(files)} corpus files by real date")
+    candidates = most_recent(files, args.docs)
 
     if not candidates:
-        logger.error("No .docx proposals found in data/proposals/")
+        logger.error("No dated .docx/.pdf proposals found in data/proposals/")
         return
 
     logger.info(f"Harvesting prose from {len(candidates)} proposals")
