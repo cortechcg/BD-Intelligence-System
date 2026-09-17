@@ -609,6 +609,14 @@ _GANTT_RE = re.compile(
     r"\b(gantt|activity schedule|work[ -]?plan|timeline)\b",
     re.I,
 )
+# "3. Technical Proposal" / "Section 1. EOI" must match the same envelope
+# names as the unnumbered heading. Numbering is ToR decoration, not the slot.
+_LEADING_ORDINAL_RE = re.compile(
+    r"^(?:(?:section|chapter|part|item)\s+)?"
+    r"(?:\d+(?:\.\d+)*|[ivxlcdm]+|[a-z])"
+    r"[.)]\s+",
+    re.I,
+)
 WORDS_PER_PAGE = 300
 _FORMAT_META_KEYS = {
     "submission_type",
@@ -821,6 +829,22 @@ def _normalize_prescribed_items(raw) -> list[dict]:
     return items
 
 
+def _strip_leading_ordinal(heading: str) -> str:
+    """Drop a leading '3.' / 'B)' / 'Section 2.' so routing sees the real title."""
+    h = " ".join((heading or "").split()).strip()
+    for _ in range(3):
+        nxt = _LEADING_ORDINAL_RE.sub("", h, count=1).strip()
+        if nxt == h:
+            break
+        h = nxt
+    return h
+
+
+def _compact_heading(heading: str) -> str:
+    h = _strip_leading_ordinal(heading).lower()
+    return re.sub(r"[^a-z0-9]+", " ", h).strip()
+
+
 def _strip_including_clause(heading: str) -> tuple[str, list[str]]:
     raw = " ".join((heading or "").split()).strip()
     match = re.search(r"\s+including\s+(.+)$", raw, re.I)
@@ -863,7 +887,7 @@ def _compound_children(heading: str) -> list[str] | None:
 def _expand_lock_item(item: dict) -> tuple[list[dict], list[str]]:
     """Split a lock bullet into written headings plus attachment notes."""
     heading, extras = _strip_including_clause(item.get("heading") or "")
-    heading = _prefer_or_heading(heading)
+    heading = _strip_leading_ordinal(_prefer_or_heading(heading))
     attachments = list(extras)
     children = list(item.get("must_include") or [])
     compound = _COMPOUND_SPLIT_RE.match(heading)
@@ -909,12 +933,14 @@ def _expand_lock_item(item: dict) -> tuple[list[dict], list[str]]:
             expanded.extend(nested)
             attachments.extend(extra)
         if item.get("page_limit"):
-            budget = parse_page_budget(item["page_limit"])
             group_id = _section_slug(heading or "technical_proposal")
-            group_max = budget["max_words"] if budget else 0
+            # Record the envelope grouping for the reviewer. Do not treat a
+            # 10-page technical envelope as a combined clip budget — sharing
+            # that cap across methodology, team, and risk guts the methods
+            # chapter to a stub.
             for nested in expanded:
                 nested["group_id"] = group_id
-                nested["group_max_words"] = group_max
+                nested["group_max_words"] = 0
         return expanded, attachments
     return [{
         "heading": heading,
@@ -971,7 +997,9 @@ def _route_heading(heading: str, submission_type: str) -> str:
         return "relevant_experience" if eoi else "org_profile_and_track_record"
     if re.search(
         r"organisational profile|organizational profile|firm profile|"
-        r"presentation of|company profile|who we are",
+        r"presentation of|company profile|who we are|"
+        r"profile of the (bidder|consultant|firm|company|"
+        r"organisation|organization)|bidder.?s profile",
         h,
     ):
         return "firm_profile" if eoi else "org_profile_and_track_record"
@@ -983,11 +1011,15 @@ def _route_heading(heading: str, submission_type: str) -> str:
         return "understanding" if eoi else "introduction_and_framework"
     if re.search(r"research questions|evaluation questions|key questions", h):
         return "understanding" if eoi else "introduction_and_framework"
-    if re.search(r"methodology|technical approach|proposed approach", h):
+    if re.search(
+        r"methodology|technical approach|proposed approach|"
+        r"research design|evaluation design|study design",
+        h,
+    ):
         return "approach_summary" if eoi else "methodology"
     if re.search(r"background|introduction|conceptual framework", h):
         return "introduction_and_framework"
-    compact = re.sub(r"[^a-z0-9]+", " ", h).strip()
+    compact = _compact_heading(heading)
     if compact in {
         "technical proposal",
         "the technical proposal",
@@ -1000,7 +1032,7 @@ def _route_heading(heading: str, submission_type: str) -> str:
 
 
 def _is_envelope_parent(heading: str) -> bool:
-    h = re.sub(r"[^a-z0-9]+", " ", (heading or "").lower()).strip()
+    h = _compact_heading(heading)
     return h in {
         "technical proposal",
         "the technical proposal",
@@ -1049,7 +1081,7 @@ def plan_draft_outline(
     seen: set[str] = set()
     unique: list[dict] = []
     for item in expanded:
-        key = re.sub(r"[^a-z0-9]+", " ", item["heading"].lower()).strip()
+        key = _compact_heading(item["heading"])
         if len(key) < 4 or key in seen:
             continue
         seen.add(key)
@@ -1077,6 +1109,12 @@ def plan_draft_outline(
             "group_id": item.get("group_id") or "",
             "group_max_words": item.get("group_max_words") or 0,
         })
+
+    sibling_routes = {item["route"] for item in sections}
+    if "work_plan" not in sibling_routes:
+        for item in sections:
+            if item["route"] == "technical_proposal_body":
+                item["require_gantt"] = True
 
     seen_attach: set[str] = set()
     required_attachments = []

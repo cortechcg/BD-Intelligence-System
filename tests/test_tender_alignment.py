@@ -138,6 +138,52 @@ def test_dca_a5_outline_follows_tor_not_house_structure():
     assert outline["sections"][0]["route"] == "cover_letter"
 
 
+def test_research_design_routes_to_methodology():
+    outline = tender_reader.plan_draft_outline({
+        "format_prescribed": True,
+        "prescribed_sections": [
+            "Profile of the Bidder",
+            "Research design and methods",
+            "Team Composition",
+        ],
+    })
+    design = next(
+        item for item in outline["sections"]
+        if "research design" in item["heading"].lower()
+    )
+    assert design["route"] == "methodology"
+
+
+def test_group_page_limit_does_not_gut_methodology():
+    long_method = "Design. " + ("Sampling in Baidoa and Hudur. " * 400)
+    long_team = "Team. " + ("Named evaluator for Hirshabelle. " * 200)
+    outline = {
+        "prescribed": True,
+        "sections": [
+            {
+                "key": "methodology",
+                "heading": "Research design and methods",
+                "page_limit": "",
+                "group_id": "technical_proposal",
+                "group_max_words": 300,
+            },
+            {
+                "key": "team_section",
+                "heading": "Team Composition",
+                "page_limit": "",
+                "group_id": "technical_proposal",
+                "group_max_words": 300,
+            },
+        ],
+    }
+    out = proposal_writer._apply_outline_constraints(
+        {"methodology": long_method, "team_section": long_team},
+        outline,
+    )
+    assert tender_reader.word_count(out["methodology"]) > 1000
+    assert tender_reader.word_count(out["team_section"]) > 400
+
+
 def test_outline_falls_back_when_only_envelope_name_is_listed():
     outline = tender_reader.plan_draft_outline(
         {"prescribed_sections": ["Technical proposal"]},
@@ -167,6 +213,98 @@ def test_outline_uses_analyzer_sections_when_lock_is_empty():
     assert "introduction_and_framework" in routes
     assert "methodology" in routes
     assert "team_section" in routes
+
+
+def test_numbered_technical_proposal_routes_to_body():
+    outline = tender_reader.plan_draft_outline(
+        {
+            "format_prescribed": True,
+            "prescribed_sections": [
+                "1. Disclosure form",
+                "2. Profile of the Bidder",
+                "3. Technical Proposal",
+                "Team Composition",
+                "4. Financial Proposal",
+            ],
+        },
+        submission_type="FULL_PROPOSAL",
+    )
+    assert outline["prescribed"] is True
+    tech = next(
+        item for item in outline["sections"]
+        if "technical proposal" in item["heading"].lower()
+    )
+    assert tech["route"] == "technical_proposal_body"
+    assert tech["require_gantt"] is True
+    profile = next(
+        item for item in outline["sections"]
+        if "profile" in item["heading"].lower()
+    )
+    assert profile["route"] == "org_profile_and_track_record"
+    team = next(
+        item for item in outline["sections"]
+        if "team" in item["heading"].lower()
+    )
+    assert team["route"] == "team_section"
+    assert "Financial Proposal" in outline["omitted_financial"]
+
+
+def test_technical_proposal_body_composes_house_chapters(monkeypatch):
+    called = []
+
+    def _track(name, text):
+        def _write(*_a, **_k):
+            called.append(name)
+            return text
+        return _write
+
+    monkeypatch.setattr(
+        proposal_writer,
+        "generate_introduction_and_framework",
+        _track("intro", "INTRO BODY."),
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_methodology", _track("method", "METHOD BODY.")
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_analysis_plan", _track("analysis", "SAMPLE BODY.")
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_qa_and_ethics", _track("qa", "QA BODY.")
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_risk_register", _track("risk", "RISK BODY.")
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_work_plan", _track("plan", "GANTT BODY.")
+    )
+    monkeypatch.setattr(
+        proposal_writer, "generate_team_section", _track("team", "TEAM SHOULD SKIP.")
+    )
+    monkeypatch.setattr(
+        proposal_writer,
+        "_generate_technical_proposal_body_fallback",
+        lambda *_a, **_k: "FALLBACK SHOULD NOT RUN",
+    )
+
+    text = proposal_writer.generate_technical_proposal_body(
+        {"opportunity": {"title": "Somalia Grants Evaluation"}},
+        [],
+        matched_team_result={"matched_team": {}},
+        item={"heading": "Technical Proposal"},
+        sibling_routes=["team_section", "org_profile_and_track_record"],
+        submission_type="FULL_PROPOSAL",
+    )
+    assert "INTRO BODY." in text
+    assert "METHOD BODY." in text
+    assert "SAMPLE BODY." in text
+    assert "QA BODY." in text
+    assert "RISK BODY." in text
+    assert "GANTT BODY." in text
+    assert "Methodology and tools" in text
+    assert "TEAM SHOULD SKIP." not in text
+    assert "team" not in called
+    assert "FALLBACK SHOULD NOT RUN" not in text
 
 
 def test_nested_technical_proposal_children_are_expanded():
