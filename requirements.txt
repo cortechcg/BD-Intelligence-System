@@ -81,3 +81,6 @@ jinja2==3.1.6
 MarkupSafe==3.0.3
 itsdangerous==2.2.0
 python-multipart==0.0.31
+
+# Test-side: tests/test_render_yaml.py parses the Render Blueprint.
+PyYAML==6.0.3

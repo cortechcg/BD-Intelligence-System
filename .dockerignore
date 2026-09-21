@@ -1,0 +1,20 @@
+# Keep secrets and local state out of every image built from this repo.
+# The Dockerfile does `COPY . .`; without this file a local build baked the
+# real .env into the image (found 2026-09-21 while verifying the default CMD).
+# Render builds from git, where .env is already ignored — this protects
+# local/CI builds and keeps images small.
+.env
+.env.*
+!.env.example
+.git
+.venv
+cortech/
+__pycache__/
+**/__pycache__/
+.pytest_cache
+.ruff_cache
+output/
+pending_proposals/
+failed_saves/
+*.log
+dashboard/design/queue_preview.html
