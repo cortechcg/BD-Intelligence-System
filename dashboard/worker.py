@@ -309,6 +309,11 @@ def main_loop() -> int:
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
+    logger.info(
+        "IDENTITY: cortech-bd-worker — dashboard background worker. Consumes "
+        "dashboard_triggers only; it has NO schedule of its own and never runs "
+        "discovery. Each job calls main.submit_single_url() for one URL."
+    )
     worker_token = f"{os.getenv('RENDER_INSTANCE_ID') or 'local'}-{uuid.uuid4()}"
     logger.info(
         f"dashboard worker up (token {worker_token[:24]}…); aggregate cap "

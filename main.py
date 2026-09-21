@@ -39,7 +39,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
-from config import MAX_OPPORTUNITIES_PER_RUN, RSS_FEEDS, require_env
+from config import CHECK_INTERVAL_HOURS, MAX_OPPORTUNITIES_PER_RUN, RSS_FEEDS, require_env
 from monitors.rss_monitor import monitor_rss_feeds
 from monitors.scraper import scrape_non_rss_sources
 from monitors.assortis_email import check_assortis_newsletter
@@ -1052,6 +1052,60 @@ class CliError(ValueError):
     """Invalid argv. Must not fall through to the continuous scheduler."""
 
 
+#: Set to "1" to run the in-process scheduler in a headless context anyway.
+#: There is no legitimate deployment that needs this today: production
+#: scheduling is `main.py --once` from systemd/cron (README), and the
+#: dashboard worker consumes `dashboard_triggers` only.
+SCHEDULER_OVERRIDE_ENV = "CORTECH_ALLOW_SCHEDULER"
+
+#: Environment variables a hosting platform injects into a long-lived service.
+#: Any one of them present means "this is a web/worker process on a PaaS",
+#: where the always-on scheduler must never start.
+_PAAS_MARKERS = ("PORT", "RENDER", "RENDER_SERVICE_ID", "RAILWAY_ENVIRONMENT", "DYNO")
+
+
+def refuse_headless_scheduler(env: dict | None = None, *, stdin_is_tty: bool | None = None) -> str | None:
+    """Return a refusal message if bare `main.py` (scheduler mode) is running
+    somewhere it must not, else None.
+
+    Bare `main.py` starts the always-on scheduler, which fires a FULL discovery
+    run immediately and every CHECK_INTERVAL_HOURS. Run inside a hosted web
+    service that is an unattended, indefinitely repeating pipeline — exactly
+    the 2026-09-21 Render incident and the earlier Railway one. The scheduler
+    is only ever legitimate in an interactive terminal on the local machine,
+    and even there systemd `--once` timers superseded it.
+
+    Pure function of its inputs so it is unit-testable; `__main__` wires the
+    real environment and TTY in.
+    """
+    env = os.environ if env is None else env
+    if str(env.get(SCHEDULER_OVERRIDE_ENV, "")).strip() == "1":
+        return None
+    if stdin_is_tty is None:
+        try:
+            stdin_is_tty = sys.stdin.isatty()
+        except (AttributeError, ValueError):
+            stdin_is_tty = False
+    markers = [m for m in _PAAS_MARKERS if env.get(m)]
+    if not markers and stdin_is_tty:
+        return None
+    where = (
+        f"hosting-platform environment detected ({', '.join(markers)})"
+        if markers else "no interactive terminal (stdin is not a TTY)"
+    )
+    return (
+        "REFUSING to start the in-process scheduler: " + where + ".\n"
+        "Bare `python main.py` runs a full discovery pass NOW and then every "
+        f"{CHECK_INTERVAL_HOURS} hours, unattended — LLM spend, review emails, Airtable "
+        "writes. That is the Railway/Render incident, not a deployment.\n"
+        "Use one of:\n"
+        "  dashboard web    : uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT\n"
+        "  dashboard worker : python -m dashboard.worker\n"
+        "  one discovery run: python main.py --once   (from systemd/cron)\n"
+        f"If you truly want the loop here, set {SCHEDULER_OVERRIDE_ENV}=1."
+    )
+
+
 def parse_main_argv(argv: list[str]) -> dict:
     """Parse CLI tokens. Unknown or incomplete submit flags never mean scheduler."""
     args = list(argv[1:])
@@ -1163,4 +1217,9 @@ if __name__ == "__main__":
     elif mode == "relationships":
         run_extract_relationships()
     else:
+        refusal = refuse_headless_scheduler()
+        if refusal:
+            print(refusal, file=sys.stderr)
+            logger.critical(refusal.splitlines()[0])
+            sys.exit(2)
         _run_monitored("scheduler", start_scheduler)

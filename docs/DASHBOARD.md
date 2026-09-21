@@ -56,7 +56,24 @@ cortech-bd-worker ──┘  (Docker: Chromium + PDF toolchain)
 * **Worker** — a separate Render Background Worker. Claims one `dashboard_triggers` row at a time (`FOR UPDATE SKIP LOCKED`), runs it, finalises it. Lease + token discipline mirrors `claim_opportunity_processing`. A crashed worker's job is reclaimed after `DASHBOARD_WORKER_LEASE_SECONDS`.
 * **Queue** — a Supabase table plus RPCs (`supabase_migration_dashboard_triggers.sql`, `supabase_migration_dashboard_controls.sql`). No broker. A partial unique index refuses a second in-flight request for the same URL at the database, not merely in the UI.
 * **Realtime vs polling** — polling. Verified on 2026-09-21: the project's `supabase_realtime` publication exists but contains **zero tables** (`select * from pg_publication_tables` returns only `realtime.messages_*`), so a `postgres_changes` subscription acks `SUBSCRIBED` and never delivers a row. Polling through the authenticated backend also keeps the service-role key off the browser entirely. If Realtime is wanted later: `alter publication supabase_realtime add table opportunity_processing, dashboard_triggers;` — and note the anon key would then need RLS policies it does not have today.
-* **Scheduler** — **the existing systemd timers keep running as-is.** The dashboard adds manual triggering; it does not replace scheduled discovery. A commented Render Cron block in `render.yaml` shows the alternative; enabling it *and* leaving the timers on would run discovery twice and double-spend against the cap, so it is opt-in and documented, not on.
+* **Scheduler — verified state on 2026-09-21, and a decision for you.**
+  The README says discovery runs on this machine via `systemd --user` timers.
+  **It does not.** `systemctl --user list-timers --all` shows no `cortech-*`
+  unit; none exist system-wide; there is no crontab entry; `cron.log` was last
+  written **2026-08-27**. The unit files lived outside the repo and are gone.
+  Since late August the pipeline has run only when someone typed
+  `main.py --once` — or when a misconfigured deploy booted bare `main.py`
+  (the 2026-09-21 incident, §"Incident" below). The dashboard **does not**
+  replace scheduled discovery; its worker consumes `dashboard_triggers` only
+  and has no schedule. What to do about scheduled discovery is therefore an
+  open decision with three honest options: (i) reinstall the systemd timers
+  on this machine (`deploy/systemd/` has the market-digest templates; the
+  other four need recreating); (ii) a Render Cron Job running
+  `python main.py --once` (commented block at the end of `render.yaml`; that
+  makes the Render bill and Anthropic spend grow with it, which is the
+  Railway history); (iii) leave discovery manual. **Never** run bare
+  `python main.py` anywhere for this — it now refuses to start outside an
+  interactive terminal (§"Incident").
 
 ### Spend caps — two of them
 
@@ -72,6 +89,41 @@ Rendered verbatim in the UI (`dashboard/app.py::CANCEL_COPY`) and asserted again
 Mechanism: `RunHaltRequested` subclasses `SpendCapError`, so the pipeline's one existing cooperative halt point and one existing handler (ADR 012 §4) do the work. No second interruption mechanism was added.
 
 ---
+
+## Incident 2026-09-21 — a hand-made Render Web Service ran the pipeline
+
+A Render Web Service was created for this repo **by hand** (not via the
+Blueprint), runtime Docker, with no Start Command. It therefore ran the
+Dockerfile's default `CMD ["python", "main.py"]`. Bare `main.py` is the
+always-on scheduler: it ran a full discovery pass on boot — 15 opportunities
+claimed, **1 drafted** (WHH feasibility study, BID 83/76, Airtable
+`recqhH8Sv3tvm16UN`, status *Reviewing*), review emails sent to
+`EMAIL_RECIPIENTS` — and would have repeated every 6 hours. This is the same
+failure that got the project pulled off Railway (README). The service was
+suspended.
+
+What changed so it cannot recur:
+
+1. **Dockerfile default is now the worker** (`python -m dashboard.worker`),
+   which consumes the queue and idles. A hand-made Docker service with no
+   Start Command can no longer run discovery.
+2. **Bare `main.py` refuses to start its scheduler** unless it is in an
+   interactive terminal with none of `PORT`, `RENDER`, `RENDER_SERVICE_ID`,
+   `RAILWAY_ENVIRONMENT`, `DYNO` set (`main.refuse_headless_scheduler`, exit
+   2, clear message). `--once`, `--submit-url` and `--run-*` are untouched.
+   Override for a deliberate local loop only: `CORTECH_ALLOW_SCHEDULER=1`.
+3. **Every long-lived process logs an `IDENTITY:` line** in its first
+   seconds (`cortech-bd-web` / `cortech-bd-worker`) stating what it is and
+   that it never runs discovery. If a Render log's first lines do not show
+   one, the wrong command is running.
+4. `render.yaml` opens with the hand-deploy rule; the correct commands are
+   `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` (web) and
+   `python -m dashboard.worker` (worker). Never `python main.py`.
+
+Emails from that run went only to `EMAIL_RECIPIENTS` (both `send_report` and
+`send_proposal_email` resolve recipients solely from that env var; no code
+path reads an address from a tender). The drafted opportunity sits in the
+normal human-review state and needs a human decision like any other draft.
 
 ## 3. Deploy runbook (Render)
 
@@ -97,6 +149,8 @@ Check: `python -m pytest tests/test_live_dashboard_queue.py -o addopts=""` → 9
 
 ### 3.3 Render — Blueprint
 
+**Use the Blueprint. Do not create services by hand** (see §Incident). If you must, the web Start Command is `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` and the worker Docker Command is `python -m dashboard.worker`; check the first log lines for `IDENTITY:`.
+
 1. Render dashboard → *New* → *Blueprint* → connect this repo → it reads `render.yaml`.
 2. Fill the `sync: false` secrets on **both** services (Supabase, Anthropic, OpenAI, Airtable; email on the worker; Google on the web).
 3. Set `PUBLIC_BASE_URL` on the web service to the URL Render assigns (`https://cortech-bd-web.onrender.com` unless renamed). It must match step 3.2 exactly.
@@ -113,6 +167,37 @@ Check: `python -m pytest tests/test_live_dashboard_queue.py -o addopts=""` → 9
 Per the decision taken on 2026-09-21: access is `@cortechconsultinggroup.com` **or** an explicit entry in `AUTH_ALLOWED_EMAILS` (comma-separated full addresses; default empty). The list lives in the Render env, visible in review — it is not a second domain and cannot become one. Removing an address locks that person out on their next request, not when their cookie expires.
 
 ### 3.6 Cost (read from render.com/pricing on 2026-09-21)
+
+> **Approver, read this line first.** A Render Background Worker does not
+> scale to zero. On the `standard` plan the worker bills **~$25 every month
+> whether the team triggers 1 draft or 50** — you pay for the instance being
+> up, not per draft. The web service adds $7. LLM spend is on top, bounded by
+> the two caps. **The worker tier is not yet decided** (options A/B/C below);
+> `render.yaml` currently says `standard` as a placeholder, not a decision.
+
+**Is a smaller worker viable?** The only smaller paid worker plan is
+`0.5c-512mb` ($7); workers have no free tier and nothing sits between 512 MB
+and 2 GB. The repo's own defaults set Chromium's V8 heap cap to
+`PLAYWRIGHT_JS_HEAP_MB=512` — the renderer alone may fill a 512 MB plan
+before the browser process, Python, the SDKs and pdfplumber (documents up to
+25 MB) are counted. No peak-RSS measurement exists for this pipeline. Render's
+own guidance is to choose memory that "covers your peaks with room to spare"
+or expect out-of-memory restarts. An OOM mid-draft is recoverable (lease
+expires, Phase 7 checkpoint resumes) but re-pays for unpersisted work.
+`standard` is therefore the minimum tier defensible today; `starter` would
+require lowering the heap cap to ~128 MB *and* a measured run on real PDFs
+first.
+
+**Pause/resume is possible.** Render can suspend and resume a worker from the
+dashboard or API, and compute is "billed only when actively running your
+workload", prorated per second.
+
+| Option | Monthly | Cost in practice |
+|---|---|---|
+| **A. Always on, `standard`** | ~$32 | Nothing to remember; a trigger runs within seconds |
+| **B. `standard`, suspended between bursts** | $7 + ~$0.035/h of worker uptime (≈$0.83/day when on) | Someone must resume it before use; queued triggers wait as `queued` until then; no auto-resume without scripting |
+| **C. `starter` worker** | ~$14 | Not recommended as configured — unmeasured OOM risk (above) |
+
 
 | Item | Plan | Monthly |
 |---|---|---|
