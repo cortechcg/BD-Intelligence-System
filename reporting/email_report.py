@@ -999,6 +999,18 @@ def _frequency_section_html(title: str, window) -> str:
         {_html(f'(n={window.sample_size} < {TREND_MIN_N}; {window.sample_clause()}).')}
         Percentages and charts are withheld. Evidence: INSUFFICIENT DATA — not a trend.</p>
         """
+    labelled = getattr(window, "labelled_rows", None)
+    coverage_html = ""
+    if labelled is not None and labelled < window.sample_size:
+        # Shares below are over ALL dated rows in the window. A row with no
+        # stored label is UNKNOWN for every label, not a zero — say so next
+        # to the percentages rather than letting "4% of n=47" stand alone.
+        coverage_html = f"""
+        <p style="margin:0 0 8px;font-size:13px;color:#8A6A12">
+            Label coverage: {_html(window.coverage_clause())}. Percentages are
+            shares of all {_html(window.sample_size)} dated rows, so they
+            understate how common a label is among the rows that were labelled.
+        </p>"""
     rows_html = ""
     for item in window.counts:
         pct = (100.0 * item.count / window.sample_size) if window.sample_size else 0
@@ -1013,11 +1025,12 @@ def _frequency_section_html(title: str, window) -> str:
     return f"""
     <h3 style="margin:20px 0 8px;font-size:16px">{_html(heading)}</h3>
     <p style="margin:0 0 8px;font-size:13px;color:#555">{_html(window.message)}</p>
+    {coverage_html}
     <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr style="background:#1F3864;color:white">
             <th style="padding:8px;text-align:left">Observed label</th>
-            <th style="padding:8px;text-align:left">Count</th>
-            <th style="padding:8px;text-align:left">Share (sample size inline)</th>
+            <th style="padding:8px;text-align:left">Count (rows carrying it)</th>
+            <th style="padding:8px;text-align:left">Share of all dated rows in window</th>
         </tr>
         {rows_html}
     </table>

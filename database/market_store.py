@@ -17,17 +17,28 @@ from intelligence.market_trends import (
 )
 from utils.urls import canonicalize_url
 
+# `opportunities_cache` was created with `discovered_at TIMESTAMPTZ DEFAULT now()`
+# as its row timestamp; it has never had a `created_at` column. Selecting one
+# makes PostgREST reject the WHOLE select (42703), which is how the digest ran
+# for weeks with zero dated rows: both the full select and the fallback asked
+# for `created_at`, both failed, and only the dateless `_CACHE_MIN` succeeded.
+# `discovered_at` is populated on every row (1212/1212 on 2026-09-21).
 _CACHE_FULL = (
-    "id, source_url, title, thematic_areas, locations, donor, "
-    "discovered_at, created_at"
+    "id, source_url, title, thematic_areas, locations, donor, discovered_at"
 )
-_CACHE_WITH_CREATED = "id, source_url, title, created_at"
+# Project where the Phase 3 fact columns are not applied: dates still exist.
+_CACHE_WITH_DATE = "id, source_url, title, discovered_at"
 _CACHE_MIN = "id, source_url, title"
 
 _MISSING_FACTS = (
     "opportunities_cache observed-fact columns missing — apply "
     "supabase_migration_opportunity_facts.sql. Market digest fail-opens "
-    "to timestamps/title only, then Airtable secondary fields."
+    "to discovered_at/title only, then Airtable secondary fields."
+)
+_MISSING_DATES = (
+    "opportunities_cache has no usable discovered_at column — the digest will "
+    "have ZERO dated rows and every window will report insufficient data. "
+    "This is a schema problem, not thin data."
 )
 
 _facts_columns_available: bool | None = None
@@ -75,6 +86,8 @@ def _from_cache_row(row: dict) -> ObservedOpportunity | None:
     source_id = str(row.get("id") or "")
     url = str(row.get("source_url") or "")
     title = str(row.get("title") or "")
+    # discovered_at is the real column; created_at is tolerated only for
+    # dict inputs from other sources — it is never selected from Supabase.
     discovered = parse_observed_date(row.get("discovered_at")) or parse_observed_date(
         row.get("created_at")
     )
@@ -170,22 +183,30 @@ def load_supabase_opportunity_rows(limit: int | None = None) -> tuple[list[Obser
 
     selects = []
     if _facts_columns_available is False:
-        selects = [_CACHE_WITH_CREATED, _CACHE_MIN]
+        selects = [_CACHE_WITH_DATE, _CACHE_MIN]
     else:
-        selects = [_CACHE_FULL, _CACHE_WITH_CREATED, _CACHE_MIN]
+        selects = [_CACHE_FULL, _CACHE_WITH_DATE, _CACHE_MIN]
 
     last_exc = None
     data = None
     used = None
+    total_rows: int | None = None
     for cols in selects:
         try:
-            result = (
-                sb.table("opportunities_cache")
-                .select(cols)
-                .limit(cap + 1)
-                .execute()
-            )
+            # count="exact": PostgREST caps a response at its db-max-rows
+            # (1000 on this project), so a `LIMIT cap+1` probe can never
+            # observe the 1001st row. Ask for the count instead of inferring
+            # it from the page length.
+            query = sb.table("opportunities_cache").select(cols, count="exact")
+            if "discovered_at" in cols:
+                # Trailing windows need the NEWEST rows. Without an ORDER BY
+                # the capped page is whatever the planner returns first — on
+                # this project the oldest rows — which left the 30-day window
+                # empty even with every row dated.
+                query = query.order("discovered_at", desc=True, nullsfirst=False)
+            result = query.limit(cap).execute()
             data = result.data or []
+            total_rows = result.count if isinstance(result.count, int) else None
             used = cols
             if cols == _CACHE_FULL:
                 _facts_columns_available = True
@@ -196,6 +217,8 @@ def load_supabase_opportunity_rows(limit: int | None = None) -> tuple[list[Obser
                 if cols == _CACHE_FULL:
                     _facts_columns_available = False
                     logger.warning(f"{_MISSING_FACTS} Cause: {e}")
+                elif cols == _CACHE_WITH_DATE:
+                    logger.critical(f"{_MISSING_DATES} Cause: {e}")
                 continue
             logger.warning(f"opportunities_cache load failed (fail-open): {e}")
             return [], False
@@ -204,7 +227,14 @@ def load_supabase_opportunity_rows(limit: int | None = None) -> tuple[list[Obser
             logger.warning(f"opportunities_cache unavailable (fail-open): {last_exc}")
         return [], False
 
-    truncated = len(data) > cap
+    # Truncated means "we did not receive every stored row", whoever did the
+    # capping. With `_MAX_ROWS` above PostgREST's db-max-rows (1000 here) the
+    # server trims the page and `len(data) > cap` is never true — so compare
+    # the exact store count against what actually arrived.
+    if total_rows is not None:
+        truncated = total_rows > len(data)
+    else:
+        truncated = len(data) > cap
     rows = []
     for raw in data[:cap]:
         parsed = _from_cache_row(raw)
@@ -212,7 +242,7 @@ def load_supabase_opportunity_rows(limit: int | None = None) -> tuple[list[Obser
             rows.append(parsed)
     logger.info(
         f"Market digest loaded {len(rows)} opportunities_cache rows "
-        f"(select={used}, truncated={truncated})"
+        f"(select={used}, store_total={total_rows}, truncated={truncated})"
     )
     return rows, truncated
 
