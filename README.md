@@ -187,7 +187,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 
 ```bash
 python main.py --once                    # Run the full discovery pipeline once
-python main.py                            # Old always-on scheduler loop — superseded by systemd, kept for reference
+python main.py                            # Old always-on scheduler loop — superseded; REFUSES to start unless in an interactive terminal with no $PORT/$RENDER (see docs/DASHBOARD.md §Incident)
 python main.py --submit-url "<url>"       # Manually process one specific tender URL immediately
 python main.py --submit -url "<url>"      # Same (accepted alias of --submit-url)
 python main.py --run-assortis             # Manually trigger just the newsletter check
@@ -203,6 +203,8 @@ python -m pytest tests/ -q                # Unit tests (no live APIs)
 ---
 
 ## Automatic Scheduling (systemd)
+
+> **Status check 2026-09-21:** no `cortech-*` timers are installed on this machine (`systemctl --user list-timers --all`), and `cron.log` was last written 2026-08-27. The description below is how it is *meant* to run; it is not currently running. See `docs/DASHBOARD.md` §Scheduler for the open decision.
 
 Since this runs locally rather than on an always-on host, scheduling uses `systemd --user` timers rather than the old in-process scheduler loop. The key property: **`Persistent=true`** means a missed run (because the machine was off or asleep) fires automatically the next time the machine is up, rather than silently never happening.
 

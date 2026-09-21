@@ -1,5 +1,18 @@
 # Render Blueprint for the Cortech BD dashboard.
 #
+# ┌─ READ THIS BEFORE CREATING ANY SERVICE BY HAND ────────────────────────────┐
+# │ Deploy via Blueprint (New → Blueprint) so the start commands below apply. │
+# │ A service created manually with runtime=Docker and NO Start Command runs  │
+# │ the Dockerfile CMD. On 2026-09-21 that CMD was `python main.py`, which is │
+# │ the always-on discovery scheduler: it ran a full pipeline pass on boot    │
+# │ (15 opportunities, 1 draft, review emails) and would have repeated every  │
+# │ 6 hours. The CMD is now the queue-only worker and bare main.py refuses to │
+# │ start under $PORT/$RENDER, but the rule stands:                           │
+# │   web    Start Command = uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
+# │   worker Docker Command = python -m dashboard.worker                      │
+# │   NEVER `python main.py` in any Render service.                            │
+# └───────────────────────────────────────────────────────────────────────────┘
+#
 # Two services, both stateless — every piece of real state is in the existing
 # Supabase project, so either can restart or redeploy without losing anything.
 #

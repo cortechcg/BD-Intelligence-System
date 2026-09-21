@@ -12,6 +12,7 @@ stop. It cannot send email, submit a proposal, or advance anything past
 """
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -33,7 +34,26 @@ from utils.urls import canonicalize_url
 
 HERE = Path(__file__).resolve().parent
 
-app = FastAPI(title="Cortech BD control", docs_url=None, redoc_url=None, openapi_url=None)
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    """Make the running service's identity unmistakable in the first log lines.
+
+    After the 2026-09-21 incident (a Render web service booted bare main.py and
+    ran the discovery scheduler), every long-lived process states what it is
+    and what it will never do, before it does anything else.
+    """
+    logger.info(
+        "IDENTITY: cortech-bd-web — dashboard web service (FastAPI). Serves UI + "
+        "API and writes dashboard_triggers only. This process never runs "
+        "discovery, extraction, scoring or drafting and has no scheduler."
+    )
+    yield
+
+
+app = FastAPI(
+    title="Cortech BD control", docs_url=None, redoc_url=None, openapi_url=None,
+    lifespan=_lifespan,
+)
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
