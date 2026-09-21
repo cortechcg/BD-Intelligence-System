@@ -14,7 +14,7 @@ from typing import Optional
 
 from loguru import logger
 
-from utils.errors import ErrorType, SpendCapError
+from utils.errors import ErrorType, RunHaltRequested, SpendCapError
 
 execution_id_var: ContextVar[str] = ContextVar("execution_id", default="")
 stage_var: ContextVar[str] = ContextVar("stage", default="")
@@ -24,6 +24,13 @@ opportunity_id_var: ContextVar[str] = ContextVar("opportunity_id", default="")
 _opp_tokens: ContextVar[dict] = ContextVar("opp_tokens", default=None)
 _usage_lock = Lock()
 _run_spend: ContextVar[dict | None] = ContextVar("run_spend", default=None)
+
+# The bucket most recently started in this *process*. ``_run_spend`` is a
+# ContextVar, so a monitoring thread (the dashboard worker's heartbeat) that
+# was started before the run began cannot see it. A process runs one
+# opportunity at a time, so "latest bucket in this process" is "the current
+# run" — and it is the same dict object the cap enforces against, not a copy.
+_latest_run_spend: dict | None = None
 
 
 def new_execution_id() -> str:
@@ -54,19 +61,51 @@ def start_run_spend_cap(limit_usd: float | None = None) -> dict:
         "halted": limit <= 0,
         "provider_calls": 0,
         "blocked_calls": 0,
+        "halt_reason": "",
     }
     _run_spend.set(bucket)
+    global _latest_run_spend
+    with _usage_lock:
+        _latest_run_spend = bucket
     return bucket
 
 
 def reset_run_spend_cap() -> None:
     _run_spend.set(None)
+    global _latest_run_spend
+    with _usage_lock:
+        _latest_run_spend = None
 
 
 def run_spend_snapshot() -> dict:
     with _usage_lock:
         bucket = _run_spend.get()
         return dict(bucket) if bucket else {}
+
+
+def latest_run_spend_snapshot() -> dict:
+    """Read the current run's spend from any thread. Empty if no run is active."""
+    with _usage_lock:
+        return dict(_latest_run_spend) if _latest_run_spend else {}
+
+
+def request_run_halt(reason: str) -> bool:
+    """Ask the current run to stop before its next provider call.
+
+    Cooperative, not pre-emptive: a ``messages.create()`` already in flight
+    completes (and is paid for). The next ``complete()`` raises
+    ``RunHaltRequested`` from ``assert_under_spend_cap`` and the pipeline's
+    existing handler leaves the ledger ``failed`` at the last persisted stage
+    with its checkpoint — retryable, and not counted as a draft failure.
+    Returns False if no run is active in this process.
+    """
+    with _usage_lock:
+        bucket = _latest_run_spend
+        if bucket is None:
+            return False
+        bucket["halted"] = True
+        bucket["halt_reason"] = (reason or "run halted at operator request")[:500]
+        return True
 
 
 def assert_under_spend_cap() -> None:
@@ -85,6 +124,11 @@ def assert_under_spend_cap() -> None:
             bucket["blocked_calls"] = int(bucket.get("blocked_calls") or 0) + 1
             spent = float(bucket.get("spent_usd") or 0)
             limit = float(bucket.get("limit_usd") or 0)
+            reason = str(bucket.get("halt_reason") or "")
+            if reason:
+                raise RunHaltRequested(
+                    f"{reason} (spent_usd={spent:.4f} limit_usd={limit:.4f})"
+                )
             raise SpendCapError(
                 f"per-run LLM spend cap reached (spent_usd={spent:.4f} "
                 f"limit_usd={limit:.4f})"

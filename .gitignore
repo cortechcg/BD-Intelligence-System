@@ -21,3 +21,7 @@ output/
 failed_saves/
 # scraper_diagnosis.txt: empty 0-byte diagnostic capture, no code writes it.
 scraper_diagnosis.txt
+
+# Generated from live Supabase rows by dashboard/design/build_preview.py —
+# a design probe, not source. Regenerate; do not commit production data.
+dashboard/design/queue_preview.html

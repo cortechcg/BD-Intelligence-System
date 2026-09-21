@@ -1,0 +1,180 @@
+# Render Blueprint for the Cortech BD dashboard.
+#
+# Two services, both stateless — every piece of real state is in the existing
+# Supabase project, so either can restart or redeploy without losing anything.
+#
+#   cortech-bd-web     the dashboard UI + thin API        (runtime: python)
+#   cortech-bd-worker  runs dashboard-triggered pipelines (runtime: docker)
+#
+# The worker uses the repo Dockerfile because it needs Chromium (Playwright)
+# and the PDF toolchain for fetch_and_extract; the web service never fetches
+# a tender and stays on the lighter native runtime.
+#
+# Nothing here replaces the existing discovery schedule. The systemd timers
+# (cortech-discovery / -assortis / -deadline / -winloss / -market) keep running
+# wherever they run today; this Blueprint only adds manual triggering. See
+# docs/DASHBOARD.md §"Scheduler" for the reasoning and the opt-in Render Cron
+# alternative at the bottom of this file.
+#
+# Compute plans and prices below were read from render.com/pricing on
+# 2026-09-21. Re-check before budgeting; Render renamed plans in Aug 2026
+# (legacy names still work: starter = 0.5c-512mb, standard = 1c-2g).
+
+services:
+  # ── Web service ────────────────────────────────────────────────────────────
+  - type: web
+    name: cortech-bd-web
+    runtime: python
+    region: frankfurt            # closest Render region to the Supabase project (eu-west-1)
+    plan: starter                # 0.5 CPU / 512 MB — $7/mo. `free` works but spins down
+                                 # after 15 idle minutes (≈1 min cold start on first load).
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.14"
+
+      # ── Required: shared with the pipeline ──
+      - key: SUPABASE_URL
+        sync: false               # set in the Render dashboard; never committed
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      # config.require_env() validates these at import even though the web
+      # service never calls Anthropic/OpenAI. Set them so startup is loud
+      # about a misconfiguration rather than failing on first request.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AIRTABLE_API_KEY
+        sync: false
+      - key: AIRTABLE_BASE_ID
+        sync: false
+
+      # ── Required: dashboard auth ──
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: DASHBOARD_SESSION_SECRET
+        generateValue: true       # Render generates a random 256-bit value
+      - key: PUBLIC_BASE_URL
+        sync: false               # e.g. https://cortech-bd-web.onrender.com — must match
+                                  # the redirect URI registered in Google Cloud exactly
+
+      # ── Optional ──
+      - key: AUTH_ALLOWED_DOMAIN
+        value: cortechconsultinggroup.com
+      - key: AUTH_ALLOWED_EMAILS
+        value: ""                 # explicit off-domain exceptions, comma-separated. Empty = domain only.
+      - key: DASHBOARD_POLL_MS
+        value: "15000"
+      - key: DASHBOARD_TRIGGERS_ENABLED
+        value: "true"
+      - key: DASHBOARD_COOKIE_SECURE
+        value: "true"
+      # Mirror of the worker's aggregate gate, so the UI can show the same
+      # number the worker enforces. Keep both services on the same value.
+      - key: DASHBOARD_AGGREGATE_CAP_USD
+        value: "100"
+      - key: DASHBOARD_AGGREGATE_WINDOW_HOURS
+        value: "24"
+      - key: DASHBOARD_BULK_MAX
+        value: "40"
+      - key: DASHBOARD_HEARTBEAT_SECONDS
+        value: "10"
+
+  # ── Background worker ──────────────────────────────────────────────────────
+  - type: worker
+    name: cortech-bd-worker
+    runtime: docker
+    region: frankfurt
+    plan: standard               # 1 CPU / 2 GB — $25/mo. Chromium + pdfplumber + the
+                                 # 512 MB V8 heap cap do not fit in 512 MB. Workers have
+                                 # no free tier.
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerCommand: python -m dashboard.worker
+    autoDeploy: true
+    envVars:
+      # ── Required: the full pipeline environment (identical to cron) ──
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AIRTABLE_API_KEY
+        sync: false
+      - key: AIRTABLE_BASE_ID
+        sync: false
+
+      # ── Review email (the existing human-review step at `drafted`) ──
+      # submit_single_url() sends the internal review email exactly as the CLI
+      # does. Leave EMAIL_RECIPIENTS empty to suppress it — that is the same
+      # switch the cron path honours; the dashboard adds no second one.
+      - key: GMAIL_ADDRESS
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: EMAIL_RECIPIENTS
+        sync: false
+      - key: EMAIL_SENDER
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+      # ── Spend cap: applies to dashboard runs exactly as to cron runs (ADR 012) ──
+      - key: MAX_RUN_COST_USD
+        value: "25"
+
+      # ── Optional pipeline tuning (same defaults as .env.example) ──
+      - key: ANTHROPIC_TIMEOUT_SECONDS
+        value: "180"
+      - key: ANTHROPIC_MAX_RETRIES
+        value: "2"
+      - key: DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS
+        value: "60"
+      - key: MAX_DOCUMENT_BYTES
+        value: "26214400"
+      - key: PLAYWRIGHT_TIMEOUT_MS
+        value: "45000"
+      - key: PLAYWRIGHT_JS_HEAP_MB
+        value: "512"
+      - key: FULL_DRAFT_FOR_WATCH
+        value: "true"
+
+      # ── Aggregate cap across all dashboard runs (enforced HERE, in the worker) ──
+      - key: DASHBOARD_AGGREGATE_CAP_USD
+        value: "100"
+      - key: DASHBOARD_AGGREGATE_WINDOW_HOURS
+        value: "24"
+
+      # ── Optional worker tuning ──
+      - key: DASHBOARD_HEARTBEAT_SECONDS
+        value: "10"
+      - key: DASHBOARD_WORKER_POLL_SECONDS
+        value: "5"
+      - key: DASHBOARD_WORKER_LEASE_SECONDS
+        value: "3600"
+
+# ── Not enabled: Render Cron alternative to the systemd timers ───────────────
+# The recommendation (docs/DASHBOARD.md) is to leave scheduled discovery where
+# it is. If Cortech later decides to move it onto Render, this is the shape —
+# uncomment, and decommission the systemd timers so discovery does not run
+# twice and double-spend against the cap.
+#
+#  - type: cron
+#    name: cortech-discovery
+#    runtime: docker
+#    region: frankfurt
+#    plan: standard
+#    schedule: "0 */6 * * *"          # CHECK_INTERVAL_HOURS=6
+#    dockerfilePath: ./Dockerfile
+#    dockerCommand: python main.py --once
+#    envVars: (same block as cortech-bd-worker)

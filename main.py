@@ -206,7 +206,9 @@ def _run_monitored(name: str, callback, *, heartbeat: bool = False):
 # SINGLE OPPORTUNITY PIPELINE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | None:
+def process_opportunity(
+    raw_opportunity: dict, force: bool = False, *, retry_dead_letter: bool = False,
+) -> dict | None:
     """Claim a retryable workflow lease, then run one opportunity pipeline.
 
     ``opportunities_cache`` is a successful-content cache, never the source of
@@ -221,7 +223,9 @@ def process_opportunity(raw_opportunity: dict, force: bool = False) -> dict | No
     dedup_url = raw_opportunity.get("dedup_url") or source_url
     dedup_url = canonicalize_url(dedup_url) or dedup_url
 
-    claim_token = claim_opportunity_processing(dedup_url, title, force=force)
+    claim_token = claim_opportunity_processing(
+        dedup_url, title, force=force, retry_dead_letter=retry_dead_letter,
+    )
     if not claim_token:
         logger.info(f"Opportunity already completed or actively claimed: {title[:60]}")
         return None
@@ -416,7 +420,9 @@ def _refresh_outcome_learning() -> None:
 # MANUAL URL SUBMISSION
 # ══════════════════════════════════════════════════════════════════════════════
 
-def submit_single_url(url: str) -> None:
+def submit_single_url(
+    url: str, *, force: bool = True, retry_dead_letter: bool = False,
+) -> dict | None:
     """
     Manual on-demand entry point. Runs one URL through the full pipeline
     immediately. Skips quick_relevance_check() and find_similar_opportunity()
@@ -425,6 +431,22 @@ def submit_single_url(url: str) -> None:
     Exact-URL dedup (check_opportunity_exists) still applies, so
     re-submitting something already processed doesn't waste a second
     full run.
+
+    ``force=True`` (the CLI default) resets the ledger to ``discovered`` and
+    reprocesses from scratch. The dashboard passes ``force=False`` when a human
+    clicks "draft this" on an already-discovered opportunity, so the Phase 7
+    checkpoint is honoured and analysis is not paid for twice; it uses the
+    default for a pasted URL, which is byte-for-byte the CLI path.
+
+    ``retry_dead_letter=True`` (dashboard Retry) claims a ``dead_letter`` row
+    without resetting it, so drafting resumes from the persisted checkpoint
+    with a fresh ``MAX_DRAFT_FAILURES`` budget. It has no effect on rows in
+    any other state.
+
+    Returns the pipeline result dict (with ``_draft_path`` added), or ``None``
+    if the run did not complete. The CLI ignores the return value; the
+    dashboard worker uses it. This is a new *caller*, not a second code path —
+    see ``tests/test_dashboard_parity.py``.
     """
     console.print(Panel(f"Manual submission: {url}", style="bold cyan"))
     new_execution_id()
@@ -447,14 +469,16 @@ def submit_single_url(url: str) -> None:
         "source_portal": "Manual submission",
     }
 
-    result = process_opportunity(raw_opportunity, force=True)
+    result = process_opportunity(
+        raw_opportunity, force=force, retry_dead_letter=retry_dead_letter,
+    )
 
     if result is None:
         console.print(
             "[red]Could not process this URL — check the log above: "
             "usually a fetch failure or insufficient extracted text.[/red]"
         )
-        return
+        return None
 
     if not result.get("analysis", {}).get("bid_analysis", {}).get(
         "is_consultancy_contract", True
@@ -506,6 +530,12 @@ def submit_single_url(url: str) -> None:
         f"and logged in Airtable/Supabase like any other opportunity.",
         style="bold green",
     ))
+
+    # Private key, same convention as the popped `_cache_text`. The local file
+    # is ephemeral on a container host, so the dashboard serves the draft from
+    # the durable Supabase checkpoint rather than from this path.
+    result["_draft_path"] = out_path
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 2026-09-17. This is an implementation inventory, not a roadmap.
+Updated: 2026-09-21. This is an implementation inventory, not a roadmap.
 `FINAL_SYSTEM_AUDIT.md` contains the detailed evidence and scorecard.
 Phase 0 golden-set ADR: `docs/adr/004-golden-evaluation-set.md`.
 Phase 1 schema / content_hash / field-provenance ADR:
@@ -13,6 +13,8 @@ Phase 6 calibrated-win harness ADR: `docs/adr/010-calibrated-win-probability.md`
 Phase 7 durable pipeline stages ADR: `docs/adr/011-durable-pipeline-stages.md`.
 Phase 8 DNS-pin / Playwright limits / CI audit / spend cap ADR:
 `docs/adr/012-dns-pin-spend-cap.md`.
+Phase 9 dashboard control surface ADR: `docs/adr/013-dashboard-control-surface.md`
+(runbook `docs/DASHBOARD.md`, design `docs/DASHBOARD_DESIGN.md`).
 
 ## What is operational
 
@@ -34,6 +36,7 @@ Phase 8 DNS-pin / Playwright limits / CI audit / spend cap ADR:
 | Human control | Review email and Airtable record; no external submission | NO-BID is a recommendation on a `New` record, not final automation. Ledger `reviewed` / `outcome` are written only from human Airtable statuses (win/loss poll records `outcome`). Nothing submits to clients. |
 | Client intelligence | `organizations` / aliases / observations in Supabase; normalize+exact/fuzzy matcher; cited roll-up in the review email | **Phase 2.** Matching is exact spaced/compact (VERIFIED) or fuzzy ≥ 0.95 with guards (INFERRED). Below threshold → new candidate / UNKNOWN, never a silent merge. Golden-set `Client E` / `CLIENT  E` / `Client E Ltd.` resolve to one org; `Client A` vs `Client B` stay two. Roll-up counts are code aggregations of stored rows. Missing outcomes stay UNKNOWN — not zeros dressed as a win rate. Golden-set outcomes remain UNKNOWN. Migration `supabase_migration_organizations.sql` **is applied** (2026-09-17; tables + FKs exist; occupancy after probe cleanup: organizations/aliases/observations = **0**). `build_client_intelligence(persist=True)` wrote and deleted a probe client/donor pair. No new Airtable fields. Explicit alias file is empty — no UNICEF↔full-name merge by guess. |
 | Market intelligence | Trailing 30/90-day frequencies of stored thematic labels, geography labels, and donor posting counts; weekly internal email | **Phase 3.** Code aggregation only (no Claude market narrative). `TREND_MIN_N = 10` dated stored rows in a window before any trend/percentage/cadence claim; n=2 renders “insufficient data for a trend”. Sample size and date range are inline. Labels are stored strings — no invented “Other WASH” / “East Africa” buckets. Donor cadence matches `opportunity.donor` against the Phase 2 organizations table only; empty table → insufficient, donors not invented. Dates are `discovered_at` or cache `created_at`; never `submission_deadline`. `supabase_migration_opportunity_facts.sql` **is applied** (2026-09-17): `thematic_areas`/`locations` text[], `donor` text; `discovered_at` was already `timestamptz` (ADD COLUMN IF NOT EXISTS DATE skipped). Occupancy: **0/1210** thematic, locations, donor; **1210/1210** discovered_at. `store_opportunity(..., facts=)` wrote a probe row then deleted it. Airtable OPPORTUNITIES is secondary using existing fields. Fifth timer: `cortech-market.timer` → `main.py --run-market-digest`. SMTP mocked in tests; no live digest sent this session. |
+| Dashboard | `dashboard/` — FastAPI web + background worker over Supabase; `dashboard_triggers` queue | **Phase 9 (ADR 013). Built and verified locally; NOT deployed** — no Render/Google credentials in the build environment. Every action calls `main.submit_single_url()`; parity with `--submit-url` proven field-by-field (`tests/test_dashboard_parity.py`). Google OAuth, verified ID token, `@cortechconsultinggroup.com` + explicit `AUTH_ALLOWED_EMAILS` (default empty); 37 auth tests incl. 8 non-domain rejections. Retry resumes `dead_letter` from checkpoint (extends the claim RPC — amends ADR 011 §2). Cancel is cooperative via the spend-cap halt point; copy pinned to mechanism by test. Aggregate cap `DASHBOARD_AGGREGATE_CAP_USD` enforced by the worker (new control). Sub-step progress deliberately **not** shown (pipeline persists stages only). Polling, not Realtime (publication has zero tables). Migrations `supabase_migration_dashboard_triggers.sql` + `_controls.sql` **applied** 2026-09-21; `test_live_dashboard_queue.py` 9 passed. Render cost at 2026-09-21 prices: web starter $7 + worker standard $25 = **$32/mo**. |
 | Outcome learning | Won/Lost lesson extraction and vector storage | Lessons are not scoring features. Phase 6 harness evaluates held-out Brier only when both classes exist; current n_lost=0 → sample too small to trust. |
 | Competitor intelligence | Assortis `DataType=contract` pages that publish **Awarded Firm(s):**; stored only with URL + excerpt containing the name | **Phase 5.** Somali Jobs listings and empty RSS have no winner field — not stubbed. Silence (no labelled winner) stores nothing. Cortech-not-winning is not a competitor row. Names go through the Phase 2 org matcher; below threshold → new candidate / UNKNOWN. Migration `supabase_migration_award_relationships.sql` **is applied** (2026-09-17; `award_observations.organization_id` FK to `organizations` ON DELETE SET NULL). Occupancy: **0** award rows. Fail-open remains if a future object is missing. |
 | Relationship intelligence | Named JV/consortium/commissioned-partner edges in `data/proposals/` (verbatim excerpt + document/chunk citation) | **Phase 5.** Patterns only (`submitted by Cortech … in joint venture with`, `in partnership with … and commissioned by`, consortium leader/partner, named JV contributor). “We typically work with…”, sole-firm/no-JV, client-side consortia, and Lead Consultant person roles store nothing. Partner name must appear in the excerpt. Same org matcher. `relationship_edges` table **exists** (FK to `organizations`; occupancy **0**). Optional review-email section when edges exist; market digest lists cited Assortis winners or an honest gap note. |
@@ -77,11 +80,30 @@ scan clean after bump), and an enforced per-run `complete()` spend cap.
 Hosted stage columns are present; the live spend-cap kill-test ran against
 the real row.
 
+## Known defect found 2026-09-21 (not fixed — needs a decision)
+
+`database/market_store.py` selects `created_at` from `opportunities_cache`, which
+has no such column (`discovered_at` / `processed_at` exist). Both the full and
+the fallback select fail, so the Phase 3 digest loads **0 dated rows** and every
+window reports "insufficient data for a trend" in production, including the
+weekly `cortech-market` email — despite `discovered_at` being 1210/1210
+populated. One-line fix; changes the weekly email's output, so left for a
+decision. Details in `docs/DASHBOARD.md` §7.
+
 ## Verification
 
 ```text
 ~/cortech-bd-agent/cortech/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --ignore=tests/test_live_supabase_migrations.py --override-ini='addopts=' -q --tb=line
 370 passed, 2 warnings in 22.37s
+```
+
+2026-09-21, after Phase 9 (`.venv/bin/python -m pytest tests/ --ignore=tests/test_live_supabase_stages.py --ignore=tests/test_live_supabase_migrations.py --ignore=tests/test_live_dashboard_queue.py -o addopts="" -q`):
+
+```text
+494 passed, 2 warnings in 29.45s        (py3.12 .venv)
+494 passed, 2 warnings in 24.78s        (py3.14 cortech/)
+16 passed                               (three hosted live files)
+pip-audit: No known vulnerabilities found
 ```
 
 0 failed, 0 skipped in that offline run. Hosted extras (not in the 370):

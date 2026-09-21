@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Job {{ job.id[:8] }} · Cortech BD{% endblock %}
+
+{% block content %}
+
+{% if flash %}
+<div class="notice {% if flash_kind == 'stop' %}notice--stop{% elif flash_kind == 'cap' %}notice--cap{% endif %}" role="status">{{ flash }}</div>
+<hr class="hr">
+{% endif %}
+
+<section class="section">
+  <div class="section__label">
+    Job
+    <p class="section__note">One row in <code>dashboard_triggers</code>. This is
+    the request; the pipeline's own state is on the opportunity page.</p>
+  </div>
+  <div>
+    <dl class="kv">
+      <dt>Job id</dt><dd class="mono">{{ job.id }}</dd>
+      <dt>Status</dt><dd>{{ m.state_chip(job.ui_state) }}</dd>
+      <dt>Kind</dt><dd>{{ job.kind_label }}</dd>
+      <dt>Requested by</dt><dd>{{ job.requested_by }}</dd>
+      <dt>Requested</dt><dd class="mono">{{ job.requested_at }}</dd>
+      <dt>Started</dt><dd class="mono">{{ m.value(job.started_at) }}</dd>
+      <dt>Finished</dt><dd class="mono">{{ m.value(job.finished_at) }}</dd>
+      <dt>Worker heartbeat</dt><dd class="mono">{{ m.value(job.last_heartbeat_at) }}</dd>
+      <dt>Attempts</dt><dd>{{ job.attempt_count }}</dd>
+      <dt>Execution id</dt><dd class="mono">{{ m.value(job.execution_id) }}</dd>
+      <dt>Opportunity</dt>
+      <dd><a href="{{ url_detail }}?url={{ job.source_url | urlencode }}" class="mono">{{ job.source_url[:110] }}</a></dd>
+    </dl>
+
+    {% if job.error_message %}
+    <div class="notice {% if job.ui_state == 'cancelled' %}notice--cap{% else %}notice--stop{% endif %}" style="margin-top: var(--s3)">
+      <strong>{{ job.error_kind }}</strong> — {{ job.error_message }}
+    </div>
+    {% endif %}
+
+    {% if job.status in ("queued", "running") %}
+    <form method="post" action="{{ url_trigger_cancel }}" class="inline" style="margin-top: var(--s3)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="trigger_id" value="{{ job.id }}">
+      <button class="btn btn--sm btn--quiet">
+        {% if job.cancel_requested_at %}Cancel requested — waiting for worker{% else %}Cancel{% endif %}
+      </button>
+    </form>
+    <p class="section__note" style="max-width: var(--measure)">{{ cancel_copy }}</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    Spend
+    <p class="section__note">Live figures from the run's own accounting
+    (<code>utils/observability</code>) — the same bucket the per-run cap is
+    enforced against. Updated on each worker heartbeat.</p>
+  </div>
+  <div>
+    <dl class="kv">
+      <dt>This run</dt>
+      <dd>
+        {% if job.spend_usd is not none %}
+          <span class="v">{{ "%.4f"|format(job.spend_usd) }}</span>
+          <span class="v-prov">USD estimated{% if job.spend_limit_usd is not none %} of {{ "%.2f"|format(job.spend_limit_usd) }} cap{% endif %}</span>
+          {% if job.spend_known is false %}<span class="v-why">cost of at least one call is UNKNOWN — cap treats this as over</span>{% endif %}
+        {% else %}
+          <span class="v-missing">—</span><span class="v-why">{% if job.status == 'queued' %}not started{% else %}no heartbeat received yet{% endif %}</span>
+        {% endif %}
+      </dd>
+      <dt>Provider calls</dt><dd>{{ m.value(job.provider_calls) }}</dd>
+    </dl>
+    {% if job.spend_usd is not none and job.spend_limit_usd %}
+      {% set pct = (job.spend_usd / job.spend_limit_usd * 100) if job.spend_limit_usd else 0 %}
+      <div class="bar" style="margin-top: var(--s2)">
+        <div class="bar__label">of per-run cap</div>
+        <div class="bar__track"><div class="bar__fill" style="width: {{ '%.1f'|format([pct, 100] | min) }}%; background: {% if pct >= 90 %}var(--st-warning){% else %}var(--navy-soft){% endif %};"></div></div>
+        <div class="bar__value">{{ '%.0f'|format(pct) }}%</div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+{% if d %}
+<section class="section">
+  <div class="section__label">
+    Pipeline
+    <p class="section__note">From <code>opportunity_processing</code>. Stage-level
+    only: the pipeline persists stage boundaries, not sub-steps, so nothing
+    finer is shown here — a "drafting section 3 of 8" would be invented.</p>
+  </div>
+  <div>
+    {{ m.stage_rail(d.rail, d.stage.value) }}
+    <div style="margin-top: var(--s2)">{{ m.state_chip(d.ui_state) }}
+      {% if d.last_error.value and job.status in ('queued','running') %}<span class="v-why">last recorded: {{ d.last_error.value[:120] }}</span>{% endif %}
+    </div>
+    {% if d.has_draft %}
+      <p style="margin-top: var(--s3)"><a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      <span class="v-prov">needs human review before anything is sent</span></p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% endblock %}

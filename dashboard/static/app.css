@@ -1,0 +1,317 @@
+/* Cortech BD dashboard — see docs/DASHBOARD_DESIGN.md for the reasoning
+   behind every token in this file. Do not add a colour here without a reason
+   that survives docs/DASHBOARD_DESIGN.md §3.2. */
+
+/* ── Faces (self-hosted; no third-party request at page load) ───────────── */
+@font-face {
+  font-family: "Inter var";
+  src: url("fonts/inter-var-latin.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "Source Serif 4 var";
+  src: url("fonts/source-serif-4-var-latin.woff2") format("woff2");
+  font-weight: 200 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Mono web";
+  src: url("fonts/ibm-plex-mono-400-latin.woff2") format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces — inherited from reporting/email_report.py */
+  --paper:        #f7f4ee;   /* page plane */
+  --surface:      #ffffff;   /* tables, panels, chart surface */
+  --surface-sunk: #f2eee6;   /* inset blocks, code, empty states */
+  --hairline:     #e6e1d6;
+  --hairline-hi:  #d6cfbe;
+
+  /* Ink */
+  --ink:          #1c1914;   /* 15.96:1 on paper */
+  --ink-2:        #6b6458;   /* 5.33:1  — secondary text AND eyebrow labels */
+  --ink-rule:     #8a7a5a;   /* 3.82:1  — RULES AND SEPARATORS ONLY, never text */
+
+  /* Brand */
+  --navy:         #1f3864;   /* 10.58:1 */
+  --navy-soft:    #2f5aa8;
+  --brass:        #c4a35a;   /* 2.19:1 — mark / rule / focus ring only, never text */
+
+  /* Evidence status (docs/DASHBOARD_DESIGN.md §3.2) */
+  --ev-verified:  #006300;   /* 6.87:1 */
+  --ev-inferred:  #8a6a12;   /* 4.61:1 */
+  --ev-unknown:   #6b6458;   /* 5.33:1 — same token as --ink-2, on purpose */
+
+  /* Machine state (dataviz fixed status palette — never themed) */
+  --st-good:      #0ca30c;
+  --st-warning:   #fab219;
+  --st-serious:   #ec835a;
+  --st-critical:  #d03b3b;
+  --st-critical-ink: #9b2c2c;  /* 6.86:1 — the text form of critical */
+
+  /* Ordinal ramps, both validated by dataviz scripts/validate_palette.js */
+  --stage-1: #6291e3;  --stage-2: #406cbb;  --stage-3: #1e4994;  --stage-4: #002972;
+  --rec-1:   #c3a35f;  --rec-2:   #947630;  --rec-3:   #705300;
+
+  /* Type */
+  --ui:  "Inter var", ui-sans-serif, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --doc: "Source Serif 4 var", ui-serif, Georgia, "Times New Roman", serif;
+  --mono:"IBM Plex Mono web", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* 8px rhythm */
+  --s1: 4px; --s2: 8px; --s3: 16px; --s4: 24px; --s5: 32px; --s6: 48px;
+  --gutter: 168px;       /* the left spine */
+  --measure: 70ch;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--navy); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+/* ── Masthead ───────────────────────────────────────────────────────────── */
+.masthead {
+  border-bottom: 1px solid var(--hairline-hi);
+  background: var(--surface);
+}
+.masthead__in {
+  max-width: 1200px; margin: 0 auto; padding: var(--s3) var(--s4);
+  display: flex; align-items: baseline; gap: var(--s4);
+}
+.wordmark {
+  font-family: var(--doc); font-size: 19px; font-weight: 600;
+  color: var(--navy); letter-spacing: -0.01em; margin: 0;
+}
+.wordmark span { color: var(--ink-2); font-weight: 400; }
+.masthead nav { display: flex; gap: var(--s3); margin-left: auto; }
+.masthead nav a {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600; color: var(--ink-2); text-decoration: none;
+  padding-bottom: 2px; border-bottom: 2px solid transparent;
+}
+.masthead nav a[aria-current="page"] { color: var(--navy); border-bottom-color: var(--brass); }
+.whoami { font-size: 11px; color: var(--ink-2); font-family: var(--mono); }
+
+/* ── Page frame: the left spine ─────────────────────────────────────────── */
+.page { max-width: 1200px; margin: 0 auto; padding: var(--s5) var(--s4) var(--s6); }
+
+.section { display: grid; grid-template-columns: var(--gutter) minmax(0, 1fr); gap: var(--s4); }
+.section + .section { margin-top: var(--s6); }
+.section__label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600; color: var(--ink-2); padding-top: 2px;
+}
+.section__note { font-size: 11px; color: var(--ink-2); margin-top: var(--s2); line-height: 1.45; }
+@media (max-width: 860px) {
+  .section { grid-template-columns: 1fr; gap: var(--s2); }
+  :root { --gutter: 0px; }
+}
+
+/* ── Prose from documents / models is always serif ──────────────────────── */
+.doc { font-family: var(--doc); font-size: 14px; line-height: 1.6; max-width: var(--measure); }
+.mono { font-family: var(--mono); font-size: 11px; word-break: break-all; }
+
+/* ── The value primitive (docs/DASHBOARD_DESIGN.md §5) ──────────────────── */
+.v { color: var(--ink); }
+.v-missing { color: var(--ev-unknown); font-variant-numeric: normal; }
+.v-why {
+  display: inline-block; margin-left: var(--s2);
+  font-size: 11px; color: var(--ev-unknown); font-style: normal;
+}
+.v-prov {
+  display: inline-block; margin-left: var(--s2);
+  font-size: 11px; color: var(--ink-2);
+}
+
+/* ── Tables: rules, not cards ───────────────────────────────────────────── */
+.table { width: 100%; border-collapse: collapse; background: var(--surface); }
+.table th {
+  text-align: left; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.08em; font-weight: 600; color: var(--ink-2);
+  padding: var(--s2) var(--s3); border-bottom: 1px solid var(--hairline-hi);
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--s2) var(--s3); border-bottom: 1px solid var(--hairline);
+  vertical-align: top; min-height: 44px;
+}
+.table tbody tr { min-height: 44px; }
+.table tbody tr:hover { background: var(--surface-sunk); }
+.table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table .t-title { font-family: var(--doc); font-size: 14px; line-height: 1.35; }
+.table .t-sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+
+/* ── Chips ──────────────────────────────────────────────────────────────── */
+.chip {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em; padding: 2px 8px; border-radius: 2px;
+  border: 1px solid transparent; white-space: nowrap;
+}
+/* Recommendation: weight and shape, never hue (§3.2) */
+.chip--bid    { background: var(--navy); color: #fff; }
+.chip--watch  { background: transparent; color: var(--navy); border-color: var(--navy); }
+.chip--nobid  { background: var(--surface-sunk); color: var(--ink-2); border-color: var(--hairline-hi); }
+.chip--none   { background: transparent; color: var(--ev-unknown); border-color: var(--hairline); }
+
+/* Machine state: always colour + the literal ledger word */
+.state { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; }
+.state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.state--pending    { color: var(--ink-2); }      .state--pending::before    { background: var(--hairline-hi); }
+.state--processing { color: var(--navy); }       .state--processing::before { background: var(--navy-soft); }
+.state--completed  { color: var(--ev-verified); }.state--completed::before  { background: var(--st-good); }
+.state--failed     { color: var(--ev-inferred); }.state--failed::before     { background: var(--st-serious); }
+.state--spend_cap  { color: var(--ev-inferred); }.state--spend_cap::before  { background: var(--st-warning); }
+.state--dead_letter{ color: var(--st-critical-ink); } .state--dead_letter::before { background: var(--st-critical); }
+/* A person stopped it: amber like a cap halt (both retryable), never red. */
+.state--cancelled  { color: var(--ev-inferred); }.state--cancelled::before  { background: var(--st-warning); }
+
+/* Evidence labels */
+.ev { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+.ev--VERIFIED { color: var(--ev-verified); }
+.ev--INFERRED { color: var(--ev-inferred); }
+.ev--UNKNOWN  { color: var(--ev-unknown); }
+
+/* ── Stage rail ─────────────────────────────────────────────────────────── */
+.rail { display: flex; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; }
+.rail li { display: flex; align-items: center; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; }
+.rail li::after {
+  content: ""; width: 20px; height: 1px; background: var(--hairline-hi); margin: 0 var(--s2);
+}
+.rail li:last-child::after { display: none; }
+.rail .dot { width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: var(--hairline-hi); }
+.rail li[data-done="1"] { color: var(--navy); }
+.rail li[data-done="1"] .dot { background: var(--navy); }
+.rail li[data-done="0"] { color: var(--ev-unknown); font-weight: 500; }
+.rail li[data-current="1"] .dot { box-shadow: 0 0 0 3px rgba(31,56,100,.18); }
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+.field { display: block; margin-bottom: var(--s3); }
+.field__label {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 600; color: var(--ink-2); margin-bottom: 6px;
+}
+input[type="url"], input[type="text"] {
+  width: 100%; font: inherit; font-family: var(--mono); font-size: 12px;
+  padding: 10px var(--s3); background: var(--surface);
+  border: 1px solid var(--hairline-hi); border-radius: 2px; color: var(--ink);
+}
+input[type="url"]:focus { border-color: var(--navy); }
+
+.btn {
+  font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 9px var(--s3); border-radius: 2px; cursor: pointer;
+  background: var(--navy); color: #fff; border: 1px solid var(--navy);
+}
+.btn:hover { background: #172b4d; }
+.btn[disabled] { background: var(--surface-sunk); color: var(--ink-2); border-color: var(--hairline-hi); cursor: not-allowed; }
+.btn--quiet { background: transparent; color: var(--navy); }
+.btn--quiet:hover { background: var(--surface-sunk); }
+.btn--sm { padding: 5px 10px; font-size: 11px; }
+
+/* ── Notices ────────────────────────────────────────────────────────────── */
+.notice {
+  border-left: 3px solid var(--brass); background: var(--surface);
+  padding: var(--s3); font-size: 12px; line-height: 1.55; max-width: var(--measure);
+}
+.notice--stop { border-left-color: var(--st-critical); }
+.notice--cap  { border-left-color: var(--st-warning); }
+.notice strong { color: var(--navy); }
+.notice--stop strong { color: var(--st-critical-ink); }
+
+.empty {
+  background: var(--surface-sunk); border: 1px dashed var(--hairline-hi);
+  padding: var(--s4); text-align: center; color: var(--ink-2); font-size: 12px;
+}
+
+/* ── Stat tiles (used where a chart would overstate the data) ───────────── */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+         background: var(--hairline); border: 1px solid var(--hairline); }
+.tile { background: var(--surface); padding: var(--s3); }
+.tile__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+               font-weight: 600; color: var(--ink-2); }
+.tile__value { font-size: 23px; font-weight: 600; color: var(--navy); margin-top: var(--s1);
+               font-variant-numeric: proportional-nums; }
+.tile__value.is-missing { color: var(--ev-unknown); font-weight: 400; }
+.tile__sub { font-size: 11px; color: var(--ink-2); margin-top: var(--s1); line-height: 1.45; }
+
+/* ── Bar chart (direct-labelled; the relief rule for the brass ramp) ────── */
+.bars { display: grid; gap: var(--s2); background: var(--surface); padding: var(--s3);
+        border: 1px solid var(--hairline); }
+.bar { display: grid; grid-template-columns: 150px 1fr auto; align-items: center; gap: var(--s3); }
+.bar__label { font-size: 12px; color: var(--ink); }
+.bar__track { height: 14px; background: var(--surface-sunk); position: relative; }
+.bar__fill { height: 100%; }
+.bar__value { font-size: 12px; font-weight: 600; color: var(--ink); min-width: 3ch; text-align: right; }
+
+/* ── Factor table ───────────────────────────────────────────────────────── */
+.factors td:first-child { font-weight: 500; }
+.factors .evidence { font-family: var(--doc); font-size: 13px; color: var(--ink-2); max-width: var(--measure); }
+
+.kv { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: var(--s2) var(--s3);
+      font-size: 13px; align-items: baseline; }
+.kv dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+         font-weight: 600; color: var(--ink-2); }
+.kv dd { margin: 0; }
+
+.hr { border: 0; border-top: 1px solid var(--hairline); margin: var(--s4) 0; }
+
+.foot { font-size: 11px; color: var(--ink-2); margin-top: var(--s6);
+        border-top: 1px solid var(--hairline); padding-top: var(--s3); }
+.foot code { font-family: var(--mono); }
+
+/* ── Queue table geometry ───────────────────────────────────────────────────
+   Set after rendering the Phase 1 probe against real rows: without fixed
+   columns the long scraped titles and long provenance strings fought each
+   other and squeezed the title column to ~100px. */
+.table--queue { table-layout: fixed; }
+.table--queue .c-opp    { width: auto; min-width: 280px; }
+.table--queue .c-client { width: 150px; }
+.table--queue .c-stage  { width: 104px; }
+.table--queue .c-state  { width: 150px; }
+.table--queue .c-num    { width: 54px; }
+.table--queue .c-rec    { width: 92px; }
+.table--queue .c-date   { width: 96px; }
+.table--queue .c-act    { width: 116px; }
+.table--queue td { overflow-wrap: anywhere; }
+.table--queue .c-stage + * , .table--queue td:nth-child(3) { white-space: nowrap; }
+.table--queue .c-act ~ *, .table--queue td:last-child { white-space: nowrap; }
+.table td.nowrap { white-space: nowrap; }
+
+.clamp-2 {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-2 a { text-decoration: none; }
+.clamp-2 a:hover { text-decoration: underline; }
+
+/* The eyebrow label is uppercase; its explanatory note is not. */
+.section__note { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.section__note code { font-family: var(--mono); font-size: 10px; }
+
+form.inline { margin: 0; }
+
+/* ── Interactive controls ───────────────────────────────────────────────── */
+.table--queue .c-sel { width: 36px; }
+.c-sel-cell input { width: 14px; height: 14px; accent-color: var(--navy); margin-top: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+form.bulk { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s2); }
+form.rerun { display: inline-flex; align-items: center; gap: var(--s1); }
+.select { font: inherit; font-size: 12px; padding: 6px 8px; border: 1px solid var(--hairline-hi);
+          border-radius: 2px; background: var(--surface); color: var(--ink); }
