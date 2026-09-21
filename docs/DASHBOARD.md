@@ -116,7 +116,13 @@ What changed so it cannot recur:
    seconds (`cortech-bd-web` / `cortech-bd-worker`) stating what it is and
    that it never runs discovery. If a Render log's first lines do not show
    one, the wrong command is running.
-4. `render.yaml` opens with the hand-deploy rule; the correct commands are
+4. **Second misconfiguration, same day:** the worker command was then deployed
+   under `type: web`. A web service must bind `$PORT`; the worker never does,
+   so Render port-scanned forever and no dashboard existed. `render.yaml` now
+   declares the worker as `type: worker` (Background Worker — never
+   port-scanned) and the web service as `type: web` with `healthCheckPath`,
+   and `tests/test_render_yaml.py` fails CI if either drifts.
+5. `render.yaml` opens with the hand-deploy rule; the correct commands are
    `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` (web) and
    `python -m dashboard.worker` (worker). Never `python main.py`.
 
@@ -148,6 +154,24 @@ Check: `python -m pytest tests/test_live_dashboard_queue.py -o addopts=""` → 9
 4. Copy client ID and secret into Render as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
 ### 3.3 Render — Blueprint
+
+**Reconcile what already exists first.** Service `srv-daoee2ek1f9s73bok3kg`
+was created by hand as **`type: web`** but runs the worker command; it binds
+no port, so Render loops "No open ports detected" and no UI exists anywhere.
+Render's Blueprint spec: a service's `type` — "You can't modify this value
+after creation." So it cannot be turned into a Background Worker in place.
+
+1. In that service's *Environment* tab, copy any secrets you pasted there
+   (they are not recoverable after deletion).
+2. **Delete `srv-daoee2ek1f9s73bok3kg`.** Do this *before* the Blueprint
+   sync: the sync matches existing services **by name** and "attempts to
+   apply the Blueprint's configuration to that existing service" — if the
+   hand-made web service is named `cortech-bd-worker`, the sync would try to
+   apply a `type: worker` definition to a `type: web` service.
+3. Sync the Blueprint. It creates **both** services fresh:
+   **`cortech-bd-dashboard`** = `type: web`, the UI/API, binds `$PORT`;
+   **`cortech-bd-worker`** = `type: worker`, no port, the queue consumer.
+   Neither is the existing service; the existing service ends up as nothing.
 
 **Use the Blueprint. Do not create services by hand** (see §Incident). If you must, the web Start Command is `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` and the worker Docker Command is `python -m dashboard.worker`; check the first log lines for `IDENTITY:`.
 
