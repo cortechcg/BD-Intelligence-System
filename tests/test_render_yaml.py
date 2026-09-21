@@ -63,12 +63,81 @@ def test_google_oauth_secrets_are_on_the_web_service_only():
         assert k in web and k not in worker, k
 
 
-def test_shared_pipeline_env_is_declared_on_both():
+def test_pipeline_credentials_live_on_the_worker_only():
+    """The web process reads/writes Supabase only. Verified 2026-09-21 by booting
+    it with no ANTHROPIC/OPENAI/AIRTABLE vars: /healthz 200, UI redirects to
+    login. config.require_env() is called by the worker and main.py, never by
+    dashboard.app. The internet-facing service must not hold model/CRM keys."""
     keys = {s["name"]: {e["key"] for e in s["envVars"]} for s in SPEC["services"]}
-    for k in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
-              "AIRTABLE_API_KEY", "AIRTABLE_BASE_ID", "DASHBOARD_AGGREGATE_CAP_USD"):
-        assert k in keys["cortech-bd-dashboard"] and k in keys["cortech-bd-worker"], k
-    assert "MAX_RUN_COST_USD" in keys["cortech-bd-worker"]
+    web, worker = keys["cortech-bd-dashboard"], keys["cortech-bd-worker"]
+    for k in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY",
+              "DASHBOARD_AGGREGATE_CAP_USD", "DASHBOARD_AGGREGATE_WINDOW_HOURS"):
+        assert k in web and k in worker, k
+    for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AIRTABLE_API_KEY", "AIRTABLE_BASE_ID",
+              "MAX_RUN_COST_USD", "EMAIL_RECIPIENTS"):
+        assert k in worker and k not in web, k
+
+
+def test_aggregate_cap_mirror_is_identical_on_both_services():
+    vals = {s["name"]: {e["key"]: e.get("value") for e in s["envVars"]} for s in SPEC["services"]}
+    for k in ("DASHBOARD_AGGREGATE_CAP_USD", "DASHBOARD_AGGREGATE_WINDOW_HOURS", "DASHBOARD_HEARTBEAT_SECONDS"):
+        assert vals["cortech-bd-dashboard"][k] == vals["cortech-bd-worker"][k], k
+
+
+def test_no_discovery_scheduler_vars_on_either_service():
+    for s in SPEC["services"]:
+        for e in s["envVars"]:
+            k = e["key"]
+            assert not k.startswith("IMAP_"), f"{s['name']}:{k} — newsletter source is discovery-only"
+            assert k not in ("CHECK_INTERVAL_HOURS", "MAX_OPPORTUNITIES_PER_RUN", "HEALTHCHECK_URL"), \
+                f"{s['name']}:{k} is a scheduler setting; neither Render service runs discovery"
+
+
+def test_every_env_var_has_exactly_one_value_source():
+    """A bare `- key: X` is a Blueprint spec error. PORT must not be declared:
+    Render injects it for web services and the command reads ${PORT:-10000}."""
+    sources = ("value", "sync", "generateValue", "fromService", "fromDatabase")
+    for s in SPEC["services"]:
+        for e in s["envVars"]:
+            assert e["key"] != "PORT", "PORT is injected by Render; do not declare it"
+            present = [f for f in sources if f in e]
+            assert len(present) == 1, f"{s['name']}:{e['key']} has value sources {present}"
+            if "sync" in e:
+                assert e["sync"] is False, f"{s['name']}:{e['key']}: sync must be false (secret set in dashboard)"
+
+
+def test_numeric_settings_have_numeric_string_defaults():
+    numeric_suffixes = ("_USD", "_HOURS", "_SECONDS", "_MS", "_MB", "_BYTES", "_MAX",
+                        "_RETRIES", "_REDIRECTS", "_FILES", "_CHARS", "_AGE")
+    for s in SPEC["services"]:
+        for e in s["envVars"]:
+            if e["key"].endswith(numeric_suffixes) and "value" in e:
+                assert isinstance(e["value"], str), f"{e['key']}: quote numeric values"
+                float(e["value"])  # raises if not numeric
+
+
+def test_every_declared_env_var_is_actually_read_by_the_code():
+    """Catches a Blueprint key the code never looks at (e.g. GOOGLE_OAUTH_CLIENT_ID
+    vs the real GOOGLE_CLIENT_ID). A misnamed secret is silently ignored at
+    runtime; here it fails."""
+    import re
+    read_from = "".join(
+        Path(f).read_text()
+        for f in ("config.py", "dashboard/settings.py", "dashboard/worker.py",
+                  "reporting/email_report.py")
+    )
+    literals = set(re.findall(r'"([A-Z][A-Z0-9_]{3,})"', read_from))
+    for s in SPEC["services"]:
+        for e in s["envVars"]:
+            assert e["key"] in literals, f"{s['name']}:{e['key']} is not read anywhere in the code"
+
+
+def test_web_command_is_the_verified_string_and_worker_has_no_shell_wrapper():
+    web, worker = _by_type("web"), _by_type("worker")
+    assert web["dockerCommand"].startswith("sh -c '"), "sh -c is what expands ${PORT} inside the container"
+    assert '--port "${PORT:-10000}"' in web["dockerCommand"]
+    assert "--proxy-headers" in web["dockerCommand"], "Render terminates TLS; app must trust X-Forwarded-*"
+    assert "sh -c" not in worker["dockerCommand"]
 
 
 def test_no_secret_values_are_committed():

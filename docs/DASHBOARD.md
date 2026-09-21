@@ -126,6 +126,13 @@ What changed so it cannot recur:
    `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` (web) and
    `python -m dashboard.worker` (worker). Never `python main.py`.
 
+6. **Third failure, same day:** the web service was recreated by hand and its
+   Start Command was typed into the form wrong. Rule from here on: **services
+   are created only from `render.yaml` (New → Blueprint)**, never by hand. The
+   file is the source of truth for both services; §3.3 is the procedure.
+   `tests/test_render_yaml.py` (16 checks) fails CI if a command, service
+   type, or env var name drifts from what the code actually reads.
+
 Emails from that run went only to `EMAIL_RECIPIENTS` (both `send_report` and
 `send_proposal_email` resolve recipients solely from that env var; no code
 path reads an address from a tender). The drafted opportunity sits in the
@@ -153,32 +160,129 @@ Check: `python -m pytest tests/test_live_dashboard_queue.py -o addopts=""` → 9
 3. OAuth consent screen: **Internal** user type if the Google Workspace is `cortechconsultinggroup.com` (then only workspace accounts can even reach the consent screen — a second wall in front of the app's own check). External works too; the app rejects off-domain emails regardless.
 4. Copy client ID and secret into Render as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
-### 3.3 Render — Blueprint
+### 3.3 Render — Blueprint (the only supported way to create the services)
 
-**Reconcile what already exists first.** Service `srv-daoee2ek1f9s73bok3kg`
-was created by hand as **`type: web`** but runs the worker command; it binds
-no port, so Render loops "No open ports detected" and no UI exists anywhere.
-Render's Blueprint spec: a service's `type` — "You can't modify this value
-after creation." So it cannot be turned into a Background Worker in place.
+**Never create or edit a Render service by hand.** Three deploys failed on
+2026-09-21 because a Start Command was typed into a form (§Incident). Both
+services are declared in [`render.yaml`](../render.yaml) at the repo root;
+that file is the source of truth. To change a service, edit the file, commit,
+and sync the Blueprint.
 
-1. In that service's *Environment* tab, copy any secrets you pasted there
-   (they are not recoverable after deletion).
-2. **Delete `srv-daoee2ek1f9s73bok3kg`.** Do this *before* the Blueprint
-   sync: the sync matches existing services **by name** and "attempts to
-   apply the Blueprint's configuration to that existing service" — if the
-   hand-made web service is named `cortech-bd-worker`, the sync would try to
-   apply a `type: worker` definition to a `type: web` service.
-3. Sync the Blueprint. It creates **both** services fresh:
-   **`cortech-bd-dashboard`** = `type: web`, the UI/API, binds `$PORT`;
-   **`cortech-bd-worker`** = `type: worker`, no port, the queue consumer.
-   Neither is the existing service; the existing service ends up as nothing.
+Both commands were re-verified from the code on 2026-09-21 (§6):
 
-**Use the Blueprint. Do not create services by hand** (see §Incident). If you must, the web Start Command is `uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT` and the worker Docker Command is `python -m dashboard.worker`; check the first log lines for `IDENTITY:`.
+| Service | `type` | `dockerCommand` | Proof it is the right process |
+|---|---|---|---|
+| `cortech-bd-dashboard` | `web` | `sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"'` | first log line `IDENTITY: cortech-bd-web`, then `Uvicorn running on http://0.0.0.0:<PORT>`; `/healthz` → 200 |
+| `cortech-bd-worker` | `worker` | `python -m dashboard.worker` | first log lines `IDENTITY: cortech-bd-worker` then `dashboard worker up (token …); aggregate cap 100.00 USD / 24h`; **no port** |
 
-1. Render dashboard → *New* → *Blueprint* → connect this repo → it reads `render.yaml`.
-2. Fill the `sync: false` secrets on **both** services (Supabase, Anthropic, OpenAI, Airtable; email on the worker; Google on the web).
-3. Set `PUBLIC_BASE_URL` on the web service to the URL Render assigns (`https://cortech-bd-web.onrender.com` unless renamed). It must match step 3.2 exactly.
-4. Deploy. Web health check is `/healthz`.
+The FastAPI instance is the module-level `app` in `dashboard/app.py`
+(`app = FastAPI(...)`), hence `dashboard.app:app`. The worker entry point is
+`dashboard/worker.py::main_loop`, run via `if __name__ == "__main__"`, hence
+`python -m dashboard.worker`. The Docker runtime uses `dockerCommand`;
+`startCommand` is for native runtimes and is ignored for Docker.
+
+Three facts about Blueprints (render.com/docs/infrastructure-as-code, read
+2026-09-21) shape the procedure below:
+
+* The creation flow **matches existing resources by name**. If a match exists
+  Render "appends a suffix to the name of each new resource to prevent
+  collisions" — it does not adopt a hand-made service at creation.
+* "Changes to a Blueprint never cause a resource to be deleted." Deleting is
+  always a manual step in the dashboard.
+* A service's `type` "can't be modified after creation." A hand-made Web
+  Service can never become a Background Worker.
+
+#### Procedure
+
+**Step 1 — Delete the broken hand-made web service.** In the Render dashboard
+find the Web Service whose latest deploy failed (wrong Start Command / "No
+open ports detected"). Open its *Environment* tab and copy any secret values
+you had pasted there (they are not recoverable after deletion). Then *Settings
+→ Delete service*. **Do not touch the live worker `srv-daoh3h0473hc73aa77ag`.**
+
+**Step 2 — Avoid the name collision with the live worker (rename only).**
+The Blueprint declares `cortech-bd-worker`. If the live worker already has
+that name, open `srv-daoh3h0473hc73aa77ag` → *Settings → Name* and rename it
+to `cortech-bd-worker-manual`. A rename changes no command, env var or
+deploy. If you prefer not to touch it at all, skip this step: Render will then
+name the Blueprint's worker `cortech-bd-worker-<suffix>`, and that suffixed
+service is the one the Blueprint manages from then on.
+
+**Step 3 — Create the Blueprint.** Render dashboard → *New* → *Blueprint* →
+connect the `cortech-bd-agent` repo, branch `main`. Render reads
+`render.yaml` and shows the plan. Confirm it lists **exactly two** new
+resources and nothing else:
+
+| Name | Type | Runtime | Region | Plan |
+|---|---|---|---|---|
+| `cortech-bd-dashboard` | Web Service | Docker | Frankfurt | 0.5c-512mb |
+| `cortech-bd-worker` | Background Worker | Docker | Frankfurt | 1c-2g |
+
+If it shows a third resource, a Web Service named `…worker`, or a spec error,
+stop and fix `render.yaml` first.
+
+**Step 4 — Fill the `sync: false` secrets when prompted.** These are the
+only values you type; everything else has a committed default.
+
+| Service | Variable | Value |
+|---|---|---|
+| web | `SUPABASE_URL` | the project URL, `https://<ref>.supabase.co` (no `/rest/v1`) |
+| web | `SUPABASE_SERVICE_KEY` | the **service_role** key from Supabase → Settings → API |
+| web | `GOOGLE_CLIENT_ID` | OAuth client ID from §3.2 |
+| web | `GOOGLE_CLIENT_SECRET` | OAuth client secret from §3.2 |
+| web | `PUBLIC_BASE_URL` | `https://cortech-bd-dashboard.onrender.com` — no trailing slash. Must equal the origin of the redirect URI registered in §3.2 (`<PUBLIC_BASE_URL>/auth/callback`). If Render assigns a different hostname, use that and update Google |
+| web | `AUTH_ALLOWED_EMAILS` | **leave empty** unless §3.5 applies |
+| web | `DASHBOARD_SESSION_SECRET` | nothing — `generateValue: true`, Render creates it |
+| worker | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | same two values as the web |
+| worker | `ANTHROPIC_API_KEY` | from the live worker's *Environment* tab (same name) |
+| worker | `OPENAI_API_KEY` | same source — required, embeddings |
+| worker | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` | same source — optional, CRM write is fail-open |
+| worker | `EMAIL_RECIPIENTS` | comma-separated reviewer addresses; empty disables the review email |
+| worker | `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` | fill if review email goes out via Gmail, else empty |
+| worker | `RESEND_API_KEY`, `EMAIL_SENDER` | fill if via Resend, else empty |
+
+No Google / OAuth / session value goes on the worker. No Anthropic, OpenAI,
+Airtable or email value goes on the web.
+
+**Step 5 — Deploy Blueprint and watch both logs.** Each service confirms it is
+running the right process in its first seconds:
+
+* **web** → `IDENTITY: cortech-bd-web — dashboard web service (FastAPI) …`,
+  then `Uvicorn running on http://0.0.0.0:10000`, then the health check on
+  `/healthz` passes and Render marks the service *Live*. Open the URL: you are
+  redirected to Google. Anything else in the first lines (a worker identity, a
+  Rich progress banner, "No open ports detected") means the wrong command.
+* **worker** → `IDENTITY: cortech-bd-worker — dashboard background worker …`,
+  then `dashboard worker up (token srv-…); aggregate cap 100.00 USD / 24h`.
+  It logs nothing more until a job is queued. There is no port and Render
+  does not look for one.
+
+**Step 6 — Cut the worker over.** Once the Blueprint worker shows its two
+identity lines, compare it with the old one using the checklist below, then
+*Suspend* `cortech-bd-worker-manual`. Leave it suspended for a day, then
+delete it. Two workers on one queue is safe (`claim_dashboard_trigger` is an
+atomic lease; a job runs once) but bills twice.
+
+#### Does the Blueprint reproduce the live worker? (checklist)
+
+This machine has no Render API key, so the live worker's configuration could
+not be read programmatically. Compare
+these fields in the dashboard, `srv-daoh3h0473hc73aa77ag` vs the Blueprint's
+`cortech-bd-worker`. Every row must match:
+
+| Field | Expected (from `render.yaml`) |
+|---|---|
+| Type | Background Worker |
+| Runtime | Docker, Dockerfile path `./Dockerfile`, branch `main` |
+| Docker Command | `python -m dashboard.worker` (an empty command is equivalent — it is the image CMD) |
+| Region / Plan | Frankfurt / 1c-2g (legacy name `standard`). A different plan is a cost choice, not a correctness issue |
+| Env: required | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` present with the same values |
+| Env: caps | `MAX_RUN_COST_USD`, `DASHBOARD_AGGREGATE_CAP_USD`, `DASHBOARD_AGGREGATE_WINDOW_HOURS` — same numbers; the worker prints the aggregate cap in its second log line, so both logs must show `aggregate cap 100.00 USD / 24h` |
+| Env: absent | no `GOOGLE_*`, `PUBLIC_BASE_URL`, `DASHBOARD_SESSION_SECRET`, `IMAP_*` |
+
+Any variable the Blueprint sets that the old worker lacks carries the code's
+own default (every `value:` in `render.yaml` equals the default in `config.py`
+or `dashboard/settings.py`), so the new worker behaves identically.
 
 ### 3.4 Verify login end to end
 
@@ -226,8 +330,8 @@ workload", prorated per second.
 | Item | Plan | Monthly |
 |---|---|---|
 | Workspace | Hobby | $0 (Pro is $25/mo and is not needed) |
-| `cortech-bd-web` | `starter` = 0.5 CPU / 512 MB | **$7** |
-| `cortech-bd-worker` | `standard` = 1 CPU / 2 GB | **$25** — Chromium + pdfplumber + the 512 MB V8 heap cap do not fit in 512 MB; workers have no free tier |
+| `cortech-bd-dashboard` | `0.5c-512mb` (legacy `starter`) = 0.5 CPU / 512 MB | **$7** |
+| `cortech-bd-worker` | `1c-2g` (legacy `standard`) = 1 CPU / 2 GB | **$25** — Chromium + pdfplumber + the 512 MB V8 heap cap do not fit in 512 MB; workers have no free tier |
 | **Total** | | **$32/mo** + LLM spend, which the two caps bound |
 
 Cheaper option: web on `free` ($0) → **$25/mo**, but the web spins down after 15 idle minutes and the first request each time waits ~1 minute. For a tool used a few times a day that is a real annoyance; $7 is the recommendation. Prices are pro-rated per second; Render renamed plans in August 2026 (`starter`→`0.5c-512mb`, `standard`→`1c-2g`), old names still work.
@@ -236,11 +340,50 @@ Cheaper option: web on `free` ($0) → **$25/mo**, but the web spins down after 
 
 ## 4. Environment variables
 
-**Required (web):** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` (validated at import by `config.require_env`), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DASHBOARD_SESSION_SECRET`, `PUBLIC_BASE_URL`.
+Every name below was taken from a grep of `os.getenv` / `os.environ` in
+`dashboard/`, `config.py` and `reporting/email_report.py` on 2026-09-21 and is
+declared in `render.yaml`; `tests/test_render_yaml.py` fails if a declared
+key is not read anywhere in the code.
 
-**Required (worker):** the full pipeline environment — everything cron has, including `MAX_RUN_COST_USD` and the email settings.
+**Web — required:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (the web reads and
+writes Supabase only), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`DASHBOARD_SESSION_SECRET` (generated by Render), `PUBLIC_BASE_URL`. The web
+does **not** need `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or Airtable:
+`config.require_env()` is called by the worker and `main.py`, not by
+`dashboard.app`, and the web boots and serves `/healthz` without them (§6).
+`PORT` is injected by Render (default 10000) and read by the command; do not
+declare it.
 
-**Optional:** `AUTH_ALLOWED_DOMAIN` (default `cortechconsultinggroup.com`), `AUTH_ALLOWED_EMAILS` (default empty), `DASHBOARD_AGGREGATE_CAP_USD` (100), `DASHBOARD_AGGREGATE_WINDOW_HOURS` (24), `DASHBOARD_BULK_MAX` (40), `DASHBOARD_HEARTBEAT_SECONDS` (10), `DASHBOARD_POLL_MS` (15000), `DASHBOARD_TRIGGERS_ENABLED` (true), `DASHBOARD_COOKIE_SECURE` (true — false only for local http), `DASHBOARD_SESSION_MAX_AGE` (43200), `DASHBOARD_WORKER_POLL_SECONDS` (5), `DASHBOARD_WORKER_LEASE_SECONDS` (3600).
+**Web — optional (defaults in `dashboard/settings.py`):** `AUTH_ALLOWED_DOMAIN`
+(`cortechconsultinggroup.com`), `AUTH_ALLOWED_EMAILS` (empty),
+`DASHBOARD_SESSION_MAX_AGE` (43200), `DASHBOARD_COOKIE_SECURE` (true — false
+only for local http), `DASHBOARD_POLL_MS` (15000), `DASHBOARD_TRIGGERS_ENABLED`
+(true), `DASHBOARD_BULK_MAX` (40), `DASHBOARD_AGGREGATE_CAP_USD` (100),
+`DASHBOARD_AGGREGATE_WINDOW_HOURS` (24), `DASHBOARD_HEARTBEAT_SECONDS` (10) —
+the last three mirror the worker's values for display and must stay identical.
+
+**Worker — required (`config.require_env`, exit 1 if missing):** `SUPABASE_URL`,
+`SUPABASE_SERVICE_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`.
+
+**Worker — optional credentials:** `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID`
+(CRM write-through, fail-open); `EMAIL_RECIPIENTS`, `GMAIL_ADDRESS`,
+`GMAIL_APP_PASSWORD`, `RESEND_API_KEY`, `EMAIL_SENDER` (review email; empty
+`EMAIL_RECIPIENTS` disables it).
+
+**Worker — numeric settings, all with committed defaults:** `MAX_RUN_COST_USD`
+(25), `DASHBOARD_AGGREGATE_CAP_USD` (100), `DASHBOARD_AGGREGATE_WINDOW_HOURS`
+(24), `ANTHROPIC_TIMEOUT_SECONDS` (180), `ANTHROPIC_MAX_RETRIES` (2),
+`DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` (60), `DOCUMENT_DOWNLOAD_MAX_RETRIES` (2),
+`MAX_DOWNLOAD_REDIRECTS` (5), `MAX_DOCUMENT_BYTES` (26214400),
+`MAX_DOCUMENT_UNCOMPRESSED_BYTES` (104857600), `MAX_EXTRACTED_TEXT_CHARS`
+(120000), `MAX_GDRIVE_FILES` (25), `PLAYWRIGHT_TIMEOUT_MS` (45000),
+`PLAYWRIGHT_JS_HEAP_MB` (512), `FULL_DRAFT_FOR_WATCH` (true),
+`DASHBOARD_HEARTBEAT_SECONDS` (10), `DASHBOARD_WORKER_POLL_SECONDS` (5),
+`DASHBOARD_WORKER_LEASE_SECONDS` (3600).
+
+**On neither service:** `IMAP_*`, `CHECK_INTERVAL_HOURS`,
+`MAX_OPPORTUNITIES_PER_RUN`, `HEALTHCHECK_URL` — discovery-scheduler settings;
+neither Render service runs discovery.
 
 ---
 
@@ -266,6 +409,28 @@ Design probe (Phase 1 screen from real rows, no server, no auth):
 * `pip-audit -r requirements.txt`: **No known vulnerabilities found** — required bumping `anyio` 4.14.1→4.14.2, `soupsieve` 2.8.4→2.9.0, `pydantic` 2.13.4→2.13.5 (+core), all of which had CVEs published after ADR 012's clean scan, plus pinning `starlette` 1.3.1 / `python-multipart` 0.0.31 for the new code.
 * Live HTTP smoke against the real database: enqueue → `/job/<id>` 200 → duplicate enqueue lands on the existing job → cancel-before-start recorded with the requester's identity → bad CSRF 403 → all pages 200.
 * Golden extraction/scoring baseline: unchanged.
+
+* **Render commands re-verified from code, 2026-09-21 (Blueprint rewrite).**
+  `dashboard/app.py:53` defines `app = FastAPI(...)` → `dashboard.app:app`;
+  `dashboard/worker.py:305` `main_loop()` behind `__main__` → `python -m
+  dashboard.worker`. Local runs with the exact `render.yaml` commands:
+  * web, `PORT=8766 sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" …'`
+    → `IDENTITY: cortech-bd-web`, `Uvicorn running on http://0.0.0.0:8766`,
+    socket `LISTEN 0.0.0.0:8766`, `GET /healthz` 200 `ok`, `GET /` 302 →
+    `/auth/login`.
+  * web with **only** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and the four auth
+    vars set (no `.env`, no Anthropic/OpenAI/Airtable) → same result. The web
+    does not need pipeline credentials; they were removed from its Blueprint
+    block.
+  * worker, `python -m dashboard.worker`, real env, queue empty →
+    `IDENTITY: cortech-bd-worker`, `dashboard worker up (token local-…);
+    aggregate cap 100.00 USD / 24h`, no listening socket, idles, SIGTERM →
+    `dashboard worker stopped`.
+  * worker with only Supabase set → `Missing required environment variables:
+    ANTHROPIC_API_KEY, OPENAI_API_KEY`, exit 1.
+  * `tests/test_render_yaml.py`: 16 passed.
+* **Not verified:** the live worker `srv-daoh3h0473hc73aa77ag` could not be
+  read (no Render API key on this machine); §3.3 gives the manual checklist.
 
 **Not done, and why:** no Render deploy, no live Google login — no credentials in this environment (decision 2026-09-21: build + verify locally, hand over the runbook above).
 
