@@ -153,12 +153,31 @@ python scripts/apply_sql_migration.py supabase_migration_dashboard_controls.sql
 
 Check: `python -m pytest tests/test_live_dashboard_queue.py -o addopts=""` → 9 passed.
 
-### 3.2 Google Cloud — OAuth client
+### 3.2 Google Cloud — OAuth client (create before the Blueprint; register the URI after)
 
-1. console.cloud.google.com → APIs & Services → Credentials → *Create credentials* → *OAuth client ID* → **Web application**.
-2. Authorised redirect URI: `https://<your-render-web-url>/auth/callback` — exactly, no trailing slash. Add `http://127.0.0.1:8000/auth/callback` too if you want local login.
-3. OAuth consent screen: **Internal** user type if the Google Workspace is `cortechconsultinggroup.com` (then only workspace accounts can even reach the consent screen — a second wall in front of the app's own check). External works too; the app rejects off-domain emails regardless.
-4. Copy client ID and secret into Render as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+**Does a client already exist?** Unknown. On 2026-09-21 no Google OAuth client
+existed in the build environment (ADR 013), the local `.env` has no
+`GOOGLE_*` values, and nothing in the repo records one being created since.
+Check console.cloud.google.com → *APIs & Services* → *Credentials* for a
+**Web application** client named for this dashboard. If none, create one:
+
+1. *OAuth consent screen*: **Internal** user type if the Google Workspace is
+   `cortechconsultinggroup.com` (only workspace accounts can then reach the
+   consent screen — a second wall in front of the app's own check). External
+   works too; the app rejects off-domain emails regardless.
+2. *Credentials* → *Create credentials* → *OAuth client ID* → **Web application**.
+3. Authorised redirect URIs: for now add only
+   `http://127.0.0.1:8000/auth/callback` (local login). **The production URI
+   is added in §3.3 Step 5b**, after Render has assigned the real hostname —
+   you cannot know it before the service exists (see below).
+4. Copy the client ID and secret; they are entered in Render as
+   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` in §3.3 Step 4.
+
+The callback path is fixed by the code: `dashboard/settings.py::redirect_uri()`
+returns `PUBLIC_BASE_URL + "/auth/callback"`, and `dashboard/app.py` serves
+`GET /auth/callback`. Google requires an **exact** match — scheme, host,
+case, path and trailing slash (`redirect_uri_mismatch` otherwise), and
+`https` for anything other than localhost.
 
 ### 3.3 Render — Blueprint (the only supported way to create the services)
 
@@ -230,7 +249,7 @@ only values you type; everything else has a committed default.
 | web | `SUPABASE_SERVICE_KEY` | the **service_role** key from Supabase → Settings → API |
 | web | `GOOGLE_CLIENT_ID` | OAuth client ID from §3.2 |
 | web | `GOOGLE_CLIENT_SECRET` | OAuth client secret from §3.2 |
-| web | `PUBLIC_BASE_URL` | `https://cortech-bd-dashboard.onrender.com` — no trailing slash. Must equal the origin of the redirect URI registered in §3.2 (`<PUBLIC_BASE_URL>/auth/callback`). If Render assigns a different hostname, use that and update Google |
+| web | `PUBLIC_BASE_URL` | **Placeholder for now:** `https://cortech-bd-dashboard.onrender.com` (no trailing slash). Render assigns the real hostname only when it creates the service, and it may append a random suffix (e.g. `cortech-bd-dashboard-x4k2.onrender.com`), so this value is corrected in **Step 5b**. Until then `/auth/login` returns 503 or Google returns `redirect_uri_mismatch`; `/healthz` is unaffected, so the deploy still goes Live |
 | web | `AUTH_ALLOWED_EMAILS` | **leave empty** unless §3.5 applies |
 | web | `DASHBOARD_SESSION_SECRET` | nothing — `generateValue: true`, Render creates it |
 | worker | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | same two values as the web |
@@ -250,12 +269,49 @@ running the right process in its first seconds:
 * **web** → `IDENTITY: cortech-bd-web — dashboard web service (FastAPI) …`,
   then `Uvicorn running on http://0.0.0.0:10000`, then the health check on
   `/healthz` passes and Render marks the service *Live*. Open the URL: you are
-  redirected to Google. Anything else in the first lines (a worker identity, a
+  redirected to `/auth/login`, which answers **503 "Google sign-in is not
+  configured"** or Google shows `redirect_uri_mismatch` until Step 5b is
+  done — expected at this point. Anything else in the first lines (a worker identity, a
   Rich progress banner, "No open ports detected") means the wrong command.
 * **worker** → `IDENTITY: cortech-bd-worker — dashboard background worker …`,
   then `dashboard worker up (token srv-…); aggregate cap 100.00 USD / 24h`.
   It logs nothing more until a job is queued. There is no port and Render
   does not look for one.
+
+**Step 5b — Set the real `PUBLIC_BASE_URL` and register the redirect URI.**
+This ordering is forced: the hostname exists only after Step 5, and Google
+must have the exact URI before the first login can succeed.
+
+1. **Read the real URL.** Render dashboard → `cortech-bd-dashboard` → the URL
+   under the service name (also visible as `RENDER_EXTERNAL_URL` in the
+   service's *Environment* tab, and the logs print `Uvicorn running on
+   http://0.0.0.0:10000`, not the public host). Render's docs say the
+   `onrender.com` subdomain "incorporates" the service name; they do not
+   promise it equals it, and new services commonly get a four-character
+   suffix. **Copy it from the page; never type it from memory.** No custom
+   domain is configured for this project.
+2. **Google Cloud Console** → *APIs & Services* → *Credentials* → the client
+   from §3.2 → *Authorised redirect URIs* → *Add URI* →
+   `<real URL>/auth/callback` (e.g.
+   `https://cortech-bd-dashboard-x4k2.onrender.com/auth/callback`). Exact
+   match: `https`, no trailing slash, lowercase host. Save. The console's
+   own note says settings may take from a few minutes to a few hours to
+   take effect; if login still fails with `redirect_uri_mismatch` right
+   after saving, wait before changing anything else.
+3. **Render** → `cortech-bd-dashboard` → *Environment* → edit
+   `PUBLIC_BASE_URL` to the real URL, **no trailing slash, no path** → choose
+   **Save and deploy** (not *Save only*). An env var change does not reach a
+   running Docker process; Render's *Save only* leaves the old value live
+   "until its next deploy". *Save and deploy* reuses the existing image and
+   restarts with the new value in about a minute; no rebuild is needed.
+4. **Verify:** open `<real URL>/auth/login` → redirected to Google's account
+   chooser (not a 503 "not configured" text, not `redirect_uri_mismatch`).
+   Sign in with an `@cortechconsultinggroup.com` account → the Queue.
+
+The URL is fixed at creation and does **not** change when the service is
+renamed, so this is a one-time step. If the service is ever deleted and
+recreated (Blueprint re-sync after a manual delete), the hostname may change
+and Step 5b must be repeated.
 
 **Step 6 — Cut the worker over.** Once the Blueprint worker shows its two
 identity lines, compare it with the old one using the checklist below, then

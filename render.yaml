@@ -77,8 +77,12 @@ services:
       - key: DASHBOARD_SESSION_SECRET
         generateValue: true       # Render generates a random value; signs the session cookie
       - key: PUBLIC_BASE_URL
-        sync: false               # https://cortech-bd-dashboard.onrender.com — no trailing slash;
-                                  # must equal the Google OAuth redirect URI origin exactly
+        sync: false               # Placeholder at creation: https://cortech-bd-dashboard.onrender.com
+                                  # Render assigns the real hostname (often with a random suffix)
+                                  # only when it creates the service. Then: copy the real URL from
+                                  # the service page, set it here (no trailing slash), register
+                                  # <URL>/auth/callback in Google, "Save and deploy".
+                                  # docs/DASHBOARD.md §3.3 Step 5b.
 
       # ── Access policy ──
       - key: AUTH_ALLOWED_DOMAIN
