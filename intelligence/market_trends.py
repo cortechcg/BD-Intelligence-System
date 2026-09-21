@@ -79,11 +79,23 @@ class FrequencyWindow:
     is_trend: bool
     status: str
     message: str
+    #: Dated rows in the window that carry at least one label for this field.
+    #: Shares are computed over `sample_size`; a row with no label is UNKNOWN
+    #: for every label, not a zero — so this number must travel with any
+    #: percentage. Added 2026-09-21 when the loader started returning dated
+    #: rows and 45 of 47 in-window rows turned out to carry no labels.
+    labelled_rows: int = 0
 
     def sample_clause(self) -> str:
         return (
             f"n={self.sample_size} dated rows, "
             f"{self.start.isoformat()} to {self.end.isoformat()}"
+        )
+
+    def coverage_clause(self) -> str:
+        return (
+            f"{self.labelled_rows} of {self.sample_size} dated rows carry a label; "
+            "rows without one are UNKNOWN, not zero"
         )
 
 
@@ -241,6 +253,7 @@ def _frequency_window(
     dated = 0
     undated = 0
     malformed = 0
+    labelled = 0
     key_counts: Counter[str] = Counter()
     display: dict[str, str] = {}
     for row in records:
@@ -256,6 +269,8 @@ def _frequency_window(
         else:
             malformed += row.malformed_location_skips
             labels = row.locations
+        if labels:
+            labelled += 1
         seen_keys: set[str] = set()
         for label in labels:
             shown, key = _display_and_key(label)
@@ -273,7 +288,7 @@ def _frequency_window(
         )
         status = STATUS_VERIFIED
         message = (
-            f"VERIFIED ({dated} stored rows, "
+            f"VERIFIED ({dated} stored rows, {labelled} carrying a label, "
             f"{start.isoformat()} to {end.isoformat()})"
         )
     else:
@@ -294,6 +309,7 @@ def _frequency_window(
         is_trend=is_trend,
         status=status,
         message=message,
+        labelled_rows=labelled,
     )
 
 
@@ -469,8 +485,12 @@ def build_market_digest(
     dated = sum(1 for row in rows if row.discovered_on is not None)
     notes: list[str] = []
     if truncated:
+        # State only what this function knows. The loader may have been capped
+        # by the server (PostgREST db-max-rows) well below _MAX_ROWS, so naming
+        # _MAX_ROWS here would put a wrong number in the email.
         notes.append(
-            f"Store listing truncated at {_MAX_ROWS} rows; remaining rows were not counted."
+            f"Store listing truncated: {len(rows)} stored rows were counted; the "
+            "store holds more and the remainder were not counted."
         )
     if not rows:
         notes.append(

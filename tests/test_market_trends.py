@@ -364,55 +364,239 @@ def test_missing_cache_table_fail_opens(monkeypatch):
     market_store.reset_market_store_status()
 
 
-def test_missing_fact_columns_retry_without_them(monkeypatch):
-    market_store.reset_market_store_status()
-    calls = []
+# The real opportunities_cache columns on the hosted project (information_schema,
+# 2026-09-21). There is no created_at and never was; discovered_at is the row
+# timestamp (TIMESTAMPTZ DEFAULT now(), populated 1212/1212).
+REAL_CACHE_COLUMNS = frozenset({
+    "id", "airtable_opportunity_id", "source_url", "title", "raw_text",
+    "analysis_json", "discovered_at", "processed_at", "embedding",
+    "content_hash", "thematic_areas", "locations", "donor",
+})
 
-    class _Result:
-        def __init__(self, data):
-            self.data = data
 
-    class _Query:
-        def __init__(self, cols):
-            self.cols = cols
+class _PostgrestLikeTable:
+    """Models what PostgREST actually does: a select that names any unknown
+    column fails as a whole with 42703 — it does not return the known ones.
+    Honours .order() and a server-side row cap, and reports count="exact"."""
 
-        def select(self, cols):
-            calls.append(cols)
-            self.cols = cols
-            return self
+    def __init__(self, rows, *, columns=REAL_CACHE_COLUMNS, server_max_rows=1000, calls=None):
+        self._rows = rows
+        self._columns = columns
+        self._server_max = server_max_rows
+        self._calls = calls if calls is not None else []
+        self._select = ""
+        self._order = None
+        self._limit = None
+        self._count = None
 
-        def limit(self, _n):
-            return self
+    def select(self, cols, count=None):
+        self._select = cols
+        self._count = count
+        self._calls.append({"select": cols, "count": count})
+        return self
 
-        def execute(self):
-            if "thematic_areas" in self.cols:
-                raise RuntimeError(
-                    "PGRST204: Could not find the 'thematic_areas' column of "
-                    "'opportunities_cache' in the schema cache"
-                )
-            return _Result(
-                [
-                    {
-                        "id": "abc",
-                        "source_url": "https://procurement.example/tender",
-                        "title": "Endline",
-                        "created_at": "2026-09-10T12:00:00+00:00",
-                    }
-                ]
+    def order(self, column, desc=False, nullsfirst=None):
+        self._order = (column, desc)
+        self._calls[-1]["order"] = self._order
+        return self
+
+    def limit(self, n):
+        self._limit = n
+        return self
+
+    def execute(self):
+        wanted = [c.strip() for c in self._select.split(",") if c.strip()]
+        unknown = [c for c in wanted if c not in self._columns]
+        if unknown:
+            raise RuntimeError(
+                f"{{'message': 'column opportunities_cache.{unknown[0]} does not exist', "
+                f"'code': '42703'}}"
             )
+        rows = list(self._rows)
+        if self._order:
+            col, desc = self._order
+            rows.sort(key=lambda r: (r.get(col) is None, r.get(col) or ""), reverse=desc)
+            # keep NULLs last even when descending
+            rows = [r for r in rows if r.get(col) is not None] + [r for r in rows if r.get(col) is None]
+        cap = min(self._limit or len(rows), self._server_max)
+        page = [{k: r.get(k) for k in wanted} for r in rows[:cap]]
 
-    class _Client:
-        def table(self, name):
-            assert name == "opportunities_cache"
-            return _Query("")
+        class _Res:
+            pass
 
-    monkeypatch.setattr(market_store, "_client", lambda: _Client())
+        res = _Res()
+        res.data = page
+        res.count = len(rows) if self._count == "exact" else None
+        return res
+
+
+class _RealSchemaClient:
+    def __init__(self, rows, **kw):
+        self._rows = rows
+        self._kw = kw
+        self.calls = []
+
+    def table(self, name):
+        assert name == "opportunities_cache"
+        return _PostgrestLikeTable(self._rows, calls=self.calls, **self._kw)
+
+
+def _cache_rows(n, *, start=date(2026, 9, 1), themed_every=1):
+    """n rows dated start, start+1, ... ; every `themed_every`-th row carries labels."""
+    out = []
+    for i in range(n):
+        out.append({
+            "id": f"row-{i}",
+            "source_url": f"https://procurement.example/tender/{i}",
+            "title": f"Tender {i}",
+            "discovered_at": f"{(start + timedelta(days=i)).isoformat()}T09:00:00+00:00",
+            "thematic_areas": ["evaluation"] if i % themed_every == 0 else None,
+            "locations": ["Somalia"] if i % themed_every == 0 else None,
+            "donor": None,
+        })
+    return out
+
+
+def test_missing_fact_columns_retry_without_them(monkeypatch):
+    """Project without the Phase 3 fact columns: dates must still be selected.
+
+    The previous version of this test fed a fake row carrying `created_at` and
+    so passed while production returned zero dated rows for weeks.
+    """
+    market_store.reset_market_store_status()
+    no_facts = REAL_CACHE_COLUMNS - {"thematic_areas", "locations", "donor"}
+    client = _RealSchemaClient(_cache_rows(1, start=date(2026, 9, 10)), columns=no_facts)
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+
     rows, truncated = market_store.load_supabase_opportunity_rows()
+
     assert truncated is False
     assert len(rows) == 1
-    assert rows[0].discovered_on == date(2026, 9, 10)
+    assert rows[0].discovered_on == date(2026, 9, 10), "fallback select must include discovered_at"
     assert rows[0].themes == ()
+    selects = [c["select"] for c in client.calls]
+    assert all("created_at" not in sel for sel in selects), selects
     market_store.reset_market_store_status()
+
+
+def test_regression_digest_query_returns_dated_rows_against_the_real_schema(monkeypatch):
+    """Would have caught the production defect: a fully populated
+    discovered_at column must produce dated rows, not 'insufficient data'."""
+    market_store.reset_market_store_status()
+    client = _RealSchemaClient(_cache_rows(12, start=date(2026, 9, 1)))
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+
+    rows, truncated = market_store.load_supabase_opportunity_rows()
+
+    assert len(rows) == 12
+    assert sum(1 for r in rows if r.discovered_on) == 12, "every row has discovered_at; none may be undated"
+    assert client.calls[0]["select"].startswith("id, source_url, title, thematic_areas")
+    assert len(client.calls) == 1, "the full select must succeed first time against the real schema"
+    market_store.reset_market_store_status()
+
+
+def test_regression_no_select_ever_names_created_at():
+    for const in (market_store._CACHE_FULL, market_store._CACHE_WITH_DATE, market_store._CACHE_MIN):
+        assert "created_at" not in const, const
+    assert "discovered_at" in market_store._CACHE_FULL
+    assert "discovered_at" in market_store._CACHE_WITH_DATE
+
+
+def test_regression_end_to_end_digest_is_a_trend_when_dates_are_populated(monkeypatch):
+    """Loader → build_market_digest with ≥10 dated rows inside 30 days."""
+    from intelligence.market_trends import build_market_digest
+
+    market_store.reset_market_store_status()
+    as_of = date(2026, 9, 21)
+    client = _RealSchemaClient(_cache_rows(12, start=date(2026, 9, 1)))
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+
+    rows, truncated = market_store.load_supabase_opportunity_rows()
+    digest = build_market_digest(rows, as_of=as_of, truncated=truncated)
+
+    assert digest.dated_row_count == 12
+    w = digest.themes[30]
+    assert w.sample_size == 12
+    assert w.is_trend is True, w.message
+    assert w.labelled_rows == 12
+    assert [(c.label, c.count) for c in w.counts] == [("evaluation", 12)]
+    market_store.reset_market_store_status()
+
+
+def test_loader_asks_for_newest_rows_first_when_dates_are_selected(monkeypatch):
+    """A capped, unordered page returned the OLDEST rows on the hosted project,
+    leaving the 30-day window empty even with every row dated."""
+    market_store.reset_market_store_status()
+    rows = _cache_rows(1500, start=date(2022, 1, 1))  # spans years; newest at the end
+    client = _RealSchemaClient(rows, server_max_rows=1000)
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+
+    loaded, truncated = market_store.load_supabase_opportunity_rows()
+
+    assert client.calls[0].get("order") == ("discovered_at", True)
+    newest = max(r.discovered_on for r in loaded)
+    assert newest == date(2022, 1, 1) + timedelta(days=1499), "the newest stored row must be in the page"
+    market_store.reset_market_store_status()
+
+
+def test_loader_reports_truncation_from_the_exact_count_not_the_page_length(monkeypatch):
+    """PostgREST caps the page at db-max-rows, so a LIMIT cap+1 probe never fires."""
+    market_store.reset_market_store_status()
+    client = _RealSchemaClient(_cache_rows(1212, start=date(2023, 1, 1)), server_max_rows=1000)
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+
+    loaded, truncated = market_store.load_supabase_opportunity_rows()
+
+    assert len(loaded) == 1000
+    assert truncated is True
+    assert client.calls[0]["count"] == "exact"
+    market_store.reset_market_store_status()
+
+
+def test_loader_does_not_claim_truncation_when_the_store_fits(monkeypatch):
+    market_store.reset_market_store_status()
+    client = _RealSchemaClient(_cache_rows(40))
+    monkeypatch.setattr(market_store, "_client", lambda: client)
+    loaded, truncated = market_store.load_supabase_opportunity_rows()
+    assert len(loaded) == 40 and truncated is False
+    market_store.reset_market_store_status()
+
+
+def test_truncation_note_states_rows_counted_not_the_configured_cap():
+    from intelligence.market_trends import build_market_digest
+
+    rows = [ObservedOpportunity(source_id=str(i), source="supabase", source_url=f"https://x/{i}",
+                                title="t", discovered_on=date(2026, 9, 1),
+                                themes=(), locations=(), donor="") for i in range(3)]
+    digest = build_market_digest(rows, as_of=date(2026, 9, 21), truncated=True)
+    note = next(n for n in digest.notes if "truncated" in n)
+    assert "3 stored rows were counted" in note
+    assert "2000" not in note
+
+
+def test_window_discloses_label_coverage_so_shares_cannot_mislead():
+    """45 of 47 in-window rows on the hosted project carry no labels. A share
+    of 'n=47' must travel with how many rows were labelled at all."""
+    from intelligence.market_trends import build_market_digest
+    from reporting.email_report import _frequency_section_html
+
+    rows = []
+    for i in range(12):
+        rows.append(ObservedOpportunity(
+            source_id=str(i), source="supabase", source_url=f"https://x/{i}", title="t",
+            discovered_on=date(2026, 9, 1) + timedelta(days=i),
+            themes=("evaluation",) if i < 2 else (),
+            locations=(), donor="",
+        ))
+    digest = build_market_digest(rows, as_of=date(2026, 9, 21))
+    w = digest.themes[30]
+    assert w.is_trend is True
+    assert w.sample_size == 12 and w.labelled_rows == 2
+    assert "2 carrying a label" in w.message
+    html = _frequency_section_html("Thematic areas", w)
+    assert "Label coverage: 2 of 12 dated rows carry a label" in html
+    assert "UNKNOWN, not zero" in html
+    assert "Share of all dated rows in window" in html
 
 
 def test_airtable_load_fail_opens(monkeypatch):
