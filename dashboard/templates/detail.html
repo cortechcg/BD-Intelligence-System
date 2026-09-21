@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}{{ d.title.value or "Opportunity" }} · Cortech BD{% endblock %}
+
+{% block content %}
+
+<section class="section">
+  <div class="section__label">Opportunity</div>
+  <div>
+    <h1 class="doc" style="font-size:23px;font-weight:600;margin:0 0 var(--s2)">
+      {{ m.doc_value(d.title, "untitled — title not extracted") }}
+    </h1>
+    <p class="mono" style="margin:0 0 var(--s3)">
+      <a href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ d.source_url }}</a>
+    </p>
+
+    {{ m.stage_rail(d.rail, d.stage.value) }}
+
+    <div style="margin-top: var(--s3); display:flex; gap: var(--s3); align-items:center; flex-wrap:wrap">
+      {{ m.state_chip(d.ui_state) }}
+      {{ m.rec_chip(d.recommendation) }}
+      {% if d.has_draft %}
+        <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      {% endif %}
+      {% if active_job %}
+        <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ active_job.id }}">{{ active_job.status }} — job {{ active_job.id[:8] }}</a>
+        <form method="post" action="{{ url_trigger_cancel }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="trigger_id" value="{{ active_job.id }}">
+          <button class="btn btn--sm btn--quiet">{% if active_job.cancel_requested_at %}Cancel requested…{% else %}Cancel{% endif %}</button>
+        </form>
+      {% elif triggering_enabled %}
+        {% if d.ui_state == "dead_letter" %}
+        <form method="post" action="{{ url_trigger_retry }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="source_url" value="{{ d.source_url }}">
+          <button class="btn btn--sm">Retry from checkpoint</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_trigger_existing }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="source_url" value="{{ d.source_url }}">
+          <button class="btn btn--sm btn--quiet">
+            {% if d.ui_state in ("failed", "spend_cap", "cancelled") %}Resume run
+            {%- elif d.has_draft %}Re-draft
+            {%- else %}Run the pipeline{% endif %}
+          </button>
+        </form>
+        {% endif %}
+        {% if d.has_ledger and d.stage.value in ("scored", "drafted", "reviewed", "outcome") %}
+        <form method="post" action="{{ url_trigger_rerun }}" class="inline rerun">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="source_url" value="{{ d.source_url }}">
+          <label class="field__label" for="from_stage" style="display:inline;margin:0 var(--s1) 0 0">Re-run from</label>
+          <select name="from_stage" id="from_stage" class="select">
+            <option value="scored">scored — re-draft only (keeps analysis)</option>
+            <option value="extracted">extracted — re-score, then re-draft (keeps text)</option>
+          </select>
+          <button class="btn btn--sm btn--quiet">Go</button>
+        </form>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if active_job %}
+      <p class="section__note" style="margin-top: var(--s2); max-width: var(--measure)">
+        Live: {% if active_job.spend_usd is not none %}<strong>{{ "%.4f"|format(active_job.spend_usd) }} USD</strong> of {{ "%.2f"|format(active_job.spend_limit_usd or 0) }} per-run cap, {{ active_job.provider_calls or 0 }} model call(s){% else %}no heartbeat yet{% endif %}
+        · stage from the ledger above · this page refreshes every {{ (poll_ms / 1000) | int }}s.
+        Sub-steps are not shown because the pipeline does not persist them.
+      </p>
+      <p class="section__note" style="max-width: var(--measure)">{{ cancel_copy }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{# ── Machine-stopped states, stated plainly ─────────────────────────────── #}
+{% if d.ui_state == "dead_letter" %}
+<section class="section">
+  <div class="section__label">Dead-lettered</div>
+  <div>
+    <div class="notice notice--stop">
+      <strong>Drafting failed {{ d.draft_fail_count }} times and will not retry on its own.</strong>
+      Per ADR 011 §5 a BID/WATCH item whose draft comes back empty or unusable
+      is retried and then dead-lettered — it is never silently skipped and a
+      hollow draft is never emailed. Reason recorded by the pipeline:
+      <p class="doc" style="margin-top: var(--s2)">{{ m.value(d.last_error) }}</p>
+      <em>Retry from checkpoint</em> above re-claims this row without resetting
+      it: drafting resumes from <code>{{ d.stage.value }}</code> with a fresh
+      3-failure budget, and extraction and analysis are not paid for again
+      (<code>supabase_migration_dashboard_controls.sql</code>). Read the reason
+      first — if nothing upstream has changed, the same failure is likely.
+    </div>
+  </div>
+</section>
+{% elif d.ui_state == "spend_cap" %}
+<section class="section">
+  <div class="section__label">Spend cap</div>
+  <div>
+    <div class="notice notice--cap">
+      <strong>The per-run LLM spend cap stopped this run.</strong>
+      <code>MAX_RUN_COST_USD</code> was reached, so <code>complete()</code>
+      refused further provider calls (ADR 012). This is retryable and is
+      <em>not</em> a drafting failure: the stage stays at
+      <code>{{ d.stage.value }}</code>, the checkpoint is intact, and the
+      draft-failure count was not incremented. A dashboard-triggered run gets
+      no exemption from the cap — it halts exactly as a cron run would.
+      <p class="doc" style="margin-top: var(--s2)">{{ m.value(d.last_error) }}</p>
+    </div>
+  </div>
+</section>
+{% elif d.ui_state == "cancelled" %}
+<section class="section">
+  <div class="section__label">Cancelled</div>
+  <div>
+    <div class="notice notice--cap">
+      <strong>A person stopped this run.</strong> The pipeline halted before its
+      next model call; the last persisted stage (<code>{{ d.stage.value }}</code>)
+      and checkpoint are intact and <em>Resume run</em> continues from there.
+      Whatever the run had spent before the halt was incurred and is recorded on
+      the job.
+      <p class="doc" style="margin-top: var(--s2)">{{ m.value(d.last_error) }}</p>
+    </div>
+  </div>
+</section>
+{% elif d.ui_state == "failed" %}
+<section class="section">
+  <div class="section__label">Halted</div>
+  <div>
+    <div class="notice notice--stop">
+      <strong>Retryable failure.</strong> The lease was released and the last
+      persisted stage (<code>{{ d.stage.value or "unknown" }}</code>) and
+      checkpoint are preserved, so the next claim resumes from there rather
+      than re-running extraction and analysis.
+      <p class="doc" style="margin-top: var(--s2)">{{ m.value(d.last_error) }}</p>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if d.has_draft %}
+<section class="section">
+  <div class="section__label">Human gate</div>
+  <div>
+    <div class="notice">
+      <strong>This needs human review before anything is sent.</strong>
+      The agent stops at <code>drafted</code>. It does not email the client,
+      upload to a portal, or mark anything submitted — <code>reviewed</code>
+      and <code>outcome</code> are written only from a human's Airtable status
+      (ADR 011 §2). Named past-work claims are matched to a retrieved chunk or
+      left tagged <code>[NOT VERIFIED]</code> in the text (ADR 008); check them.
+      <br><br>Sections stored: {{ d.section_keys | length }}
+      ({{ d.section_keys | join(", ") }}).
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{# ── Scores ─────────────────────────────────────────────────────────────── #}
+<section class="section">
+  <div class="section__label">
+    Scores
+    <p class="section__note">
+      Official numbers come from <code>intelligence/bid_scorer.py</code>. The
+      model's own numbers are audit-only.
+    </p>
+  </div>
+  <div>
+    <dl class="kv">
+      <dt>Recommendation</dt><dd>{{ m.rec_chip(d.recommendation) }}</dd>
+      <dt>FIT</dt>
+      <dd>{{ m.value(d.fit) }}
+        {% if d.fit_dim.status %}{{ m.ev_label(d.fit_dim.status) }}{% endif %}
+        {% if d.fit_dim.coverage is not none %}<span class="v-prov">coverage {{ d.fit_dim.coverage }}</span>{% endif %}
+      </dd>
+      <dt>Win probability</dt><dd>{{ m.score_with_provenance(d.win_heuristic) }}</dd>
+      <dt>Calibrated P(win)</dt><dd>{{ m.score_with_provenance(d.win_calibrated) }}</dd>
+      <dt>Risk</dt>
+      <dd>{{ m.value(d.risk_dim.score) }}
+        <span class="v-prov">{{ d.risk_dim.unit or "0-100 higher=riskier" }}</span>
+        {{ m.ev_label(d.risk_dim.status) }}
+      </dd>
+      <dt>Strategic value</dt><dd>{{ m.value(d.strategic_dim.score) }} {{ m.ev_label(d.strategic_dim.status) }}</dd>
+      <dt>Commercial value</dt>
+      <dd>{{ m.value(d.commercial_dim.score) }}{% if d.commercial_dim.score.value is not none and d.commercial_dim.unit %} <span class="v-prov">{{ d.commercial_dim.unit }}</span>{% endif %}
+        {{ m.ev_label(d.commercial_dim.status) }}
+        {% if d.commercial_dim.evidence.value %}<div class="section__note">{{ d.commercial_dim.evidence.value }}</div>{% endif %}
+      </dd>
+      <dt>Expected value</dt><dd>{{ m.value(d.expected_value) }}</dd>
+      <dt>Score version</dt><dd>{{ m.value(d.score_version) }}</dd>
+      {% if d.confidence %}
+      <dt>Confidence</dt>
+      <dd>{{ d.confidence.score }} {{ m.ev_label(d.confidence.status or "UNKNOWN") }}
+        <span class="v-prov">{{ d.confidence.verified_factors }} verified ·
+        {{ d.confidence.inferred_factors }} inferred ·
+        {{ d.confidence.unknown_factors }} unknown</span></dd>
+      {% endif %}
+    </dl>
+
+    {% if d.why.value %}
+      <p class="doc" style="margin-top: var(--s3)">{{ d.why.value }}</p>
+    {% endif %}
+
+    {% if d.llm_audit %}
+    <hr class="hr">
+    <div class="section__label" style="margin-bottom: var(--s2)">Model audit values (not the decision)</div>
+    <dl class="kv">
+      <dt>LLM fit</dt><dd>{{ m.value(d.llm_audit.get("cortech_fit_score")) }}</dd>
+      <dt>LLM win</dt><dd>{{ m.value(d.llm_audit.get("win_probability")) }}</dd>
+      <dt>LLM recommendation</dt><dd>{{ m.value(d.llm_audit.get("bid_recommendation")) }}</dd>
+    </dl>
+    <p class="section__note">{{ d.llm_audit.get("note", "") }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if d.factors %}
+<section class="section">
+  <div class="section__label">
+    Factor breakdown
+    <p class="section__note">
+      Deterministic factors and the evidence each one matched. UNKNOWN means
+      the field was not extracted — it is not a zero.
+    </p>
+  </div>
+  <div>
+    <table class="table factors">
+      <thead><tr><th>Factor</th><th class="num">Value</th><th>Status</th><th>Evidence</th></tr></thead>
+      <tbody>
+      {% for f in d.factors %}
+        <tr>
+          <td>{{ f.name }}</td>
+          <td class="num">{{ m.value_terse(f.value) }}</td>
+          <td>{{ m.ev_label(f.status) }}</td>
+          <td class="evidence">{{ m.value_terse(f.evidence) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if d.weights %}
+      <div class="section__label" style="margin-top: var(--s4)">Weights v{{ d.score_version.value or "?" }}</div>
+      <table class="table" style="margin-top: var(--s2)">
+        <thead><tr><th>Dimension</th><th>Factor weights</th></tr></thead>
+        <tbody>
+        {% for dim, w in d.weights.items() %}
+          <tr>
+            <td>{{ dim }}</td>
+            <td>{% if w is mapping %}{% for k, v in w.items() %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}{% else %}{{ w }}{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="section__note">From <code>intelligence/scoring_model.json</code>, stored with the result so a later weights change does not rewrite this score.</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if d.gaps or d.risks %}
+<section class="section">
+  <div class="section__label">Gaps and risks</div>
+  <div>
+    {% if d.gaps %}<ul class="doc">{% for g in d.gaps %}<li>{{ g }}</li>{% endfor %}</ul>{% endif %}
+    {% if d.risks %}<ul class="doc">{% for r in d.risks %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+</section>
+{% endif %}
+
+{# ── Client / organisation history ──────────────────────────────────────── #}
+<section class="section">
+  <div class="section__label">
+    Client
+    <p class="section__note">Cited roll-up over stored observations (ADR 006).
+    Missing outcomes stay UNKNOWN — they are not counted as losses.</p>
+  </div>
+  <div>
+    <dl class="kv">
+      <dt>Client</dt><dd>{{ m.value(d.client) }}</dd>
+      <dt>Donor</dt><dd>{{ m.value(d.donor) }}</dd>
+      <dt>Deadline</dt><dd>{{ m.value(d.deadline) }}</dd>
+      <dt>Budget (extracted)</dt>
+      <dd>{% if d.budget_usd.value is not none %}<span class="v">{{ "{:,.0f}".format(d.budget_usd.value) }}</span> <span class="v-prov">USD, from the ToR</span>
+          {% else %}{{ m.value(d.budget_usd) }}{% endif %}</dd>
+      <dt>Reference</dt><dd>{{ m.value(d.reference_number) }}</dd>
+      <dt>Locations</dt><dd>{{ m.value(d.locations | join(", ") if d.locations else None) }}</dd>
+      <dt>Thematic areas</dt><dd>{{ m.value(d.thematic_areas | join(", ") if d.thematic_areas else None) }}</dd>
+    </dl>
+
+    {% set ci = d.client_intelligence.get("client") if d.client_intelligence else None %}
+    {% if ci %}
+      <hr class="hr">
+      <p class="doc">{{ ci.headline }}</p>
+      {% if ci.outcome_note %}<p class="doc">{{ ci.outcome_note }}</p>{% endif %}
+      {% if ci.citations %}
+        <ul class="doc">{% for c in ci.citations %}<li>{{ c }}</li>{% endfor %}</ul>
+      {% else %}
+        <p class="section__note">No citations stored for this client.</p>
+      {% endif %}
+    {% elif org.available %}
+      <hr class="hr">
+      {% if org.match %}
+        <p class="section__note">Matched <strong>{{ org.match.canonical_name or "—" }}</strong>
+        via {{ org.match.method }} {{ m.ev_label(org.match.status) }}
+        {% if org.match.confidence is not none %}(confidence {{ org.match.confidence }}){% endif %}.</p>
+      {% endif %}
+      {% if org.records %}
+        <table class="table">
+          <thead><tr><th>Record</th><th>Role</th><th>Outcome</th><th>Source</th></tr></thead>
+          <tbody>
+          {% for r in org.records %}
+            <tr>
+              <td class="doc">{{ r.title }}</td><td>{{ r.role }}</td>
+              <td>{{ r.outcome }} {{ m.ev_label(r.outcome_status) }}</td>
+              <td class="mono">{{ r.source_kind }}:{{ r.source_id }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="section__note">{{ org.note }}</p>
+      {% endif %}
+    {% else %}
+      <p class="section__note">{{ org.note }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if jobs %}
+<section class="section">
+  <div class="section__label">
+    Dashboard jobs
+    <p class="section__note">Who asked for what, from <code>dashboard_triggers</code>.</p>
+  </div>
+  <div>
+    <table class="table">
+      <thead><tr><th>Job</th><th>Requested</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th></tr></thead>
+      <tbody>
+      {% for j in jobs %}
+        <tr>
+          <td class="mono"><a href="{{ url_job }}/{{ j.id }}">{{ j.id[:8] }}</a></td>
+          <td class="mono">{{ j.requested_at[:16] }}</td>
+          <td>{{ j.requested_by }}</td>
+          <td>{{ j.kind_label }}</td>
+          <td>{{ m.state_chip(j.ui_state) }}{% if j.error_message %}<div class="t-sub">{{ j.error_message[:100] }}</div>{% endif %}</td>
+          <td class="num">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="section">
+  <div class="section__label">Ledger</div>
+  <div>
+    <dl class="kv">
+      <dt>Pipeline stage</dt><dd>{{ m.value(d.stage) }}</dd>
+      <dt>Lease state</dt><dd>{{ m.value(d.lease_state) }}</dd>
+      <dt>Attempts</dt><dd>{{ d.attempt_count }}</dd>
+      <dt>Draft failures</dt><dd>{{ d.draft_fail_count }} / 3</dd>
+      <dt>Submission type</dt><dd>{{ m.value(d.submission_type) }}</dd>
+      <dt>Airtable record</dt><dd class="mono">{{ m.value(d.airtable_record_id) }}</dd>
+      <dt>Content hash</dt><dd class="mono">{{ m.value(d.content_hash) }}</dd>
+      <dt>Discovered</dt><dd class="mono">{{ m.value(d.discovered_at) }}</dd>
+      <dt>Updated</dt><dd class="mono">{{ m.value(d.updated_at) }}</dd>
+    </dl>
+  </div>
+</section>
+
+{% endblock %}

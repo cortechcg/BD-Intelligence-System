@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}Cortech BD{% endblock %}</title>
+<link rel="stylesheet" href="{{ static_base }}/app.css">
+</head>
+<body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
+
+<header class="masthead">
+  <div class="masthead__in">
+    <p class="wordmark">Cortech <span>BD control</span></p>
+    <nav>
+      <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>Queue</a>
+      <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>Portfolio</a>
+    </nav>
+    {% if viewer %}<span class="whoami">{{ viewer }}{% if url_logout %} · <a href="{{ url_logout }}">sign out</a>{% endif %}</span>{% endif %}
+  </div>
+</header>
+
+<main class="page">
+  {% block content %}{% endblock %}
+
+  <p class="foot">
+    Read-only over Supabase except for the trigger queue. This tool can run
+    <code>discovered → extracted → scored → drafted</code> and nothing past it —
+    there is no submit action, by design (ADR 011). Scores come from
+    <code>intelligence/bid_scorer.py</code> v1.0.0; WIN PROBABILITY is a
+    heuristic, not a calibrated P(win) — see <code>docs/SCORING_MODEL.md</code>
+    and <code>docs/adr/010-calibrated-win-probability.md</code>.
+    {% if generated_at %}<br>Rendered {{ generated_at }}.{% endif %}
+  </p>
+</main>
+
+{% if notify and job %}
+<script>
+/* Browser notification for the person following this job. Polls the same
+   /api/job endpoint the page is built from; fires once when the status leaves
+   queued/running. This is the only notification channel the dashboard adds —
+   the review email is the existing pipeline email, sent by the same code the
+   cron path uses, to EMAIL_RECIPIENTS. */
+(function () {
+  var id = {{ job.id | tojson }};
+  var last = {{ job.status | tojson }};
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") { Notification.requestPermission(); }
+  function tick() {
+    fetch("/api/job/" + id, {credentials: "same-origin"}).then(function (r) {
+      if (!r.ok) return null; return r.json();
+    }).then(function (data) {
+      if (!data) return;
+      var st = data.job.status;
+      if (st !== last && st !== "queued" && st !== "running") {
+        last = st;
+        if (Notification.permission === "granted") {
+          new Notification("Cortech BD: job " + st, {
+            body: (data.job.error_message || ("stage: " + (data.pipeline_stage || "—"))).slice(0, 180)
+          });
+        }
+        window.location.reload();
+      }
+    }).catch(function () {});
+  }
+  setInterval(tick, 5000);
+})();
+</script>
+{% endif %}
+
+{% if poll_ms %}
+<script>
+/* Status polling. Supabase Realtime is not usable here: the `supabase_realtime`
+   publication on this project contains zero tables, so postgres_changes would
+   ack a subscription and then deliver nothing. Polling also keeps the
+   service-role key server-side. See docs/DASHBOARD.md. */
+(function () {
+  var ms = parseInt(document.body.dataset.pollMs, 10);
+  if (!ms) return;
+  var hidden = false;
+  document.addEventListener("visibilitychange", function () { hidden = document.hidden; });
+  setInterval(function () { if (!hidden) window.location.reload(); }, ms);
+})();
+</script>
+{% endif %}
+</body>
+</html>

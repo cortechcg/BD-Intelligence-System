@@ -441,6 +441,7 @@ def claim_opportunity_processing(
     *,
     force: bool = False,
     lease_seconds: int = PROCESSING_LEASE_SECONDS,
+    retry_dead_letter: bool = False,
 ) -> str | None:
     """Atomically claim a retryable opportunity-processing lease.
 
@@ -468,6 +469,10 @@ def claim_opportunity_processing(
             "p_lease_seconds": max(int(lease_seconds), 60),
             "p_force": bool(force),
             "p_claim_token": claim_token,
+            # supabase_migration_dashboard_controls.sql. Default FALSE keeps the
+            # ADR 011 rule; TRUE lets a human resume a dead_letter row from its
+            # checkpoint with a fresh draft-failure budget (dashboard Retry).
+            "p_retry_dead_letter": bool(retry_dead_letter),
         }).execute()
         _opportunity_ledger_available = True
         row = (result.data or [{}])[0]
@@ -714,6 +719,30 @@ def dead_letter_opportunity_processing(
             )
         logger.warning(f"Could not persist drafting dead-letter: {e}")
         return False
+
+
+def rewind_opportunity_stage(source_url: str, to_stage: str) -> tuple[bool, str]:
+    """Human "re-run from [stage]" (dashboard). Returns ``(ok, reason)``.
+
+    Sets ``pipeline_stage`` back to ``extracted`` or ``scored`` and strips the
+    checkpoint keys later stages produced; the ordinary resume path then
+    re-runs exactly those stages. Refused while a lease is held. Requires
+    ``supabase_migration_dashboard_controls.sql``.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if to_stage not in ("extracted", "scored"):
+        return False, "to_stage must be extracted or scored"
+    try:
+        result = supabase.rpc("rewind_opportunity_stage", {
+            "p_source_url": canonical,
+            "p_to_stage": to_stage,
+        }).execute()
+    except Exception as e:
+        logger.error(f"rewind_opportunity_stage failed: {e}")
+        return False, f"rewind unavailable: {type(e).__name__}"
+    rows = result.data or []
+    row = rows[0] if isinstance(rows, list) and rows else (rows if isinstance(rows, dict) else {})
+    return bool(row.get("rewound")), str(row.get("reason") or "")
 
 
 def record_human_pipeline_stage(source_url: str, pipeline_stage: str) -> bool:

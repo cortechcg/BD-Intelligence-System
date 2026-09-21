@@ -29,6 +29,24 @@ systemd timers (or python main.py --once)
 
 Nothing in this pipeline submits to a client.
 
+### Dashboard (Phase 9, ADR 013)
+
+```
+Browser ──OAuth (Google, @cortechconsultinggroup.com)──▶ dashboard/app.py (FastAPI, stateless)
+                                                             │ reads Supabase; writes dashboard_triggers only
+                                                             ▼
+                                                      dashboard_triggers (queue table + RPCs)
+                                                             ▲
+dashboard/worker.py ─────────────────────────────────────────┘ claim → main.submit_single_url(...) → finish
+```
+
+A control surface, not a second pipeline: every action enters through
+`main.submit_single_url()` (the `--submit-url` function). Adds manual trigger,
+resume, retry-from-checkpoint for `dead_letter`, re-run-from-stage, cooperative
+cancel, live spend, and an aggregate spend cap across dashboard runs. Polling,
+not Realtime (the project's publication is empty). Scheduled discovery is
+unchanged. See `docs/DASHBOARD.md`.
+
 ## Modules that are real
 
 | Path | Role |
@@ -56,7 +74,11 @@ Nothing in this pipeline submits to a client.
 | `utils/errors.py` | Error taxonomy used at call sites |
 | `utils/urls.py` | Canonicalization + SSRF guard |
 | `utils/untrusted.py` | Document-as-data wrapping |
-| `utils/observability.py` | execution_id, stage logs, ESTIMATED cost |
+| `utils/observability.py` | execution_id, stage logs, ESTIMATED cost; process-level run-spend registry + `request_run_halt()` (dashboard cancel) |
+| `dashboard/app.py` | Web service: OAuth, three views, thin API, trigger/cancel routes. Cannot email or submit |
+| `dashboard/worker.py` | Background worker: claims `dashboard_triggers`, calls `main.submit_single_url`, enforces the aggregate cap, heartbeats spend, honours cancel |
+| `dashboard/queries.py` | Read-only view models; every field is a real column path or `None` + reason |
+| `dashboard/triggers.py` | The queue: enqueue / claim / heartbeat / finish / cancel / spend window |
 
 ## What is stored where
 
@@ -64,6 +86,7 @@ Nothing in this pipeline submits to a client.
 - **Supabase `opportunity_processing`**: lease/claim ledger (`pending|processing|failed|completed|dead_letter`) plus Phase 7 `pipeline_stage` (`discovered → extracted → scored → drafted → reviewed → outcome`) and a JSONB checkpoint. Additive migration `supabase_migration_opportunity_stages.sql` (**applied** 2026-09-15). If the table is missing, bulk discovery still refuses to treat URLs as new. If the table exists but stage columns are missing, the agent logs CRITICAL and still attempts the opportunity from `discovered` (does not drop BID/WATCH). When columns exist, resume is mandatory. `reviewed` / `outcome` are human/Airtable transitions, not autonomous submit.
 - **Supabase `organizations` / `organization_aliases` / `organization_observations`**: canonical client/donor entities and cited involvement. Matching is normalize+exact/fuzzy (ADR 006). `supabase_migration_organizations.sql` **applied** 2026-09-17; production occupancy 0. Airtable was not given new fields.
 - **Supabase `award_observations` / `relationship_edges`**: Phase 5 cited Assortis award-firm rows and cited Cortech-submission relationship edges (ADR 009). `supabase_migration_award_relationships.sql` **applied** 2026-09-17 (FK to `organizations`); occupancy 0/0. Identity reuses `organizations`. Airtable was not given new fields.
+- **Supabase `dashboard_triggers`**: the dashboard's request queue (`supabase_migration_dashboard_triggers.sql` + `supabase_migration_dashboard_controls.sql`, **applied** 2026-09-21). One row per human-triggered run: kind, requester, status (`queued|running|succeeded|failed|cancelled`), live/final estimated spend, cancel flag. Not a workflow ledger — `opportunity_processing` remains the only one. `claim_opportunity_processing` gained an optional `p_retry_dead_letter` (default FALSE ≡ previous behaviour) and `rewind_opportunity_stage` was added; see ADR 013.
 - **Airtable OPPORTUNITIES**: human CRM. `relevance_score` / `win_probability` / `bid_recommendation` now hold **code** scores. Full factor breakdown lives inside `claude_analysis` JSON (`bid_intelligence`). No new Airtable fields were added (see `check_schema.py`).
 - **Airtable AGENT_LOGS**: optional; circuit-breaker skip on 429. `cost_usd` only when a price row exists for the model. If 429s persist, bulk-delete AGENT_LOGS in the Airtable UI (or `python populate_airtable.py --prune-logs`); do not invent a second log system.
 
@@ -91,4 +114,4 @@ The digest aggregates stored rows; it is not external market research.
 
 ## Not in this architecture
 
-Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, a UI, or extra LLM agent loops. Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph. Phase 6 is a calibration *harness* that currently returns INSUFFICIENT DATA — not a trusted P(win) model. Phase 7 adds durable `pipeline_stage` resume on the existing `opportunity_processing` ledger (ADR 011). Phase 8 (ADR 012) adds DNS-pinned downloads, Playwright timeout/heap flags (not an OS sandbox), CI `pip-audit`, and an enforced per-run spend cap.
+Competitor intelligence as a ranking/likely-bidder product, external market-research products, a full relationship graph / account CRM, executive-brief products, knowledge-graph services, or extra LLM agent loops. (A UI now exists — Phase 9 / ADR 013 — as a control surface over the same functions; it adds no pipeline logic.) Those were out of scope and are not stubbed. Phase 5 stores only Assortis Awarded Firm(s) citations and named JV/consortium edges from `data/proposals/` — not inferred winners from silence. The Phase 3 digest is observed stored opportunities only. Phase 4 is named past-work claim grounding only — not a full source→proposal sentence graph. Phase 6 is a calibration *harness* that currently returns INSUFFICIENT DATA — not a trusted P(win) model. Phase 7 adds durable `pipeline_stage` resume on the existing `opportunity_processing` ledger (ADR 011). Phase 8 (ADR 012) adds DNS-pinned downloads, Playwright timeout/heap flags (not an OS sandbox), CI `pip-audit`, and an enforced per-run spend cap.

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Portfolio · Cortech BD{% endblock %}
+
+{% block content %}
+
+<section class="section">
+  <div class="section__label">
+    Coverage
+    <p class="section__note">
+      Read these denominators before the numbers below. Most cached
+      opportunities have never been claimed for processing, so the stage and
+      recommendation counts describe the ledger, not the whole store.
+    </p>
+  </div>
+  <div>
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile__label">Cached opportunities</div>
+        <div class="tile__value">{{ p.cache_rows }}</div>
+        <div class="tile__sub"><code>opportunities_cache</code></div>
+      </div>
+      <div class="tile">
+        <div class="tile__label">With a ledger row</div>
+        <div class="tile__value">{{ p.ledger_rows }}</div>
+        <div class="tile__sub"><code>opportunity_processing</code> — the rest have never been claimed</div>
+      </div>
+      <div class="tile">
+        <div class="tile__label">Scored</div>
+        <div class="tile__value">{{ p.ledger_rows - p.unscored_ledger_rows }}</div>
+        <div class="tile__sub">{{ p.unscored_ledger_rows }} ledger rows carry no stored recommendation</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    By stage
+    <p class="section__note">
+      Ledger rows at each agent stage. <code>reviewed</code> and
+      <code>outcome</code> are human/Airtable transitions, not agent work.
+    </p>
+  </div>
+  <div>
+    {{ m.bars(stage_bars, "ledger rows by pipeline stage") }}
+    <table class="table" style="margin-top: var(--s2)">
+      <caption class="section__note" style="text-align:left;padding:var(--s2) var(--s3)">
+        Same counts as text — the ordinal ramp's lightest step is below 3:1, so
+        the figures are always available without relying on colour.
+      </caption>
+      <thead><tr><th>Stage</th><th class="num">Rows</th></tr></thead>
+      <tbody>
+        {% for s, n in p.by_stage.items() %}<tr><td>{{ s }}</td><td class="num">{{ n }}</td></tr>{% endfor %}
+        {% if p.no_stage %}<tr><td>no stage recorded</td><td class="num">{{ p.no_stage }}</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    By recommendation
+    <p class="section__note">
+      From <code>bid_scorer.py</code> v1.0.0 thresholds (BID ≥ 70, WATCH ≥ 45,
+      else NO-BID). Ordered darkest-to-lightest by pursuit intent, not coloured
+      good-to-bad.
+    </p>
+  </div>
+  <div>
+    {% if (p.ledger_rows - p.unscored_ledger_rows) > 0 %}
+      {{ m.bars(rec_bars, "ledger rows by recommendation") }}
+      <p class="section__note" style="margin-top: var(--s2)">
+        n={{ p.ledger_rows - p.unscored_ledger_rows }} scored ledger rows.
+        {{ p.unscored_ledger_rows }} ledger rows are not yet scored and are excluded.
+      </p>
+    {% else %}
+      <div class="empty">No ledger row carries a stored recommendation yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    Machine states
+    <p class="section__note">Lease state across the ledger.</p>
+  </div>
+  <div>
+    <table class="table">
+      <thead><tr><th>State</th><th class="num">Rows</th><th>Meaning</th></tr></thead>
+      <tbody>
+        {% set meanings = {
+          "pending": "row exists, not claimed",
+          "processing": "a worker holds the lease",
+          "completed": "agent work finished, or a terminal skip",
+          "failed": "retryable — stage and checkpoint preserved",
+          "spend_cap": "MAX_RUN_COST_USD halt (ADR 012) — retryable, not a draft failure",
+          "dead_letter": "drafting exhausted 3 retries (ADR 011 §5)",
+          "cancelled": "stopped by a person via the dashboard — stage and checkpoint kept",
+        } %}
+        {% for s, n in p.by_state.items() %}{% if n %}
+        <tr><td>{{ m.state_chip(s) }}</td><td class="num">{{ n }}</td>
+            <td class="section__note">{{ meanings.get(s, "") }}</td></tr>
+        {% endif %}{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    Outcomes
+    <p class="section__note">
+      Not a chart. Drawing a Won/Lost split from this census would be a lie
+      told with geometry — there are no verified Lost labels at all.
+    </p>
+  </div>
+  <div>
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile__label">Won (verified)</div>
+        <div class="tile__value">{{ p.outcomes.won }}</div>
+        <div class="tile__sub"><code>proposal_embeddings.won is true</code></div>
+      </div>
+      <div class="tile">
+        <div class="tile__label">Lost (verified)</div>
+        <div class="tile__value">{{ p.outcomes.lost }}</div>
+        <div class="tile__sub">No verified source of Lost labels exists yet</div>
+      </div>
+      <div class="tile">
+        <div class="tile__label">Unknown</div>
+        <div class="tile__value">{{ p.outcomes.unknown }}</div>
+        <div class="tile__sub">An unchecked <code>won</code> box is indistinguishable from an unfilled one (ADR 006) — counted as UNKNOWN, never as a loss</div>
+      </div>
+      <div class="tile">
+        <div class="tile__label">Calibrated P(win)</div>
+        <div class="tile__value is-missing">—</div>
+        <div class="tile__sub">INSUFFICIENT DATA</div>
+      </div>
+    </div>
+    <p class="section__note" style="margin-top: var(--s3)">{{ p.outcomes.threshold_note }}</p>
+    {% for n in p.outcomes.notes %}<p class="section__note">{{ n }}</p>{% endfor %}
+  </div>
+</section>
+
+<section class="section">
+  <div class="section__label">
+    Dashboard runs
+    <p class="section__note">Spend recorded on <code>dashboard_triggers</code>.
+    Cancelled and failed runs are listed with what they cost — cancellation
+    does not hide money that was spent.</p>
+  </div>
+  <div>
+    {% if spend.available %}
+    <p class="section__note">{{ "%.2f"|format(spend.spent_usd) }} USD across {{ spend.runs }} run(s) in the last {{ spend.hours }}h · cap {{ "%.2f"|format(spend.cap_usd) }} USD{% if cap_blocked %} · <strong>cap reached</strong>{% endif %}</p>
+    {% endif %}
+    {% if dashboard_runs %}
+    <table class="table">
+      <thead><tr><th>Job</th><th>When</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th></tr></thead>
+      <tbody>
+      {% for j in dashboard_runs %}
+        <tr>
+          <td class="mono"><a href="{{ url_job }}/{{ j.id }}">{{ j.id[:8] }}</a></td>
+          <td class="mono">{{ j.requested_at[:16] }}</td>
+          <td>{{ j.requested_by }}</td>
+          <td>{{ j.kind_label }}</td>
+          <td>{{ m.state_chip(j.ui_state) }}</td>
+          <td class="num">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing" title="no spend recorded">—</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No dashboard-triggered runs yet.</div>
+    {% endif %}
+  </div>
+</section>
+
+{% if digest %}
+<section class="section">
+  <div class="section__label">
+    Market digest
+    <p class="section__note">
+      The Phase 3 observed-data digest
+      (<code>intelligence/market_trends.py</code>), the same code behind
+      <code>main.py --run-market-digest</code>. Supabase rows only here, so
+      counts can be lower than the weekly email, which also merges Airtable.
+      It aggregates what has been stored — it is not external market research.
+    </p>
+  </div>
+  <div>
+    <p class="section__note">
+      As of {{ digest.as_of }} · {{ digest.store_row_count }} stored rows,
+      {{ digest.dated_row_count }} dated · sources: {{ digest.sources | join(", ") or "—" }}
+    </p>
+
+    {% for days in [30, 90] %}
+      {% set w = digest.themes.get(days) %}
+      {% if w %}
+      <h3 class="section__label" style="margin-top: var(--s4)">Themes · {{ days }} days</h3>
+      {% if w.is_trend %}
+        <table class="table">
+          <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
+          <tbody>{% for c in w.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
+        </table>
+        <p class="section__note">{{ w.sample_clause() }}</p>
+      {% else %}
+        <div class="empty">{{ w.message }}</div>
+      {% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {% set g = digest.geography.get(30) %}
+    {% if g %}
+      <h3 class="section__label" style="margin-top: var(--s4)">Geography · 30 days</h3>
+      {% if g.is_trend %}
+        <table class="table">
+          <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
+          <tbody>{% for c in g.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
+        </table>
+        <p class="section__note">{{ g.sample_clause() }}</p>
+      {% else %}
+        <div class="empty">{{ g.message }}</div>
+      {% endif %}
+    {% endif %}
+
+    <h3 class="section__label" style="margin-top: var(--s4)">Cited award winners</h3>
+    <p class="section__note">{{ digest.cited_award_note }}</p>
+
+    {% for n in digest.notes %}<p class="section__note">{{ n }}</p>{% endfor %}
+  </div>
+</section>
+{% else %}
+<section class="section">
+  <div class="section__label">Market digest</div>
+  <div><div class="empty">The Phase 3 digest could not be built from stored rows right now.</div></div>
+</section>
+{% endif %}
+
+{% endblock %}
