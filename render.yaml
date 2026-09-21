@@ -1,120 +1,137 @@
-# Render Blueprint for the Cortech BD dashboard.
+# Render Blueprint for the Cortech BD dashboard — THE source of truth for both
+# Render services. Create and change services by editing this file and
+# syncing the Blueprint. Do not create or edit services by hand in the UI.
 #
-# ┌─ READ THIS BEFORE CREATING ANY SERVICE BY HAND ────────────────────────────┐
-# │ Deploy via Blueprint (New → Blueprint) so the start commands below apply. │
-# │ A service created manually with runtime=Docker and NO Start Command runs  │
-# │ the Dockerfile CMD. On 2026-09-21 that CMD was `python main.py`, which is │
-# │ the always-on discovery scheduler: it ran a full pipeline pass on boot    │
-# │ (15 opportunities, 1 draft, review emails) and would have repeated every  │
-# │ 6 hours. The CMD is now the queue-only worker and bare main.py refuses to │
-# │ start under $PORT/$RENDER, but the rule stands:                           │
-# │   web    (type: web)    Docker Command = uvicorn dashboard.app:app … --port $PORT
-# │   worker (type: worker) Docker Command = python -m dashboard.worker        │
-# │ A worker command under type: web has no port → "No open ports detected"  │
-# │ forever, and no UI anywhere (second misconfiguration, 2026-09-21).        │
-# │   NEVER `python main.py` in any Render service.                            │
+# ┌─ WHY THIS FILE EXISTS ────────────────────────────────────────────────────┐
+# │ Three deploys failed on 2026-09-21, all from a Start Command typed into  │
+# │ a form:                                                                   │
+# │   1. Docker web service, no Start Command → image CMD was bare main.py, │
+# │      the discovery scheduler; it ran a full pipeline pass on boot.       │
+# │   2. Worker command deployed under a Web Service → binds no port →       │
+# │      "No open ports detected" forever, no UI anywhere.                    │
+# │   3. Web service recreated by hand → Start Command mistyped → failed.     │
+# │ The command strings below are verified (see docs/DASHBOARD.md §6) and   │
+# │ tests/test_render_yaml.py fails CI if either service drifts.             │
+# │   web    (type: web)    uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT │
+# │   worker (type: worker) python -m dashboard.worker                        │
+# │   NEVER `python main.py` in any Render service.                           │
 # └───────────────────────────────────────────────────────────────────────────┘
+#
+# Field names follow render.com/docs/blueprint-spec (read 2026-09-21):
+#   * Docker-runtime services use `dockerCommand`, not `startCommand`
+#     (`startCommand` is for native runtimes and is ignored for docker).
+#   * Every envVars entry needs a value source: `value`, `sync: false`
+#     (set once in the Render dashboard, never committed) or `generateValue`.
+#     A bare `key:` is a spec error.
+#   * `PORT` is NOT declared here. Render sets it for every web service
+#     (default 10000); the web command reads it via "${PORT:-10000}".
+#     Verified locally: PORT=8766 → "Uvicorn running on http://0.0.0.0:8766".
 #
 # Two services, both stateless — every piece of real state is in the existing
 # Supabase project, so either can restart or redeploy without losing anything.
+# Both build the SAME image from ./Dockerfile and differ only in the command.
 #
-#   cortech-bd-dashboard  type: web     the dashboard UI + thin API   (binds $PORT)
+#   cortech-bd-dashboard  type: web     dashboard UI + thin API   (binds $PORT)
 #   cortech-bd-worker     type: worker  runs dashboard-triggered jobs  (no port)
 #
-# Both services build the SAME image from ./Dockerfile and differ only in the
-# command — verified 2026-09-21: the image runs `uvicorn dashboard.app:app`
-# (port bound, /healthz 200) and `python -m dashboard.worker` (no port). One
-# build context means one dependency resolution and no runtime drift.
+# Nothing here replaces the existing discovery schedule (systemd timers). See
+# docs/DASHBOARD.md §"Scheduler" and the opt-in Render Cron block at the end.
 #
-# Nothing here replaces the existing discovery schedule. The systemd timers
-# (cortech-discovery / -assortis / -deadline / -winloss / -market) keep running
-# wherever they run today; this Blueprint only adds manual triggering. See
-# docs/DASHBOARD.md §"Scheduler" for the reasoning and the opt-in Render Cron
-# alternative at the bottom of this file.
-#
-# Compute plans and prices below were read from render.com/pricing on
-# 2026-09-21. Re-check before budgeting; Render renamed plans in Aug 2026
-# (legacy names still work: starter = 0.5c-512mb, standard = 1c-2g).
+# Plan names are the current spec names (Render renamed plans in Aug 2026):
+#   0.5c-512mb = legacy "starter" ($7/mo)     1c-2g = legacy "standard" ($25/mo)
 
 services:
   # ── Web service: the dashboard UI + API ─────────────────────────────────────
   # Binds $PORT. This is the ONLY service Render should scan for an open port.
+  # First log line must read "IDENTITY: cortech-bd-web".
   - type: web
     name: cortech-bd-dashboard
     runtime: docker              # same image as the worker; only the command differs
     region: frankfurt            # closest Render region to the Supabase project (eu-west-1)
-    plan: starter                # 0.5 CPU / 512 MB — $7/mo. `free` spins down after 15 idle min.
+    plan: 0.5c-512mb             # 0.5 CPU / 512 MB — $7/mo. `free` spins down after 15 idle min.
     branch: main
     dockerfilePath: ./Dockerfile
+    # Verified 2026-09-21 (docs/DASHBOARD.md §6): binds 0.0.0.0:$PORT, /healthz → 200.
     # `sh -c` so $PORT (injected by Render) is expanded inside the container.
     dockerCommand: sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"'
     healthCheckPath: /healthz
     autoDeployTrigger: commit
     envVars:
-      # ── Required: shared with the pipeline (config.require_env validates at import) ──
+      # ── Required: database. The web reads and writes Supabase only. ──
+      # It does NOT need ANTHROPIC/OPENAI/AIRTABLE keys: verified 2026-09-21 by
+      # booting it with only these two + the auth vars set (healthz 200, UI
+      # redirects to login). config.require_env() is called by the worker and
+      # main.py, never by dashboard.app. Least privilege: the internet-facing
+      # process holds no model or CRM credentials.
       - key: SUPABASE_URL
         sync: false               # set in the Render dashboard; never committed
       - key: SUPABASE_SERVICE_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: AIRTABLE_API_KEY
-        sync: false
-      - key: AIRTABLE_BASE_ID
-        sync: false
 
-      # ── Required: dashboard auth (WEB ONLY — the worker never sees these) ──
+      # ── Required: Google login (WEB ONLY — the worker never sees these) ──
+      # Names are exactly what dashboard/settings.py reads.
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: DASHBOARD_SESSION_SECRET
-        generateValue: true       # Render generates a random value
+        generateValue: true       # Render generates a random value; signs the session cookie
       - key: PUBLIC_BASE_URL
-        sync: false               # https://cortech-bd-dashboard.onrender.com — must equal the
-                                  # Google OAuth redirect URI origin exactly
+        sync: false               # https://cortech-bd-dashboard.onrender.com — no trailing slash;
+                                  # must equal the Google OAuth redirect URI origin exactly
 
-      # ── Optional ──
+      # ── Access policy ──
       - key: AUTH_ALLOWED_DOMAIN
         value: cortechconsultinggroup.com
       - key: AUTH_ALLOWED_EMAILS
-        value: ""                 # explicit off-domain exceptions, comma-separated. Empty = domain only.
+        sync: false               # explicit off-domain exceptions, comma-separated full
+                                  # addresses. Leave EMPTY unless a decision says otherwise
+                                  # (docs/DASHBOARD.md §3.5). Empty = domain only.
+
+      # ── Behaviour (defaults identical to dashboard/settings.py) ──
+      - key: DASHBOARD_SESSION_MAX_AGE
+        value: "43200"            # seconds; 12 h
+      - key: DASHBOARD_COOKIE_SECURE
+        value: "true"
       - key: DASHBOARD_POLL_MS
         value: "15000"
       - key: DASHBOARD_TRIGGERS_ENABLED
-        value: "true"
-      - key: DASHBOARD_COOKIE_SECURE
-        value: "true"
-      # Mirror of the worker's aggregate gate so the UI shows the enforced number.
+        value: "true"             # "false" = read-only dashboard, no new jobs
+      - key: DASHBOARD_BULK_MAX
+        value: "40"
+      # Mirror of the worker's values so the UI shows the enforced numbers.
       # Keep identical on both services.
       - key: DASHBOARD_AGGREGATE_CAP_USD
         value: "100"
       - key: DASHBOARD_AGGREGATE_WINDOW_HOURS
         value: "24"
-      - key: DASHBOARD_BULK_MAX
-        value: "40"
       - key: DASHBOARD_HEARTBEAT_SECONDS
         value: "10"
 
   # ── Background worker: executes dashboard-triggered runs ────────────────────
   # `type: worker` = Render Background Worker. No port, no health check, no
   # inbound traffic — Render never port-scans it. Deploying this command under
-  # `type: web` produces the endless "No open ports detected" loop (2026-09-21).
+  # `type: web` produces the endless "No open ports detected" loop.
+  # First log lines must read "IDENTITY: cortech-bd-worker" then
+  # "dashboard worker up (token …); aggregate cap 100.00 USD / 24h".
   - type: worker
     name: cortech-bd-worker
     runtime: docker
     region: frankfurt
-    plan: standard               # 1 CPU / 2 GB — $25/mo FLAT whether 1 or 50 drafts run.
-                                 # PLACEHOLDER pending the tier decision (docs/DASHBOARD.md
-                                 # §3.6, options A/B/C). Workers have no free tier.
+    plan: 1c-2g                  # 1 CPU / 2 GB — $25/mo FLAT whether 1 or 50 drafts run.
+                                 # Chromium + pdfplumber + PLAYWRIGHT_JS_HEAP_MB=512 do not
+                                 # fit in 512 MB; workers have no free tier. Tier decision
+                                 # still open: docs/DASHBOARD.md §3.6, options A/B/C.
     branch: main
     dockerfilePath: ./Dockerfile
-    dockerCommand: python -m dashboard.worker   # also the image's default CMD
+    # Verified 2026-09-21 (docs/DASHBOARD.md §6): logs IDENTITY line, opens no port,
+    # polls dashboard_triggers, exits cleanly on SIGTERM. Also the image's default CMD.
+    dockerCommand: python -m dashboard.worker
     autoDeployTrigger: commit
     envVars:
-      # ── Required: the full pipeline environment (identical to a cron run) ──
+      # ── Required: config.require_env() exits 1 at boot if any is missing ──
+      # (verified: with only Supabase set → "Missing required environment
+      # variables: ANTHROPIC_API_KEY, OPENAI_API_KEY", exit 1)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
@@ -122,7 +139,9 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: OPENAI_API_KEY
-        sync: false
+        sync: false               # embeddings (text-embedding-3-small)
+
+      # ── CRM write-through (fail-open: missing = Airtable skipped, run continues) ──
       - key: AIRTABLE_API_KEY
         sync: false
       - key: AIRTABLE_BASE_ID
@@ -131,34 +150,47 @@ services:
       # ── Review email (the existing human-review step at `drafted`) ──
       # submit_single_url() sends the internal review email exactly as the CLI
       # does. Empty EMAIL_RECIPIENTS suppresses it for dashboard AND cron alike.
+      # Gmail (GMAIL_ADDRESS + GMAIL_APP_PASSWORD) or Resend (RESEND_API_KEY +
+      # EMAIL_SENDER) — fill one pair, leave the other empty.
+      - key: EMAIL_RECIPIENTS
+        sync: false
       - key: GMAIL_ADDRESS
         sync: false
       - key: GMAIL_APP_PASSWORD
         sync: false
-      - key: EMAIL_RECIPIENTS
+      - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_SENDER
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
 
       # ── Spend caps: per run (ADR 012) and aggregate across dashboard runs ──
+      # Both are enforced by THIS process. Zero is a valid hard stop.
       - key: MAX_RUN_COST_USD
         value: "25"
       - key: DASHBOARD_AGGREGATE_CAP_USD
-        value: "100"
+        value: "100"              # keep identical to the web service's copy
       - key: DASHBOARD_AGGREGATE_WINDOW_HOURS
         value: "24"
 
-      # ── Optional pipeline tuning (same defaults as .env.example) ──
+      # ── Pipeline tuning (same defaults as config.py / .env.example) ──
       - key: ANTHROPIC_TIMEOUT_SECONDS
         value: "180"
       - key: ANTHROPIC_MAX_RETRIES
         value: "2"
       - key: DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS
         value: "60"
+      - key: DOCUMENT_DOWNLOAD_MAX_RETRIES
+        value: "2"
+      - key: MAX_DOWNLOAD_REDIRECTS
+        value: "5"
       - key: MAX_DOCUMENT_BYTES
-        value: "26214400"
+        value: "26214400"         # 25 MiB — source URLs are untrusted, keep finite
+      - key: MAX_DOCUMENT_UNCOMPRESSED_BYTES
+        value: "104857600"        # 100 MiB
+      - key: MAX_EXTRACTED_TEXT_CHARS
+        value: "120000"
+      - key: MAX_GDRIVE_FILES
+        value: "25"
       - key: PLAYWRIGHT_TIMEOUT_MS
         value: "45000"
       - key: PLAYWRIGHT_JS_HEAP_MB
@@ -166,13 +198,20 @@ services:
       - key: FULL_DRAFT_FOR_WATCH
         value: "true"
 
-      # ── Optional worker tuning ──
+      # ── Worker loop tuning (dashboard/settings.py defaults) ──
       - key: DASHBOARD_HEARTBEAT_SECONDS
         value: "10"
       - key: DASHBOARD_WORKER_POLL_SECONDS
         value: "5"
       - key: DASHBOARD_WORKER_LEASE_SECONDS
         value: "3600"
+
+      # Deliberately ABSENT from the worker:
+      #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / PUBLIC_BASE_URL /
+      #   DASHBOARD_SESSION_SECRET — login belongs to the web service only.
+      #   IMAP_* / CHECK_INTERVAL_HOURS / MAX_OPPORTUNITIES_PER_RUN /
+      #   HEALTHCHECK_URL — discovery-scheduler settings; this worker never
+      #   runs discovery (it only calls main.submit_single_url per job).
 
 # ── Not enabled: Render Cron alternative to the systemd timers ───────────────
 # The recommendation (docs/DASHBOARD.md) is to leave scheduled discovery where
@@ -184,8 +223,8 @@ services:
 #    name: cortech-discovery
 #    runtime: docker
 #    region: frankfurt
-#    plan: standard
+#    plan: 1c-2g
 #    schedule: "0 */6 * * *"          # CHECK_INTERVAL_HOURS=6
 #    dockerfilePath: ./Dockerfile
 #    dockerCommand: python main.py --once
-#    envVars: (same block as cortech-bd-worker)
+#    envVars: (same block as cortech-bd-worker, plus IMAP_* for the newsletter source)
