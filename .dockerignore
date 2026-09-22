@@ -18,3 +18,7 @@ pending_proposals/
 failed_saves/
 *.log
 dashboard/design/queue_preview.html
+# Source documents (460 MB) are not part of either Render service's image; the
+# worker drafts without them and main.py --extract-relationships is offline-only.
+data/proposals/
+data/cvs/
