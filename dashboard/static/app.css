@@ -210,14 +210,14 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .meter__value { font-size: var(--t32); font-weight: var(--font-weight-medium); line-height: 1; letter-spacing: -0.01em; color: var(--ink); font-variant-numeric: proportional-nums; white-space: nowrap; }
 .meter__value small { font-size: var(--t13); color: var(--ink-2); margin-left: var(--sp1); font-weight: var(--font-weight-regular); }
 .meter__label { color: var(--ink); }
-.meter__track { position: relative; height: 6px; background: var(--track); border-radius: var(--r-mark); margin-top: var(--sp3); overflow: hidden; }
+.meter__track { position: relative; height: 10px; background: var(--track); border-radius: var(--r-mark); margin-top: var(--sp3); overflow: hidden; border-right: 3px solid var(--ink); }
 .meter__fill { height: 100%; background: var(--fill); border-radius: var(--r-mark); min-width: 2px; }
 .meter__fill.is-warn, .meter__fill.is-over { background: var(--accent); }
-.meter__ticks { position: relative; height: 14px; }
-.meter__ticks span { position: absolute; top: 2px; font-size: var(--t11); color: var(--ink-2); transform: translateX(-50%); }
-.meter__ticks span::before { content: ""; position: absolute; left: 50%; top: -14px; width: 1px; height: 4px; background: var(--line-strong); }
+.meter__ticks { position: relative; height: 22px; margin-top: 2px; }
+.meter__ticks span { position: absolute; top: 8px; font-size: var(--t12); color: var(--ink-2); transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+.meter__ticks span::before { content: ""; position: absolute; left: 50%; top: -10px; width: 1px; height: 8px; background: var(--ink-2); }
 .meter__foot { font-size: var(--t13); color: var(--ink-2); }
-.meter--lg .meter__track { height: 8px; }
+.meter--lg .meter__track { height: 14px; }
 .meter--lg .meter__value { font-size: var(--t56); letter-spacing: -0.02em; }
 
 /* ── The rail: a thin segmented line ────────────────────────────────────── */
@@ -255,16 +255,18 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .chip--none  { background: transparent; color: var(--ink-2); border-color: var(--line); font-weight: var(--font-weight-regular); }
 .chip--lg { font-size: var(--t13); padding: 3px var(--sp4); }
 
-.state { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t13); white-space: nowrap; color: var(--ink);
-         padding: 3px var(--sp3) 3px 10px; border-radius: var(--r-pill); border: 1px solid var(--line); }
+/* Status chips: a filled pill whose colour means something. Neutral track =
+   not running yet or running; forest = agent work completed; brass = a
+   person needs to act (failed, dead-letter, cap-halted, cancelled). The dot
+   keeps the shape distinction (hollow = waiting / resumable, solid = final). */
+.state { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t13); font-weight: var(--font-weight-medium); white-space: nowrap; color: var(--ink);
+         padding: 4px var(--sp3) 4px 10px; border-radius: var(--r-pill); background: var(--track); border: 1px solid transparent; line-height: 1.3; }
 .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; border: 2px solid currentColor; }
-.state--pending::before     { background: transparent; border-color: var(--st-pending); }
-.state--processing          { border-color: var(--line-strong); } .state--processing::before { background: var(--st-processing); border-color: var(--st-processing); }
-.state--completed::before   { background: var(--st-good); border-color: var(--st-good); }
-.state--failed              { border-color: var(--accent); } .state--failed::before      { background: transparent; border-color: var(--st-halt); }
-.state--dead_letter         { border-color: var(--accent); } .state--dead_letter::before { background: var(--st-halt); border-color: var(--st-halt); }
-.state--spend_cap           { border-color: var(--accent); } .state--spend_cap::before   { background: transparent; border-color: var(--st-resumable); }
-.state--cancelled           { border-color: var(--accent); } .state--cancelled::before   { background: transparent; border-color: var(--st-resumable); }
+.state--pending::before     { background: transparent; }
+.state--processing::before  { background: var(--st-processing); border-color: var(--st-processing); }
+.state--completed           { background: var(--fill); color: var(--on-fill); }
+.state--failed, .state--dead_letter, .state--spend_cap, .state--cancelled { background: var(--accent); color: var(--on-fill); }
+.state--failed::before, .state--spend_cap::before, .state--cancelled::before { background: transparent; }
 .state.is-live::before { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { box-shadow: 0 0 0 5px transparent; opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .state.is-live::before { animation: none; } }
@@ -327,8 +329,8 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .table td.mono, .table .mono { font-size: var(--t12); color: var(--ink); }
 .table .t-sub.mono { color: var(--ink-2); }
 .table--jobs { table-layout: fixed; }
-.table--jobs .c-id { width: 108px; } .table--jobs .c-when { width: 150px; } .table--jobs .c-by { width: 176px; }
-.table--jobs .c-kind { width: 168px; } .table--jobs .c-status { width: 206px; } .table--jobs .c-spend { width: 108px; }
+.table--jobs .c-id { width: 108px; } .table--jobs .c-when { width: 170px; } .table--jobs .c-by { width: 160px; }
+.table--jobs .c-kind { width: 160px; } .table--jobs .c-status { width: 214px; } .table--jobs .c-spend { width: 108px; }
 .table--jobs td.nowrap { overflow: hidden; text-overflow: ellipsis; }
 .table--jobs td { overflow-wrap: break-word; }
 .table--jobs td .mono { overflow-wrap: normal; }
