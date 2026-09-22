@@ -57,7 +57,8 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
-PUBLIC_PATHS = {"/auth/login", "/auth/callback", "/auth/denied", "/healthz"}
+
+PUBLIC_PATHS = {"/auth/login", "/auth/google", "/auth/callback", "/auth/denied", "/healthz"}
 
 #: The one description of what Cancel does. Rendered verbatim in the UI and
 #: asserted by tests/test_dashboard_controls.py against the code path, so the
@@ -149,14 +150,43 @@ def _base_context(request: Request, view: str) -> dict:
 
 # ── auth routes ─────────────────────────────────────────────────────────────
 
+def _auth_context(request: Request) -> dict:
+    return {
+        "request": request,
+        "static_base": "/static",
+        "domain": settings.AUTH_ALLOWED_DOMAIN,
+        "has_exceptions": bool(settings._allowed_emails()),
+        "url_start": "/auth/google",
+        "url_login": "/auth/login",
+    }
+
+
+def _denied(request: Request, title: str, reason: str, status: int, hint: str = ""):
+    ctx = {**_auth_context(request), "title": title, "reason": reason, "hint": hint}
+    return templates.TemplateResponse(request, "denied.html", ctx, status_code=status)
+
+
 @app.get("/auth/login")
 def login(request: Request):
+    """The sign-in screen. Presentational only: the OAuth flow starts at
+    /auth/google, exactly as before; this page just puts a real screen in
+    front of the redirect instead of bouncing straight to Google."""
+    if current_session(request):
+        return RedirectResponse("/", status_code=302)
+    ok, reason = settings.auth_configured()
+    ctx = {**_auth_context(request), "configured": ok, "reason": reason}
+    return templates.TemplateResponse(request, "login.html", ctx, status_code=200 if ok else 503)
+
+
+@app.get("/auth/google")
+def login_start(request: Request):
     if current_session(request):
         return RedirectResponse("/", status_code=302)
     try:
         url, state_cookie = auth.begin_login()
     except auth.AuthError as exc:
-        return PlainTextResponse(str(exc), status_code=503)
+        ctx = {**_auth_context(request), "configured": False, "reason": str(exc)}
+        return templates.TemplateResponse(request, "login.html", ctx, status_code=503)
     response = RedirectResponse(url, status_code=302)
     response.set_cookie(
         auth.STATE_COOKIE, state_cookie, max_age=600, httponly=True,
@@ -168,13 +198,13 @@ def login(request: Request):
 @app.get("/auth/callback")
 def auth_callback(request: Request, code: str = "", state: str = "", error: str = ""):
     if error:
-        return PlainTextResponse(f"Google returned an error: {error}", status_code=400)
+        return _denied(request, "Sign-in did not complete", f"Google returned an error: {error}", 400)
     try:
         claims = auth.complete_login(code, state, request.cookies.get(auth.STATE_COOKIE))
     except auth.AuthError as exc:
         # 403 and the specific reason: a login that fails opaquely gets
         # worked around rather than fixed.
-        return PlainTextResponse(str(exc), status_code=403)
+        return _denied(request, "Access denied", str(exc), 403)
 
     token = auth.issue_session(claims["email"], claims.get("name", ""))
     response = RedirectResponse("/", status_code=302)
@@ -284,7 +314,7 @@ def job_page(request: Request, trigger_id: str):
 def portfolio_page(request: Request):
     portfolio = queries.portfolio_view()
     stage_ramp = ["#6291e3", "#406cbb", "#1e4994", "#002972"]
-    rec_ramp = ["#c3a35f", "#947630", "#705300"]
+    rec_ramp = ["#a8873a", "#7a5e12", "#4d3a05"]
     ctx = _base_context(request, "portfolio")
     ctx.update({
         "p": portfolio,

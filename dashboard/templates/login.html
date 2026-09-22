@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sign in · Cortech BD</title>
+<link rel="stylesheet" href="{{ static_base }}/app.css">
+</head>
+<body>
+<main class="auth">
+  <div class="auth__card">
+    <span class="brand"><span class="brand__mark" aria-hidden="true"></span><span class="brand__name">Cortech <span>BD</span></span></span>
+    <ol class="rail rail--sm auth__rail" aria-hidden="true">
+      <li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg rail__seg--human"></li>
+    </ol>
+    <h1>Sign in to the bid desk</h1>
+    <p>The queue, scores and drafts for Cortech's tenders. Access is limited to
+      <strong>@{{ domain }}</strong> Google accounts{% if has_exceptions %} and a short list of named exceptions{% endif %}.</p>
+
+    {% if configured %}
+      <a class="btn" href="{{ url_start }}">Continue with Google</a>
+    {% else %}
+      <div class="band band--warn" role="alert">
+        <div class="band__title">Sign-in is not configured on this deployment</div>
+        {{ reason }}. Set the variables and redeploy; see <code>docs/DASHBOARD.md</code> §3.3.
+      </div>
+      <span class="btn" aria-disabled="true">Continue with Google</span>
+    {% endif %}
+
+    <p class="auth__foot">Nothing here sends a proposal. The pipeline stops at
+      <code>drafted</code>; a person reviews every draft before it leaves.</p>
+  </div>
+</main>
+</body>
+</html>

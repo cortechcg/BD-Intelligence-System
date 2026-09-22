@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ title }} · Cortech BD</title>
+<link rel="stylesheet" href="{{ static_base }}/app.css">
+</head>
+<body>
+<main class="auth">
+  <div class="auth__card">
+    <span class="brand"><span class="brand__mark" aria-hidden="true"></span><span class="brand__name">Cortech <span>BD</span></span></span>
+    <ol class="rail rail--sm auth__rail" aria-hidden="true">
+      <li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg is-done"></li><li class="rail__seg rail__seg--human is-current is-halt-critical"></li>
+    </ol>
+    <h1>{{ title }}</h1>
+    <div class="band band--critical" role="alert">
+      <div class="band__title">{{ reason }}</div>
+      {% if hint %}{{ hint }}{% endif %}
+    </div>
+    <p>Only <strong>@{{ domain }}</strong> Google accounts can sign in. If you used a
+      personal account, choose your work account and try again.</p>
+    <a class="btn btn--quiet" href="{{ url_login }}">Try a different account</a>
+  </div>
+</main>
+</body>
+</html>
