@@ -345,15 +345,16 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 
 .table--queue { table-layout: fixed; }
 .table--queue .c-opp   { width: auto; }
-.table--queue .c-client{ width: 160px; }
-.table--queue .c-rail  { width: 140px; }
-.table--queue .c-state { width: 200px; }
-.table--queue .c-num   { width: 76px; }
-.table--queue .c-rec   { width: 104px; }
-.table--queue .c-date  { width: 110px; }
-.table--queue .c-act   { width: 124px; }
+.table--queue .c-client{ width: 140px; }
+.table--queue .c-rail  { width: 128px; }
+.table--queue .c-state { width: 180px; }
+.table--queue .c-num   { width: 64px; }
+.table--queue .c-rec   { width: 96px; }
+.table--queue .c-date  { width: 104px; }
+.table--queue .c-act   { width: 112px; }
 .table--queue .c-sel   { width: 44px; }
-.table--queue td { overflow-wrap: anywhere; }
+.table--queue td { overflow-wrap: break-word; }
+.table--queue .t-sub.mono { overflow-wrap: anywhere; }
 .factors .evidence { font-family: var(--doc); font-size: var(--t14); color: var(--ink-2); max-width: var(--measure); }
 
 /* Key/value */
