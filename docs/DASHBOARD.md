@@ -133,6 +133,18 @@ What changed so it cannot recur:
    `tests/test_render_yaml.py` (16 checks) fails CI if a command, service
    type, or env var name drifts from what the code actually reads.
 
+7. **Fourth failure, 2026-09-22, from `render.yaml` itself:** the web
+   `dockerCommand` was an inline `sh -c '…'` string. Render handed the whole
+   line to the container as a single literal program name → exit 127
+   `sh: 1: exec uvicorn dashboard.app:app … : not found` (pip had installed
+   uvicorn fine). Nested quoting in a YAML string that passes through another
+   shell layer is fragile, and this was the second whitespace/quoting deploy
+   failure. Fix: the command lives in a committed script,
+   [`dashboard/start.sh`](../dashboard/start.sh) (`chmod +x` in the
+   Dockerfile), and `dockerCommand` is the bare path. Rule:
+   **`dockerCommand` is plain words only — no `sh -c`, no quotes**;
+   `tests/test_render_yaml.py` rejects any shell metacharacter in it.
+
 Emails from that run went only to `EMAIL_RECIPIENTS` (both `send_report` and
 `send_proposal_email` resolve recipients solely from that env var; no code
 path reads an address from a tender). The drafted opportunity sits in the
@@ -191,7 +203,7 @@ Both commands were re-verified from the code on 2026-09-21 (§6):
 
 | Service | `type` | `dockerCommand` | Proof it is the right process |
 |---|---|---|---|
-| `cortech-bd-dashboard` | `web` | `sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"'` | first log line `IDENTITY: cortech-bd-web`, then `Uvicorn running on http://0.0.0.0:<PORT>`; `/healthz` → 200 |
+| `cortech-bd-dashboard` | `web` | `dashboard/start.sh` — runs `exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"` | first log line `IDENTITY: cortech-bd-web`, then `Uvicorn running on http://0.0.0.0:<PORT>`; `/healthz` → 200 |
 | `cortech-bd-worker` | `worker` | `python -m dashboard.worker` | first log lines `IDENTITY: cortech-bd-worker` then `dashboard worker up (token …); aggregate cap 100.00 USD / 24h`; **no port** |
 
 The FastAPI instance is the module-level `app` in `dashboard/app.py`
@@ -473,7 +485,10 @@ Design probe (Phase 1 screen from real rows, no server, no auth):
   * web, `PORT=8766 sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" …'`
     → `IDENTITY: cortech-bd-web`, `Uvicorn running on http://0.0.0.0:8766`,
     socket `LISTEN 0.0.0.0:8766`, `GET /healthz` 200 `ok`, `GET /` 302 →
-    `/auth/login`.
+    `/auth/login`. **Superseded 2026-09-22** (Incident item 7): the same
+    command now runs from `dashboard/start.sh`. Re-verified in the built
+    image: `docker run -e PORT=8766 -p 8766:8766 <image> dashboard/start.sh`
+    → `Uvicorn running on http://0.0.0.0:8766`, `GET /healthz` 200.
   * web with **only** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` and the four auth
     vars set (no `.env`, no Anthropic/OpenAI/Airtable) → same result. The web
     does not need pipeline credentials; they were removed from its Blueprint

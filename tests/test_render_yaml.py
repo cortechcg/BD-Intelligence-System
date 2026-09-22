@@ -24,13 +24,17 @@ def test_exactly_two_services_web_and_worker():
     assert [s["type"] for s in SPEC["services"]] == ["web", "worker"]
 
 
+START_SH = Path("dashboard/start.sh")
+
+
 def test_web_service_binds_port_and_has_a_health_check():
     web = _by_type("web")
     assert web["name"] == "cortech-bd-dashboard"
-    cmd = web["dockerCommand"]
-    assert "uvicorn dashboard.app:app" in cmd
-    assert "--host 0.0.0.0" in cmd
-    assert "PORT" in cmd, "the web command must bind Render's $PORT"
+    assert web["dockerCommand"].strip() == "dashboard/start.sh"
+    script = START_SH.read_text()
+    assert "uvicorn dashboard.app:app" in script
+    assert "--host 0.0.0.0" in script
+    assert "PORT" in script, "the web start script must bind Render's $PORT"
     assert web.get("healthCheckPath") == "/healthz"
 
 
@@ -132,12 +136,33 @@ def test_every_declared_env_var_is_actually_read_by_the_code():
             assert e["key"] in literals, f"{s['name']}:{e['key']} is not read anywhere in the code"
 
 
-def test_web_command_is_the_verified_string_and_worker_has_no_shell_wrapper():
-    web, worker = _by_type("web"), _by_type("worker")
-    assert web["dockerCommand"].startswith("sh -c '"), "sh -c is what expands ${PORT} inside the container"
-    assert '--port "${PORT:-10000}"' in web["dockerCommand"]
-    assert "--proxy-headers" in web["dockerCommand"], "Render terminates TLS; app must trust X-Forwarded-*"
-    assert "sh -c" not in worker["dockerCommand"]
+def test_no_docker_command_contains_shell_quoting():
+    """2026-09-22: an inline `sh -c '...'` dockerCommand reached the container
+    as ONE literal program name → exit 127 "not found". Anything that needs
+    shell expansion belongs in a committed script, never in this YAML."""
+    for s in SPEC["services"]:
+        cmd = s["dockerCommand"]
+        assert "sh -c" not in cmd, f"{s['name']}: no inline shell in dockerCommand"
+        for ch in "'\"$;|&":
+            assert ch not in cmd, f"{s['name']}: {ch!r} in dockerCommand — move it into a script"
+
+
+def test_web_start_script_is_the_verified_command_and_executable():
+    import stat
+    import subprocess
+    script = START_SH.read_text()
+    assert script.startswith("#!/bin/sh\n"), "must run under the image's /bin/sh"
+    assert "set -e" in script
+    assert "exec uvicorn dashboard.app:app" in script, "exec so uvicorn is PID 1 and gets SIGTERM"
+    assert '--port "${PORT:-10000}"' in script
+    assert "--proxy-headers" in script, "Render terminates TLS; app must trust X-Forwarded-*"
+    assert '--forwarded-allow-ips="*"' in script
+    assert START_SH.stat().st_mode & stat.S_IXUSR, "dashboard/start.sh must be committed executable"
+    assert subprocess.run(["sh", "-n", str(START_SH)]).returncode == 0, "start.sh has a shell syntax error"
+    # The Dockerfile must not rely on the host's mode bits surviving transport.
+    dockerfile = Path("Dockerfile").read_text()
+    assert "RUN chmod +x dashboard/start.sh" in dockerfile
+    assert not any(l.strip().startswith("dashboard/start.sh") for l in Path(".dockerignore").read_text().splitlines())
 
 
 def test_no_secret_values_are_committed():
