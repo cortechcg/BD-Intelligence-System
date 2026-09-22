@@ -86,10 +86,12 @@ async def security_headers(request: Request, call_next):
     # Tender titles and model prose are rendered on these pages. Jinja
     # autoescapes them; this is the second layer. Inline style is used only
     # for chart-bar widths; inline script for the poll/notify snippet.
+    # cdn.jsdelivr.net is allowed for exactly one script: Chart.js on the
+    # Portfolio view, pinned by version and subresource-integrity hash.
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self'; form-action 'self'; "
         "frame-ancestors 'none'; base-uri 'none'",
     )
     return response
@@ -329,7 +331,68 @@ def portfolio_page(request: Request):
         "dashboard_runs": triggers.recent(50),
         **_spend_context(),
     })
+    ctx["charts"] = _portfolio_charts(portfolio, ctx["digest"], ctx["dashboard_runs"])
     return templates.TemplateResponse(request, "portfolio.html", ctx)
+
+
+def _spend_by_day(runs: list[dict]) -> dict:
+    """Group dashboard runs by the day they were requested (UTC).
+
+    Two series: spend on runs that finished (`succeeded`) and spend on runs
+    that did not (failed, cancelled, cap-halted) — the latter is real money
+    too and is never hidden. Runs whose spend is unrecorded are counted in
+    `unknown` and drawn as nothing, never as zero.
+    """
+    days: dict[str, dict] = {}
+    for r in runs:
+        day = (r.get("requested_at") or "")[:10]
+        if not day:
+            continue
+        d = days.setdefault(day, {"completed": 0.0, "stopped": 0.0, "runs": 0, "unknown": 0})
+        d["runs"] += 1
+        spend = r.get("spend_usd")
+        if spend is None:
+            d["unknown"] += 1
+            continue
+        key = "completed" if r.get("status") == "succeeded" else "stopped"
+        d[key] += float(spend)
+    labels = sorted(days)
+    return {
+        "labels": labels,
+        "completed": [round(days[k]["completed"], 4) for k in labels],
+        "stopped": [round(days[k]["stopped"], 4) for k in labels],
+        "runs": [days[k]["runs"] for k in labels],
+        "unknown": [days[k]["unknown"] for k in labels],
+        "run_count": len(runs),
+    }
+
+
+def _portfolio_charts(portfolio: dict, digest, runs: list[dict]) -> dict:
+    """Everything the Portfolio charts draw, as plain JSON. Same numbers the
+    page's tables print — the tables stay as the text fallback."""
+    def window(w):
+        if w is None or not w.is_trend:
+            return None
+        return {
+            "labels": [c.label for c in w.counts[:10]],
+            "counts": [c.count for c in w.counts[:10]],
+            "coverage": w.coverage_clause(),
+            "sample": w.sample_clause(),
+            "shown": min(10, len(w.counts)),
+            "total_labels": len(w.counts),
+        }
+    return {
+        "stage": {
+            "labels": list(queries.ALL_STAGES),
+            "counts": [portfolio["by_stage"].get(s, 0) for s in queries.ALL_STAGES],
+            "agent_stages": len(queries.AGENT_STAGES),
+            "ledger_rows": portfolio["ledger_rows"],
+        },
+        "spend": _spend_by_day(runs),
+        "themes_30": window(digest.themes.get(30)) if digest else None,
+        "themes_90": window(digest.themes.get(90)) if digest else None,
+        "geography_30": window(digest.geography.get(30)) if digest else None,
+    }
 
 
 @app.get("/draft")
