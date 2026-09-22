@@ -8,7 +8,7 @@
 <div class="view-head">
   <h1 class="doc">{{ m.doc_value(d.title, "untitled — title not extracted") }}</h1>
   <div class="view-head__meta">
-    <a href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}">{{ m.host(d.source_url) }} ↗</a>
+    <span class="row" style="gap: var(--sp2)"><a class="iconbtn" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span>{{ m.host(d.source_url) }}</span></span>
     <span>client {{ m.value_terse(d.client) }}</span>
     <span>deadline {{ m.value_terse(d.deadline) }}</span>
   </div>
