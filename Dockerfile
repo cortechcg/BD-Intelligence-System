@@ -15,13 +15,18 @@ RUN playwright install chromium
 # Copy the rest of the application.
 COPY . .
 
+# The web service's start script. Set the bit here rather than trusting the
+# host's mode bits to survive git/zip transport: a lost +x surfaces as
+# "not found" / "permission denied" at deploy time, not at build time.
+RUN chmod +x dashboard/start.sh
+
 # Default command = the dashboard WORKER (queue consumer, no schedule of its
 # own). It must never be `python main.py`: bare main.py is the always-on
 # scheduler that fires a full discovery run on boot and every 6 hours. That
 # default caused the 2026-09-21 Render incident (and the earlier Railway one
 # in README §"This system runs locally"). A Render/Railway service created by
 # hand without a Start Command runs this CMD.
-#   web service : uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT
+#   web service : dashboard/start.sh  (uvicorn dashboard.app:app on $PORT)
 #   worker      : python -m dashboard.worker            (this default)
 #   discovery   : python main.py --once                  (systemd/cron only)
 CMD ["python", "-m", "dashboard.worker"]

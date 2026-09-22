@@ -10,9 +10,16 @@
 # │   2. Worker command deployed under a Web Service → binds no port →       │
 # │      "No open ports detected" forever, no UI anywhere.                    │
 # │   3. Web service recreated by hand → Start Command mistyped → failed.     │
+# │ And a fourth on 2026-09-22, from THIS file:                               │
+# │   4. Web dockerCommand was an inline `sh -c '...'` string → the whole    │
+# │      command line reached the container as ONE literal program name →    │
+# │      exit 127 "not found" (uvicorn was installed fine). Nested quoting   │
+# │      in a YAML string that passes through another shell layer is         │
+# │      fragile. Fix: a committed script, dashboard/start.sh, not more      │
+# │      escaping. Never put `sh -c` or quotes in a dockerCommand again.     │
 # │ The command strings below are verified (see docs/DASHBOARD.md §6) and   │
 # │ tests/test_render_yaml.py fails CI if either service drifts.             │
-# │   web    (type: web)    uvicorn dashboard.app:app --host 0.0.0.0 --port $PORT │
+# │   web    (type: web)    dashboard/start.sh  (uvicorn dashboard.app:app on $PORT) │
 # │   worker (type: worker) python -m dashboard.worker                        │
 # │   NEVER `python main.py` in any Render service.                           │
 # └───────────────────────────────────────────────────────────────────────────┘
@@ -24,8 +31,10 @@
 #     (set once in the Render dashboard, never committed) or `generateValue`.
 #     A bare `key:` is a spec error.
 #   * `PORT` is NOT declared here. Render sets it for every web service
-#     (default 10000); the web command reads it via "${PORT:-10000}".
+#     (default 10000); dashboard/start.sh reads it via "${PORT:-10000}".
 #     Verified locally: PORT=8766 → "Uvicorn running on http://0.0.0.0:8766".
+#   * `dockerCommand` values are plain words only — no `sh -c`, no quotes
+#     (failure 4 above). Anything needing shell expansion lives in a script.
 #
 # Two services, both stateless — every piece of real state is in the existing
 # Supabase project, so either can restart or redeploy without losing anything.
@@ -51,9 +60,11 @@ services:
     plan: 0.5c-512mb             # 0.5 CPU / 512 MB — $7/mo. `free` spins down after 15 idle min.
     branch: main
     dockerfilePath: ./Dockerfile
-    # Verified 2026-09-21 (docs/DASHBOARD.md §6): binds 0.0.0.0:$PORT, /healthz → 200.
-    # `sh -c` so $PORT (injected by Render) is expanded inside the container.
-    dockerCommand: sh -c 'exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"'
+    # Verified 2026-09-22 (docs/DASHBOARD.md §6): binds 0.0.0.0:$PORT, /healthz → 200.
+    # The script (chmod +x in the Dockerfile) runs
+    #   exec uvicorn dashboard.app:app --host 0.0.0.0 --port "${PORT:-10000}" --proxy-headers --forwarded-allow-ips="*"
+    # $PORT is expanded by the script's own shell — nothing here to quote.
+    dockerCommand: dashboard/start.sh
     healthCheckPath: /healthz
     autoDeployTrigger: commit
     envVars:
