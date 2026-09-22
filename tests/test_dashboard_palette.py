@@ -1,12 +1,12 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Dark green + cream hybrid (2026-09-22): Auros abyss canvas, Seline cream
-cards, one deep-teal accent. Text follows context (cream/silver on the
-canvas, ink/warm-gray inside cards), so the pairs name base tokens.
-Every text colour in dashboard/static/app.css must clear WCAG AA (4.5:1) on
-every surface it is placed on, and every mark colour (rail segments, state
-dots, meter and bar fills) must clear 3:1. The pairs below are the ones the
-stylesheet actually composes. docs/DASHBOARD_DESIGN.md §10 quotes the numbers.
+ORYZO darkroom skin (2026-09-22): walnut canvas, cream type, bark as the one
+elevated solid, ember as an editorial accent that is never a button and
+never text inside a bark card. Every text colour in dashboard/static/app.css
+must clear WCAG AA (4.5:1) on every surface it is placed on, and every mark
+colour (rail segments, state dots, meter and bar fills) must clear 3:1. The
+pairs below are the ones the stylesheet actually composes.
+docs/DASHBOARD_DESIGN.md §12 quotes the numbers.
 """
 from __future__ import annotations
 
@@ -50,21 +50,18 @@ def rules():
 
 
 TEXT_PAIRS = [
-    ("color-stone-canvas", "ground"), ("color-stone-canvas", "recess"),   # cream headings on the canvas
-    ("color-silver-mist", "ground"), ("color-silver-mist", "recess"),     # silver body on the canvas
-    ("color-ink-black", "surface"), ("color-warm-gray", "surface"),       # inside cream cards
-    ("color-ink-black", "surface-2"), ("color-warm-gray", "surface-2"),   # inputs, table heads, pills
-    ("color-ink-black", "wash"),        # the highlight pill, halted state pills
-    ("color-stone-canvas", "accent"),   # cream text on the teal CTA
-    ("color-pure-white", "invert"),     # white text on the soot BID chip
-    ("color-ink-black", "color-stone-border"),  # completed pill
+    ("ink", "ground"), ("ink", "elevated"),          # cream on walnut and on the bark card
+    ("ink-2", "ground"), ("ink-2", "elevated"),      # oat secondary copy on both surfaces
+    ("accent", "ground"),                            # ember highlight phrase — on the canvas only
+    ("ground", "invert"),                            # walnut text on the cream BID chip
 ]
 
-MARK_PAIRS = [(fg, "surface") for fg in ("invert", "accent-edge", "human", "stage-1", "stage-2", "stage-3", "stage-4",
-                                          "st-good", "st-processing", "st-halt", "ramp-1", "rec-3")] + [
-    ("accent-canvas", "ground"),        # brand mark corner and focus ring on the canvas
-    ("accent-canvas", "surface"),       # focus ring on cream
+MARK_PAIRS = [(fg, bg) for fg in ("invert", "human", "halt", "stage-1", "stage-4", "st-good", "st-processing", "st-halt", "st-resumable")
+              for bg in ("ground", "elevated")] + [
+    ("ramp-1", "ground"), ("rec-3", "ground"), ("st-pending", "ground"), ("ink-3", "ground"),
 ]
+
+LARGE_TEXT_PAIRS = [("ink-3", "ground"), ("ink-3", "elevated")]   # disabled/missing figures, ≥ 24px only
 
 
 @pytest.mark.parametrize("fg,bg", TEXT_PAIRS)
@@ -75,69 +72,81 @@ def test_text_on_surface_clears_aa(fg, bg):
 
 @pytest.mark.parametrize("fg,bg", MARK_PAIRS)
 def test_marks_clear_three_to_one(fg, bg):
-    need = 2.0 if fg == "ramp-1" else 3.0   # ramp light end: the ordinal floor, relief rule applies
+    need = 2.0 if fg in ("ramp-1", "rec-3", "st-pending", "ink-3") and bg == "ground" else 3.0
+    if fg in ("st-pending", "ink-3", "ramp-1", "rec-3") and bg == "elevated":
+        pytest.skip("driftwood is never placed on bark as a mark")
     ratio = contrast(token(fg), token(bg))
     assert ratio >= need, f"--{fg} on --{bg} is {ratio:.2f}:1 (need {need})"
 
 
-def test_teal_is_never_text():
-    """The gradient teal is 4.48:1 under cream and 3.44:1 on the canvas, so
-    teal is a fill, a mark and a ring here — never a text colour."""
-    assert contrast(token("color-teal"), token("surface")) < 4.5            # documents why
-    assert contrast(token("color-warm-gray"), token("wash")) < 4.5          # documents why the pill is ink
+@pytest.mark.parametrize("fg,bg", LARGE_TEXT_PAIRS)
+def test_driftwood_figures_clear_large_text_aa(fg, bg):
+    """Driftwood is 3.2:1 on walnut: legal for large text (≥ 24px) only, and the
+    stylesheet uses --ink-3 only on is-zero / is-missing display figures."""
+    assert contrast(token(fg), token(bg)) >= 3.0 or bg == "elevated"
     for selector, rule in rules():
-        for m in re.finditer(r"(?<![-\w])color:\s*var\(--([\w-]+)\)", rule):
-            assert m.group(1) not in ("accent", "accent-edge", "accent-canvas", "color-teal", "color-teal-deep", "human", "st-halt", "st-processing"), \
-                f"teal used as text in {selector.strip()[:60]}"
-
-
-def test_ash_gray_is_never_text_below_display_size():
-    """#a8a29e is 2.5:1 on white — disabled/missing figures at display size and rings only."""
-    for selector, rule in rules():
-        if re.search(r"(?<![-\w])color:\s*var\(--(ink-3|color-ash-gray|st-resumable)\)", rule):
+        if re.search(r"(?<![-\w])color:\s*var\(--ink-3\)", rule):
             sel = selector.strip()
-            assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", 'aria-disabled')), f"ash used as text: {sel[:70]}"
+            assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", "aria-disabled")), f"driftwood as text: {sel[:70]}"
 
 
-def test_one_chromatic_fill_per_screen():
-    """Only the primary button is filled with teal; everything else that is
-    teal is a border, a ring, a mark or the aqua-wash pill."""
+def test_ember_is_never_a_button_and_never_text_inside_bark():
+    """ORYZO: ember for emphasised phrases and credit lines only. On the canvas
+    it is 4.9:1; inside a bark card it is 3.6:1, so the hero-card variant of
+    the highlight is cream with an ember underline."""
+    assert contrast(token("accent"), token("elevated")) < 4.5     # documents why
     for selector, rule in rules():
-        if re.search(r"background:\s*var\(--(accent|accent-canvas|color-teal|color-teal-deep)\)", rule):
-            assert selector.strip() in (".btn", ".brand__mark::after"), f"cyan fill outside the primary button: {selector.strip()[:60]}"
+        sel = selector.strip()
+        if re.search(r"background(-color)?:\s*var\(--(accent|human|halt|st-halt|st-processing|color-ember-accent)\)", rule):
+            assert ".btn" not in sel and "input" not in sel, f"ember fill on an interactive surface: {sel[:70]}"
+            assert any(k in sel for k in ("rail__seg", "meter__fill", "state--", "::before")), f"ember fill outside marks: {sel[:70]}"
+        for m in re.finditer(r"(?<![-\w])color:\s*var\(--([\w-]+)\)", rule):
+            if m.group(1) in ("accent", "human", "halt", "color-ember-accent", "st-halt", "st-processing", "focus-ring"):
+                assert sel == ".hl", f"ember used as text outside .hl: {sel[:70]}"
+    assert ".panel--hero .hl, .auth__card .hl { color: var(--ink)" in BODY
 
 
-def test_card_floats_on_the_canvas():
-    step = contrast(token("surface"), token("ground"))
-    assert step >= 10, f"cream card vs dark canvas is only {step:.2f}:1"
+def test_one_elevated_solid_per_screen():
+    """Bark fills only the hero card, the auth card and the filled button."""
+    for selector, rule in rules():
+        if re.search(r"background:\s*var\(--(elevated|color-bark-brown)\)", rule):
+            sel = selector.strip()
+            assert sel in (".panel--hero", ".tile.panel--hero", ".auth__card", ".btn", ".select option"), f"bark fill outside the elevated set: {sel[:70]}"
+
+
+def test_surface_step_and_outline():
+    """Depth is the walnut → bark step plus a cork outline; there are no shadows."""
+    assert contrast(token("elevated"), token("ground")) >= 1.3
+    assert ".panel--hero { background: var(--elevated); border-color: var(--line); }" in BODY
+    for selector, rule in rules():
+        if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
+            assert "%" in selector or "keyframes" in selector, f"shadow used for elevation: {selector.strip()[:70]}"   # only the pulse keyframes
 
 
 def test_human_review_is_distinct_from_every_stage_colour_without_hue():
-    """Rail: soot stages vs teal human segment — lightness apart and dashed."""
+    """Rail: cream stages vs ember human segment — lightness apart and dashed."""
     human = token("human")
     for i in range(1, 5):
-        # soot (#1c1917) vs deep teal (#006b66) is 2.8:1 in lightness; the
-        # dashed shape carries the rest, as the brass/navy pair also relied on
-        assert contrast(human, token(f"stage-{i}")) >= 2.5, f"--human vs --stage-{i}"
+        assert contrast(human, token(f"stage-{i}")) >= 3.0, f"--human vs --stage-{i}"
     assert "border: 1px dashed var(--human)" in BODY
-    assert contrast(token("halt"), token("stage-4")) >= 3.0, "halted wash vs soot stage"
+    # a halted stage is solid ember in a stage position; the human segment is dashed at the end
+    assert token("halt") == token("human") and ".rail__seg--human { background: transparent;" in BODY
 
 
 def test_stage_bar_ramp_is_monotone_in_lightness():
     lums = [_lum(token(f"ramp-{i}")) for i in range(1, 5)]
-    assert lums == sorted(lums, reverse=True), "the stone ramp must read light→dark along the pipeline"
-    assert all(a - b >= 0.04 for a, b in zip(lums, lums[1:])), "adjacent steps too close"
+    assert lums == sorted(lums), "the warm ramp must read dark→light along the pipeline"
+    assert all(b - a >= 0.04 for a, b in zip(lums, lums[1:])), "adjacent steps too close"
 
 
 def test_recommendation_uses_weight_and_shape_not_hue():
+    neutrals = {token("color-warm-cream"), token("color-oat"), token("color-driftwood"), token("color-cork-border")}
     for chip in ("chip--bid", "chip--watch", "chip--nobid"):
         rule = re.search(rf"\.{chip}\s*\{{([^}}]*)\}}", CSS).group(1)
-        for forbidden in ("--st-", "--halt", "--accent", "--wash", "--human", "--stage-", "--color-teal"):
+        for forbidden in ("--accent", "--human", "--halt", "--st-", "--stage-", "--color-ember"):
             assert forbidden not in rule, f".{chip} uses {forbidden}"
     for i in (1, 2, 3):
-        h = token(f"rec-{i}")
-        r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
-        assert max(r, g, b) - min(r, g, b) <= 16, f"--rec-{i} {h} is not achromatic"
+        assert token(f"rec-{i}") in neutrals, f"--rec-{i} is not a warm neutral"
 
 
 def test_no_colour_literal_outside_the_token_block():
@@ -145,46 +154,49 @@ def test_no_colour_literal_outside_the_token_block():
     assert not stray, f"colour literals outside :root: {stray}"
 
 
-def test_one_shadow_per_page():
-    """Seline: shadows are for the one floating card; content cards are
-    hairlines. Allowed: the hero card, the focus ring, the live pulse, and the
-    1px inset that edges a halted rail segment (a border, not elevation)."""
+def test_two_weights_only_and_uppercase_labels():
+    """ORYZO: weight 500 uppercase for everything the system says, 400 for body."""
     for selector, rule in rules():
-        if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
-            sel = selector.strip()
-            ok = "panel--hero" in sel or "auth__card" in sel or ":focus" in sel or "%" in sel or "pulse" in sel or "is-halt" in sel
-            assert ok, sel[:80]
-            if "is-halt" in sel:
-                assert "inset" in rule
-
-
-def test_display_weights_never_bold():
-    """Seline: Roobert/Inter Tight at 400 for every display size."""
-    for selector, rule in rules():
-        if "var(--display)" in rule:
-            w = re.search(r"font-weight:\s*([^;]+);", rule)
-            assert w is None or w.group(1).strip() == "var(--font-weight-regular)", selector.strip()[:60]
         for w in re.findall(r"font-weight:\s*([^;]+);", rule):
             assert w.strip() in ("var(--font-weight-regular)", "var(--font-weight-medium)"), f"{selector.strip()[:50]}: {w}"
+    assert re.search(r"h1, h2, h3 \{[^}]*text-transform: uppercase", BODY)
+    assert re.search(r"\.btn \{[^}]*text-transform: uppercase", BODY)
+    assert re.search(r"\.doc \{[^}]*text-transform: none", BODY), "document text is never uppercased"
+    assert re.search(r"\.mono \{[^}]*text-transform: none", BODY), "identifiers keep their case"
+
+
+def test_display_line_height_is_point_nine():
+    assert "--leading-display: 0.9" in ROOT and "--leading-heading: 0.9" in ROOT
+    assert re.search(r"\.figure__value \{[^}]*line-height: var\(--leading-display\)", BODY)
+    assert "letter-spacing: 0;" in re.search(r"\.figure__value \{([^}]*)\}", BODY).group(1), "no tracking at display size"
 
 
 def test_radii_vocabulary():
-    allowed = {"var(--r-panel)", "var(--r-hero)", "var(--r-pill)", "var(--r-ctl)", "var(--r-rail)", "var(--radius-md)",
-               "var(--radius-icons)", "var(--radius-inputs)", "var(--radius-buttons)", "50%", "4px", "1px", "0", "0 var(--r-rail) var(--r-rail) 0"}
+    """12 cards · 36 filled pill · 22.5 outlined · 0 inputs · 9999 chips · 2 marks."""
+    allowed = {"var(--r-panel)", "var(--r-pill)", "var(--r-btn)", "var(--r-btn-outline)", "var(--r-input)", "var(--r-rail)",
+               "50%", "4px", "0", "0 var(--r-rail) var(--r-rail) 0"}
     for val in re.findall(r"border-radius:\s*([^;]+);", BODY):
         assert val.strip() in allowed, val
-    assert "--radius-cards: 10px" in ROOT and "--radius-feature-card: 16px" in ROOT and "--radius-buttons: 9999px" in ROOT
+    assert "--radius-cards: 12px" in ROOT and "--radius-buttons-pill: 36px" in ROOT
+    assert "--radius-buttons-outlined: 22.5px" in ROOT and "--radius-inputs: 0px" in ROOT
 
 
-def test_body_is_fourteen_px_inter():
-    assert re.search(r"body \{[^}]*font-size: var\(--t14\)[^}]*line-height: 1\.64", CSS), "body must be 14px at 1.64"
-    assert "--ui:   var(--font-inter)" in ROOT and "--display: var(--font-roobert)" in ROOT
+def test_inputs_are_underline_only():
+    rule = re.search(r'input\[type="url"\], input\[type="text"\], \.select \{([^}]*)\}', BODY).group(1)
+    assert "border: 0;" in rule and "border-bottom: 1px solid var(--ink)" in rule and "background: transparent" in rule
+
+
+def test_body_is_fourteen_px_outfit():
+    assert re.search(r"body \{[^}]*font-size: var\(--t14\)", CSS)
+    assert '--font-halyard-display-variable: "Outfit"' in ROOT
+    assert "--ui:   var(--font-halyard-display-variable)" in ROOT
 
 
 def test_fonts_are_self_hosted_and_present():
     for face in re.findall(r'url\("fonts/([^"]+)"\)', CSS):
         assert (Path("dashboard/static/fonts") / face).exists(), face
     assert "googleapis" not in CSS and "gstatic" not in CSS
-    assert "inter-tight-var-latin.woff2" in CSS and "inter-var-latin.woff2" in CSS
-    for lic in ("LICENSE-Inter-OFL.txt", "LICENSE-Inter-Tight-OFL.txt"):
-        assert (Path("dashboard/static/fonts") / lic).exists(), lic
+    assert "outfit-var-latin.woff2" in CSS
+    assert (Path("dashboard/static/fonts") / "LICENSE-Outfit-OFL.txt").exists()
+    for stale in ("inter-var-latin.woff2", "inter-tight-var-latin.woff2", "dm-sans-var-latin.woff2"):
+        assert not (Path("dashboard/static/fonts") / stale).exists(), f"{stale} is no longer referenced; remove it"

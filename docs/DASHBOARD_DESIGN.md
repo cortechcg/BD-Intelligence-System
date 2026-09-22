@@ -1,11 +1,11 @@
 # Dashboard design direction
 
-> **2026-09-22, evening: the dark green + cream hybrid (§11) is current.** It
-> keeps Seline's type and components (§10) on Auros' teal canvas (§9). §2–§4
-> hold the navy/brass tokens of the first pass; the structure in §0–§8 stands. Everything structural in §0–§8 — the critique, the rail,
-> the hierarchy per view, the states, the value primitive — still holds; §9
-> says which Auros token now plays each role and shows the recomputed
-> contrast. Screenshots: `docs/design-pass/auros-before-*` / `auros-after-*`.
+> **2026-09-22, night: the ORYZO darkroom skin (§12) is current.** It replaces
+> the dark green + cream hybrid (§11), which replaced Seline (§10), which
+> replaced Auros (§9). §2–§4 hold the navy/brass tokens of the first pass; the
+> structure in §0–§8 — the critique, the rail, the hierarchy per view, the
+> states, the value primitive — has held through every skin.
+> Screenshots for this skin: `docs/design-pass/oryzo-before-*` / `oryzo-after-*`.
 
 Second pass, 2026-09-22. The first pass (2026-09-21) established the rules
 that still hold: colour encodes evidence status, missing data is grey, the
@@ -507,3 +507,95 @@ rejected warm-gray on aqua wash 4.40 (the pill is ink) · teal as text anywhere
 - `tests/test_dashboard_palette.py` names base tokens per surface (the role
   aliases now vary by context) and asserts the card step, the teal-never-text
   rule and the one-fill rule.
+
+
+---
+
+## 12. ORYZO darkroom skin (2026-09-22)
+
+Token swap plus component remap onto the ORYZO reference ("darkroom product
+editorial: a lone object floating in warm darkness, cream typography the
+only decoration"). Structure unchanged. Screenshots:
+`docs/design-pass/oryzo-before-*` / `oryzo-after-*`.
+
+### 12.1 Type
+
+| Role | Face | Note |
+|---|---|---|
+| Everything the system says | **Outfit** (variable, OFL 1.1), 400 and 500 only | The Halyard Display substitute (the reference offers Inter or Söhne; Outfit is the geometric grotesk of the free options and its wide caps carry uppercase at line-height 0.9). One family for headings, labels, figures and body, as the reference does. Self-hosted with its OFL text; Inter and Inter Tight removed. |
+| Document and model text | Source Serif 4, mixed case | Unchanged, structural: serif means a document or model said it. `text-transform: none` is test-enforced. |
+| Identifiers | IBM Plex Mono | Unchanged; keeps its case inside uppercase headings. |
+
+Two typographic modes, as the reference specifies: **uppercase weight 500**
+for headings, labels, nav, buttons, pills, table heads and disclosure titles,
+with no letter-spacing adjustment; **mixed-case weight 400** for body copy at
+14px (the reference's 29px body is a product page, not a tool). Display sizes
+are the reference's: 51px hero figures and meter, 41px view titles and tile
+figures, 24px section headings and stats, 18px subheads — all at line-height
+0.9 above 36px so the figures stack as solid form.
+
+### 12.2 Token map
+
+| Dashboard role | ORYZO token | Value |
+|---|---|---|
+| canvas, and every outlined card | `--color-walnut-shadow` | `#100904` |
+| the one elevated solid per screen: hero card, auth card, filled button | `--color-bark-brown` | `#382416` |
+| hairlines, dashed dividers, rail track | `--color-cork-border` | `#40372e` |
+| strong hairlines, quiet button borders, missing figures | `--color-driftwood` | `#6c5f51` |
+| headings, figures, primary text, BID chip, completed marks, rail stages | `--color-warm-cream` | `#ffedd7` |
+| the editorial accent: human-review segment, halted stage, "a person should act" edge, the one highlighted phrase per headline | `--color-ember-accent` | `#dc5000` |
+| secondary text | **added** `--color-oat` | `#b8a894` |
+| ramp step | **added** `--color-sandstone` | `#8f8070` |
+
+The two additions are steps of the reference's own warm grey between
+driftwood and cream. Driftwood as body text is 3.19:1 on walnut and 2.37:1 on
+bark, so it cannot carry secondary copy; oat (8.5:1 / 6.3:1) does. Table heads,
+pills and hover rows use bark at 45 % alpha — the same solid, thinner.
+
+### 12.3 Meaning that had to survive
+
+| Signal | Treatment |
+|---|---|
+| agent stages done | cream |
+| human review, awaiting a person | ember, dashed, hollow (2px when it is the current step) |
+| human review, a person acted | ember filled |
+| the machine stopped here | solid ember in a stage position (shape and position tell it from the dashed human segment; the pill says the word) |
+| state pills | bark-tinted pills with the dot: completed cream, processing ember and pulsing, failed ember ring, dead-letter ember filled, cap / cancelled oat ring |
+| recommendation | BID cream filled with walnut text, WATCH cream outline, NO-BID driftwood outline — weight and shape, no hue |
+| the one highlight per headline | ember text on the canvas (4.9:1). Inside a bark card the phrase stays cream with a 2px ember underline (ember text there is 3.6:1) |
+| "a person should act" figures | 2px dashed ember left edge; the number stays cream |
+| primary button | bark fill, cream text, 36px pill. Never ember: the reference forbids ember on buttons, and cream on ember is 3.5:1 anyway |
+| ghost buttons | driftwood outline at 22.5px, cream on hover (the reference's cream outline at forty rows would out-shout the data) |
+| inputs | underline only: transparent, 1px cream bottom rule, 0 radius, ember rule on focus |
+
+### 12.4 Contrast, recomputed on the walnut palette
+
+```
+text ≥ 4.5   cream on walnut 17.26 · on bark 12.81      oat on walnut 8.53 · on bark 6.33
+             ember highlight on walnut 4.88             walnut text on the cream BID chip 17.26
+marks ≥ 3.0  ember on walnut 4.88 · on bark 3.62        cream on bark 12.81   driftwood on walnut 3.19
+large text   driftwood (is-zero / is-missing figures, ≥ 24px) 3.19 on walnut
+rejected     driftwood as body text 3.19 / 2.37 (→ oat)   ember text on bark 3.62 (→ cream + ember underline)
+             cream on ember 3.53 (ember is never a fill)   driftwood as a mark on bark 2.37 (never placed there)
+step         bark vs walnut 1.35:1 + a cork outline — squint-checked in the after-shots
+```
+
+Ramps (dataviz validator, dark mode, walnut surface):
+
+```
+stage  "#6c5f51,#8f8070,#b8a894,#ffedd7" --ordinal → ALL CHECKS PASS (light end 3.19:1, ΔL ≥ 0.06, hue spread 4°)
+rec    "#6c5f51,#b8a894,#ffedd7"         --ordinal → ALL CHECKS PASS
+```
+
+### 12.5 Deviations, each on purpose
+
+- **Body 14px at 1.45, not 29px at 1.26.** A tool showing forty rows.
+- **Section gap 68px** (the reference's), but **no 100vh sections**: the
+  dashboard is a scrolling instrument, not a product reveal.
+- **Ghost buttons in driftwood**, not cream (above).
+- **2px radius on thin marks**; the reference's 12px floor is for containers.
+- **Serif kept for document text.** Structural.
+- **The wordmark is type only**: the brand square is hidden, as the reference
+  has no icon.
+- **One shadow-free stylesheet.** The only `box-shadow` is the live-pulse
+  keyframe (motion, not elevation), test-enforced.
