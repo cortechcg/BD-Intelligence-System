@@ -25,6 +25,7 @@ The tests refuse to run at all if a real (non-prefix) job is queued, because
 """
 from __future__ import annotations
 
+import time
 import uuid
 
 import pytest
@@ -63,8 +64,22 @@ def probe_url():
         yield url
     finally:
         sb = get_supabase()
-        # The trigger row the test made, plus anything the LIVE worker may have
-        # created if it claimed the probe first (ledger + cache rows).
+        # If the LIVE worker claimed the probe row, its pipeline run is still
+        # going when the test body ends and writes its ledger row seconds
+        # later — deleting immediately would leave that row behind (which is
+        # exactly what happened on 2026-09-22: five probe rows surfaced in the
+        # Queue's "Needs attention"). Wait for the run to finish first.
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            try:
+                live = (sb.table("dashboard_triggers").select("status").eq("source_url", url)
+                        .eq("status", "running").limit(1).execute().data or [])
+            except Exception:
+                live = []
+            if not live:
+                break
+            time.sleep(3)
+        # The trigger row the test made, plus anything the worker created.
         for table in ("dashboard_triggers", "opportunity_processing", "opportunities_cache"):
             try:
                 sb.table(table).delete().eq("source_url", url).execute()
