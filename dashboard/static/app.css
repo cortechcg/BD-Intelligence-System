@@ -1,15 +1,18 @@
-/* Cortech BD dashboard — Seline reskin, 2026-09-22.
-   Token source of truth: the Seline Analytics style reference ("quiet
-   analyst's desk on warm paper"). Structure unchanged since the 2026-09-22
-   design pass (rail, bucket figures, spend meter, tiles, bands, jobs tables);
-   only the skin changed. Mapping, reasons and contrast: docs/DASHBOARD_DESIGN.md §10.
+/* Cortech BD dashboard — dark green + cream hybrid, 2026-09-22.
+   Auros' abyssal teal canvas carries Seline's cream paper cards, type and
+   components. Structure unchanged since the 2026-09-22 design pass (rail,
+   bucket figures, spend meter, tiles, bands, jobs tables). Mapping, reasons
+   and contrast: docs/DASHBOARD_DESIGN.md §11.
    Rules of this file:
      * every colour is a token in :root; no hex/rgb() past the token block
-     * cyan is the only chromatic voice and it is NEVER text: it fills the one
-       primary button per screen (ink text on it), marks "a person is needed"
-       (rail human segment, halted pills, band edges) and the focus ring
-     * one shadow per page: the hero instrument panel. Everything else is a
-       white card with a 1px stone hairline — the border is the structure
+     * text colour follows context: cream/silver on the canvas, ink/warm-gray
+       inside a cream card. The card scope rule below redefines --ink/--ink-2
+       so every component reads right on either surface
+     * teal is the only chromatic voice and it is NEVER text: it fills the one
+       primary button per screen (cream text on it), marks "a person is
+       needed" (rail human segment, halted pills, band edges) and the focus ring
+     * one shadow per page: the hero card. Everything else is a cream card
+       with a 1px stone hairline
      * radii: 9999 pills, 10 cards, 16 the hero card, 6 inputs, 4 icons; the
        one deviation is 2px on 6–14px-tall marks (rail, meter, bars) */
 
@@ -36,7 +39,16 @@
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+
+  /* ── Auros canvas tokens (verbatim) ─────────────────────────────────── */
+  --color-liquid-abyss: #012624;
+  --color-liquid-deep: #011d1c;
+  --color-liquid-kelp: #003734;
+  --color-silver-mist: #bbc7c6;
+  --color-teal: #00827c;                 /* the bioluminescent gradient's teal end */
+  --color-teal-deep: #006b66;            /* the same hue, deepened so cream text and cream-card marks clear AA */
+  --color-aqua-wash: #cbfffc;            /* the aurora gradient's aqua stop: the highlight pill */
 
   /* ── Seline tokens, verbatim from the reference ────────────────────── */
   --color-stone-canvas: #fafaf9;
@@ -48,8 +60,6 @@
   --color-ink-black: #0c0a09;
   --color-soot: #1c1917;
   --color-sky-wash: #c1e1f7;
-  --color-cyan-signal: #3ba6f1;
-  --color-cyan-edge: #3398e1;
   --color-stone-700: #44403c;            /* Tailwind stone-700: the one added neutral, for the ordinal ramps */
 
   --font-roobert: "Inter Tight", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -79,34 +89,38 @@
 
   --surface-canvas: #fafaf9; --surface-card: #ffffff; --surface-inverted-section: #1c1917;
 
-  /* ── Dashboard role layer: every role points at a Seline token ─────── */
-  --ground:   var(--color-stone-canvas);   /* page */
-  --surface:  var(--color-pure-white);     /* cards, tables, tiles, inputs */
-  --recess:   var(--color-stone-canvas);   /* footer well sits on the canvas itself */
+  /* ── Dashboard role layer ───────────────────────────────────────────── */
+  --ground:   var(--color-liquid-abyss);   /* page: dark green */
+  --recess:   var(--color-liquid-deep);
+  --surface:  var(--color-stone-canvas);   /* cards, tables, tiles: cream paper */
+  --surface-2: var(--color-pure-white);    /* inputs, table heads, pills inside cards */
   --invert:   var(--color-soot);           /* BID chip, completed marks, rail done */
-  --ink:      var(--color-ink-black);      /* headings, figures, primary text */
-  --ink-2:    var(--color-warm-gray);      /* body, notes, table text */
-  --ink-3:    var(--color-ash-gray);       /* disabled, icon strokes, rings — never text */
-  --line:     var(--color-stone-border);
-  --line-strong: var(--color-stone-muted);
-  --hover:    var(--color-stone-canvas);
-  --wash:     var(--color-sky-wash);       /* the highlight pill, "a person is needed" fills */
-  --accent:   var(--color-cyan-signal);    /* the one filled button, focus ring */
-  --accent-edge: var(--color-cyan-edge);   /* marks and borders that mean "a person is needed" */
-  --focus-ring: rgba(59, 166, 241, 0.35);
-  --selected: rgba(193, 225, 247, 0.35);
+  /* Text on the CANVAS. The card scope rule redefines these to ink/warm-gray. */
+  --ink:      var(--color-stone-canvas);   /* headings on the canvas: cream */
+  --ink-2:    var(--color-silver-mist);    /* secondary text on the canvas */
+  --ink-3:    var(--color-ash-gray);       /* disabled, missing figures, rings */
+  --line:        rgba(250, 250, 249, 0.14);/* hairlines on the canvas */
+  --line-strong: rgba(250, 250, 249, 0.30);
+  --hover:    var(--color-pure-white);
+  --wash:     var(--color-aqua-wash);      /* the highlight pill, "a person is needed" fills */
+  --accent:   var(--color-teal-deep);      /* the one filled button, marks on cream */
+  --accent-edge: var(--color-teal-deep);
+  --accent-canvas: var(--color-teal);      /* marks on the dark canvas (brand mark) */
+  --focus-ring: rgba(0, 130, 124, 0.35);
+  --selected: rgba(203, 255, 252, 0.45);
+  --pill-canvas: rgba(250, 250, 249, 0.10);/* active nav on the canvas */
 
-  /* Pipeline rail (docs §10.3): soot for agent stages, cyan for the person */
-  --stage-1: var(--color-stone-700); --stage-2: var(--color-stone-700); --stage-3: var(--color-soot); --stage-4: var(--color-soot);
-  --human:   var(--color-cyan-edge);       /* a person is needed here: cyan, dashed */
-  --halt:    var(--color-sky-wash);        /* the machine stopped here: wash fill + cyan edge */
+  /* Pipeline rail (docs §10.3): soot for agent stages, teal for the person */
+  --stage-1: var(--color-soot); --stage-2: var(--color-soot); --stage-3: var(--color-soot); --stage-4: var(--color-soot);
+  --human:   var(--color-teal-deep);       /* a person is needed here: teal, dashed */
+  --halt:    var(--color-aqua-wash);       /* the machine stopped here: wash fill + teal edge */
   --track:   var(--color-stone-border);
 
-  /* Machine state: shape on the dot + the literal ledger word; cyan = a person is needed */
+  /* Machine state: shape on the dot + the literal ledger word; teal = a person is needed */
   --st-good:       var(--color-soot);
-  --st-processing: var(--color-cyan-edge);
+  --st-processing: var(--color-teal-deep);
   --st-pending:    var(--color-stone-muted);
-  --st-halt:       var(--color-cyan-edge);
+  --st-halt:       var(--color-teal-deep);
   --st-resumable:  var(--color-ash-gray);
 
   /* Ordinal ramps for the Portfolio bars, validated on white (docs §10.4) */
@@ -129,6 +143,13 @@
   --measure: 68ch;
 }
 
+/* ── Card scope: cream paper flips the text and hairline roles ──────────── */
+.panel, .table-wrap, .tile, .band, .notice, .empty, .auth__card, .disclosure,
+.btn--quiet, .btn--ghost, .iconbtn, .chip, .state, .hl, input, .select {
+  --ink: var(--color-ink-black); --ink-2: var(--color-warm-gray);
+  --line: var(--color-stone-border); --line-strong: var(--color-stone-muted);
+}
+
 /* ── Base ───────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -143,8 +164,8 @@ h1, h2, h3 { color: var(--ink); font-family: var(--display); font-weight: var(--
 strong { color: var(--ink); font-weight: var(--font-weight-medium); }
 a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--ink); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--r-ctl); }
-code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
+:focus-visible { outline: 2px solid var(--accent-canvas); outline-offset: 2px; border-radius: var(--r-ctl); }
+code { font-family: var(--mono); font-size: 0.92em; color: inherit; }
 .mono { font-family: var(--mono); font-size: var(--t12); overflow-wrap: anywhere; }
 .doc { font-family: var(--doc); font-size: var(--t14); line-height: 1.6; max-width: var(--measure); color: var(--ink); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -152,8 +173,8 @@ code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
 .small { font-size: var(--t12); }
 
 /* The signature move: one highlight per headline — a sky-wash pill. Ink text
-   on it (14.5:1); the reference's cyan-on-wash is 2.3:1 and is not used. */
-.hl { display: inline-block; background: var(--wash); color: var(--ink); border-radius: var(--radius-md); padding: 0 var(--spacing-8); line-height: 1.25; }
+   on it (14.5:1); the reference's teal-on-wash is 2.3:1 and is not used. */
+.hl { display: inline-block; background: var(--wash); color: var(--color-ink-black); border-radius: var(--radius-md); padding: 0 var(--spacing-8); line-height: 1.25; }
 
 /* Labels: sentence case, small, medium, warm grey */
 .label, .table th, .figure__label, .hero__label, .stat__label, .tile__label, .meter__label, .kv dt {
@@ -161,23 +182,23 @@ code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
 }
 
 /* ── Masthead: white bar, hairline, quiet nav ───────────────────────────── */
-.masthead { background: var(--surface); border-bottom: 1px solid var(--line); }
+.masthead { background: transparent; border-bottom: 1px solid var(--line); }
 .masthead__in {
   max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--spacing-24);
   display: flex; align-items: center; gap: var(--spacing-24); min-height: 56px;
 }
 .brand { display: inline-flex; align-items: center; gap: var(--sp2); text-decoration: none; color: var(--ink); }
-.brand__mark { width: 14px; height: 14px; background: var(--ink); border-radius: var(--radius-icons); position: relative; }
-.brand__mark::after { content: ""; position: absolute; right: 0; bottom: 0; width: 5px; height: 5px; background: var(--accent); border-radius: 1px; }
+.brand__mark { width: 14px; height: 14px; background: var(--color-stone-canvas); border-radius: var(--radius-icons); position: relative; }
+.brand__mark::after { content: ""; position: absolute; right: 0; bottom: 0; width: 5px; height: 5px; background: var(--accent-canvas); border-radius: 1px; }
 .brand__name { font-weight: var(--font-weight-medium); font-size: var(--t14); color: var(--ink); }
 .brand__name span { font-weight: var(--font-weight-regular); color: var(--ink-2); }
 .nav { display: flex; gap: var(--spacing-4); }
 .nav a { display: inline-flex; align-items: center; height: 32px; padding: 0 var(--spacing-12); font-size: var(--t14); color: var(--ink-2); text-decoration: none; border-radius: var(--r-pill); }
 .nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); font-weight: var(--font-weight-medium); background: var(--ground); }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: var(--font-weight-medium); background: var(--pill-canvas); }
 .who { margin-left: auto; display: flex; align-items: center; gap: var(--sp3); font-size: var(--t13); color: var(--ink-2); }
-.who a { display: inline-flex; align-items: center; height: 32px; padding: 0 var(--spacing-16); border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink); text-decoration: none; font-size: var(--t13); }
-.who a:hover { border-color: var(--line-strong); }
+.who a { display: inline-flex; align-items: center; height: 32px; padding: 0 var(--spacing-16); border: 1px solid var(--line-strong); border-radius: var(--r-pill); color: var(--ink); text-decoration: none; font-size: var(--t13); }
+.who a:hover { background: var(--pill-canvas); }
 
 /* ── Page frame ─────────────────────────────────────────────────────────── */
 .page { max-width: var(--page-max-width); margin: 0 auto; padding: var(--spacing-48) var(--spacing-24) var(--spacing-96); }
@@ -201,7 +222,7 @@ code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
 /* ── Flat Content Card: white, 10px, hairline. The hero card is the one
       elevated surface per page (16px, shadow-md). ─────────────────────── */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); }
-.panel--hero { border-radius: var(--r-hero); box-shadow: var(--shadow-md); }
+.panel--hero { border-radius: var(--r-hero); box-shadow: var(--shadow-md); border-color: var(--color-stone-muted); }
 .panel__in { padding: var(--card-padding); }
 
 /* Hero strip: figures + meter in one instrument */
@@ -217,7 +238,7 @@ code { font-family: var(--mono); font-size: 0.92em; color: var(--ink); }
 .figure__label { color: var(--ink); margin-top: var(--spacing-12); font-size: var(--t13); }
 .figure__sub { font-size: var(--t12); color: var(--ink-2); margin-top: 2px; }
 a.figure:hover .figure__label { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
-/* Two buckets mean "a person should act": the rail's human signal (cyan,
+/* Two buckets mean "a person should act": the rail's human signal (teal,
    dashed edge). Halted runs also take the wash pill behind the number. */
 .figure--attention, .figure--review { padding-left: var(--spacing-16); border-left: 2px dashed var(--human); }
 .figure--attention .figure__value:not(.is-zero) { background: var(--wash); border-radius: var(--radius-md); padding: 0 var(--spacing-8); display: inline-block; }
@@ -297,7 +318,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .chip--lg { font-size: var(--t13); padding: 3px var(--spacing-12); }
 
 .state { display: inline-flex; align-items: center; gap: 7px; font-size: var(--t12); font-weight: var(--font-weight-medium); white-space: nowrap; color: var(--ink-2);
-         padding: 2px var(--spacing-12) 2px 9px; border-radius: var(--r-pill); background: var(--surface); border: 1px solid var(--line); }
+         padding: 2px var(--spacing-12) 2px 9px; border-radius: var(--r-pill); background: var(--surface-2); border: 1px solid var(--line); }
 .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; border: 2px solid currentColor; }
 .state--pending     { color: var(--ink-2); }  .state--pending::before     { background: transparent; border-color: var(--st-pending); }
 .state--processing  { color: var(--ink); border-color: var(--accent-edge); } .state--processing::before { background: var(--st-processing); border-color: var(--st-processing); }
@@ -323,7 +344,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .v-why  { display: inline-block; margin-left: var(--sp2); font-size: var(--t12); color: var(--ink-2); }
 .v-prov { display: inline-block; margin-left: var(--sp2); font-size: var(--t12); color: var(--ink-2); }
 
-/* ── Bands: a state, stated calmly. Cyan edge = a person is needed;
+/* ── Bands: a state, stated calmly. Teal edge = a person is needed;
       dashed = the human review gate; hairline = information. ───────────── */
 .band, .notice {
   background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line-strong);
@@ -359,7 +380,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 /* ── Tables: white card, hairline rows ──────────────────────────────────── */
 .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; }
-.table th { text-align: left; padding: var(--spacing-12) var(--spacing-16); border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--ground); }
+.table th { text-align: left; padding: var(--spacing-12) var(--spacing-16); border-bottom: 1px solid var(--line); white-space: nowrap; background: var(--surface-2); }
 .table td { padding: var(--spacing-12) var(--spacing-16); border-top: 1px solid var(--line); vertical-align: middle; color: var(--ink-2); line-height: 1.4; }
 .table tbody tr:first-child td { border-top: 0; }
 .table tbody tr:hover { background: var(--hover); }
@@ -405,8 +426,10 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .kv--compact { gap: var(--sp1) var(--sp4); }
 
 /* Disclosure: real detail, one click away */
-.disclosure { border-top: 1px solid var(--line); }
-.disclosure:last-child { border-bottom: 1px solid var(--line); }
+.disclosure { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 0 var(--spacing-24); }
+.disclosure + .disclosure { margin-top: var(--spacing-8); }
+.panel .disclosure { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 0; }
+.auth__card .brand__mark { background: var(--color-ink-black); }
 .disclosure > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: var(--sp3); padding: var(--spacing-16) 0; font-family: var(--display); font-size: var(--t16); letter-spacing: -0.017em; color: var(--ink); }
 .disclosure > summary::-webkit-details-marker { display: none; }
 .disclosure > summary::before { content: "+"; color: var(--ink-2); width: 1ch; font-family: var(--ui); }
@@ -420,12 +443,12 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .field__label { display: block; font-size: var(--t13); font-weight: var(--font-weight-medium); color: var(--ink); margin-bottom: 6px; }
 .field__hint { font-size: var(--t12); color: var(--ink-2); margin-top: 8px; }
 input[type="url"], input[type="text"], .select {
-  font: inherit; font-size: var(--t14); color: var(--ink); background: var(--surface);
+  font: inherit; font-size: var(--t14); color: var(--ink); background: var(--surface-2);
   border: 1px solid var(--line-strong); border-radius: var(--radius-inputs); padding: 8px var(--spacing-12);
   transition: border-color .12s, box-shadow .12s;
 }
 input[type="url"], input[type="text"] { width: 100%; font-family: var(--mono); font-size: var(--t13); }
-input:focus, .select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--focus-ring); }
+input:focus, .select:focus { outline: none; border-color: var(--accent-canvas); box-shadow: 0 0 0 2px var(--focus-ring); }
 input[type="url"]:invalid:not(:placeholder-shown) { border-color: var(--accent-edge); border-style: dashed; }
 input::placeholder { color: var(--ink-2); }
 .submit-row { display: flex; gap: var(--sp2); align-items: stretch; }
@@ -433,28 +456,29 @@ input::placeholder { color: var(--ink-2); }
 .select { padding: 6px var(--sp2); font-size: var(--t13); border-radius: var(--radius-inputs); }
 input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--accent); margin: 0; vertical-align: middle; }
 
-/* Primary CTA: the only chromatic filled element on a screen. Ink text on
-   cyan (7.4:1) — the reference's white-on-cyan is 2.65:1 and is not used. */
+/* Primary CTA: the only chromatic filled element on a screen. Cream text on
+   deep teal (6.1:1); the gradient's own teal is 4.48:1 under cream, so it is
+   deepened one step for the fill. */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: inherit; font-size: var(--t14); font-weight: var(--font-weight-medium); line-height: 1.2; white-space: nowrap;
   padding: var(--spacing-8) var(--spacing-16); border-radius: var(--radius-buttons); cursor: pointer;
-  background: var(--accent); color: var(--ink); border: 1px solid var(--accent-edge);
+  background: var(--accent); color: var(--color-stone-canvas); border: 1px solid var(--accent-edge);
   text-decoration: none; transition: filter .12s, border-color .12s;
 }
-.btn:hover { filter: brightness(0.97); }
-.btn--quiet { background: var(--surface); color: var(--ink); border-color: var(--line); font-weight: var(--font-weight-regular); }
+.btn:hover { filter: brightness(1.08); }
+.btn--quiet { background: var(--surface-2); color: var(--ink); border-color: var(--line); font-weight: var(--font-weight-regular); }
 .btn--quiet:hover { border-color: var(--line-strong); filter: none; }
 .btn--ghost { background: transparent; color: var(--ink-2); border-color: transparent; }
-.btn--ghost:hover { color: var(--ink); background: var(--ground); filter: none; }
+.btn--ghost:hover { color: var(--ink); background: var(--surface); filter: none; }
 .btn--sm { padding: 5px var(--spacing-12); font-size: var(--t13); }
-.btn[disabled], .btn[aria-disabled="true"] { background: var(--surface); color: var(--ink-3); border-color: var(--line); cursor: not-allowed; filter: none; }
+.btn[disabled], .btn[aria-disabled="true"] { background: var(--surface-2); color: var(--ink-3); border-color: var(--line); cursor: not-allowed; filter: none; }
 form.inline { margin: 0; display: inline; }
 form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .toolbar { display: flex; align-items: center; gap: var(--sp3); }
 
 /* Outline icon button: 1px stroke, 4px icon radius vocabulary */
-.iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface); color: var(--ink); text-decoration: none; font-size: var(--t13); border: 1px solid var(--line); }
+.iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink); text-decoration: none; font-size: var(--t13); border: 1px solid var(--line); }
 .iconbtn:hover { border-color: var(--line-strong); }
 
 /* ── Stat tiles and bars (Portfolio) ────────────────────────────────────── */
@@ -477,6 +501,7 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 
 /* ── Footer: quiet copy on the canvas ───────────────────────────────────── */
 .foot { font-size: var(--t12); color: var(--ink-2); margin-top: var(--spacing-64); border-top: 1px solid var(--line); padding-top: var(--spacing-24); max-width: 90ch; line-height: 1.6; }
+.foot code { color: var(--ink); }
 .foot code { font-size: 11px; }
 
 /* ── Auth screens: one flat card on the canvas ──────────────────────────── */

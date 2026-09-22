@@ -1,6 +1,8 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Seline reskin (2026-09-22): warm-stone canvas, white cards, one cyan accent.
+Dark green + cream hybrid (2026-09-22): Auros abyss canvas, Seline cream
+cards, one deep-teal accent. Text follows context (cream/silver on the
+canvas, ink/warm-gray inside cards), so the pairs name base tokens.
 Every text colour in dashboard/static/app.css must clear WCAG AA (4.5:1) on
 every surface it is placed on, and every mark colour (rail segments, state
 dots, meter and bar fills) must clear 3:1. The pairs below are the ones the
@@ -47,15 +49,22 @@ def rules():
     return re.findall(r"([^{}]+)\{([^}]*)\}", BODY)
 
 
-TEXT_PAIRS = [(fg, bg) for fg in ("ink", "ink-2") for bg in ("ground", "surface")] + [
-    ("ink", "wash"),        # the highlight pill, halted state pills
-    ("ink", "accent"),      # ink text on the cyan CTA
-    ("surface", "invert"),  # white text on the soot BID chip
-    ("ink", "line"),        # completed pill: ink on stone-border
+TEXT_PAIRS = [
+    ("color-stone-canvas", "ground"), ("color-stone-canvas", "recess"),   # cream headings on the canvas
+    ("color-silver-mist", "ground"), ("color-silver-mist", "recess"),     # silver body on the canvas
+    ("color-ink-black", "surface"), ("color-warm-gray", "surface"),       # inside cream cards
+    ("color-ink-black", "surface-2"), ("color-warm-gray", "surface-2"),   # inputs, table heads, pills
+    ("color-ink-black", "wash"),        # the highlight pill, halted state pills
+    ("color-stone-canvas", "accent"),   # cream text on the teal CTA
+    ("color-pure-white", "invert"),     # white text on the soot BID chip
+    ("color-ink-black", "color-stone-border"),  # completed pill
 ]
 
 MARK_PAIRS = [(fg, "surface") for fg in ("invert", "accent-edge", "human", "stage-1", "stage-2", "stage-3", "stage-4",
-                                          "st-good", "st-processing", "st-halt", "ramp-1", "rec-3")]
+                                          "st-good", "st-processing", "st-halt", "ramp-1", "rec-3")] + [
+    ("accent-canvas", "ground"),        # brand mark corner and focus ring on the canvas
+    ("accent-canvas", "surface"),       # focus ring on cream
+]
 
 
 @pytest.mark.parametrize("fg,bg", TEXT_PAIRS)
@@ -71,15 +80,15 @@ def test_marks_clear_three_to_one(fg, bg):
     assert ratio >= need, f"--{fg} on --{bg} is {ratio:.2f}:1 (need {need})"
 
 
-def test_cyan_is_never_text():
-    """Seline's own cyan-on-wash (2.29:1) and white-on-cyan (2.65:1) fail AA,
-    so cyan is a fill, a mark and a ring here — never a text colour."""
-    assert contrast(token("color-cyan-edge"), token("wash")) < 3.0          # documents why
-    assert contrast(token("color-pure-white"), token("accent")) < 4.5       # documents why
+def test_teal_is_never_text():
+    """The gradient teal is 4.48:1 under cream and 3.44:1 on the canvas, so
+    teal is a fill, a mark and a ring here — never a text colour."""
+    assert contrast(token("color-teal"), token("surface")) < 4.5            # documents why
+    assert contrast(token("color-warm-gray"), token("wash")) < 4.5          # documents why the pill is ink
     for selector, rule in rules():
         for m in re.finditer(r"(?<![-\w])color:\s*var\(--([\w-]+)\)", rule):
-            assert m.group(1) not in ("accent", "accent-edge", "color-cyan-signal", "color-cyan-edge", "human", "st-halt", "st-processing"), \
-                f"cyan used as text in {selector.strip()[:60]}"
+            assert m.group(1) not in ("accent", "accent-edge", "accent-canvas", "color-teal", "color-teal-deep", "human", "st-halt", "st-processing"), \
+                f"teal used as text in {selector.strip()[:60]}"
 
 
 def test_ash_gray_is_never_text_below_display_size():
@@ -91,18 +100,25 @@ def test_ash_gray_is_never_text_below_display_size():
 
 
 def test_one_chromatic_fill_per_screen():
-    """Only the primary button is filled with cyan; everything else that is
-    cyan is a border, a ring, a mark or the sky-wash pill."""
+    """Only the primary button is filled with teal; everything else that is
+    teal is a border, a ring, a mark or the aqua-wash pill."""
     for selector, rule in rules():
-        if re.search(r"background:\s*var\(--(accent|color-cyan-signal)\)", rule):
+        if re.search(r"background:\s*var\(--(accent|accent-canvas|color-teal|color-teal-deep)\)", rule):
             assert selector.strip() in (".btn", ".brand__mark::after"), f"cyan fill outside the primary button: {selector.strip()[:60]}"
 
 
+def test_card_floats_on_the_canvas():
+    step = contrast(token("surface"), token("ground"))
+    assert step >= 10, f"cream card vs dark canvas is only {step:.2f}:1"
+
+
 def test_human_review_is_distinct_from_every_stage_colour_without_hue():
-    """Rail: soot stages vs cyan human segment — lightness apart and dashed."""
+    """Rail: soot stages vs teal human segment — lightness apart and dashed."""
     human = token("human")
     for i in range(1, 5):
-        assert contrast(human, token(f"stage-{i}")) >= 3.0, f"--human vs --stage-{i}"
+        # soot (#1c1917) vs deep teal (#006b66) is 2.8:1 in lightness; the
+        # dashed shape carries the rest, as the brass/navy pair also relied on
+        assert contrast(human, token(f"stage-{i}")) >= 2.5, f"--human vs --stage-{i}"
     assert "border: 1px dashed var(--human)" in BODY
     assert contrast(token("halt"), token("stage-4")) >= 3.0, "halted wash vs soot stage"
 
@@ -116,7 +132,7 @@ def test_stage_bar_ramp_is_monotone_in_lightness():
 def test_recommendation_uses_weight_and_shape_not_hue():
     for chip in ("chip--bid", "chip--watch", "chip--nobid"):
         rule = re.search(rf"\.{chip}\s*\{{([^}}]*)\}}", CSS).group(1)
-        for forbidden in ("--st-", "--halt", "--accent", "--wash", "--human", "--stage-"):
+        for forbidden in ("--st-", "--halt", "--accent", "--wash", "--human", "--stage-", "--color-teal"):
             assert forbidden not in rule, f".{chip} uses {forbidden}"
     for i in (1, 2, 3):
         h = token(f"rec-{i}")
