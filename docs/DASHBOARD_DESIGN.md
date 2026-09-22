@@ -1,7 +1,8 @@
 # Dashboard design direction
 
-> **2026-09-22, evening: the Seline reskin (§10) replaces the Auros tokens
-> in §9, which had replaced the navy/brass tokens in §2–§4.** Everything structural in §0–§8 — the critique, the rail,
+> **2026-09-22, evening: the dark green + cream hybrid (§11) is current.** It
+> keeps Seline's type and components (§10) on Auros' teal canvas (§9). §2–§4
+> hold the navy/brass tokens of the first pass; the structure in §0–§8 stands. Everything structural in §0–§8 — the critique, the rail,
 > the hierarchy per view, the states, the value primitive — still holds; §9
 > says which Auros token now plays each role and shows the recomputed
 > contrast. Screenshots: `docs/design-pass/auros-before-*` / `auros-after-*`.
@@ -455,3 +456,54 @@ rec    "#78716c,#44403c,#1c1917"         --ordinal → ALL CHECKS PASS (light en
   data, 10 would look wrong at 8px tall.
 - **Serif kept for document text.** Structural.
 - **Labels stay sentence case.** The reference has no uppercase-label component.
+
+
+---
+
+## 11. Dark green + cream hybrid (2026-09-22)
+
+Asked for after §10 shipped: the white page was not wanted. The canvas returns
+to Auros' abyssal teal; Seline's cream paper stays as the card surface, with
+its type, pills, hairlines and highlight. Screenshots:
+`docs/design-pass/hybrid-before-*` / `hybrid-after-*`.
+
+### 11.1 What plays which role
+
+| Role | Token | Value |
+|---|---|---|
+| page canvas / recess | `--color-liquid-abyss` / `--color-liquid-deep` | `#012624` / `#011d1c` |
+| cards, tables, tiles, bands, disclosures | `--color-stone-canvas` (cream) | `#fafaf9` |
+| inputs, table heads, pills inside cards | `--color-pure-white` | `#ffffff` |
+| text on the canvas | cream / `--color-silver-mist` | `#fafaf9` / `#bbc7c6` |
+| text inside cards | `--color-ink-black` / `--color-warm-gray` | `#0c0a09` / `#78716c` |
+| the one filled button, marks, "a person is needed" | `--color-teal-deep` | `#006b66` |
+| brand-mark corner and focus ring on the canvas | `--color-teal` | `#00827c` |
+| the highlight pill, halted fills | `--color-aqua-wash` | `#cbfffc` |
+| BID chip, completed marks, rail done | `--color-soot` | `#1c1917` |
+
+Text colour follows context. `:root` sets `--ink`/`--ink-2` to cream/silver
+for the canvas; one scope rule (`.panel, .table-wrap, .tile, .band, .empty,
+.auth__card, .disclosure, …`) redefines them to ink/warm-gray inside any cream
+card, so every component reads correctly on either surface without per-rule
+edits. Cyan is gone; teal is the single accent and, as before, never text.
+
+### 11.2 Contrast, recomputed
+
+```
+canvas   cream on abyss 15.42 · on deep 16.84      silver on abyss 9.28 · on kelp 7.58
+cards    ink on cream 18.92 · warm-gray on cream 4.59 · ink on aqua wash 18.11
+button   cream on teal-deep 6.10        (gradient teal #00827c: cream 4.48, ink 4.22 — both fail, hence the deeper step)
+marks    teal-deep on cream 6.10 · soot 16.74 · stone-700 9.84 · teal on abyss 3.44 (brand mark, focus ring)
+step     cream card vs canvas 15.42:1 — cards cannot fail to float
+rejected warm-gray on aqua wash 4.40 (the pill is ink) · teal as text anywhere
+```
+
+### 11.3 Notes
+
+- The hero card's shadow is invisible on the dark canvas; its lift is carried by
+  a stone-muted border instead. Every other card is a cream hairline card.
+- Disclosures (Detail ledger, Job request) became cream cards so their
+  key/value text is ink, not warm-gray on green.
+- `tests/test_dashboard_palette.py` names base tokens per surface (the role
+  aliases now vary by context) and asserts the card step, the teal-never-text
+  rule and the one-fill rule.
