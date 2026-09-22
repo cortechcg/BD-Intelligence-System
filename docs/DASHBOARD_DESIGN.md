@@ -327,3 +327,38 @@ and a table view.
 - **Colour literals exist only in `:root`** — hex and `rgb()` alike
   (test-enforced), and Portfolio bar colours are passed as `var(--stage-n)` /
   `var(--rec-n)` from app.py rather than hex.
+
+### 9.6 Polish pass, same day — six named gaps
+
+Screenshots: `docs/design-pass/polish-before-*` / `polish-after-*`.
+
+1. **Rail.** Never dropped: it is the Stage column of every queue table
+   (96px, 8px tall after this pass) and the labelled bar on Detail and Job.
+   The reskin's mapping (§9.3) stands.
+2. **Needs attention.** The two buckets that mean "a person should act" borrow
+   the rail's human signal: a 2px dashed white left edge on the figure. Halted
+   runs additionally set the number in the halt pink. At zero both go quiet
+   (muted number, hairline edge). No new colour was introduced.
+3. **Surfaces float.** Verbatim kelp is 1.22:1 against abyss and cards did not
+   read as raised when squinting. The card *role* is now `#004843`, a kelp step
+   lifted in the same hue: 1.54:1 against the canvas, 1.68:1 above the recess,
+   and the teal mark stays at 3.12:1 on it (the next lighter step drops teal to
+   2.83:1, which is why it stops here). The `--color-liquid-kelp` token itself
+   is untouched. Text on the new surface: silver 6.02:1, mist 10.13:1,
+   lavender 8.84:1, pink 7.78:1 — all recomputed, all in the test file, plus a
+   new assertion that the step is ≥ 1.5:1.
+4. **Jobs table as an instrument.** `.table--jobs`: fixed column widths, ids,
+   timestamps, spend and domains in Plex Mono, kind and requester on one line,
+   spend right-aligned, rows on the 12/24 spacing steps. The state chip is now
+   a tinted pill (fill from the state's own tint token, dot for shape, the
+   ledger word in uppercase). The same class and columns are used on Queue
+   (recent jobs), Detail (dashboard jobs) and Portfolio (dashboard runs).
+5. **Type scale.** Figures and stat tiles move to the reference's heading-lg
+   step: 61px, weight 500, −2.44px tracking, line-height 1. The Detail hero
+   moves to 86px at −0.046em — the reference's own oversized-kinetic setting.
+   Detail stats and the meter value sit at 36px. Weight stays 500 (the
+   reference has no light weight).
+6. **Spacing.** Page top 48, section gap 64, panel and strip padding 40, tiles
+   36, chart 36/40, auth card 48, footer well 36/40 — each a step on the Auros
+   scale. Table rows deliberately stay tight (12px vertical) so the tables read
+   as instruments inside spacious cards rather than spacious tables.
