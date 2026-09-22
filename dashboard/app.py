@@ -313,8 +313,8 @@ def job_page(request: Request, trigger_id: str):
 @app.get("/portfolio", response_class=HTMLResponse)
 def portfolio_page(request: Request):
     portfolio = queries.portfolio_view()
-    stage_ramp = ["#6291e3", "#406cbb", "#1e4994", "#002972"]
-    rec_ramp = ["#a8873a", "#7a5e12", "#4d3a05"]
+    stage_ramp = ["var(--stage-1)", "var(--stage-2)", "var(--stage-3)", "var(--stage-4)"]
+    rec_ramp = ["var(--rec-1)", "var(--rec-2)", "var(--rec-3)"]
     ctx = _base_context(request, "portfolio")
     ctx.update({
         "p": portfolio,

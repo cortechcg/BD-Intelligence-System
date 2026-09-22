@@ -1,5 +1,11 @@
 # Dashboard design direction
 
+> **2026-09-22, later the same day: the Auros reskin (§9) replaces the visual
+> tokens in §2–§4.** Everything structural in §0–§8 — the critique, the rail,
+> the hierarchy per view, the states, the value primitive — still holds; §9
+> says which Auros token now plays each role and shows the recomputed
+> contrast. Screenshots: `docs/design-pass/auros-before-*` / `auros-after-*`.
+
 Second pass, 2026-09-22. The first pass (2026-09-21) established the rules
 that still hold: colour encodes evidence status, missing data is grey, the
 serif/sans boundary marks document text, and one value primitive enforces
@@ -205,3 +211,119 @@ project. That is why the before/after pairs show scraped lowercase titles,
 Lost outcomes — and why two states the brief asked for (a run in flight, a
 dead-lettered row) have no screenshot: neither existed in the data on
 2026-09-22 and none was fabricated to get one.
+
+
+---
+
+## 9. Auros reskin (2026-09-22)
+
+A token swap plus component remap onto the Auros style reference ("abyssal
+terminal with bioluminescent data orbs"): dark teal surface stack, silver and
+platinum text, lavender-phosphor for statistics, one gradient button per
+screen. The structure from §1–§7 is untouched; `dashboard/static/app.css`
+carries the Auros custom-property block verbatim and a role layer that maps
+every dashboard role onto one of those tokens.
+
+### 9.1 Type
+
+| Role | Face | Note |
+|---|---|---|
+| The system's voice: labels, tables, headings, figures | **DM Sans** (variable, OFL 1.1) | The reference's substitute for Matter (Inter, DM Sans or Satoshi). DM Sans is the geometric grotesk of the three; Satoshi's Fontshare licence forbids redistribution, so it could not be committed. Self-hosted as one woff2 with `LICENSE-DM-Sans-OFL.txt` beside it; `tests/test_dashboard_palette.py` fails on any CDN reference. |
+| Document and model text | Source Serif 4 | Unchanged. Auros has no serif, but the serif-means-a-document-said-it boundary is structural, not skin. |
+| Identifiers | IBM Plex Mono | Kept. It sits well on the teal stack; nothing in the palette argues for a swap. |
+
+Weights are Auros's two only: 400 body, 500 headings and figures — no bold,
+no light. The test file rejects any other `font-weight`. Uppercase tracked
+labels (0.055–0.12em) return for eyebrows, table heads, stat labels and
+buttons because the reference makes them signature. Body is set at 14px, not
+the reference's 16px: this is a dense operations tool, and 16px body wraps
+the queue table on a laptop. Figures use the reference scale (36px counters,
+61px hero), display tracking −0.02/−0.04em, line-height 1.
+
+### 9.2 Token map
+
+| Dashboard role | Auros token | Value |
+|---|---|---|
+| page canvas | `--color-liquid-abyss` | `#012624` |
+| raised card: panels, tables, tiles, bands | `--color-liquid-kelp` | `#003734` |
+| recessed: inputs, footer well, warning band on the sign-in card | `--color-liquid-deep` | `#011d1c` |
+| headings, nav, human-review colour | `--color-platinum` | `#ffffff` |
+| body, notes, table text | `--color-silver-mist` | `#bbc7c6` |
+| emphasised body, document text, stat labels | `--color-liquid-mist` | `#edfffe` |
+| large statistics only (figures, hero, stat, tile, meter values) | `--color-lavender-phosphor` | `#fde9ff` |
+| the one primary button per screen | `--gradient-aurora-gradient` with abyss text | — |
+| hairlines, hovers, rail track | white at 4–18 % alpha | — |
+| quiet button and arrow-icon fill | `rgba(3, 81, 75, 0.5)` (the reference's Arrow Icon Button fill) | — |
+
+Why the **aurora** gradient on the button and not the bioluminescent one the
+brief named: the bioluminescent sweep starts at `#00827c`, which is 3.44:1
+under dark text and 4.68:1 under white — no single text colour clears 4.5:1
+along its whole length. The reference's own Gradient Pill Button component
+uses the aurora gradient with dark text, and that pair is 12–15:1 end to end.
+The bioluminescent gradient's two ends instead supply the rail ramp (§9.3).
+
+### 9.3 The rail and machine state — meaning that had to survive
+
+| Rail state | Token | Value | How it is told apart without hue |
+|---|---|---|---|
+| agent stage 1–4, done or current | `--stage-1…4` | `#0a9d95 → #43b1ab → #78cbc6 → #a8e5e1` | a four-step ramp between the gradient's ends, validated on kelp (light end 3.93:1, all ΔL ≥ 0.06), capped well below white |
+| human review, awaiting a person | `--human` | `#ffffff`, **dashed, hollow** | lightness ≥ 1.3× every stage step (test-enforced), plus shape |
+| human review, a person has acted (reviewed/outcome) | `--human` | `#ffffff`, filled | |
+| the machine stopped on this stage | `--halt` | `#fad1ff` (the aurora gradient's pink stop) | solid fill in a stage position; the state chip says the word |
+| not reached | `--track` | white at 12 % | |
+
+Machine-state dots follow the same logic: teal filled = completed, aqua
+filled and pulsing = processing, slate ring = pending, pink ring = failed
+(retryable), pink filled = dead-letter, white ring = stopped by a cap or a
+person (resumable). The literal ledger word is always printed beside the dot,
+as before. Evidence labels: VERIFIED teal dot, INFERRED aqua ring, UNKNOWN no
+dot. Recommendation stays achromatic weight-and-shape: BID filled white,
+WATCH white outline, NO-BID slate outline; the test rejects any status or
+stage token inside a chip rule.
+
+The reference's "Don't use any colour outside the teal scale, silver neutrals
+and lavender" is honoured: `#fad1ff` is a stop of its own aurora gradient and
+`#0a9d95` is the gradient's teal end lifted from 2.8:1 to 3.9:1 on kelp so it
+survives as a mark. No red, green or amber remains anywhere in the UI.
+
+### 9.4 Contrast, recomputed on the dark palette
+
+`tests/test_dashboard_palette.py` (55 checks) resolves every role alias to its
+hex and asserts the pairs the stylesheet actually composes. The run that
+shipped:
+
+```
+text ≥ 4.5   platinum on abyss 16.10 · on kelp 13.16    mist on abyss 15.60 · on kelp 12.74 · on deep 17.03
+             silver on abyss 9.28 · on kelp 7.58 · on deep 10.13
+             lavender (stats) on kelp 11.45 · on abyss 14.02   pink (halt) on kelp 9.79 · on abyss 11.99
+             abyss text on aurora cyan end 14.76 · on aurora pink end 11.99 · on the filled BID chip 16.10
+marks ≥ 3.0  teal 3.93 on kelp · stage ramp 3.93 / 4.83 / 7.81 / 12.06 · pink 9.79 · white 13.16
+rejected     dark text on bioluminescent teal 3.44 (why the button is aurora)
+             slate-deep #707777 as text 2.88 (rings and borders only; test-enforced)
+```
+
+Ramps through the dataviz validator (dark mode, kelp surface):
+
+```
+"#0a9d95,#43b1ab,#78cbc6,#a8e5e1" --ordinal   → ALL CHECKS PASS  (light end 3.93:1, ΔL ≥ 0.06, hue spread 3°)
+"#707777,#bbc7c6,#ffffff"         --ordinal   → monotone L PASS, ΔL PASS, light end 2.88:1 PASS; "single hue" FAIL
+```
+
+The recommendation ramp's one failure is the validator computing a hue spread
+on three near-greys; an achromatic ramp has no hue to keep. Its light end is
+2.88:1, so the relief rule stays in force: every bar carries a direct label
+and a table view.
+
+### 9.5 Deviations from the reference, each on purpose
+
+- **Radii 16/6 plus one 2px.** Cards 16, controls and chips 6. Rail segments,
+  meter and bar tracks are 6–14px tall; 6px there makes pills, which the
+  reference forbids, so those marks use 2px (test-enforced list).
+- **Section gap 48px, not 68; card padding 32, not 36–48.** Dashboard density.
+- **Body 14px, not 16.** As above.
+- **Serif kept for document text.** Structural (see §2 of the first pass).
+- **Focus ring and live pulse are the only `box-shadow`s** (test-enforced).
+  No elevation shadow anywhere; depth is abyss → deep → kelp.
+- **Colour literals exist only in `:root`** — hex and `rgb()` alike
+  (test-enforced), and Portfolio bar colours are passed as `var(--stage-n)` /
+  `var(--rec-n)` from app.py rather than hex.
