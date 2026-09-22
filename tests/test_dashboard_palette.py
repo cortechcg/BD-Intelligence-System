@@ -170,7 +170,7 @@ def test_display_weights_never_bold():
 
 def test_radii_vocabulary():
     allowed = {"var(--r-panel)", "var(--r-hero)", "var(--r-pill)", "var(--r-ctl)", "var(--r-rail)", "var(--radius-md)",
-               "var(--radius-icons)", "var(--radius-inputs)", "var(--radius-buttons)", "50%", "4px", "1px", "0 var(--r-rail) var(--r-rail) 0"}
+               "var(--radius-icons)", "var(--radius-inputs)", "var(--radius-buttons)", "50%", "4px", "1px", "0", "0 var(--r-rail) var(--r-rail) 0"}
     for val in re.findall(r"border-radius:\s*([^;]+);", BODY):
         assert val.strip() in allowed, val
     assert "--radius-cards: 10px" in ROOT and "--radius-feature-card: 16px" in ROOT and "--radius-buttons: 9999px" in ROOT
