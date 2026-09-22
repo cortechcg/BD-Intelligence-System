@@ -1,23 +1,25 @@
-/* Cortech BD dashboard — ORYZO darkroom editorial, 2026-09-22.
-   Warm near-black canvas, cream typography as the only decoration, uppercase
-   weight-500 labels, one ember accent that is never a button. Structure
-   unchanged since the 2026-09-22 design pass (rail, bucket figures, spend
-   meter, tiles, bands, jobs tables). Mapping, reasons and contrast:
-   docs/DASHBOARD_DESIGN.md §12.
+/* Cortech BD dashboard — forest green + cream, 2026-09-22.
+   A deep forest-green surface stack (recess → canvas → card → hero), cream
+   as the primary text, one light paper surface for the lifted moments, and
+   brass reserved for exactly one meaning: a person needs to act. Type,
+   spacing and structure carry over from the ORYZO pass unchanged.
+   Mapping, reasons and contrast: docs/DASHBOARD_DESIGN.md §13.
    Rules of this file:
      * every colour is a token in :root; no hex/rgb() past the token block
-     * two surfaces only: walnut (canvas, cards outlined in cork) and bark
-       (the one elevated solid per screen — the hero card — and the filled
-       button). No shadows anywhere; depth is the walnut → bark step
-     * ember is the editorial accent: the human-review rail segment, a halted
-       stage, the "a person should act" edge, and the one highlighted phrase
-       per headline ON THE CANVAS. Never a button, never text inside a bark
-       card (3.6:1 there), never body text
-     * type: one family (Outfit) at 400 and 500 only. Everything the system
-       says in uppercase 500 — headings, labels, nav, buttons, pills. The only
-       mixed-case text is body copy (400) and the serif document voice
+     * depth is the surface step, never a shadow (the only box-shadow is the
+       live-pulse keyframe)
+     * paper (cream fill, ink text) appears only where maximum contrast or a
+       lifted, document-like moment is needed: the one filled button per
+       screen, the highlighted phrase, the BID chip, and the marks (rail
+       stages, meter fill, evidence dots)
+     * brass = a person needs to act: the human-review rail segment, a halted
+       stage, the "needs attention" figure and its dashed edge, halted state
+       dots, the halt band edge. Never a button, never decoration, never body
+       text
+     * type: Outfit at 400 and 500 only; uppercase 500 for everything the
+       system says, mixed-case 400 for body, serif for document text
      * radii: 12 cards, 36 the filled pill, 22.5 outlined pills, 0 inputs,
-       9999 chips; 2px on 8–14px-tall marks (rail, meter, bars) */
+       9999 chips; 2px on 8–14px-tall marks */
 
 /* ── Faces (self-hosted; no third-party request at page load) ───────────── */
 @font-face {
@@ -39,17 +41,18 @@
 :root {
   color-scheme: dark;
 
-  /* ── ORYZO tokens, verbatim from the reference ─────────────────────── */
-  --color-warm-cream: #ffedd7;
-  --color-walnut-shadow: #100904;
-  --color-bark-brown: #382416;
-  --color-cork-border: #40372e;
-  --color-driftwood: #6c5f51;
-  --color-ember-accent: #dc5000;
-  --color-pure-black: #000000;
-  --color-oat: #b8a894;                  /* the one added neutral: driftwood is 3.2:1 as text on walnut, so
-                                            secondary copy takes this step of the same warm grey (8.5:1) */
-  --color-sandstone: #8f8070;            /* ramp step between driftwood and oat (validated, docs §12.4) */
+  /* ── Forest + cream tokens (chosen by contrast, docs §13.2) ─────────── */
+  --color-forest-recess: #06100b;   /* inputs, table heads, footer well */
+  --color-forest-canvas: #0b1a12;   /* page */
+  --color-forest-card:   #213e30;   /* cards, tables, tiles, bands  — 1.5:1 above the canvas */
+  --color-forest-hero:   #2a4d3c;   /* the one lifted card per screen — 1.9:1 above the canvas */
+  --color-forest-track:  #35533f;   /* rail track, meter track, bar track */
+  --color-cream:         #f4efe6;   /* primary text, rail stages, the paper surface */
+  --color-cream-hover:   #e6e0d4;   /* paper on hover */
+  --color-sage:          #b8c2b5;   /* secondary text */
+  --color-moss:          #8a9788;   /* disabled / missing figures (display size), rings */
+  --color-brass:         #d4b05a;   /* a person needs to act */
+  --ramp-green-1: #4f7d63; --ramp-green-2: #6f9c82; --ramp-green-3: #93bba4; --ramp-green-4: #bcd9c8;
 
   --font-halyard-display-variable: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-regular: 400; --font-weight-medium: 500;
@@ -69,40 +72,41 @@
   --radius-cards: 12px; --radius-inputs: 0px; --radius-full-round: 9999px;
   --radius-buttons-pill: 36px; --radius-buttons-outlined: 22.5px;
 
-  --surface-walnut-shadow: #100904; --surface-bark-brown: #382416; --surface-cork-border: #40372e; --surface-warm-cream: #ffedd7;
-
   /* ── Dashboard role layer ───────────────────────────────────────────── */
-  --ground:    var(--color-walnut-shadow);  /* page and every outlined card */
-  --surface:   var(--color-walnut-shadow);  /* cards are the canvas with a cork outline */
-  --elevated:  var(--color-bark-brown);     /* the one solid per screen: hero card, auth card, filled button */
-  --surface-2: rgba(56, 36, 22, 0.45);      /* bark at 45 %: table heads, pills, quiet fills */
-  --hover:     rgba(56, 36, 22, 0.30);
-  --selected:  rgba(56, 36, 22, 0.65);
-  --ink:       var(--color-warm-cream);     /* headings, figures, primary text */
-  --ink-2:     var(--color-oat);            /* body, notes, table text */
-  --ink-3:     var(--color-driftwood);      /* disabled and missing figures at display size only (≥ 3:1) */
-  --line:        var(--color-cork-border);  /* hairlines, dashed dividers */
-  --line-strong: var(--color-driftwood);
-  --invert:    var(--color-warm-cream);     /* the BID chip fill, completed marks, rail done */
-  --accent:    var(--color-ember-accent);   /* editorial accent — see the rules above */
-  --focus-ring: var(--color-ember-accent);
+  --ground:    var(--color-forest-canvas);
+  --recess:    var(--color-forest-recess);
+  --surface:   var(--color-forest-card);
+  --elevated:  var(--color-forest-hero);
+  --paper:     var(--color-cream);          /* the one light surface */
+  --paper-hover: var(--color-cream-hover);
+  --surface-2: var(--color-forest-recess);  /* table heads, pills inside cards, quiet fills */
+  --hover:     var(--color-forest-hero);
+  --selected:  var(--color-forest-hero);
+  --ink:       var(--color-cream);
+  --ink-2:     var(--color-sage);
+  --ink-3:     var(--color-moss);
+  --line:        var(--color-forest-track);
+  --line-strong: var(--color-moss);
+  --invert:    var(--color-cream);          /* BID chip fill, completed marks, rail done */
+  --accent:    var(--color-brass);          /* a person needs to act — see the rules above */
+  --focus-ring: var(--color-cream);
 
-  /* Pipeline rail (docs §12.3): cream for agent stages, ember for the person */
-  --stage-1: var(--color-warm-cream); --stage-2: var(--color-warm-cream); --stage-3: var(--color-warm-cream); --stage-4: var(--color-warm-cream);
-  --human:   var(--color-ember-accent);     /* a person is needed here: ember, dashed */
-  --halt:    var(--color-ember-accent);     /* the machine stopped here: solid ember in a stage position */
-  --track:   var(--color-cork-border);
+  /* Pipeline rail (docs §13.3): cream for agent stages, brass for the person */
+  --stage-1: var(--color-cream); --stage-2: var(--color-cream); --stage-3: var(--color-cream); --stage-4: var(--color-cream);
+  --human:   var(--color-brass);
+  --halt:    var(--color-brass);
+  --track:   var(--color-forest-track);
 
   /* Machine state: shape on the dot + the literal ledger word */
-  --st-good:       var(--color-warm-cream);
-  --st-processing: var(--color-ember-accent);
-  --st-pending:    var(--color-driftwood);
-  --st-halt:       var(--color-ember-accent);
-  --st-resumable:  var(--color-oat);
+  --st-good:       var(--color-cream);
+  --st-processing: var(--color-brass);
+  --st-pending:    var(--color-moss);
+  --st-halt:       var(--color-brass);
+  --st-resumable:  var(--color-sage);
 
-  /* Ordinal ramps for the Portfolio bars, validated on walnut (docs §12.4) */
-  --ramp-1: var(--color-driftwood); --ramp-2: var(--color-sandstone); --ramp-3: var(--color-oat); --ramp-4: var(--color-warm-cream);
-  --rec-1: var(--color-warm-cream); --rec-2: var(--color-oat); --rec-3: var(--color-driftwood);
+  /* Ordinal ramps for the Portfolio bars — one green hue, validated on the card (docs §13.4) */
+  --ramp-1: var(--ramp-green-1); --ramp-2: var(--ramp-green-2); --ramp-3: var(--ramp-green-3); --ramp-4: var(--ramp-green-4);
+  --rec-1: var(--ramp-green-2); --rec-2: var(--ramp-green-3); --rec-3: var(--ramp-green-4);
 
   /* Type roles */
   --ui:   var(--font-halyard-display-variable);
@@ -147,8 +151,8 @@ code { font-family: var(--mono); font-size: 0.92em; color: inherit; text-transfo
 /* The signature move: one emphasised phrase per headline in ember (4.9:1 on
    the canvas). Inside a bark card ember text is 3.6:1, so there the phrase
    stays cream and takes an ember underline instead. */
-.hl { color: var(--accent); }
-.panel--hero .hl, .auth__card .hl { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.hl { display: inline-block; background: var(--paper); color: var(--ground); border-radius: 4px; padding: 0 var(--spacing-10); line-height: 1.15; }
+.hl--attention { background: transparent; color: var(--accent); padding: 0; }
 
 /* Labels: the museum-label voice — uppercase, weight 500, no tracking */
 .label, .table th, .figure__label, .hero__label, .stat__label, .tile__label, .meter__label, .kv dt,
@@ -195,7 +199,7 @@ code { font-family: var(--mono); font-size: 0.92em; color: inherit; text-transfo
 /* ── Cards: the canvas outlined in cork, 12px. The hero card is the one
       elevated solid per page (bark). ────────────────────────────────────── */
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); }
-.panel--hero { background: var(--elevated); border-color: var(--line); }
+.panel--hero { background: var(--elevated); border-color: var(--line-strong); }
 .panel__in { padding: var(--card-padding); }
 
 /* Hero strip: figures + meter in one instrument */
@@ -214,6 +218,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 /* Two buckets mean "a person should act": the rail's human signal — an ember
    dashed edge. Cream numbers stay cream (ember text is 3.6:1 on bark). */
 .figure--attention, .figure--review { padding-left: var(--spacing-18); border-left: 2px dashed var(--human); }
+.figure--attention .figure__value:not(.is-zero) { color: var(--accent); }
 .figure--attention:has(.is-zero), .figure--review:has(.is-zero) { border-left-color: var(--line-strong); }
 
 .hero { min-width: 0; }
@@ -283,9 +288,9 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
   padding: 1px var(--spacing-10); border-radius: var(--r-pill); border: 1px solid transparent; white-space: nowrap;
 }
 /* Recommendation: weight and shape, never hue (docs §3.2) */
-.chip--bid   { background: var(--rec-1); color: var(--ground); border-color: var(--rec-1); }
+.chip--bid   { background: var(--invert); color: var(--ground); border-color: var(--invert); }
 .chip--watch { background: transparent; color: var(--ink); border-color: var(--ink); }
-.chip--nobid { background: transparent; color: var(--rec-2); border-color: var(--rec-3); }
+.chip--nobid { background: transparent; color: var(--ink-2); border-color: var(--line-strong); }
 .chip--none  { background: transparent; color: var(--ink-2); border-color: var(--line-strong); border-style: dashed; font-weight: var(--font-weight-regular); }
 .chip--lg { font-size: var(--t13); padding: 3px var(--spacing-14); }
 
@@ -294,11 +299,11 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; flex: none; background: currentColor; border: 2px solid currentColor; }
 .state--pending     { color: var(--ink-2); }  .state--pending::before     { background: transparent; border-color: var(--st-pending); }
 .state--processing  { color: var(--ink); border-color: var(--accent); } .state--processing::before { background: var(--st-processing); border-color: var(--st-processing); }
-.state--completed   { color: var(--ink); } .state--completed::before { background: var(--st-good); border-color: var(--st-good); }
+.state--completed   { color: var(--ink); border-color: var(--line-strong); } .state--completed::before { background: var(--st-good); border-color: var(--st-good); }
 .state--failed      { color: var(--ink); border-color: var(--accent); } .state--failed::before      { background: transparent; border-color: var(--st-halt); }
 .state--dead_letter { color: var(--ink); border-color: var(--accent); } .state--dead_letter::before { background: var(--st-halt); border-color: var(--st-halt); }
-.state--spend_cap   { color: var(--ink); border-color: var(--line-strong); } .state--spend_cap::before   { background: transparent; border-color: var(--st-resumable); }
-.state--cancelled   { color: var(--ink); border-color: var(--line-strong); } .state--cancelled::before   { background: transparent; border-color: var(--st-resumable); }
+.state--spend_cap   { color: var(--ink); border-color: var(--accent); } .state--spend_cap::before   { background: transparent; border-color: var(--st-resumable); }
+.state--cancelled   { color: var(--ink); border-color: var(--accent); } .state--cancelled::before   { background: transparent; border-color: var(--st-resumable); }
 .state.is-live::before { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { box-shadow: 0 0 0 5px transparent; opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .state.is-live::before { animation: none; } }
@@ -413,19 +418,19 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .field__label { display: block; color: var(--ink); margin-bottom: 6px; }
 .field__hint { font-size: var(--t12); color: var(--ink-2); margin-top: 8px; }
 input[type="url"], input[type="text"], .select {
-  font: inherit; font-size: var(--t14); color: var(--ink); background: transparent;
-  border: 0; border-bottom: 1px solid var(--ink); border-radius: var(--r-input); padding: 9px 2px;
+  font: inherit; font-size: var(--t14); color: var(--ink); background: var(--recess);
+  border: 0; border-bottom: 1px solid var(--ink); border-radius: var(--r-input); padding: 9px var(--spacing-12);
   transition: border-color .12s;
 }
 input[type="url"], input[type="text"] { width: 100%; font-family: var(--mono); font-size: var(--t13); }
-input:focus, .select:focus { outline: none; border-bottom: 2px solid var(--accent); }
-input[type="url"]:invalid:not(:placeholder-shown) { border-bottom-style: dashed; border-bottom-color: var(--accent); }
+input:focus, .select:focus { outline: none; border-bottom: 2px solid var(--focus-ring); }
+input[type="url"]:invalid:not(:placeholder-shown) { border-bottom-style: dashed; border-bottom-color: var(--ink-3); }
 input::placeholder { color: var(--ink-2); }
 .submit-row { display: flex; gap: var(--spacing-24); align-items: flex-end; }
 .submit-row input { flex: 1; min-width: 0; }
-.select { padding: 6px var(--sp2); font-size: var(--t13); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-btn-outline); color: var(--ink); }
-.select option { background: var(--elevated); color: var(--ink); }
-input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--ink); margin: 0; vertical-align: middle; }
+.select { padding: 6px var(--sp2); font-size: var(--t13); background: var(--recess); border: 1px solid var(--line); border-radius: var(--r-btn-outline); color: var(--ink); }
+.select option { background: var(--recess); color: var(--ink); }
+input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--paper); margin: 0; vertical-align: middle; }
 
 /* Pill Button (filled): bark on walnut, cream text, 36px — the one filled
    action per screen. Outlined ghosts: 22.5px, border does the work. */
@@ -433,13 +438,12 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--ink); ma
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   font: inherit; font-size: var(--t12); font-weight: var(--font-weight-medium); text-transform: uppercase; line-height: 1.2; white-space: nowrap;
   padding: var(--spacing-12) var(--spacing-24); border-radius: var(--r-btn); cursor: pointer;
-  background: var(--elevated); color: var(--ink); border: 1px solid var(--elevated);
+  background: var(--paper); color: var(--ground); border: 1px solid var(--paper);
   text-decoration: none; transition: border-color .12s, background-color .12s;
 }
-.btn:hover { border-color: var(--ink); }
-.panel--hero .btn { border-color: var(--line-strong); }
-.panel--hero .btn:hover { border-color: var(--ink); }
+.btn:hover { background: var(--paper-hover); border-color: var(--paper-hover); }
 .btn--quiet { background: transparent; color: var(--ink); border-color: var(--line-strong); border-radius: var(--r-btn-outline); }
+.panel--hero .btn--quiet { border-color: var(--ink-2); }
 .btn--quiet:hover { border-color: var(--ink); }
 .btn--ghost { background: transparent; color: var(--ink-2); border-color: transparent; border-radius: var(--r-btn-outline); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .btn--ghost:hover { color: var(--ink); text-decoration-color: var(--ink); }
@@ -456,7 +460,7 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 /* ── Stat tiles and bars (Portfolio) ────────────────────────────────────── */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-18); }
 .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-panel); padding: var(--card-padding); min-width: 0; }
-.tile.panel--hero { background: var(--elevated); }
+.tile.panel--hero { background: var(--elevated); border-color: var(--line-strong); }
 .tile__label { color: var(--ink); }
 .tile__value { font-family: var(--display); font-size: var(--text-heading); font-weight: var(--font-weight-medium); line-height: var(--leading-heading); letter-spacing: 0; margin-top: var(--spacing-18); color: var(--ink); font-variant-numeric: proportional-nums; }
 .tile__value.is-missing { color: var(--ink-3); }
@@ -483,9 +487,8 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .auth h1 { font-size: var(--text-heading); line-height: var(--leading-heading); }
 .auth h1 .hl { font-size: inherit; }
 .auth p { font-size: var(--t14); color: var(--ink-2); margin-top: var(--spacing-18); line-height: 1.45; }
-.auth .btn { width: 100%; margin-top: var(--spacing-24); padding: var(--spacing-14) var(--sp4); background: transparent; border-color: var(--ink); }
-.auth .btn:hover { background: var(--surface-2); }
-.auth .band { margin-top: var(--sp4); max-width: none; background: transparent; }
+.auth .btn { width: 100%; margin-top: var(--spacing-24); padding: var(--spacing-14) var(--sp4); }
+.auth .band { margin-top: var(--sp4); max-width: none; background: var(--surface); }
 .auth__foot { margin-top: var(--spacing-24); font-size: var(--t12); color: var(--ink-2); }
 .auth__rail { margin: 0 0 var(--spacing-24); width: 96px; }
 

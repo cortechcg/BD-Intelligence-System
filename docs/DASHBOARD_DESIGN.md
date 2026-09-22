@@ -1,11 +1,11 @@
 # Dashboard design direction
 
-> **2026-09-22, night: the ORYZO darkroom skin (§12) is current.** It replaces
-> the dark green + cream hybrid (§11), which replaced Seline (§10), which
-> replaced Auros (§9). §2–§4 hold the navy/brass tokens of the first pass; the
-> structure in §0–§8 — the critique, the rail, the hierarchy per view, the
-> states, the value primitive — has held through every skin.
-> Screenshots for this skin: `docs/design-pass/oryzo-before-*` / `oryzo-after-*`.
+> **2026-09-22, night: forest green + cream (§13) is current.** Type, spacing
+> and structure are the ORYZO pass's (§12); the palette is a deep forest-green
+> surface stack with cream text, one paper surface, and brass reserved for
+> "a person needs to act". §2–§4 hold the navy/brass tokens of the first pass;
+> the structure in §0–§8 has held through every skin.
+> Screenshots: `docs/design-pass/forest-before-*` / `forest-after-*`.
 
 Second pass, 2026-09-22. The first pass (2026-09-21) established the rules
 that still hold: colour encodes evidence status, missing data is grey, the
@@ -599,3 +599,70 @@ rec    "#6c5f51,#b8a894,#ffedd7"         --ordinal → ALL CHECKS PASS
   has no icon.
 - **One shadow-free stylesheet.** The only `box-shadow` is the live-pulse
   keyframe (motion, not elevation), test-enforced.
+
+
+---
+
+## 13. Forest green + cream (2026-09-22)
+
+A palette swap onto the ORYZO structure (§12): same Outfit type scale, same
+spacing, same components. What changes is the atmosphere — deep forest green
+instead of walnut — and one rule is restored from the navy/brass pass:
+**brass means a person needs to act**, and means nothing else.
+
+### 13.1 Values, chosen by the numbers
+
+Every hex below was a draft until `tests/test_dashboard_palette.py` (WCAG 2.x)
+and the dataviz validator passed it. Three drafts were rejected on the way:
+a card at `#16291f` (1.12:1 above the canvas — cards did not float), a mid
+green for rail stages (1.08:1 in lightness against brass — the human segment
+disappeared), and a green→cream ordinal ramp (78° hue spread — two hues, not
+one).
+
+| Role | Token | Hex | Verified |
+|---|---|---|---|
+| recess: inputs, table heads, footer well | `--color-forest-recess` | `#06100b` | cream 16.87 · sage 10.51 |
+| canvas | `--color-forest-canvas` | `#0b1a12` | cream 15.66 · sage 9.76 · brass 8.68 |
+| card: tables, tiles, bands, disclosures | `--color-forest-card` | `#213e30` | **1.53:1 above the canvas**; cream 10.21 · sage 6.36 · brass 5.65 |
+| hero card: the one lifted surface per screen | `--color-forest-hero` | `#2a4d3c` | **1.90:1 above the canvas**, 1.24 above the card; cream 8.24 · sage 5.13 · brass 4.56 |
+| tracks and hairlines | `--color-forest-track` | `#35533f` | 1.37:1 on the card (a hairline, not text) |
+| primary text, rail stages, the paper surface | `--color-cream` | `#f4efe6` | ink on paper 15.66 |
+| paper on hover | `--color-cream-hover` | `#e6e0d4` | ink on it 13.65 |
+| secondary text | `--color-sage` | `#b8c2b5` | ≥ 5.13 on every surface |
+| disabled / missing figures (≥ 24px), rings | `--color-moss` | `#8a9788` | 3.82 on the card, 3.08 on the hero; **3.82 fails the 4.5 body floor (test-enforced: display figures only)** |
+| a person needs to act | `--color-brass` | `#d4b05a` | ≥ 4.56 as text on every surface; 1.81 in lightness from the cream stages |
+| Portfolio ramps | `--ramp-green-1…4` | `#4f7d63 #6f9c82 #93bba4 #bcd9c8` | one hue (1° spread), light end 2.47 on the card, relief rule applies |
+
+### 13.2 Where each colour may appear
+
+- **Paper (cream fill, ink text)** — the one filled button per screen, the
+  highlighted phrase in a headline, the BID chip, and the marks (rail stages,
+  meter fill, completed dots). Nowhere else (test-enforced).
+- **Brass** — the human-review rail segment (dashed), a halted stage (solid),
+  the NEEDS ATTENTION figure and its dashed edge, halted / processing state
+  dots and pill borders, the halt band edge, and the queue headline's
+  `hl--attention` phrase. Never a button, never a focus ring, never body text
+  (test-enforced: brass as `color:` only inside a selector containing
+  "attention").
+- **Green steps** carry all elevation. No shadows (test-enforced).
+
+### 13.3 The six checks from the last review, in this palette
+
+1. Rail in every queue row — cream stages, brass human segment, brass halted
+   stage, on the card step. `forest-after-queue-desktop.png`.
+2. NEEDS ATTENTION — brass 51px figure with a brass dashed edge; the routine
+   counts stay cream. Zero goes moss and loses the brass.
+3. Cards float — 1.53:1 card and 1.90:1 hero against the canvas, both with a
+   hairline; the test floor is 1.45 and 1.75.
+4. Jobs table — fixed columns, Plex Mono ids/timestamps/spend/domains, pill
+   states on the recess fill (test-enforced).
+5. Figures — 51px hero and bucket figures, 41px tiles, weight 500 at
+   line-height 0.9, unchanged from §12.
+6. Spacing — 68px sections, 31px hero padding, 24px cards, unchanged.
+
+### 13.4 Ramps
+
+```
+stage "#4f7d63,#6f9c82,#93bba4,#bcd9c8" --ordinal --mode dark --surface "#213e30" → ALL CHECKS PASS
+rec   "#6f9c82,#93bba4,#bcd9c8"         --ordinal --mode dark --surface "#213e30" → ALL CHECKS PASS
+```
