@@ -6,7 +6,7 @@
 {% set running = job.status in ("queued", "running") %}
 
 <div class="view-head">
-  <h1>Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span></h1>
+  <h1>Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span> <span class="hl">{{ job.ui_state | replace("_", " ") }}</span></h1>
   <div class="view-head__meta">
     <span>{{ job.kind_label }}</span>
     <span>requested by {{ job.requested_by }}</span>
@@ -19,7 +19,7 @@
 {% endif %}
 
 {# ── The instrument: this run's spend against its own cap ──────────────── #}
-<div class="panel">
+<div class="panel panel--hero">
   <div class="score-band" style="grid-template-columns: minmax(0, 2fr) auto auto auto">
     <div class="hero">
       {% if job.spend_usd is not none %}

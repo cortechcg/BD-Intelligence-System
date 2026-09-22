@@ -92,7 +92,7 @@
 {% set c = queue.counts %}
 
 <div class="view-head">
-  <h1>Queue</h1>
+  <h1>Queue <span class="hl">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span></h1>
   <div class="view-head__meta">
     <span>{{ c.ledger_rows }} opportunities in the ledger</span>
     <span>{{ c.cache_rows }} cached</span>
@@ -105,7 +105,7 @@
 {% endif %}
 
 {# ── The instrument: where every run stands, and what the desk has spent ── #}
-<div class="panel strip">
+<div class="panel panel--hero strip">
   <div class="strip__figures">
     <a class="figure figure--attention" href="#attention">
       <div class="figure__value{% if not c.halted %} is-zero{% endif %}">{{ c.halted }}</div>
