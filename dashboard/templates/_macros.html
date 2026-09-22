@@ -27,12 +27,9 @@
 
 {#
   Table variant. Same rule, quieter voice: the em dash still carries the reason,
-  but as a tooltip rather than as inline text.
-
-  Reason this exists: with real rows, spelling out "no ledger row — never
-  claimed for processing" in four columns across six rows made the *absences*
-  the loudest thing on the page, which inverts docs/DASHBOARD_DESIGN.md §4.
-  The full reason stays inline on the detail view, where there is one of each.
+  but as a tooltip rather than as inline text — with real rows, spelling out
+  "no ledger row" in four columns across forty rows makes the absences the
+  loudest thing on the page (docs/DASHBOARD_DESIGN.md §4).
 #}
 {% macro value_terse(c, missing="—") -%}
   {%- if c.value is none -%}
@@ -53,18 +50,19 @@
 {%- endmacro %}
 
 {# Recommendation: weight and shape, never hue (docs/DASHBOARD_DESIGN.md §3.2) #}
-{% macro rec_chip(c) -%}
+{% macro rec_chip(c, size="") -%}
   {%- set r = c.value -%}
-  {%- if r == "BID" -%}<span class="chip chip--bid">BID</span>
-  {%- elif r == "WATCH" -%}<span class="chip chip--watch">WATCH</span>
-  {%- elif r in ("NO-BID", "NO BID", "NOBID") -%}<span class="chip chip--nobid">NO-BID</span>
-  {%- elif r -%}<span class="chip chip--nobid">{{ r }}</span>
-  {%- else -%}<span class="chip chip--none" title="{{ c.why }} · {{ c.source }}">not scored</span>
+  {%- set lg = " chip--lg" if size == "lg" else "" -%}
+  {%- if r == "BID" -%}<span class="chip chip--bid{{ lg }}">BID</span>
+  {%- elif r == "WATCH" -%}<span class="chip chip--watch{{ lg }}">WATCH</span>
+  {%- elif r in ("NO-BID", "NO BID", "NOBID") -%}<span class="chip chip--nobid{{ lg }}">NO-BID</span>
+  {%- elif r -%}<span class="chip chip--nobid{{ lg }}">{{ r }}</span>
+  {%- else -%}<span class="chip chip--none{{ lg }}" title="{{ c.why }} · {{ c.source }}">not scored</span>
   {%- endif -%}
 {%- endmacro %}
 
 {# Machine state: colour is never alone; the literal ledger word is always shown. #}
-{% macro state_chip(ui_state, lease_state=None) -%}
+{% macro state_chip(ui_state, live=False) -%}
   {%- set words = {
       "pending": "pending",
       "processing": "processing",
@@ -73,19 +71,45 @@
       "spend_cap": "spend cap — retryable",
       "dead_letter": "dead_letter",
       "cancelled": "cancelled — resumable",
-      "no_ledger": "no ledger row",
+      "no_ledger": "not yet run",
   } -%}
-  <span class="state state--{{ ui_state if ui_state != 'no_ledger' else 'pending' }}">{{ words.get(ui_state, ui_state) }}</span>
+  <span class="state state--{{ ui_state if ui_state != 'no_ledger' else 'pending' }}{% if live %} is-live{% endif %}">{{ words.get(ui_state, ui_state) }}</span>
 {%- endmacro %}
 
-{% macro stage_rail(rail, current_stage) -%}
-  <ul class="rail" aria-label="pipeline stage">
-    {%- for s in rail %}
-      <li data-done="{{ 1 if s.done else 0 }}" data-current="{{ 1 if s.current else 0 }}">
-        <span class="dot" aria-hidden="true"></span>{{ s.name }}
+{#
+  The rail. Four agent segments (discovered → extracted → scored → drafted) and
+  a fifth, brass, dashed segment for the human review that follows. Every fill
+  is read from the ledger: `done` / `current` come from pipeline_stage, the
+  halt colour from the lease state. Nothing here is animated or estimated.
+
+    size: "xs" (table rows) | "sm" | "lg" (labelled, detail/job headers)
+    ui_state: the item's ui_state — colours the current segment when halted
+    human_done: True when a human stage (reviewed/outcome) has been recorded
+#}
+{% macro railbar(stages, size="xs", ui_state="", human_done=False, has_draft=False) -%}
+  {%- set halt = {"failed": "serious", "dead_letter": "critical", "spend_cap": "warn", "cancelled": "warn"}.get(ui_state) -%}
+  <ol class="rail rail--{{ size }}" aria-label="pipeline stage">
+    {%- for s in stages %}
+      <li class="rail__seg{% if s.done %} is-done{% endif %}{% if s.current %} is-current{% if halt %} is-halt-{{ halt }}{% endif %}{% endif %}"
+          title="{{ s.name }}{% if s.current %} (current){% elif s.done %} (done){% endif %}">
+        {%- if size == "lg" %}<span class="rail__label">{{ s.name }}</span>{% endif -%}
       </li>
     {%- endfor %}
-  </ul>
+      <li class="rail__seg rail__seg--human{% if human_done %} is-done{% elif has_draft %} is-current{% endif %}" title="human review{% if human_done %} (recorded){% endif %}">
+        {%- if size == "lg" %}<span class="rail__label">human review</span>{% endif -%}
+      </li>
+  </ol>
+{%- endmacro %}
+
+{# Kept for callers that only want the agent stages spelled out as text. #}
+{% macro stage_rail(rail, current_stage) -%}
+  {{ railbar(rail, "lg") }}
+{%- endmacro %}
+
+{# Hostname of a source URL, for rows and headers. Pure string work, no lookup. #}
+{% macro host(u) -%}
+  {%- set h = (u or "").split("//")[-1].split("/")[0] -%}
+  {{- h[4:] if h.startswith("www.") else h -}}
 {%- endmacro %}
 
 {% macro ev_label(status) -%}
@@ -102,6 +126,26 @@
   {%- endif -%}
 {%- endmacro %}
 
+{#
+  Spend meter. `spent` and `cap` are real USD figures from the ledger; the fill
+  is their ratio, capped at the track. The warn threshold (90 %) is the same
+  one the worker's own cap check uses for its warning log.
+#}
+{% macro meter(spent, cap, label, foot="", size="", blocked=False, fmt="%.2f") -%}
+  {%- set pct = (spent / cap * 100) if cap else 0 -%}
+  <div class="meter{% if size %} meter--{{ size }}{% endif %}">
+    <div class="meter__head">
+      <div class="meter__label">{{ label }}</div>
+      <div class="meter__value">{{ fmt|format(spent) }}<small>of {{ "%.2f"|format(cap) }} USD</small></div>
+    </div>
+    <div class="meter__track" role="meter" aria-valuemin="0" aria-valuemax="{{ cap }}" aria-valuenow="{{ spent }}" aria-label="{{ label }}">
+      <div class="meter__fill{% if blocked or pct >= 100 %} is-over{% elif pct >= 90 %} is-warn{% endif %}" style="width: {{ '%.1f'|format([pct, 100] | min) }}%"></div>
+    </div>
+    <div class="meter__ticks" aria-hidden="true"><span style="left:50%">50%</span><span style="left:90%">90%</span></div>
+    {% if foot %}<div class="meter__foot">{{ foot }}</div>{% endif %}
+  </div>
+{%- endmacro %}
+
 {% macro bars(rows, caption="") -%}
   <div class="bars" role="img" aria-label="{{ caption }}">
     {%- for r in rows %}
@@ -111,5 +155,17 @@
         <div class="bar__value">{{ r.value }}</div>
       </div>
     {%- endfor %}
+  </div>
+{%- endmacro %}
+
+{# Designed empty state: what is true, what it means, and (optionally) what to do. #}
+{% macro empty(title, body="", stages=None) -%}
+  <div class="empty">
+    <ol class="rail rail--xs" aria-hidden="true">
+      {%- for i in range(4) %}<li class="rail__seg"></li>{% endfor %}<li class="rail__seg rail__seg--human"></li>
+    </ol>
+    <p class="empty__title">{{ title }}</p>
+    {% if body %}<p>{{ body }}</p>{% endif %}
+    {{ caller() if caller }}
   </div>
 {%- endmacro %}

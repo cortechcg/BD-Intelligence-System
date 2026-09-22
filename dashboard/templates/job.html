@@ -3,104 +3,120 @@
 {% block title %}Job {{ job.id[:8] }} · Cortech BD{% endblock %}
 
 {% block content %}
+{% set running = job.status in ("queued", "running") %}
+
+<div class="view-head">
+  <h1>Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span></h1>
+  <div class="view-head__meta">
+    <span>{{ job.kind_label }}</span>
+    <span>requested by {{ job.requested_by }}</span>
+    <span class="mono">{{ job.requested_at[:19] | replace("T", " ") }}</span>
+  </div>
+</div>
 
 {% if flash %}
-<div class="notice {% if flash_kind == 'stop' %}notice--stop{% elif flash_kind == 'cap' %}notice--cap{% endif %}" role="status">{{ flash }}</div>
-<hr class="hr">
+<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
 
-<section class="section">
-  <div class="section__label">
-    Job
-    <p class="section__note">One row in <code>dashboard_triggers</code>. This is
-    the request; the pipeline's own state is on the opportunity page.</p>
-  </div>
-  <div>
-    <dl class="kv">
-      <dt>Job id</dt><dd class="mono">{{ job.id }}</dd>
-      <dt>Status</dt><dd>{{ m.state_chip(job.ui_state) }}</dd>
-      <dt>Kind</dt><dd>{{ job.kind_label }}</dd>
-      <dt>Requested by</dt><dd>{{ job.requested_by }}</dd>
-      <dt>Requested</dt><dd class="mono">{{ job.requested_at }}</dd>
-      <dt>Started</dt><dd class="mono">{{ m.value(job.started_at) }}</dd>
-      <dt>Finished</dt><dd class="mono">{{ m.value(job.finished_at) }}</dd>
-      <dt>Worker heartbeat</dt><dd class="mono">{{ m.value(job.last_heartbeat_at) }}</dd>
-      <dt>Attempts</dt><dd>{{ job.attempt_count }}</dd>
-      <dt>Execution id</dt><dd class="mono">{{ m.value(job.execution_id) }}</dd>
-      <dt>Opportunity</dt>
-      <dd><a href="{{ url_detail }}?url={{ job.source_url | urlencode }}" class="mono">{{ job.source_url[:110] }}</a></dd>
-    </dl>
-
-    {% if job.error_message %}
-    <div class="notice {% if job.ui_state == 'cancelled' %}notice--cap{% else %}notice--stop{% endif %}" style="margin-top: var(--s3)">
-      <strong>{{ job.error_kind }}</strong> — {{ job.error_message }}
+{# ── The instrument: this run's spend against its own cap ──────────────── #}
+<div class="panel">
+  <div class="score-band" style="grid-template-columns: minmax(0, 2fr) auto auto auto">
+    <div class="hero">
+      {% if job.spend_usd is not none %}
+        {{ m.meter(job.spend_usd, job.spend_limit_usd or 0, "This run's model spend", size="lg", fmt="%.4f",
+                   foot=("cost of at least one call is UNKNOWN — the cap treats this run as over" if job.spend_known is false else "estimated from the run's own accounting, updated on each worker heartbeat")) }}
+      {% else %}
+        <div class="hero__value is-missing">—</div>
+        <div class="hero__label">This run's model spend <span class="v-why">{% if job.status == 'queued' %}not started{% else %}no heartbeat received yet{% endif %}</span></div>
+      {% endif %}
     </div>
-    {% endif %}
-
-    {% if job.status in ("queued", "running") %}
-    <form method="post" action="{{ url_trigger_cancel }}" class="inline" style="margin-top: var(--s3)">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="trigger_id" value="{{ job.id }}">
-      <button class="btn btn--sm btn--quiet">
-        {% if job.cancel_requested_at %}Cancel requested — waiting for worker{% else %}Cancel{% endif %}
-      </button>
-    </form>
-    <p class="section__note" style="max-width: var(--measure)">{{ cancel_copy }}</p>
-    {% endif %}
-  </div>
-</section>
-
-<section class="section">
-  <div class="section__label">
-    Spend
-    <p class="section__note">Live figures from the run's own accounting
-    (<code>utils/observability</code>) — the same bucket the per-run cap is
-    enforced against. Updated on each worker heartbeat.</p>
-  </div>
-  <div>
-    <dl class="kv">
-      <dt>This run</dt>
-      <dd>
-        {% if job.spend_usd is not none %}
-          <span class="v">{{ "%.4f"|format(job.spend_usd) }}</span>
-          <span class="v-prov">USD estimated{% if job.spend_limit_usd is not none %} of {{ "%.2f"|format(job.spend_limit_usd) }} cap{% endif %}</span>
-          {% if job.spend_known is false %}<span class="v-why">cost of at least one call is UNKNOWN — cap treats this as over</span>{% endif %}
-        {% else %}
-          <span class="v-missing">—</span><span class="v-why">{% if job.status == 'queued' %}not started{% else %}no heartbeat received yet{% endif %}</span>
-        {% endif %}
-      </dd>
-      <dt>Provider calls</dt><dd>{{ m.value(job.provider_calls) }}</dd>
-    </dl>
-    {% if job.spend_usd is not none and job.spend_limit_usd %}
-      {% set pct = (job.spend_usd / job.spend_limit_usd * 100) if job.spend_limit_usd else 0 %}
-      <div class="bar" style="margin-top: var(--s2)">
-        <div class="bar__label">of per-run cap</div>
-        <div class="bar__track"><div class="bar__fill" style="width: {{ '%.1f'|format([pct, 100] | min) }}%; background: {% if pct >= 90 %}var(--st-warning){% else %}var(--navy-soft){% endif %};"></div></div>
-        <div class="bar__value">{{ '%.0f'|format(pct) }}%</div>
+    <div class="stat">
+      <div class="stat__value{% if job.provider_calls is none %} is-missing{% endif %}">{{ job.provider_calls if job.provider_calls is not none else "—" }}</div>
+      <div class="stat__label">model calls</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value">{{ job.attempt_count }}</div>
+      <div class="stat__label">attempt{{ "s" if job.attempt_count != 1 }}</div>
+    </div>
+    <div class="stat">
+      <div class="stat__value" style="font-size: var(--t16); line-height: 1.4">{{ m.state_chip(job.ui_state, live=(job.status == "running")) }}</div>
+      <div class="stat__label">
+        {% if job.status == "running" %}heartbeat {{ m.value(job.last_heartbeat_at) }}
+        {% elif job.finished_at %}finished {{ job.finished_at[:19] | replace("T", " ") }}
+        {% elif job.status == "queued" %}waiting for a worker
+        {% else %}{{ job.status }}{% endif %}
       </div>
-    {% endif %}
+    </div>
+  </div>
+  {% if running %}
+  <div class="score-band__rail">
+    <div class="band band--info band--wide">
+      <div class="band__title">Live: the worker reports every {{ (poll_ms / 1000) | int }}s and this page refreshes with it.</div>
+      Progress is shown at the granularity the pipeline actually records — stage boundaries, spend and call counts. There is no finer step to display, so none is shown.
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if job.error_message %}
+<section class="section section--tight">
+  <div class="band {% if job.ui_state == 'cancelled' %}band--warn{% elif job.ui_state == 'dead_letter' %}band--critical{% else %}band--serious{% endif %} band--wide">
+    <div class="band__title">{{ job.error_kind }}</div>
+    {{ job.error_message }}
   </div>
 </section>
+{% endif %}
+
+{% if running %}
+<section class="section section--tight">
+  <form method="post" action="{{ url_trigger_cancel }}" class="inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="trigger_id" value="{{ job.id }}">
+    <button class="btn btn--quiet">
+      {% if job.cancel_requested_at %}Cancel requested — waiting for the worker{% else %}Cancel this run{% endif %}
+    </button>
+  </form>
+  <p class="section__sub" style="margin-top: var(--sp3)">{{ cancel_copy }}</p>
+</section>
+{% endif %}
 
 {% if d %}
-<section class="section">
-  <div class="section__label">
-    Pipeline
-    <p class="section__note">From <code>opportunity_processing</code>. Stage-level
-    only: the pipeline persists stage boundaries, not sub-steps, so nothing
-    finer is shown here — a "drafting section 3 of 8" would be invented.</p>
-  </div>
-  <div>
-    {{ m.stage_rail(d.rail, d.stage.value) }}
-    <div style="margin-top: var(--s2)">{{ m.state_chip(d.ui_state) }}
-      {% if d.last_error.value and job.status in ('queued','running') %}<span class="v-why">last recorded: {{ d.last_error.value[:120] }}</span>{% endif %}
+<section class="section" aria-labelledby="h-pipe">
+  <div class="section__head"><h2 id="h-pipe">Pipeline</h2><span class="section__count">from the ledger</span></div>
+  <div class="panel"><div class="panel__in">
+    {{ m.railbar(d.rail, "lg", d.ui_state, human_done=d.stage.value in ("reviewed", "outcome"), has_draft=d.has_draft) }}
+    <div class="row" style="margin-top: var(--sp4)">
+      {{ m.state_chip(d.ui_state, live=(job.status == "running")) }}
+      {% if d.last_error.value and running %}<span class="v-why">last recorded: {{ d.last_error.value[:120] }}</span>{% endif %}
+      {% if d.has_draft %}
+        <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+        <span class="small muted">needs human review before anything is sent</span>
+      {% endif %}
     </div>
-    {% if d.has_draft %}
-      <p style="margin-top: var(--s3)"><a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
-      <span class="v-prov">needs human review before anything is sent</span></p>
-    {% endif %}
-  </div>
+    <p class="rail-caption">The pipeline persists stage boundaries, not sub-steps, so nothing finer is shown here — a "drafting section 3 of 8" would be invented.</p>
+  </div></div>
 </section>
 {% endif %}
+
+<section class="section" aria-labelledby="h-req">
+  <details class="disclosure" open>
+    <summary id="h-req">Request <span class="muted">dashboard_triggers row</span></summary>
+    <div class="disclosure__body">
+      <dl class="kv kv--2col kv--compact">
+        <dt>Job id</dt><dd class="mono">{{ job.id }}</dd>
+        <dt>Status</dt><dd>{{ m.state_chip(job.ui_state) }}</dd>
+        <dt>Kind</dt><dd>{{ job.kind_label }}</dd>
+        <dt>Requested by</dt><dd>{{ job.requested_by }}</dd>
+        <dt>Requested</dt><dd class="mono">{{ job.requested_at }}</dd>
+        <dt>Started</dt><dd class="mono">{{ m.value(job.started_at) }}</dd>
+        <dt>Finished</dt><dd class="mono">{{ m.value(job.finished_at) }}</dd>
+        <dt>Worker heartbeat</dt><dd class="mono">{{ m.value(job.last_heartbeat_at) }}</dd>
+        <dt>Execution id</dt><dd class="mono">{{ m.value(job.execution_id) }}</dd>
+        <dt>Opportunity</dt>
+        <dd><a href="{{ url_detail }}?url={{ job.source_url | urlencode }}" class="mono" title="{{ job.source_url }}">{{ job.source_url[:110] }}</a></dd>
+      </dl>
+    </div>
+  </details>
+</section>
 
 {% endblock %}

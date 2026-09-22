@@ -11,12 +11,20 @@
 
 <header class="masthead">
   <div class="masthead__in">
-    <p class="wordmark">Cortech <span>BD control</span></p>
-    <nav>
+    <a class="brand" href="{{ url_queue }}" aria-label="Cortech BD, queue">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__name">Cortech <span>BD</span></span>
+    </a>
+    <nav class="nav" aria-label="views">
       <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>Queue</a>
       <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>Portfolio</a>
     </nav>
-    {% if viewer %}<span class="whoami">{{ viewer }}{% if url_logout %} · <a href="{{ url_logout }}">sign out</a>{% endif %}</span>{% endif %}
+    {% if viewer %}
+    <div class="who">
+      <span class="email">{{ viewer }}</span>
+      {% if url_logout %}<a href="{{ url_logout }}">Sign out</a>{% endif %}
+    </div>
+    {% endif %}
   </div>
 </header>
 
@@ -83,5 +91,27 @@
 })();
 </script>
 {% endif %}
+
+<script>
+/* Bulk selection: the "Draft selected" button reflects how many rows are
+   ticked and stays disabled at zero. Purely presentational; the form posts
+   exactly the same fields with or without this script. */
+(function () {
+  var form = document.getElementById("bulk-form");
+  var btn = document.getElementById("bulk-submit");
+  if (!form || !btn) return;
+  var boxes = document.querySelectorAll('input[type="checkbox"][form="bulk-form"]');
+  var all = document.getElementById("bulk-all");
+  function sync() {
+    var n = 0;
+    boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-selected", b.checked); if (b.checked) n++; });
+    btn.disabled = n === 0;
+    btn.textContent = n ? "Draft " + n + " selected" : "Draft selected";
+  }
+  boxes.forEach(function (b) { b.addEventListener("change", sync); });
+  if (all) all.addEventListener("change", function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
+  sync();
+})();
+</script>
 </body>
 </html>

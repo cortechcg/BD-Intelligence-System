@@ -5,7 +5,7 @@
 {% macro row_actions(item) %}
   {% set job = in_flight.get(item.canonical_url) or in_flight.get(item.source_url) %}
   {% if job %}
-    <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ job.id }}">{{ job.status }} → job</a>
+    <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ job.id }}">View job</a>
   {% elif triggering_enabled %}
     {% if item.ui_state == "dead_letter" %}
     <form method="post" action="{{ url_trigger_retry }}" class="inline">
@@ -17,7 +17,7 @@
     <form method="post" action="{{ url_trigger_existing }}" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="source_url" value="{{ item.source_url }}">
-      <button class="btn btn--sm">
+      <button class="btn btn--sm{% if item.ui_state not in ('failed', 'spend_cap', 'cancelled') %} btn--quiet{% endif %}">
         {% if item.ui_state in ("failed", "spend_cap", "cancelled") %}Resume
         {%- elif item.stage.value in ("drafted", "reviewed", "outcome") %}Re-draft
         {%- else %}Draft this{% endif %}
@@ -28,16 +28,17 @@
 {% endmacro %}
 
 {% macro opp_table(items, show_scores=True, selectable=False) %}
+<div class="table-wrap">
 <table class="table table--queue">
   <colgroup>
     {% if selectable %}<col class="c-sel">{% endif %}
-    <col class="c-opp"><col class="c-client"><col class="c-stage"><col class="c-state">
+    <col class="c-opp"><col class="c-client"><col class="c-rail"><col class="c-state">
     {% if show_scores %}<col class="c-num"><col class="c-num"><col class="c-rec">{% endif %}
     <col class="c-date"><col class="c-act">
   </colgroup>
   <thead>
     <tr>
-      {% if selectable %}<th><span class="sr-only">select</span></th>{% endif %}
+      {% if selectable %}<th class="c-sel-cell"><input type="checkbox" id="bulk-all" aria-label="select all shown"></th>{% endif %}
       <th>Opportunity</th>
       <th>Client</th>
       <th>Stage</th>
@@ -59,16 +60,19 @@
       {% endif %}
       <td>
         <div class="t-title clamp-2">
-          <a href="{{ url_detail }}?url={{ item.source_url | urlencode }}">{{ m.doc_value(item.title, "untitled") }}</a>
+          <a href="{{ url_detail }}?url={{ item.source_url | urlencode }}" title="{{ item.source_url }}">{{ m.doc_value(item.title, "untitled") }}</a>
         </div>
-        <div class="t-sub mono">{{ item.source_url[:96] }}{% if item.source_url|length > 96 %}…{% endif %}</div>
+        <div class="t-sub">{{ m.host(item.source_url) }}</div>
       </td>
       <td>{{ m.value_terse(item.client) }}</td>
-      <td>{{ m.value_terse(item.stage) }}</td>
+      <td>
+        {{ m.railbar(item.rail, "xs", item.ui_state, human_done=item.stage.value in ("reviewed", "outcome"), has_draft=item.stage.value == "drafted") }}
+        <div class="t-sub">{% if item.stage.value %}{{ item.stage.value }}{% else %}<span class="v-missing" title="{{ item.stage.why }}">not started</span>{% endif %}</div>
+      </td>
       <td>
         {{ m.state_chip(item.ui_state) }}
-        {% if item.draft_fail_count %}<div class="t-sub">draft failures: {{ item.draft_fail_count }}/3</div>{% endif %}
-        {% if item.last_error.value %}<div class="t-sub">{{ item.last_error.value[:110] }}</div>{% endif %}
+        {% if item.draft_fail_count %}<div class="t-sub">draft failures {{ item.draft_fail_count }}/3</div>{% endif %}
+        {% if item.last_error.value %}<div class="t-sub clamp-2" title="{{ item.last_error.value }}">{{ item.last_error.value[:140] }}</div>{% endif %}
       </td>
       {% if show_scores %}
       <td class="num">{{ m.value_terse(item.fit) }}</td>
@@ -76,100 +80,114 @@
       <td>{{ m.rec_chip(item.recommendation) }}</td>
       {% endif %}
       <td class="nowrap">{{ m.value_terse(item.deadline) }}</td>
-      <td>{{ row_actions(item) }}</td>
+      <td class="c-act">{{ row_actions(item) }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% endmacro %}
 
 {% block content %}
+{% set c = queue.counts %}
+
+<div class="view-head">
+  <h1>Queue</h1>
+  <div class="view-head__meta">
+    <span>{{ c.ledger_rows }} opportunities in the ledger</span>
+    <span>{{ c.cache_rows }} cached</span>
+    <span>refreshes every {{ (poll_ms / 1000) | int }}s</span>
+  </div>
+</div>
 
 {% if flash %}
-<div class="notice {% if flash_kind == 'stop' %}notice--stop{% elif flash_kind == 'cap' %}notice--cap{% endif %}" role="status">{{ flash }}</div>
-<hr class="hr">
+<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
 
-<section class="section">
-  <div class="section__label">
-    Submit a URL
-    <p class="section__note">
-      Runs the identical code path as
-      <code>python main.py --submit-url</code> — the worker calls
-      <code>main.submit_single_url()</code> directly, so nothing here can drift
-      from the CLI.
-    </p>
+{# ── The instrument: where every run stands, and what the desk has spent ── #}
+<div class="panel strip">
+  <div class="strip__figures">
+    <a class="figure figure--attention" href="#attention">
+      <div class="figure__value{% if not c.halted %} is-zero{% endif %}">{{ c.halted }}</div>
+      <div class="figure__label">Needs attention</div>
+      <div class="figure__sub">halted runs</div>
+    </a>
+    <a class="figure" href="#in-flight">
+      <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
+      <div class="figure__label">In flight</div>
+      <div class="figure__sub">claimed, not yet drafted</div>
+    </a>
+    <a class="figure figure--review" href="#drafted">
+      <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
+      <div class="figure__label">Awaiting review</div>
+      <div class="figure__sub">reached drafted</div>
+    </a>
+    <a class="figure" href="#skips">
+      <div class="figure__value{% if not c.terminal_skip %} is-zero{% endif %}">{{ c.terminal_skip }}</div>
+      <div class="figure__label">Stopped by design</div>
+      <div class="figure__sub">gate or NO-BID before drafting</div>
+    </a>
+    <a class="figure" href="#unclaimed">
+      <div class="figure__value">{{ c.cache_rows }}</div>
+      <div class="figure__label">Discovered</div>
+      <div class="figure__sub">{{ c.cache_without_ledger_shown }} newest unclaimed shown</div>
+    </a>
   </div>
-  <div>
-    {% if triggering_enabled %}
-    <form method="post" action="{{ url_trigger_url }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label class="field">
-        <span class="field__label">Tender URL</span>
-        <input type="url" name="url" required placeholder="https://…" autocomplete="off" spellcheck="false">
-      </label>
-      <button class="btn" type="submit">Queue for processing</button>
-    </form>
-    {% else %}
-    <div class="empty">Triggering is disabled: {{ triggering_disabled_reason }}</div>
-    {% endif %}
-    <div class="notice" style="margin-top: var(--s3)">
-      Processing runs on the background worker and takes minutes — the LLM calls
-      are the slow part. This page refreshes itself every
-      {{ (poll_ms / 1000) | int }}s; nothing is faked while you wait, the stage
-      shown is whatever <code>opportunity_processing.pipeline_stage</code>
-      actually says. A run stops at <strong>drafted</strong>. It is never sent
-      anywhere.
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="section__label">
-    Dashboard spend
-    <p class="section__note">
-      Every dashboard-triggered run is its own pipeline run with its own
-      <code>MAX_RUN_COST_USD</code>. This is the extra, aggregate gate across
-      all of them, enforced by the worker before a job starts — not only here.
-    </p>
-  </div>
-  <div>
+  <div class="strip__meter">
     {% if spend.available %}
-      <div class="notice {% if cap_blocked %}notice--cap{% endif %}">
-        <strong>{{ "%.2f"|format(spend.spent_usd) }} USD</strong> estimated across
-        {{ spend.runs }} run(s) in the last {{ spend.hours }}h, against
-        <code>DASHBOARD_AGGREGATE_CAP_USD</code> = {{ "%.2f"|format(spend.cap_usd) }}.
-        {% if spend.runs_unknown_cost %}<br>{{ spend.runs_unknown_cost }} run(s) had a call with UNKNOWN cost — the gate treats that as over.{% endif %}
-        {% if cap_blocked %}<br><strong>New runs will be refused:</strong> {{ cap_reason }}{% endif %}
-        Cancelled and failed runs are included; cost that was incurred is cost that was incurred.
-      </div>
+      {{ m.meter(spend.spent_usd, spend.cap_usd, "Dashboard spend, last " ~ spend.hours ~ "h",
+                 foot=spend.runs ~ " run(s), cancelled and failed included" ~ (" · " ~ spend.runs_unknown_cost ~ " with UNKNOWN cost, treated as over" if spend.runs_unknown_cost else ""),
+                 blocked=cap_blocked) }}
+      {% if cap_blocked %}
+        <div class="band band--critical band--wide"><div class="band__title">New runs will be refused</div>{{ cap_reason }}</div>
+      {% endif %}
     {% else %}
-      <div class="empty">Aggregate spend could not be read — the worker refuses to start runs in that state.</div>
+      <div class="band band--warn band--wide">
+        <div class="band__title">Aggregate spend could not be read</div>
+        The worker refuses to start runs in this state.
+      </div>
     {% endif %}
   </div>
+</div>
+
+{# ── Queue a tender ─────────────────────────────────────────────────────── #}
+<section class="section section--tight" aria-labelledby="h-submit">
+  <div class="section__head"><h2 id="h-submit">Queue a tender</h2></div>
+  {% if triggering_enabled %}
+  <form method="post" action="{{ url_trigger_url }}" class="field">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="sr-only" for="url">Tender URL</label>
+    <div class="submit-row">
+      <input type="url" id="url" name="url" required placeholder="https://… tender or ToR page" autocomplete="off" spellcheck="false">
+      <button class="btn" type="submit">Queue for processing</button>
+    </div>
+    <p class="field__hint">Runs the same code path as <code>python main.py --submit-url</code> on the background worker.
+      Model calls take minutes; the stage shown here is whatever the ledger says, and a run stops at <strong>drafted</strong>. Nothing is sent.</p>
+  </form>
+  {% else %}
+  <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
+  {% endif %}
 </section>
 
+{# ── Recent jobs ───────────────────────────────────────────────────────── #}
 {% if triggers %}
-<section class="section">
-  <div class="section__label">
-    Trigger queue
-    <p class="section__note">Rows from <code>dashboard_triggers</code>.</p>
-  </div>
-  <div>
+<section class="section" aria-labelledby="h-jobs">
+  <div class="section__head"><h2 id="h-jobs">Recent jobs</h2><span class="section__count">{{ triggers | length }} most recent</span></div>
+  <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Job</th><th>Requested</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend</th><th>Detail</th></tr></thead>
+      <thead><tr><th>Job</th><th>Requested</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
       <tbody>
       {% for t in triggers %}
         <tr>
           <td class="mono"><a href="{{ url_job }}/{{ t.id }}">{{ t.id[:8] }}</a></td>
-          <td class="mono">{{ t.requested_at[:16] }}</td>
+          <td class="mono nowrap">{{ t.requested_at[:16] | replace("T", " ") }}</td>
           <td>{{ t.requested_by }}</td>
           <td>{{ t.kind_label }}</td>
-          <td>{{ m.state_chip(t.ui_state) }}</td>
+          <td>{{ m.state_chip(t.ui_state, live=(t.status == "running")) }}</td>
           <td class="num">{% if t.spend_usd is not none %}{{ "%.3f"|format(t.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
           <td>
-            <div class="t-sub mono">{{ t.source_url[:80] }}</div>
-            {% if t.error_message %}<div class="t-sub">{{ t.error_kind }}: {{ t.error_message[:140] }}</div>{% endif %}
+            <a href="{{ url_detail }}?url={{ t.source_url | urlencode }}" title="{{ t.source_url }}">{{ m.host(t.source_url) }}</a>
+            {% if t.error_message %}<div class="t-sub clamp-2" title="{{ t.error_message }}">{{ t.error_kind }}: {{ t.error_message[:160] }}</div>{% endif %}
           </td>
         </tr>
       {% endfor %}
@@ -179,82 +197,76 @@
 </section>
 {% endif %}
 
-{% if queue.halted %}
-<section class="section">
-  <div class="section__label">
-    Needs attention
-    <p class="section__note">
-      Runs the agent stopped on. <code>failed</code> and spend-cap halts keep
-      their stage and resume on the next claim (ADR 011/012);
-      <code>dead_letter</code> means drafting failed 3 times and will not retry
-      on its own.
-    </p>
+{# ── Buckets, in the order a person triages them ───────────────────────── #}
+<section class="section" id="attention" aria-labelledby="h-attention">
+  <div class="section__head">
+    <h2 id="h-attention">Needs attention</h2>
+    <span class="section__count">{{ c.halted }}</span>
   </div>
-  <div>{{ opp_table(queue.halted) }}</div>
+  <p class="section__sub">Runs the agent stopped on. Failed and spend-cap halts keep their stage and resume from the checkpoint; <code>dead_letter</code> means drafting failed three times and waits for a person.</p>
+  {% if queue.halted %}
+    {{ opp_table(queue.halted) }}
+  {% else %}
+    {{ m.empty("Nothing needs attention", "No run is halted, capped or dead-lettered.") }}
+  {% endif %}
 </section>
-{% endif %}
 
-{% if queue.in_flight %}
-<section class="section">
-  <div class="section__label">In flight</div>
-  <div>{{ opp_table(queue.in_flight) }}</div>
-</section>
-{% endif %}
-
-<section class="section">
-  <div class="section__label">
-    Discovered, never claimed
-    <p class="section__note">
-      Rows in <code>opportunities_cache</code> with no
-      <code>opportunity_processing</code> row. Showing the
-      {{ queue.counts.cache_without_ledger_shown }} newest of
-      {{ queue.counts.cache_rows }} cached rows.
-    </p>
+<section class="section" id="in-flight" aria-labelledby="h-inflight">
+  <div class="section__head">
+    <h2 id="h-inflight">In flight</h2>
+    <span class="section__count">{{ c.in_flight }}</span>
   </div>
-  <div>
-    {% if queue.cache_only %}
-      {% if triggering_enabled %}
-      <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="bulk">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="btn btn--sm" type="submit">Draft selected</button>
-        <span class="section__note">One job per row, queued to the worker — not processed inside this request. Max {{ bulk_max }} per click; the aggregate cap applies to all of them.</span>
-      </form>
-      {% endif %}
-      {{ opp_table(queue.cache_only, show_scores=False, selectable=True) }}
-    {% else %}
-      <div class="empty">No unclaimed cache rows in the scanned window.</div>
+  {% if queue.in_flight %}
+    {{ opp_table(queue.in_flight) }}
+  {% else %}
+    {{ m.empty("No run in flight", "Queue a tender above, or draft one of the discovered rows below.") }}
+  {% endif %}
+</section>
+
+<section class="section" id="drafted" aria-labelledby="h-drafted">
+  <div class="section__head">
+    <h2 id="h-drafted">Awaiting review</h2>
+    <span class="section__count">{{ c.drafted }}</span>
+  </div>
+  <p class="section__sub">Reached <code>drafted</code>. Every one of these needs a person before anything leaves the building.</p>
+  {% if queue.drafted %}
+    {{ opp_table(queue.drafted) }}
+  {% else %}
+    {{ m.empty("Nothing has reached drafted yet", "Drafts appear here when a run completes all four stages.") }}
+  {% endif %}
+</section>
+
+<section class="section" id="unclaimed" aria-labelledby="h-unclaimed">
+  <div class="section__head">
+    <h2 id="h-unclaimed">Discovered, not yet run</h2>
+    <span class="section__count">{{ c.cache_without_ledger_shown }} newest of {{ c.cache_rows }}</span>
+  </div>
+  <p class="section__sub">Found by discovery, never claimed for processing. Tick rows and draft them in one go; each becomes its own job and the aggregate cap applies to all of them.</p>
+  {% if queue.cache_only %}
+    {% if triggering_enabled %}
+    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar" style="margin-bottom: var(--sp3)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn btn--sm" type="submit" id="bulk-submit">Draft selected</button>
+      <span class="small muted">Max {{ bulk_max }} per click.</span>
+    </form>
     {% endif %}
-  </div>
+    {{ opp_table(queue.cache_only, show_scores=False, selectable=True) }}
+  {% else %}
+    {{ m.empty("Every discovered row has been run", "Discovery adds rows on its own schedule; new ones appear here.") }}
+  {% endif %}
 </section>
 
-{% if queue.terminal_skip %}
-<section class="section">
-  <div class="section__label">
-    Terminal skips
-    <p class="section__note">
-      Lease <code>completed</code> without reaching <code>drafted</code> — the
-      consultancy gate returned FALSE or the deterministic scorer returned
-      NO-BID, both of which stop before proposal tokens are spent (ADR 011 §5).
-      Not dropped work.
-    </p>
+<section class="section" id="skips" aria-labelledby="h-skips">
+  <div class="section__head">
+    <h2 id="h-skips">Stopped by design</h2>
+    <span class="section__count">{{ c.terminal_skip }}</span>
   </div>
-  <div>{{ opp_table(queue.terminal_skip) }}</div>
-</section>
-{% endif %}
-
-<section class="section">
-  <div class="section__label">
-    Drafted
-    <p class="section__note">Reached <code>drafted</code>. Every one of these
-    still needs a human before anything leaves the building.</p>
-  </div>
-  <div>
-    {% if queue.drafted %}
-      {{ opp_table(queue.drafted) }}
-    {% else %}
-      <div class="empty">Nothing has reached <code>drafted</code> yet.</div>
-    {% endif %}
-  </div>
+  <p class="section__sub">Completed without drafting: the consultancy gate said no, or the scorer returned NO-BID, before any proposal tokens were spent. Not dropped work.</p>
+  {% if queue.terminal_skip %}
+    {{ opp_table(queue.terminal_skip) }}
+  {% else %}
+    {{ m.empty("No terminal skips", "Runs that stop before drafting on purpose will be listed here.") }}
+  {% endif %}
 </section>
 
 {% endblock %}
