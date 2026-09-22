@@ -6,7 +6,7 @@
 {% set scored = p.ledger_rows - p.unscored_ledger_rows %}
 
 <div class="view-head">
-  <h1>Portfolio</h1>
+  <h1>Portfolio <span class="hl">{{ scored }} scored of {{ p.ledger_rows }}</span></h1>
   <div class="view-head__meta">
     <span>{{ p.cache_rows }} cached</span>
     <span>{{ p.ledger_rows }} in the ledger</span>
@@ -16,7 +16,7 @@
 
 {# ── Coverage first: the denominators everything below is read against ─── #}
 <div class="tiles">
-  <div class="tile">
+  <div class="tile panel--hero">
     <div class="tile__label">Cached opportunities</div>
     <div class="tile__value">{{ p.cache_rows }}</div>
     <div class="tile__sub">Found by discovery. Most have never been claimed for processing.</div>

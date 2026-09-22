@@ -1,7 +1,7 @@
 # Dashboard design direction
 
-> **2026-09-22, later the same day: the Auros reskin (§9) replaces the visual
-> tokens in §2–§4.** Everything structural in §0–§8 — the critique, the rail,
+> **2026-09-22, evening: the Seline reskin (§10) replaces the Auros tokens
+> in §9, which had replaced the navy/brass tokens in §2–§4.** Everything structural in §0–§8 — the critique, the rail,
 > the hierarchy per view, the states, the value primitive — still holds; §9
 > says which Auros token now plays each role and shows the recomputed
 > contrast. Screenshots: `docs/design-pass/auros-before-*` / `auros-after-*`.
@@ -362,3 +362,96 @@ Screenshots: `docs/design-pass/polish-before-*` / `polish-after-*`.
    36, chart 36/40, auth card 48, footer well 36/40 — each a step on the Auros
    scale. Table rows deliberately stay tight (12px vertical) so the tables read
    as instruments inside spacious cards rather than spacious tables.
+
+
+---
+
+## 10. Seline reskin (2026-09-22)
+
+Token swap plus component remap onto the Seline Analytics reference ("quiet
+analyst's desk on warm paper"): stone canvas, white hairline cards, one cyan
+accent, display type at weight 400 with tight tracking. Structure unchanged
+since §1–§7 and the jobs-table instrument from §9.6. Portfolio was built
+first as the reference screen. Screenshots: `docs/design-pass/seline-before-*`
+/ `seline-after-*`.
+
+### 10.1 Type
+
+| Role | Face | Note |
+|---|---|---|
+| Headings, figures, disclosure titles | **Inter Tight** (OFL 1.1), weight 400 only | The reference's substitute for Roobert. 52px display at −1.092px, 32px at −0.8px, 20px at −0.1px. Never bolder than 400 at display sizes (test-enforced). |
+| Body, labels, tables, buttons | **Inter** (OFL 1.1) | 14px at 1.64 — the reference's dominant rhythm — with +0.004em tracking (test-enforced). Restored from this repo's own history. |
+| Document and model text | Source Serif 4 | Unchanged, structural. |
+| Identifiers | IBM Plex Mono | Unchanged. |
+
+Both new faces are one variable woff2 each, self-hosted with their OFL text
+beside them. DM Sans is removed.
+
+### 10.2 Token map
+
+| Dashboard role | Seline token | Value |
+|---|---|---|
+| page canvas | `--color-stone-canvas` | `#fafaf9` |
+| cards, tables, tiles, inputs | `--color-pure-white` | `#ffffff` |
+| hairlines (the structure) | `--color-stone-border` / `--color-stone-muted` | `#e8e6e5` / `#d6d3d1` |
+| headings, figures, primary text | `--color-ink-black` | `#0c0a09` |
+| body, notes, table text | `--color-warm-gray` | `#78716c` |
+| disabled, missing figures, rings only | `--color-ash-gray` | `#a8a29e` |
+| BID chip, completed marks, rail done | `--color-soot` | `#1c1917` |
+| the one filled button, focus ring | `--color-cyan-signal` | `#3ba6f1` |
+| marks and edges that mean "a person is needed" | `--color-cyan-edge` | `#3398e1` |
+| the highlight pill, halted state pills | `--color-sky-wash` | `#c1e1f7` |
+| ordinal ramps | + Tailwind stone-700 | `#44403c` (the one added neutral, from the same scale) |
+
+Shadows: `--shadow-md` on exactly one card per page — the hero instrument
+(Queue strip, Detail score band, Job meter, the first Portfolio tile, the
+sign-in card). Every other card is a 1px hairline. The only other
+`box-shadow`s are the focus ring, the live pulse, and a 1px inset that edges a
+halted rail segment (test-enforced).
+
+### 10.3 Meaning that had to survive
+
+| Signal | Treatment |
+|---|---|
+| agent stages done | soot (stone-700 for the first two, soot for the last two) |
+| human review, awaiting a person | cyan-edge, dashed, hollow (2px when it is the current step) |
+| human review, a person acted | cyan-edge filled |
+| the machine stopped here | sky-wash fill with a 1px cyan-edge inset |
+| state pills | pending: white/hairline; processing: white with a cyan edge and pulsing cyan dot; completed: stone-border fill, soot dot; failed / dead-letter / cap / cancelled: sky-wash fill, ink text, dot ring vs filled |
+| recommendation | BID soot filled, WATCH ink outline, NO-BID warm-gray on a stone outline — achromatic, weight and shape |
+| the one highlight per headline | sky-wash pill with **ink** text on the view's key real figure ("2 need attention", "23 scored of 26", the job's state) |
+
+Cyan therefore means one thing across the whole tool: **a person is needed**
+(act on this, review this, this stopped and waits for you). It is the same
+meaning the reference gives it ("actions feel switched on").
+
+### 10.4 Contrast, recomputed on the light palette
+
+```
+text ≥ 4.5   ink on canvas 18.92 · on card 19.76 · on sky-wash 14.47 · on cyan (button) 7.44
+             warm-gray on canvas 4.59 · on card 4.80        white on soot (BID) 17.49
+marks ≥ 3.0  cyan-edge on card 3.13 · soot 17.49 · stone-700 10.27 · warm-gray 4.80
+rejected     cyan-edge text on sky-wash 2.29 (the reference's highlight span — not used as text)
+             cyan-edge text on canvas 2.99 · white on cyan-signal 2.65 (the reference's CTA text — not used)
+             cyan-signal as a mark on white 2.65 (marks use cyan-edge) · ash-gray as text 2.52 · warm-gray on sky-wash 3.51
+```
+
+Ramps (dataviz validator, light mode, white surface):
+
+```
+stage  "#a8a29e,#78716c,#44403c,#1c1917" --ordinal → ALL CHECKS PASS (light end 2.52:1 ≥ 2.0 floor; direct labels + table view kept)
+rec    "#78716c,#44403c,#1c1917"         --ordinal → ALL CHECKS PASS (light end 4.80:1)
+```
+
+### 10.5 Deviations, each on purpose
+
+- **Cyan is never text.** Three of the reference's own pairings fail AA (above).
+  The highlight pill keeps the wash and takes ink text; the CTA keeps the cyan
+  fill and takes ink text, which the reference's agent guide itself offers.
+- **Warm-gray body never sits on sky-wash** (3.51:1): pills and the highlight
+  use ink.
+- **Section gap 64px, not 96; card padding 24 as specified.** Tool density.
+- **2px radius on thin marks** (rail, meter, bars): 9999 would make pills of
+  data, 10 would look wrong at 8px tall.
+- **Serif kept for document text.** Structural.
+- **Labels stay sentence case.** The reference has no uppercase-label component.
