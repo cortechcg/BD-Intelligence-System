@@ -62,7 +62,7 @@
         <div class="t-title clamp-2">
           <a href="{{ url_detail }}?url={{ item.source_url | urlencode }}" title="{{ item.source_url }}">{{ m.doc_value(item.title, "untitled") }}</a>
         </div>
-        <div class="t-sub">{{ m.host(item.source_url) }}</div>
+        <div class="t-sub mono">{{ m.host(item.source_url) }}</div>
       </td>
       <td>{{ m.value_terse(item.client) }}</td>
       <td>
@@ -174,19 +174,20 @@
 <section class="section" aria-labelledby="h-jobs">
   <div class="section__head"><h2 id="h-jobs">Recent jobs</h2><span class="section__count">{{ triggers | length }} most recent</span></div>
   <div class="table-wrap">
-    <table class="table">
+    <table class="table table--jobs">
+      <colgroup><col class="c-id"><col class="c-when"><col class="c-by"><col class="c-kind"><col class="c-status"><col class="c-spend"><col></colgroup>
       <thead><tr><th>Job</th><th>Requested</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
       <tbody>
       {% for t in triggers %}
         <tr>
           <td class="mono"><a href="{{ url_job }}/{{ t.id }}">{{ t.id[:8] }}</a></td>
           <td class="mono nowrap">{{ t.requested_at[:16] | replace("T", " ") }}</td>
-          <td>{{ t.requested_by }}</td>
-          <td>{{ t.kind_label }}</td>
+          <td class="nowrap">{{ t.requested_by }}</td>
+          <td class="nowrap">{{ t.kind_label }}</td>
           <td>{{ m.state_chip(t.ui_state, live=(t.status == "running")) }}</td>
-          <td class="num">{% if t.spend_usd is not none %}{{ "%.3f"|format(t.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
+          <td class="num mono">{% if t.spend_usd is not none %}{{ "%.3f"|format(t.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
           <td>
-            <a href="{{ url_detail }}?url={{ t.source_url | urlencode }}" title="{{ t.source_url }}">{{ m.host(t.source_url) }}</a>
+            <a class="mono" href="{{ url_detail }}?url={{ t.source_url | urlencode }}" title="{{ t.source_url }}">{{ m.host(t.source_url) }}</a>
             {% if t.error_message %}<div class="t-sub clamp-2" title="{{ t.error_message }}">{{ t.error_kind }}: {{ t.error_message[:160] }}</div>{% endif %}
           </td>
         </tr>

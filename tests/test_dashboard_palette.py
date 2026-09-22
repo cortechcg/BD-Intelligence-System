@@ -68,6 +68,16 @@ def test_marks_clear_three_to_one(fg, bg):
     assert ratio >= 3.0, f"--{fg} on --{bg} is {ratio:.2f}:1 (need 3.0)"
 
 
+def test_cards_float_off_the_canvas():
+    """Verbatim kelp is 1.22:1 against abyss and cards did not read as raised;
+    the surface role is a lifted kelp step. Keep the step, and keep the teal
+    mark legible on it."""
+    step = contrast(token("surface"), token("ground"))
+    assert step >= 1.5, f"card surface vs canvas is only {step:.2f}:1"
+    assert contrast(token("teal"), token("surface")) >= 3.0
+    assert contrast(token("recess"), token("surface")) >= 1.5, "inputs must sink below the card"
+
+
 def test_slate_deep_is_never_used_as_text():
     """#707777 is 2.9:1 on kelp — a surface tint and ring colour only."""
     assert contrast(token("color-slate-deep"), token("surface")) < 4.5  # documents why
