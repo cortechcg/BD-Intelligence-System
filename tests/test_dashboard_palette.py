@@ -99,7 +99,7 @@ def test_two_fills_only():
             tok = m.group(2)
             if tok in ("ground", "surface", "track", "hover", "selected"):
                 continue
-            assert any(k in sel for k in (".btn", ".chip--bid", "rail__seg", "meter__fill", "::before")), f"fill {tok} on {sel[:70]}"
+            assert any(k in sel for k in (".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--")), f"fill {tok} on {sel[:70]}"
 
 
 def test_brass_means_a_person_must_act_and_nothing_else():
@@ -174,7 +174,11 @@ def test_radii_vocabulary():
 def test_jobs_table_is_an_instrument():
     assert ".table--jobs { table-layout: fixed; }" in BODY
     state = re.search(r"\.state \{([^}]*)\}", BODY).group(1)
-    assert "border-radius: var(--r-pill)" in state and "border: 1px solid var(--line)" in state
+    assert "border-radius: var(--r-pill)" in state and "background: var(--track)" in state, "status is a filled chip"
+    assert ".state--completed           { background: var(--fill); color: var(--on-fill); }" in BODY
+    assert ".state--failed, .state--dead_letter, .state--spend_cap, .state--cancelled { background: var(--accent); color: var(--on-fill); }" in BODY
+    assert contrast(token("on-fill"), token("accent")) >= 4.5 and contrast(token("on-fill"), token("fill")) >= 4.5
+    assert contrast(token("ink"), token("track")) >= 4.5
 
 
 def test_fonts_are_self_hosted_and_present():
