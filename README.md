@@ -238,8 +238,36 @@ Playwright: the host must have Google Chrome at `/usr/bin/google-chrome` (or `go
 |---|---|---|
 | Supabase (`opportunities_cache`, `cv_embeddings`, `proposal_embeddings`, `win_loss_memory`) | All vector search, dedup, embeddings — the real operational data | Survives independently in the cloud; only credentials need re-adding to `.env` |
 | Airtable (`OPPORTUNITIES`, `CONSULTANTS`, `PAST_PROPOSALS`, `RATE_CARDS`, `PIPELINE_TRACKER`, `AGENT_LOGS`, `DONOR_INTELLIGENCE`) | Human-browsable records, rate cards, donor knowledge | Survives independently in the cloud; only credentials need re-adding |
-| `data/cvs/`, `data/proposals/` (in this repo) | The real source documents everything else is built from | Recoverable from git **if committed** — verify this is actually true for your clone, don't assume |
+| `data/cvs/`, `data/proposals/` (Supabase Storage bucket `Cortech-documents`, **not git**) | The real source documents everything else is built from | Survive in the cloud with the rest of the Supabase project; `python sync_source_documents.py pull` restores them into a fresh clone (§Source documents) |
 | `intelligence/style_guides/*.md` (in this repo) | Extracted structure/style guides | Regenerable by re-running `extract_style_guide.py` against `data/proposals/`, if that folder survives |
+
+### Source documents
+
+`data/proposals/` (past technical and financial proposals, named for their
+clients) and `data/cvs/` (named consultants' CVs) are **not tracked in git**.
+Decision 2026-09-22: a repository history that carries client-identifying
+financial documents and personal CVs into every clone ever made — including
+clones by people since removed — was not an acceptable exposure, and the 466 MB
+they added to every clone was the smaller of the two problems. The git history
+was rewritten the same day to remove them (`git filter-repo`; anyone with an
+older clone must re-clone).
+
+They live in the private Supabase Storage bucket **`Cortech-documents`** in the
+same project as everything else, under `proposals/` and `cvs/`, and are moved
+with one script that uses the credentials already in `.env`:
+
+```bash
+python sync_source_documents.py status   # compare data/ with the bucket
+python sync_source_documents.py pull     # fresh clone: bucket → data/
+python sync_source_documents.py push     # after adding a document: data/ → bucket
+```
+
+Run `pull` before `extract_style_guide.py`, `extract_voice_exemplars.py`,
+`embed_cvs.py` or `main.py --extract-relationships`. The pipeline itself
+degrades gracefully without the folder (`proposal_writer` logs that it is
+proceeding without the real proposals), and neither Render service ships the
+documents in its image (`.dockerignore`). Only the two `PUT_*_HERE.txt`
+placeholders remain in git so the folders exist on checkout.
 
 **`AGENT_LOGS` has hit Airtable's free-tier 1,000-record cap more than once.** If Airtable writes start failing with sustained 429 errors even after retries, this is almost always the cause — it's pure operational logging, safe to bulk-delete without affecting anything the code depends on.
 
@@ -270,7 +298,7 @@ git clone <your-github-repo-url>
 cd cortech-bd-agent
 ```
 
-If this succeeds, all Python code, `data/cvs/`, `data/proposals/`, the extracted style guides, and every `CURSOR_TASK_*.md` design record are back. **`.env` will not be — that's expected, it's gitignored on purpose.**
+If this succeeds, all Python code, the extracted style guides, and every `CURSOR_TASK_*.md` design record are back. **`.env` will not be — that's expected, it's gitignored on purpose.** `data/cvs/` and `data/proposals/` will not be either: they are not in git (§Source documents). Once `.env` has the Supabase credentials, `python sync_source_documents.py pull` restores them.
 
 ### Step 2 — Rebuild the Python environment
 
@@ -335,7 +363,7 @@ Watch it run end to end at least once before trusting the timers to run unattend
 This is a genuinely worse scenario and there's no clever recovery from it — it means starting over:
 
 - **The code** can only be rebuilt from whatever `CURSOR_TASK_*.md` files, this README, or chat history with whoever helped build it survive elsewhere. There is no shortcut here.
-- **`data/cvs/` and `data/proposals/`** — these are real business documents. If they only ever lived in this repo, they need to be re-sourced from wherever the *original* files came from (email, a shared drive, whoever originally supplied the CVs and past submissions) — they cannot be regenerated from code.
+- **`data/cvs/` and `data/proposals/`** — these are real business documents. Their home is the Supabase Storage bucket `Cortech-documents`; if Supabase is gone too, they must be re-sourced from wherever the *original* files came from (email, a shared drive, whoever originally supplied the CVs and past submissions) — they cannot be regenerated from code. Worth an occasional `python sync_source_documents.py pull` onto a machine that is backed up.
 - **Supabase's embeddings** can be rebuilt from scratch once `data/cvs/` is recovered, by re-running the population and embedding scripts — but this means re-processing everything, and any opportunity/dedup history is genuinely gone.
 - **Airtable's rate cards, donor intelligence, and consultant availability data** were hand-entered — if lost, they need to be hand-entered again. Worth an occasional manual export as insurance specifically because of this.
 

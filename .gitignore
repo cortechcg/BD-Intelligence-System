@@ -25,3 +25,12 @@ scraper_diagnosis.txt
 # Generated from live Supabase rows by dashboard/design/build_preview.py —
 # a design probe, not source. Regenerate; do not commit production data.
 dashboard/design/queue_preview.html
+
+# --- Source documents: NOT in git (decision 2026-09-22, README §"Source documents")
+# Client financial proposals and named consultants' CVs live in the private
+# Supabase Storage bucket `Cortech-documents`; `python sync_source_documents.py
+# pull` populates these folders on a fresh clone. Only the placeholders stay.
+data/proposals/*
+data/cvs/*
+!data/proposals/PUT_PROPOSAL_FILES_HERE.txt
+!data/cvs/PUT_CV_FILES_HERE.txt
