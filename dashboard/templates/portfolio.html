@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
 {% block title %}Portfolio · Cortech BD{% endblock %}
-
 {% block content %}
 {% set scored = p.ledger_rows - p.unscored_ledger_rows %}
 
@@ -35,18 +34,18 @@
 
 <section class="section" aria-labelledby="h-stage">
   <div class="section__head"><h2 id="h-stage">By stage</h2><span class="section__count">{{ p.ledger_rows }} ledger rows</span></div>
-  <p class="section__sub">Ledger rows at each agent stage. <code>reviewed</code> and <code>outcome</code> are human transitions written from Airtable, not agent work.</p>
+  <p class="section__sub">Ledger rows at each stage. The first four are agent work; <code>reviewed</code> and <code>outcome</code> are human transitions written from Airtable. A row is counted once, at its current stage.</p>
   <div class="panel">
-    <div class="chart">
-      {{ m.bars(stage_bars, "ledger rows by pipeline stage") }}
-    </div>
-    <details class="disclosure" style="margin: 0 var(--sp5)">
+    <figure class="chart chart--canvas" aria-labelledby="h-stage">
+      <canvas id="chart-stage" height="240" aria-label="ledger rows by pipeline stage" role="img"></canvas>
+    </figure>
+    <details class="disclosure" style="margin: 0 var(--sp6)">
       <summary>Table view <span class="muted">same counts as text</span></summary>
       <div class="disclosure__body">
         <table class="table">
           <thead><tr><th>Stage</th><th class="num">Rows</th></tr></thead>
           <tbody>
-            {% for s, n in p.by_stage.items() %}<tr><td>{{ s }}</td><td class="num">{{ n }}</td></tr>{% endfor %}
+            {% for s in p.by_stage %}<tr><td>{{ s }}</td><td class="num">{{ p.by_stage[s] }}</td></tr>{% endfor %}
             {% if p.no_stage %}<tr><td>no stage recorded</td><td class="num">{{ p.no_stage }}</td></tr>{% endif %}
           </tbody>
         </table>
@@ -128,6 +127,12 @@
   </div>
   <p class="section__sub">Spend recorded on each job. Cancelled and failed runs are listed with what they cost; cancelling does not hide money that was spent.</p>
   {% if dashboard_runs %}
+  <div class="panel" style="margin-bottom: var(--sp5)">
+    <figure class="chart chart--canvas">
+      <canvas id="chart-spend" height="240" aria-label="dashboard spend per day, USD" role="img"></canvas>
+      <figcaption class="chart__foot">The {{ charts.spend.run_count }} most recent runs, grouped by the day they were requested (UTC). Runs that stopped early — failed, cancelled, cap-halted — are their own series.{% if charts.spend.unknown | sum %} {{ charts.spend.unknown | sum }} run{{ "s" if charts.spend.unknown | sum != 1 }} recorded no spend and are not drawn; unrecorded is not zero.{% endif %}</figcaption>
+    </figure>
+  </div>
   <div class="table-wrap">
     <table class="table table--jobs">
       <colgroup><col class="c-id"><col class="c-when"><col class="c-by"><col class="c-kind"><col class="c-status"><col class="c-spend"></colgroup>
@@ -161,36 +166,50 @@
     {% for days in [30, 90] %}
       {% set w = digest.themes.get(days) %}
       {% if w %}
-      <div class="panel"><div class="panel__in">
-        <div class="section__head" style="margin-bottom: var(--sp3)"><h3 style="font-size: var(--t14); font-weight: 600">Themes, {{ days }} days</h3></div>
+      <div class="panel">
+        <div class="panel__in" style="padding-bottom: 0"><h3>Themes, {{ days }} days</h3></div>
         {% if w.is_trend %}
-          <table class="table">
-            <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
-            <tbody>{% for c in w.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
-          </table>
-          <p class="chart__foot">{{ w.sample_clause() }}</p>
+          <figure class="chart chart--canvas" style="padding-top: var(--sp3)">
+            <canvas id="chart-themes-{{ days }}" height="260" aria-label="opportunities by thematic area, last {{ days }} days" role="img"></canvas>
+          </figure>
+          <details class="disclosure" style="margin: 0 var(--sp6)">
+            <summary>Table view <span class="muted">{{ w.sample_clause() }}</span></summary>
+            <div class="disclosure__body">
+              <table class="table">
+                <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
+                <tbody>{% for c in w.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
+              </table>
+            </div>
+          </details>
         {% else %}
-          {{ m.empty("Too few dated rows to call a trend", w.message) }}
+          <div class="panel__in">{{ m.empty("Too few dated rows to call a trend", w.message) }}</div>
         {% endif %}
-      </div></div>
+      </div>
       {% endif %}
     {% endfor %}
   </div>
 
   {% set g = digest.geography.get(30) %}
   {% if g %}
-  <div class="panel" style="margin-top: var(--sp4)"><div class="panel__in">
-    <div class="section__head" style="margin-bottom: var(--sp3)"><h3 style="font-size: var(--t14); font-weight: 600">Geography, 30 days</h3></div>
+  <div class="panel" style="margin-top: var(--sp5)">
+    <div class="panel__in" style="padding-bottom: 0"><h3>Geography, 30 days</h3></div>
     {% if g.is_trend %}
-      <table class="table">
-        <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
-        <tbody>{% for c in g.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
-      </table>
-      <p class="chart__foot">{{ g.sample_clause() }}</p>
+      <figure class="chart chart--canvas" style="padding-top: var(--sp3)">
+        <canvas id="chart-geo-30" height="260" aria-label="opportunities by location, last 30 days" role="img"></canvas>
+      </figure>
+      <details class="disclosure" style="margin: 0 var(--sp6)">
+        <summary>Table view <span class="muted">{{ g.sample_clause() }}</span></summary>
+        <div class="disclosure__body">
+          <table class="table">
+            <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
+            <tbody>{% for c in g.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+      </details>
     {% else %}
-      {{ m.empty("Too few dated rows to call a trend", g.message) }}
+      <div class="panel__in">{{ m.empty("Too few dated rows to call a trend", g.message) }}</div>
     {% endif %}
-  </div></div>
+  </div>
   {% endif %}
 
   <div style="margin-top: var(--sp4)">
@@ -206,4 +225,12 @@
 </section>
 {% endif %}
 
+<script type="application/json" id="chart-data">{{ charts | tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"
+        integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi"
+        crossorigin="anonymous"></script>
+<script src="{{ static_base }}/portfolio-charts.js"></script>
 {% endblock %}

@@ -480,3 +480,11 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   .bar { grid-template-columns: 96px minmax(0, 1fr) 40px; }
   .submit-row { flex-direction: column; align-items: stretch; }
 }
+
+/* ── Portfolio charts (Chart.js draws into these; tokens above are read by
+      portfolio-charts.js so series colours are the palette, not new ones) ── */
+.chart--canvas { display: flex; flex-direction: column; height: 340px; padding: var(--sp6) var(--sp6) var(--sp5); margin: 0; }
+.chart--canvas canvas { flex: 1 1 auto; min-height: 0; width: 100% !important; }
+.chart--canvas figcaption { flex: none; font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp4); line-height: 1.55; }
+.panel__in h3 { font-size: var(--t16); }
+@media (max-width: 720px) { .chart--canvas { height: 300px; padding: var(--sp4); } }
