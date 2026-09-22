@@ -1,11 +1,10 @@
 # Dashboard design direction
 
-> **2026-09-22, night: forest green + cream (§13) is current.** Type, spacing
-> and structure are the ORYZO pass's (§12); the palette is a deep forest-green
-> surface stack with cream text, one paper surface, and brass reserved for
-> "a person needs to act". §2–§4 hold the navy/brass tokens of the first pass;
-> the structure in §0–§8 has held through every skin.
-> Screenshots: `docs/design-pass/forest-before-*` / `forest-after-*`.
+> **2026-09-22, night: light cream + forest green (§14) is current.** A
+> subtractive pass: one cream surface, forest ink, brass only for "a person
+> needs to act". Structure and the Outfit face carry over; the surface stack,
+> tinted fills, uppercase headings and highlight pills from §9–§13 are gone.
+> Screenshots: `docs/design-pass/simple-before-*` / `simple-after-*`.
 
 Second pass, 2026-09-22. The first pass (2026-09-21) established the rules
 that still hold: colour encodes evidence status, missing data is grey, the
@@ -666,3 +665,59 @@ one).
 stage "#4f7d63,#6f9c82,#93bba4,#bcd9c8" --ordinal --mode dark --surface "#213e30" → ALL CHECKS PASS
 rec   "#6f9c82,#93bba4,#bcd9c8"         --ordinal --mode dark --surface "#213e30" → ALL CHECKS PASS
 ```
+
+
+---
+
+## 14. Light cream + forest green — the subtractive pass (2026-09-22)
+
+The brief: stop adding design decisions. Everything below is a removal or a
+value; the structure (§0–§8) and the Outfit face (§12) are unchanged.
+
+### 14.1 Values, chosen by the numbers
+
+| Role | Token | Hex | Verified on cream `#f6f1e7` |
+|---|---|---|---|
+| the page, and every card | `--color-cream` | `#f6f1e7` | — |
+| ink, lines, the one filled button, BID chip, rail done | `--color-forest` | `#1b4332` | **9.84:1**; cream on it 9.84 |
+| rail current stage, ramp step | `--color-forest-mid` | `#4f7d63` | 5.1:1 as a mark; 1.9:1 from forest, so current ≠ done by lightness |
+| secondary text | `--color-moss` | `#4f6b5d` | **5.19:1** (the first draft `#5c7566` was 4.45 — rejected) |
+| disabled / missing figures (display size), rings | `--color-sage` | `#6b8177` | 3.4:1 — display figures only, test-enforced (the draft `#7f948a` was 2.87 — rejected) |
+| hairlines | `--color-hairline` | `#d9d2c3` | 1.34:1 — a line, not text |
+| tracks | `--color-track` | `#e6e0d2` | 1.17:1 |
+| a person needs to act | `--color-brass` | `#7a5e12` | **5.43:1** as text (the dark-surface brass `#d4b05a` is 1.84 on cream — rejected; this is the first pass's brass-ink, §3.1) |
+| Portfolio ramps | `--ramp-1…4` | `#7fa691 #4f7d63 #2f5f48 #1b4332` | one hue (5°), light end 2.40 ≥ the 2.0 floor (the draft `#a7c4b3` was 1.67 — rejected) |
+
+### 14.2 What was removed, and why each was there out of habit
+
+- **The surface stack** (recess / canvas / card / hero). One cream; a card is
+  a hairline. The hero instrument keeps a 2px forest rule on top — the one
+  exception the brief allows — and nothing else is tinted. Test: `--surface`
+  must alias `--ground`; no `elevated`, `recess`, `paper` or `surface-2` token
+  may exist; no `box-shadow` except the pulse keyframe and the inset focus
+  ring; no `gradient(`.
+- **Uppercase headings, buttons, nav, pills.** Only labels and the
+  recommendation chips are uppercase now, tracked at 0.08em. Test: exactly
+  two `text-transform: uppercase` rules.
+- **The highlight pill.** A headline phrase is plain text; only the queue
+  headline's count is brass, because it means "act".
+- **Dashed dividers** under section heads and the masthead. Space does that
+  job; a hairline remains only where it separates content (masthead, footer,
+  table rows).
+- **Filled table heads, filled state pills, filled quiet buttons.** All are
+  outlines now. Test: forest is the only fill, and only on the primary
+  button, the BID chip and marks.
+- **The rail as a bar.** In queue rows it is a 4px line; done is forest,
+  current is mid forest, a halted stage is brass, and the human-review
+  segment is a 2px dashed brass rule — a different shape, not a filled block.
+- **Brass as a ring, a fill or a focus colour.** Brass is text on the NEEDS
+  ATTENTION figure and the queue headline, the dashed edge, the halted stage,
+  halted state dots and pill borders, the halt band edge. Test-enforced.
+
+### 14.3 What was added
+
+Space. Page top 64px, section gap 96px, card padding 32px, hero padding 48px,
+table cells 16×24px, body 15px at 1.6. Figures: 56px hero and bucket counts
+(the NEEDS ATTENTION count at weight 500, the routine counts at 400), 44px
+tiles and view titles, 24px supporting stats. That difference — size and
+weight, not colour or boxes — is the hierarchy.
