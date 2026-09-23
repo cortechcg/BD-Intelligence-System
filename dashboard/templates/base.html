@@ -67,7 +67,6 @@
             body: (data.job.error_message || ("stage: " + (data.pipeline_stage || "—"))).slice(0, 180)
           });
         }
-        window.location.reload();
       }
     }).catch(function () {});
   }
@@ -81,13 +80,60 @@
 /* Status polling. Supabase Realtime is not usable here: the `supabase_realtime`
    publication on this project contains zero tables, so postgres_changes would
    ack a subscription and then deliver nothing. Polling also keeps the
-   service-role key server-side. See docs/DASHBOARD.md. */
+   service-role key server-side. See docs/DASHBOARD.md.
+
+   A failed refresh must not navigate. Replacing the document with the
+   response body turns one HTTP 500 into a blank Internal Server Error page
+   and throws away the last good render. Fetch the same URL and swap main
+   only when the response is HTML we can use. */
 (function () {
   var ms = parseInt(document.body.dataset.pollMs, 10);
   if (!ms) return;
   var hidden = false;
+  var refreshing = false;
   document.addEventListener("visibilitychange", function () { hidden = document.hidden; });
-  setInterval(function () { if (!hidden) window.location.reload(); }, ms);
+  function notice(on) {
+    var el = document.getElementById("poll-notice");
+    if (!on) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement("div");
+    el.id = "poll-notice";
+    el.className = "band band--warn band--wide";
+    el.setAttribute("role", "status");
+    el.style.margin = "0 0 var(--sp4)";
+    el.textContent = "Couldn't refresh, retrying…";
+    var main = document.querySelector("main.page");
+    if (main) main.insertBefore(el, main.firstChild);
+  }
+  function tick() {
+    if (hidden || refreshing) return;
+    refreshing = true;
+    fetch(window.location.href, {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {"Accept": "text/html"}
+    }).then(function (r) {
+      if (!r.ok) throw new Error(String(r.status));
+      var ctype = r.headers.get("content-type") || "";
+      if (ctype.indexOf("text/html") === -1) throw new Error("not html");
+      return r.text();
+    }).then(function (html) {
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var next = doc.querySelector("main.page");
+      var cur = document.querySelector("main.page");
+      if (!next || !cur) throw new Error("no page");
+      cur.replaceWith(document.importNode(next, true));
+      if (doc.body && doc.body.dataset.pollMs) {
+        document.body.dataset.pollMs = doc.body.dataset.pollMs;
+      }
+      notice(false);
+    }).catch(function () {
+      notice(true);
+    }).then(function () {
+      refreshing = false;
+    });
+  }
+  setInterval(tick, ms);
 })();
 </script>
 {% endif %}

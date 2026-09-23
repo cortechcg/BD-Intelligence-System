@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
-{% block title %}Job {{ job.id[:8] }} · Cortech BD{% endblock %}
+{% block title %}Job {{ (job.id|string)[:8] }} · Cortech BD{% endblock %}
 
 {% block content %}
 {% set running = job.status in ("queued", "running") %}
@@ -10,7 +10,7 @@
   <div class="view-head__meta">
     <span>{{ job.kind_label }}</span>
     <span>requested by {{ job.requested_by }}</span>
-    <span class="mono">{{ job.requested_at[:19] | replace("T", " ") }}</span>
+    <span class="mono">{{ ((job.requested_at or '')|string)[:19] | replace("T", " ") }}</span>
   </div>
 </div>
 
@@ -42,7 +42,7 @@
       <div class="stat__value" style="font-size: var(--t16); line-height: 1.4">{{ m.state_chip(job.ui_state, live=(job.status == "running")) }}</div>
       <div class="stat__label">
         {% if job.status == "running" %}heartbeat {{ m.value(job.last_heartbeat_at) }}
-        {% elif job.finished_at %}finished {{ job.finished_at[:19] | replace("T", " ") }}
+        {% elif job.finished_at %}finished {{ (job.finished_at|string)[:19] | replace("T", " ") }}
         {% elif job.status == "queued" %}waiting for a worker
         {% else %}{{ job.status }}{% endif %}
       </div>
@@ -87,7 +87,7 @@
     {{ m.railbar(d.rail, "lg", d.ui_state, human_done=d.stage.value in ("reviewed", "outcome"), has_draft=d.has_draft) }}
     <div class="row" style="margin-top: var(--sp4)">
       {{ m.state_chip(d.ui_state, live=(job.status == "running")) }}
-      {% if d.last_error.value and running %}<span class="v-why">last recorded: {{ d.last_error.value[:120] }}</span>{% endif %}
+      {% if d.last_error.value and running %}{% set recorded = d.last_error.value|string %}<span class="v-why">last recorded: {{ recorded[:120] }}</span>{% endif %}
       {% if d.has_draft %}
         <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
         <span class="small muted">needs human review before anything is sent</span>
@@ -113,7 +113,7 @@
         <dt>Worker heartbeat</dt><dd class="mono">{{ m.value(job.last_heartbeat_at) }}</dd>
         <dt>Execution id</dt><dd class="mono">{{ m.value(job.execution_id) }}</dd>
         <dt>Opportunity</dt>
-        <dd><a href="{{ url_detail }}?url={{ job.source_url | urlencode }}" class="mono" title="{{ job.source_url }}">{{ job.source_url[:110] }}</a></dd>
+        <dd><a href="{{ url_detail }}?url={{ (job.source_url or '') | urlencode }}" class="mono" title="{{ job.source_url or '' }}">{{ ((job.source_url or '')|string)[:110] }}</a></dd>
       </dl>
     </div>
   </details>
