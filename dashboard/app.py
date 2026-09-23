@@ -50,11 +50,30 @@ async def _lifespan(_app: FastAPI):
     yield
 
 
+class _FreshStatic(StaticFiles):
+    """CSS and JS must revalidate. A same-URL stylesheet was staying cream in
+    the browser after the abyssal theme shipped."""
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        if path.endswith((".css", ".js")):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+def _static_version() -> str:
+    css = HERE / "static" / "app.css"
+    try:
+        return format(int(css.stat().st_mtime), "x")
+    except OSError:
+        return "0"
+
+
 app = FastAPI(
     title="Cortech BD control", docs_url=None, redoc_url=None, openapi_url=None,
     lifespan=_lifespan,
 )
-app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
+app.mount("/static", _FreshStatic(directory=str(HERE / "static")), name="static")
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
 
@@ -131,6 +150,7 @@ def _base_context(request: Request, view: str) -> dict:
         "csrf_token": auth.csrf_token(session),
         "poll_ms": settings.POLL_MS,
         "static_base": "/static",
+        "static_v": _static_version(),
         "url_queue": "/",
         "url_portfolio": "/portfolio",
         "url_detail": "/opportunity",
@@ -156,6 +176,7 @@ def _auth_context(request: Request) -> dict:
     return {
         "request": request,
         "static_base": "/static",
+        "static_v": _static_version(),
         "domain": settings.AUTH_ALLOWED_DOMAIN,
         "has_exceptions": bool(settings._allowed_emails()),
         "url_start": "/auth/google",
