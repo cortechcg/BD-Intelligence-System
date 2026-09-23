@@ -449,6 +449,50 @@ def test_job_page_renders_stuck_submit_url_row():
     assert "27b951ba" in _render_job(broken, _scored_ledger())
 
 
+def test_job_page_renders_cancelled_trigger_with_live_ledger():
+    """Same job after the worker was closed, which is the row in Supabase now.
+
+    dashboard_triggers is cancelled with a string error and a finalized spend.
+    opportunity_processing is still state=processing, stage=scored, last_error
+    null, lease already expired. The page has to show both, not raise.
+    """
+    job = {
+        "id": "27b951ba-d95d-4435-8387-202a193787ef",
+        "status": "cancelled",
+        "ui_state": "cancelled",
+        "trigger_kind": "submit_url",
+        "kind_label": "run from URL (full pipeline)",
+        "requested_by": "ops@example.com",
+        "requested_at": "2026-09-23T06:25:27.095267+00:00",
+        "started_at": "2026-09-23T06:25:29.460624+00:00",
+        "finished_at": "2026-09-23T07:26:10.472357+00:00",
+        "last_heartbeat_at": "2026-09-23T06:33:13.189635+00:00",
+        "cancel_requested_at": "2026-09-23T06:56:23.735034+00:00",
+        "error_kind": "CANCELLED",
+        "error_message": (
+            "Worker stopped heartbeating at 2026-09-23T06:33:13Z; "
+            "closed so an expired lease cannot reclaim this submit_url run."
+        ),
+        "execution_id": None,
+        "result_summary": {},
+        "attempt_count": 1,
+        "provider_calls": 18,
+        "spend_usd": 1.528494,
+        "spend_limit_usd": 25.0,
+        "spend_known": True,
+        "source_url": "https://drive.google.com/file/d/redacted/view?usp=sharing",
+    }
+    html = _render_job(job, _scored_ledger())
+    assert "27b951ba" in html
+    assert "cancelled" in html
+    assert "Worker stopped heartbeating" in html
+    assert "1.5285" in html
+    assert "2026-09-23 07:26:10" in html
+    assert "processing" in html
+    assert "scored" in html
+    assert "window.location.reload" not in html
+
+
 # ── re-run from stage ───────────────────────────────────────────────────────
 
 def test_rerun_rewinds_then_resumes_without_force(monkeypatch):
