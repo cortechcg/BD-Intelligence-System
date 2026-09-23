@@ -1,3 +1,0 @@
-Consultant CVs are NOT tracked in git (README §Source documents).
-They live in the private Supabase Storage bucket `Cortech-documents/cvs/`.
-Populate this folder with:  python sync_source_documents.py pull
