@@ -142,6 +142,33 @@
     <p>{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}.</p>
   </div>
 </section>
+{% if d.requirement_alignment and d.requirement_alignment.headline %}
+<section class="section" aria-labelledby="h-align">
+  <div class="section__head">
+    <h2 id="h-align">Requirement alignment</h2>
+    <span class="section__count">{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }} criteria addressed</span>
+  </div>
+  <p class="doc">{{ d.requirement_alignment.headline }}</p>
+  <p class="small muted">A requirement is addressed only when the cited sentence is in that section. Anything that cannot be traced is not treated as satisfied.</p>
+  {% if d.requirement_alignment.rows %}
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Requirement</th><th>Status</th><th>Section</th><th>Evidence</th></tr></thead>
+    <tbody>
+    {% for row in d.requirement_alignment.rows %}
+      <tr>
+        <td>{{ row.label }}</td>
+        <td>{{ row.status }}</td>
+        <td>{{ row.section or "—" }}</td>
+        <td class="evidence">{{ row.quote or row.evidence }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
 {% endif %}
 
 {# ── Scores in detail ───────────────────────────────────────────────────── #}

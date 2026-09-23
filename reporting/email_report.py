@@ -14,6 +14,10 @@ import httpx
 from loguru import logger
 from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx, iter_client_sections
+from intelligence.requirement_alignment import (
+    align_draft_to_requirements,
+    fail_closed_requirement_alignment,
+)
 from intelligence.tender_reader import build_format_compliance
 from intelligence.organizations import build_client_intelligence, reviewer_sentences
 from utils.money_scrub import (
@@ -406,6 +410,79 @@ def _status_color(status: str) -> str:
         "under": "#f0a500",
         "gantt_missing": "#dc3545",
     }.get(status or "", "#1F3864")
+
+
+def _alignment_status_color(status: str) -> str:
+    return {
+        "addressed": "#28a745",
+        "partially_addressed": "#f0a500",
+        "not_addressed": "#dc3545",
+    }.get(status or "", "#1F3864")
+
+
+def _requirement_alignment_html(alignment: dict) -> str:
+    """Reviewer-facing trace of requirements to drafted sections."""
+    alignment = alignment if isinstance(alignment, dict) else {}
+    headline = str(alignment.get("headline") or "").strip()
+    rows = alignment.get("rows") if isinstance(alignment.get("rows"), list) else []
+    if not headline and not rows:
+        return ""
+    body_rows = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        status = str(row.get("status") or "not_addressed")
+        color = _alignment_status_color(status)
+        label = {
+            "addressed": "Addressed",
+            "partially_addressed": "Partially addressed",
+            "not_addressed": "Not addressed",
+        }.get(status, "Not addressed")
+        bg = "#F7F4EE" if index % 2 else "#ffffff"
+        where = row.get("section") or "—"
+        quote = row.get("quote") or row.get("evidence") or ""
+        body_rows.append(f"""
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(row.get("label") or "")}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     font-weight:700;color:{color};background:{bg}">{_html(label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(where)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #E6E1D6;font-size:13px;
+                     background:{bg}">{_html(quote)}</td>
+        </tr>""")
+    if not body_rows:
+        body_rows.append(
+            '<tr><td colspan="4" style="padding:12px 14px;color:#6B6458">'
+            "No structured requirements were extracted.</td></tr>"
+        )
+    return f"""
+    <h2 style="color:#1F3864;font-size:18px;margin:28px 0 8px;font-weight:700">
+      Requirement alignment
+    </h2>
+    <p style="margin:0 0 12px;font-size:14px;line-height:1.5;color:#1C1914">
+      {_html(headline)}
+    </p>
+    <p style="margin:0 0 12px;font-size:12px;line-height:1.5;color:#6B6458">
+      A requirement is addressed only when the cited sentence is in that section.
+      Anything that cannot be traced is not treated as satisfied.
+    </p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+           style="width:100%;border-collapse:collapse;margin:0 0 28px">
+      <tr>
+        <th style="text-align:left;padding:8px 12px;background:#1F3864;color:#ffffff;
+                   font-size:12px">Requirement</th>
+        <th style="text-align:left;padding:8px 12px;background:#1F3864;color:#ffffff;
+                   font-size:12px">Status</th>
+        <th style="text-align:left;padding:8px 12px;background:#1F3864;color:#ffffff;
+                   font-size:12px">Section</th>
+        <th style="text-align:left;padding:8px 12px;background:#1F3864;color:#ffffff;
+                   font-size:12px">Evidence</th>
+      </tr>
+      {''.join(body_rows)}
+    </table>
+    """
 
 
 def _format_compliance_html(proposal: dict) -> str:
@@ -1637,6 +1714,22 @@ def send_proposal_email(opportunity_result: dict) -> None:
     ver = _count(grounding.get("verified")) if grounding else 0
     ins = _count(grounding.get("insufficient_evidence")) if grounding else 0
 
+    alignment = proposal.get("requirement_alignment") if isinstance(proposal.get("requirement_alignment"), dict) else {}
+    if not alignment.get("headline"):
+        try:
+            alignment = align_draft_to_requirements(
+                analysis,
+                proposal,
+                outline=proposal.get("submission_outline") or {},
+            )
+        except Exception as exc:
+            alignment = fail_closed_requirement_alignment(
+                analysis,
+                outline=proposal.get("submission_outline") or {},
+                error=str(exc),
+            )
+    alignment_headline = str(alignment.get("headline") or "").strip()
+
     review_items: list[tuple[str, str]] = []
     if is_lightweight:
         review_items.append((
@@ -1655,6 +1748,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
             "Technical file only. Confirm the financial envelope is a separate "
             "submission. Nothing has been sent to the client.",
         ))
+    if alignment_headline:
+        review_items.append(("Alignment", alignment_headline))
     for gap in team_gaps[:4]:
         review_items.append(("Team", gap))
     if nv:
@@ -1874,6 +1969,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
     grounding_table = _grounding_table_html(grounding) if grounding else ""
     checklist = _checklist_html(review_items)
     format_block = _format_compliance_html(proposal)
+    alignment_block = _requirement_alignment_html(alignment)
     toc = _draft_toc_html(draft_toc)
 
     html = f"""
@@ -1987,6 +2083,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
         {client_history_html}
 
         {relationship_html}
+
+        {alignment_block}
 
         {format_block}
 

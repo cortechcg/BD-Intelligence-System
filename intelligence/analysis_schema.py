@@ -1,8 +1,8 @@
-"""Pydantic contract for analyzer JSON — fields the pipeline already consumes.
+"""Pydantic contract for analyzer JSON.
 
 Derived from intelligence/analyzer.ANALYSIS_SCHEMA plus actual readers:
 bid_scorer, main, proposal_writer, cv_matcher, budget_calculator, compliance,
-tender_reader. No new business fields.
+tender_reader, requirement_alignment.
 """
 
 from __future__ import annotations
@@ -230,8 +230,10 @@ class SubmissionRequirementsExtraction(_ExtractionModel):
     past_work_samples_required: Optional[float] = None
     references_required: Optional[float] = None
     financial_proposal_required: Optional[bool] = None
+    required_annexes: list[str] = Field(default_factory=list)
+    disqualifying_conditions: list[str] = Field(default_factory=list)
 
-    @field_validator("prescribed_proposal_sections", mode="before")
+    @field_validator("prescribed_proposal_sections", "required_annexes", "disqualifying_conditions", mode="before")
     @classmethod
     def _sections(cls, value: Any) -> list[str]:
         return _str_list(value)

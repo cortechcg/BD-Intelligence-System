@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 
 _HR_LINE = re.compile(r"^\s*[-*_=]{3,}\s*$")
+_HASH_HEADING = re.compile(r"^\s*#{1,6}\s+")
 _EM_DASH = re.compile(r"\s*[—–]\s*")
 _TRIPLE_DASH = re.compile(r"-{3,}")
 _DASH_BULLET = re.compile(r"^(\s*)[-*+]\s+(.*\S)\s*$")
@@ -39,6 +40,11 @@ def humanize_draft(text: str) -> str:
         stripped = line.strip()
         if _HR_LINE.match(stripped):
             continue
+        if _HASH_HEADING.match(line):
+            line = _HASH_HEADING.sub("", line)
+            stripped = line.strip()
+            if not stripped:
+                continue
         if _is_markdown_table_separator(line):
             list_n = 0
             out.append(line)

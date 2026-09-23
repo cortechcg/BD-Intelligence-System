@@ -40,7 +40,9 @@ MIN_TENDER_CHARS = 1200
 # Packed pack is cached across section calls. Assignment-critical middle
 # (scope, scoring, lots, annex instructions) is retained; filler is dropped
 # only when the combined pack exceeds this cap.
-MAX_TENDER_CHARS = 140000
+# ~50 pages at the density of a real cached ToR (~3,600 chars/page) plus a
+# short annex. Longer packs keep assignment sections and drop filler.
+MAX_TENDER_CHARS = 240000
 
 _PRIORITY_RE = re.compile(
     r"(scope of work|terms of reference|statement of work|objectives?|"
@@ -633,6 +635,7 @@ _FORMAT_META_KEYS = {
     "required_attachments",
     "required_forms",
     "format_compliance",
+    "requirement_alignment",
 }
 
 
