@@ -1,10 +1,9 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Light cream + forest green (2026-09-22): one cream surface, forest ink,
-brass only for "a person needs to act". Every text colour in
-dashboard/static/app.css must clear WCAG AA (4.5:1) on cream, and every mark
-colour (rail segments, state dots, meter and bar fills) must clear 3:1.
-docs/DASHBOARD_DESIGN.md §14 quotes the numbers.
+Abyssal teal (2026-09-23): abyss page, kelp cards, deep tracks. Platinum
+headings, silver body. Lavender phosphor only where a person must act.
+Every text colour must clear WCAG AA (4.5:1) on the abyss, and every mark
+must clear 3:1. The one gradient is the primary button.
 """
 from __future__ import annotations
 
@@ -55,7 +54,7 @@ RAMP_LIGHT_END = [("ramp-1", "ground"), ("rec-1", "ground")]
 
 
 @pytest.mark.parametrize("fg,bg", TEXT_PAIRS)
-def test_text_on_cream_clears_aa(fg, bg):
+def test_text_on_abyss_clears_aa(fg, bg):
     ratio = contrast(token(fg), token(bg))
     assert ratio >= 4.5, f"--{fg} on --{bg} is {ratio:.2f}:1 (need 4.5)"
 
@@ -72,7 +71,7 @@ def test_ramp_light_end_clears_the_ordinal_floor(fg, bg):
 
 
 def test_sage_is_display_figures_only():
-    """#6b8177 clears 3:1 (marks, large figures) but not 4.5 (body) — test-enforced."""
+    """Slate deep clears 3:1 (large missing figures) but not 4.5 (body)."""
     assert 3.0 <= contrast(token("ink-3"), token("ground")) < 4.5
     for selector, rule in rules():
         if re.search(r"(?<![-\w])color:\s*var\(--ink-3\)", rule):
@@ -80,17 +79,19 @@ def test_sage_is_display_figures_only():
             assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", "aria-disabled")), f"sage as text: {sel[:70]}"
 
 
-def test_one_surface_no_stack_no_shadows():
-    """Cards are the page: --surface aliases --ground; nothing is tinted; no shadow lifts anything."""
-    assert token("surface") == token("ground")
-    for name in ("elevated", "recess", "paper", "surface-2"):
-        assert f"--{name}:" not in ROOT, f"--{name} is a surface step; this system has none"
+def test_teal_stack_has_no_shadows_and_one_button_gradient():
+    """Depth is abyss, then deep tracks, then kelp cards. No drop shadow."""
+    assert token("ground") == "#012624"
+    assert token("surface") == "#003734"
+    assert token("track") == "#011d1c"
+    assert token("surface") != token("ground")
     for selector, rule in rules():
         sel = selector.strip()
         if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
-            assert "%" in sel or "keyframes" in sel or ("inset" in rule and "focus" in sel), f"shadow: {sel[:70]}"
+            raise AssertionError(f"shadow: {sel[:70]}")
         assert "gradient(" not in rule, f"gradient in {sel[:70]}"
-    assert ".panel--hero { border-top: 2px solid var(--ink); }" in BODY
+    assert "background: var(--gradient-aurora)" in BODY
+    assert ".panel--hero { border-top: 0; }" in BODY
 
 
 def test_two_fills_only():
@@ -157,9 +158,13 @@ def test_type_is_two_weights_and_labels_are_the_only_uppercase():
         for w in re.findall(r"font-weight:\s*([^;]+);", rule):
             assert w.strip() in ("var(--font-weight-regular)", "var(--font-weight-medium)"), f"{selector.strip()[:50]}: {w}"
     upper = [sel.strip() for sel, rule in rules() if "text-transform: uppercase" in rule]
-    assert len(upper) == 2, f"uppercase only on labels and chips: {upper}"
+    assert len(upper) == 4, f"uppercase on labels, nav, chips, and the primary button: {upper}"
+    assert any(".label" in sel for sel in upper)
+    assert any(".nav a" in sel for sel in upper)
+    assert any(".chip" in sel for sel in upper)
+    assert any(sel.startswith(".btn") for sel in upper)
     assert not re.search(r"h1, h2, h3 \{[^}]*uppercase", BODY)
-    assert not re.search(r"\.btn \{[^}]*uppercase", BODY)
+    assert re.search(r"\.btn \{[^}]*text-transform: uppercase", BODY)
 
 
 def test_hierarchy_is_size():

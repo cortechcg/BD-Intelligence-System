@@ -24,6 +24,8 @@
   Chart.defaults.plugins.legend.labels.boxWidth = 10;
   Chart.defaults.plugins.legend.labels.boxHeight = 10;
   Chart.defaults.plugins.tooltip.backgroundColor = forest;
+  Chart.defaults.plugins.tooltip.titleColor = tok("--on-fill");
+  Chart.defaults.plugins.tooltip.bodyColor = tok("--on-fill");
   Chart.defaults.plugins.tooltip.titleFont = { family: ui, weight: "500" };
   Chart.defaults.plugins.tooltip.bodyFont = { family: mono };
 
