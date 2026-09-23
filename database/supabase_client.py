@@ -746,7 +746,7 @@ def rewind_opportunity_stage(source_url: str, to_stage: str) -> tuple[bool, str]
 
 
 def record_human_pipeline_stage(source_url: str, pipeline_stage: str) -> bool:
-    """Record reviewed/outcome from Airtable. Never raises. Never submits."""
+    """Record reviewed/outcome from a person. Never raises. Never submits."""
     canonical = canonicalize_url(source_url) or source_url
     if not canonical or pipeline_stage not in ("reviewed", "outcome"):
         return False
@@ -1133,11 +1133,10 @@ def backfill_opportunity_facts_from_ledger(*, page_size: int = 200) -> dict:
 
 
 def backfill_opportunity_facts_from_airtable() -> dict:
-    """Copy stored Airtable OPPORTUNITIES labels onto null cache fact columns.
+    """Retired. Opportunity labels are no longer read from Airtable.
 
-    Same rule as the ledger backfill: string labels that already exist, null
-    columns only, no invented values. Fail-open if Airtable is rate-limited
-    or down — the cache row stays null rather than guessed.
+    Returns the same stats shape with error airtable_removed and does not
+    open a network connection or invent labels.
     """
     stats = {
         "available": False,
@@ -1147,53 +1146,10 @@ def backfill_opportunity_facts_from_airtable() -> dict:
         "unchanged": 0,
         "no_cache_row": 0,
         "no_stored_labels": 0,
-        "error": "",
+        "error": "airtable_removed",
         "updated_titles": [],
     }
-    try:
-        from database.airtable_client import get_table
-
-        records = get_table("opportunities").all(
-            fields=["source_url", "title", "thematic_areas", "location", "donor"]
-        )
-    except Exception as exc:
-        message = str(exc)
-        stats["error"] = "429" if "429" in message else type(exc).__name__
-        logger.warning(
-            "Airtable fact backfill skipped (fail-open): " + stats["error"]
-        )
-        return stats
-
-    stats["available"] = True
-    for record in records or []:
-        if not isinstance(record, dict):
-            continue
-        stats["records"] += 1
-        fields = record.get("fields") if isinstance(record.get("fields"), dict) else {}
-        payload = fact_payload_from_stored_labels(
-            fields.get("thematic_areas"),
-            fields.get("location"),
-            fields.get("donor") if isinstance(fields.get("donor"), str) else "",
-        )
-        if not payload:
-            stats["no_stored_labels"] += 1
-            continue
-        stats["with_stored_labels"] += 1
-        outcome = _fill_null_cache_facts(str(fields.get("source_url") or ""), payload)
-        if outcome == "updated":
-            stats["updated"] += 1
-            title = fields.get("title") if isinstance(fields.get("title"), str) else ""
-            if title and len(stats["updated_titles"]) < 20:
-                stats["updated_titles"].append(title[:80])
-        elif outcome == "missing":
-            stats["no_cache_row"] += 1
-        else:
-            stats["unchanged"] += 1
-    logger.info(
-        "opportunity fact backfill from Airtable: "
-        f"updated={stats['updated']} unchanged={stats['unchanged']} "
-        f"no_cache={stats['no_cache_row']} unlabeled={stats['no_stored_labels']}"
-    )
+    logger.info("Airtable fact backfill is retired — no labels were copied")
     return stats
 
 

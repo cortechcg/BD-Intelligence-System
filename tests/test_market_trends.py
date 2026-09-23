@@ -599,41 +599,36 @@ def test_window_discloses_label_coverage_so_shares_cannot_mislead():
     assert "Share of all dated rows in window" in html
 
 
-def test_airtable_load_fail_opens(monkeypatch):
-    monkeypatch.setattr(
-        "database.airtable_client.get_table",
-        lambda name: (_ for _ in ()).throw(RuntimeError("429 rate limit")),
-    )
+def test_airtable_load_fail_opens():
     assert market_store.load_airtable_opportunity_rows() == []
 
 
-def test_airtable_malformed_record_skipped(monkeypatch):
-    class _Table:
-        def all(self):
-            return [
-                {"id": "rec1", "fields": {
-                    "title": "Good",
-                    "source_url": "https://procurement.example/a",
-                    "thematic_areas": ["Evaluation"],
-                    "location": ["Somalia"],
-                    "donor": "FCDO",
-                    "discovered_at": "2026-09-01",
-                }},
-                {"id": "rec2", "fields": {
-                    "title": "Bad theme",
-                    "source_url": "https://procurement.example/b",
-                    "thematic_areas": [{"area": "WASH"}],
-                    "location": ["Kenya"],
-                    "discovered_at": "2026-09-02",
-                }},
-            ]
-
-    monkeypatch.setattr("database.airtable_client.get_table", lambda name: _Table())
-    rows = market_store.load_airtable_opportunity_rows()
-    by_url = {r.source_url: r for r in rows}
-    assert by_url["https://procurement.example/a"].themes == ("Evaluation",)
-    assert by_url["https://procurement.example/b"].themes == ()
-    assert by_url["https://procurement.example/b"].malformed_theme_skips == 1
+def test_airtable_malformed_record_skipped():
+    good = market_store._from_airtable_record({
+        "id": "rec1",
+        "fields": {
+            "title": "Good",
+            "source_url": "https://procurement.example/a",
+            "thematic_areas": ["Evaluation"],
+            "location": ["Somalia"],
+            "donor": "FCDO",
+            "discovered_at": "2026-09-01",
+        },
+    })
+    bad = market_store._from_airtable_record({
+        "id": "rec2",
+        "fields": {
+            "title": "Bad theme",
+            "source_url": "https://procurement.example/b",
+            "thematic_areas": [{"area": "WASH"}],
+            "location": ["Kenya"],
+            "discovered_at": "2026-09-02",
+        },
+    })
+    assert good.themes == ("Evaluation",)
+    assert bad.themes == ()
+    assert bad.malformed_theme_skips == 1
+    assert market_store.load_airtable_opportunity_rows() == []
 
 
 def test_store_opportunity_facts_fail_open_when_columns_missing(monkeypatch):

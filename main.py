@@ -839,23 +839,17 @@ def run_assortis_check() -> None:
 
 def _run_deadline_check() -> None:
     """
-    Independent of run_pipeline() — checks OPPORTUNITIES already in
-    Airtable for approaching deadlines and sends an escalation digest.
-    Active statuses verified from main.py + email_report.py: Reviewing
-    (post-proposal), New, and Bidding — excludes Submitted/Won/Lost/No-bid.
+    Independent of run_pipeline() — checks open CRM rows on
+    opportunity_processing for approaching deadlines and sends an escalation
+    digest. Active statuses: Reviewing, New, and Bidding.
     """
     new_execution_id()
-    from database.airtable_client import get_table
+    from database.airtable_client import OPEN_CRM_STATUSES, list_crm_opportunities
 
-    table = get_table("opportunities")
-    active = table.all(
-        formula=(
-            "AND("
-            "OR({status}='Reviewing', {status}='New', {status}='Bidding'),"
-            "{submission_deadline}!=''"
-            ")"
-        )
-    )
+    active = [
+        row for row in list_crm_opportunities(OPEN_CRM_STATUSES)
+        if (row.get("fields") or {}).get("submission_deadline")
+    ]
 
     urgent = []
     for record in active:

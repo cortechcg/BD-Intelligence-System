@@ -248,25 +248,13 @@ def load_supabase_opportunity_rows(limit: int | None = None) -> tuple[list[Obser
 
 
 def load_airtable_opportunity_rows(limit: int | None = None) -> list[ObservedOpportunity]:
-    """Secondary source. Existing OPPORTUNITIES fields only. Fail-open to []."""
-    cap = limit if limit is not None else max_store_rows()
-    try:
-        from database.airtable_client import get_table
+    """Retired. Opportunity labels now live on opportunity_processing.
 
-        table = get_table("opportunities")
-        records = table.all()
-    except Exception as e:
-        logger.warning(f"Airtable OPPORTUNITIES load skipped (fail-open): {e}")
-        return []
-    out: list[ObservedOpportunity] = []
-    for record in records or []:
-        parsed = _from_airtable_record(record)
-        if parsed is None:
-            continue
-        out.append(parsed)
-        if len(out) >= cap:
-            break
-    return out
+    The digest already reads opportunities_cache. This returns [] so a caller
+    that still passes include_airtable does not open a network connection.
+    """
+    del limit
+    return []
 
 
 def load_observed_opportunities(

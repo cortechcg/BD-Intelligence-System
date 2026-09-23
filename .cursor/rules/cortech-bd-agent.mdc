@@ -5,11 +5,11 @@ alwaysApply: true
 
 Always read CURSOR.md at the start of every conversation in this project.
 Never modify .env or expose API keys in any output.
-Always use typecast=True on every Airtable .create() and .update() call.
+Do not call api.airtable.com. Consultants, rates, logs, and opportunity status are in Supabase.
 Always wrap log_agent_action() in try/except — it must never raise.
-The discovered_at Airtable field is DATE type — send strftime("%Y-%m-%d") never .isoformat()
+submission_deadline is a DATE — send YYYY-MM-DD, never a full timestamp.
+A missing rate card leaves the budget incomplete. A missing availability value is Unknown, never free.
 Never hardcode model strings — always use CLAUDE_MODEL and CLAUDE_MODEL_PROPOSAL from config.py.
 When fixing bugs show exact lines to change, not the whole file unless asked.
-Run check_schema.py logic mentally before suggesting any Airtable field changes.
 The is_consultancy_contract gate in main.py must default to True when field is missing.
 quick_relevance_check() must be permissive — the LLM consultancy gate does real quality filtering.

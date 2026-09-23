@@ -32,7 +32,7 @@ from intelligence.tender_reader import (
     word_count,
 )
 from intelligence.grounding import fail_closed_ground_sections, ground_sections
-from database.airtable_client import get_winning_proposals, log_agent_action, get_table
+from database.airtable_client import get_winning_proposals, log_agent_action
 from database.supabase_client import search_past_proposals
 from intelligence.learning import (
     fetch_win_loss_lessons,
@@ -1339,46 +1339,16 @@ def get_relevant_lessons(client_name: str, donor: str) -> str:
 
 
 def get_donor_intelligence(donor: str, client_name: str) -> str:
-    """Pull donor/client preferences from Airtable DONOR_INTELLIGENCE table."""
+    """Donor notes lived only in Airtable and were not copied. Always empty.
+
+    A client name is never used as a lookup key. Blank donor data used to
+    become a wildcard and import an unrelated donor's rules.
+    """
     donor = _field_str(donor, "")
-    client_name = _field_str(client_name, "")
-    # This table contains donor records, not generic client records. A client
-    # name is never a safe fallback key: blank donor data used to turn into a
-    # wildcard FIND and silently import the first unrelated donor's rules.
+    _field_str(client_name, "")
     if not donor:
         return ""
-    from database.airtable_client import _circuit_open, _note_failure
-    if _circuit_open():
-        return ""
-    try:
-        def formula_literal(value: str) -> str:
-            return value.replace("\\", "\\\\").replace("'", "\\'")
-
-        # Never use FIND('', field): Airtable treats it as a wildcard and the
-        # first unrelated donor record then contaminates the proposal context.
-        table = get_table("donor_intelligence")
-        formula = f"LOWER({{donor_name}})=LOWER('{formula_literal(donor)}')"
-        records = table.all(formula=formula)
-    except Exception as e:
-        from database.airtable_client import _note_failure
-        _note_failure(e)
-        if "INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND" in str(e):
-            logger.info(
-                "Donor intelligence table is not in this Airtable base — skipping"
-            )
-        else:
-            logger.warning(f"Could not fetch donor intelligence (non-fatal): {e}")
-        return ""
-    if not records:
-        return ""
-    intel = records[0]["fields"]
-    return f"""
-DONOR INTELLIGENCE FOR {donor}:
-Preferred frameworks: {intel.get("preferred_frameworks", "None on file")}
-Required sections: {intel.get("required_sections", "Standard")}
-Evaluation priorities: {intel.get("evaluation_priorities", "Unknown")}
-Red lines to avoid: {intel.get("red_lines", "None known")}
-"""
+    return ""
 
 
 def generate_quality_self_score(sections: dict, analysis: dict) -> dict:

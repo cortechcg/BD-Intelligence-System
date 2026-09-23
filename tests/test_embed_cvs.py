@@ -171,7 +171,7 @@ def test_failed_then_retry_success_counts_as_embedded(monkeypatch):
 
     class Table:
         def update(self, *args, **kwargs):
-            assert kwargs.get("typecast") is True
+            raise AssertionError("embedding_id is stored on consultants, not Airtable")
 
     record = {
         "id": "recXYZ",

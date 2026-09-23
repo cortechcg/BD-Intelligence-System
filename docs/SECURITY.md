@@ -67,7 +67,7 @@ Storage keys use `safe_filename()` (basename only) in the downloader and `store_
 
 ## Airtable
 
-`typecast=True` on create and opportunity update. `log_agent_action` never raises. Fail-fast retries (not 21-minute backoff).
+`log_agent_action` never raises. The pipeline does not call Airtable.
 
 ## What we did not build
 
