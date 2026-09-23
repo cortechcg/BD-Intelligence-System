@@ -1,21 +1,18 @@
-/* Cortech BD dashboard — light cream + forest green, 2026-09-22.
-   A paper-like page. One cream, everywhere: cards are the page with a
-   hairline around them. Forest green is the ink, the lines and the one
-   filled button. Brass appears only where a person needs to act. No
-   shadows, no gradients, no tinted card fills, no surface stack.
-   Hierarchy is carried by type size and weight and by space.
-   Mapping, reasons and contrast: docs/DASHBOARD_DESIGN.md §14.
+/* Cortech BD dashboard — abyssal teal, 2026-09-23.
+   Near-black teal canvas, kelp cards, no shadows. Depth is a step in the
+   same green, not a lift off the page. Lavender phosphor is only the
+   signal that a person must act. The one gradient is the primary button.
+   Outfit stands in for Matter: weight 400 and 500 only, tight tracking
+   on display sizes, wide tracking on uppercase labels.
+   Mapping and contrast: tests/test_dashboard_palette.py.
    Rules of this file:
      * every colour is a token in :root; no hex/rgb() past the token block
-     * two fills only: cream (the page) and forest (the primary button, the
-       BID chip, rail and meter marks). Nothing else is filled
-     * brass = a person needs to act: the human-review rail segment, a
-       halted stage, the NEEDS ATTENTION figure and edge, halted state dots
-       and pill borders, the halt band edge, the queue headline phrase.
-       Never a button, never a ring, never body text
-     * Outfit at 400 and 500 only. Labels are small uppercase tracked;
-       headings and everything else are sentence case
-     * radii: 8 cards, 6 controls, 9999 pills; 2px on thin marks */
+     * surfaces are the teal stack only: abyss (page), deep (tracks and
+       the foot), kelp (cards)
+     * phosphor = a person needs to act. Never a button, never a ring,
+       never body text
+     * Outfit at 400 and 500 only
+     * radii: 16 cards, 6 controls and chips, 2px on thin marks */
 
 /* ── Faces (self-hosted; no third-party request at page load) ───────────── */
 @font-face {
@@ -35,42 +32,55 @@
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* ── Three colours, chosen by contrast (docs §14.1) ─────────────────── */
-  --color-cream:      #f6f1e7;   /* the page, and every card */
-  --color-forest:     #1b4332;   /* ink, lines, the one filled button — 9.84:1 on cream */
-  --color-forest-mid: #4f7d63;   /* the rail's current stage, ramp step */
-  --color-moss:       #4f6b5d;   /* secondary text — 5.19:1 */
-  --color-sage:       #6b8177;   /* disabled / missing figures (display size), rings */
-  --color-hairline:   #d9d2c3;   /* 1px lines */
-  --color-track:      #e6e0d2;   /* rail / meter / bar tracks */
-  --color-brass:      #7a5e12;   /* a person needs to act — 5.43:1 as text on cream */
-  --ramp-1: #7fa691; --ramp-2: #4f7d63; --ramp-3: #2f5f48; --ramp-4: #1b4332;   /* one green hue */
+  /* ── Teal stack plus one pink signal. Charts still read --color-forest. */
+  --color-liquid-abyss: #012624;
+  --color-liquid-deep:  #011d1c;
+  --color-liquid-kelp:  #003734;
+  --color-liquid-mist:  #edfffe;
+  --color-platinum:     #ffffff;
+  --color-silver-mist:  #bbc7c6;
+  --color-slate-deep:   #707777;
+  --color-lavender-phosphor: #fde9ff;
+  --color-aqua:         #cbfffc;
+  --color-teal-mark:    #00827c;
+  --color-kelp-mid:     #7ee0d8;
+  --gradient-aurora: linear-gradient(90deg, #cbfffc 0%, #edfffe 26%, #fffdfa 48%, #fad1ff 89%);
+
+  --color-cream:      var(--color-liquid-abyss); /* name kept so older notes still resolve */
+  --color-forest:     var(--color-aqua);         /* chart series and labels */
+  --color-forest-mid: var(--color-teal-mark);
+  --color-moss:       var(--color-silver-mist);
+  --color-sage:       var(--color-slate-deep);   /* large missing figures only — 3.52:1 */
+  --color-hairline:   #1d4a46;
+  --color-track:      var(--color-liquid-deep);
+  --color-brass:      var(--color-lavender-phosphor);
+  --ramp-1: var(--color-aqua); --ramp-2: var(--color-kelp-mid); --ramp-3: var(--color-teal-mark); --ramp-4: var(--color-liquid-kelp);
 
   --font-outfit: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-regular: 400; --font-weight-medium: 500;
 
   /* ── Role layer ─────────────────────────────────────────────────────── */
-  --ground:    var(--color-cream);
-  --surface:   var(--color-cream);          /* cards are the page */
-  --ink:       var(--color-forest);
-  --ink-2:     var(--color-moss);
-  --ink-3:     var(--color-sage);
+  --ground:    var(--color-liquid-abyss);
+  --surface:   var(--color-liquid-kelp);
+  --ink:       var(--color-platinum);
+  --ink-2:     var(--color-silver-mist);
+  --ink-3:     var(--color-slate-deep);
   --line:      var(--color-hairline);
-  --line-strong: var(--color-moss);
-  --fill:      var(--color-forest);         /* the primary button, the BID chip, marks */
-  --on-fill:   var(--color-cream);
-  --accent:    var(--color-brass);
+  --line-strong: var(--color-teal-mark);
+  --fill:      var(--color-aqua);           /* BID chip and marks; dark text on it */
+  --on-fill:   var(--color-liquid-abyss);
+  --accent:    var(--color-lavender-phosphor);
   --hover:     var(--color-track);
   --selected:  var(--color-track);
   --focus-ring: var(--color-forest);
 
   /* Pipeline rail (docs §14.2): forest for done, mid forest for current, brass for the person */
-  --stage-done:    var(--color-forest);
-  --stage-current: var(--color-forest-mid);
-  --human:   var(--color-brass);
-  --halt:    var(--color-brass);
+  --stage-done:    var(--color-aqua);
+  --stage-current: var(--color-teal-mark);
+  --human:   var(--color-lavender-phosphor);
+  --halt:    var(--color-lavender-phosphor);
   --track:   var(--color-track);
 
   /* Machine state: shape on the dot + the literal ledger word */
@@ -90,9 +100,9 @@
   --sp1: 4px; --sp2: 8px; --sp3: 12px; --sp4: 16px; --sp5: 24px; --sp6: 32px;
   --sp7: 48px; --sp8: 64px; --sp9: 96px;
 
-  --r-card: 8px; --r-ctl: 6px; --r-pill: 9999px; --r-mark: 2px;
+  --r-card: 16px; --r-ctl: 6px; --r-pill: 6px; --r-mark: 2px;
   --measure: 66ch;
-  --page-max-width: 1160px;
+  --page-max-width: 1440px;
 }
 
 /* ── Base ───────────────────────────────────────────────────────────────── */
@@ -105,7 +115,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 h1, h2, h3, p, dl, ol, ul, figure { margin: 0; }
-h1, h2, h3 { color: var(--ink); font-weight: var(--font-weight-medium); letter-spacing: -0.01em; }
+h1, h2, h3 { color: var(--ink); font-weight: var(--font-weight-medium); letter-spacing: -0.02em; line-height: 1.1; }
 strong { color: var(--ink); font-weight: var(--font-weight-medium); }
 a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--ink); }
@@ -129,27 +139,31 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 }
 
 /* ── Masthead ───────────────────────────────────────────────────────────── */
-.masthead { border-bottom: 1px solid var(--line); }
+.masthead { border-bottom: 1px solid var(--line); background: transparent; }
 .masthead__in {
   max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--sp5);
-  display: flex; align-items: center; gap: var(--sp6); min-height: 72px;
+  display: flex; align-items: center; gap: var(--sp6); min-height: 80px;
 }
 .brand { display: inline-flex; align-items: center; gap: var(--sp2); text-decoration: none; color: var(--ink); }
 .brand__mark { display: none; }
 .brand__name { font-weight: var(--font-weight-medium); font-size: var(--t16); color: var(--ink); }
 .brand__name span { font-weight: var(--font-weight-regular); color: var(--ink-2); }
 .nav { display: flex; gap: var(--sp5); align-items: center; }
-.nav a { font-size: var(--t15); color: var(--ink-2); text-decoration: none; padding-bottom: 3px; border-bottom: 2px solid transparent; }
+.nav a {
+  font-size: var(--t12); font-weight: var(--font-weight-regular); color: var(--ink-2);
+  text-decoration: none; text-transform: uppercase; letter-spacing: 0.12em;
+  padding-bottom: 0; border-bottom: 0;
+}
 .nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); }
 .who { margin-left: auto; display: flex; align-items: center; gap: var(--sp5); font-size: var(--t13); color: var(--ink-2); }
 .who a { color: var(--ink); text-decoration-color: var(--line-strong); }
 
 /* ── Page frame ─────────────────────────────────────────────────────────── */
 .page { max-width: var(--page-max-width); margin: 0 auto; padding: var(--sp8) var(--sp5) var(--sp9); }
 .view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp5); flex-wrap: wrap; margin-bottom: var(--sp7); }
-.view-head h1 { font-size: var(--t44); line-height: 1.05; font-weight: var(--font-weight-regular); }
-.view-head h1 .hl { display: block; font-size: var(--t20); line-height: 1.3; margin-top: var(--sp3); font-weight: var(--font-weight-medium); }
+.view-head h1 { font-size: 61px; line-height: 1; font-weight: var(--font-weight-medium); letter-spacing: -0.04em; }
+.view-head h1 .hl { display: block; font-size: var(--t20); line-height: 1.3; margin-top: var(--sp3); font-weight: var(--font-weight-medium); letter-spacing: 0; }
 .view-head h1.doc { font-family: var(--doc); font-size: var(--t24); line-height: 1.35; max-width: 32em; }
 .view-head__meta { font-size: var(--t14); color: var(--ink-2); display: flex; gap: var(--sp2) var(--sp5); flex-wrap: wrap; align-items: center; }
 
@@ -165,8 +179,8 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 
 /* ── Cards: the page with a hairline. The one exception: the hero
       instrument carries a 2px forest rule on top. ─────────────────────── */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); }
-.panel--hero { border-top: 2px solid var(--ink); }
+.panel { background: var(--surface); border: 0; border-radius: var(--r-card); }
+.panel--hero { border-top: 0; }
 .panel__in { padding: var(--sp6); }
 
 /* Hero strip: figures + meter in one instrument */
@@ -271,7 +285,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .state--failed, .state--dead_letter, .state--spend_cap, .state--cancelled { background: var(--accent); color: var(--on-fill); }
 .state--failed::before, .state--spend_cap::before, .state--cancelled::before { background: transparent; }
 .state.is-live::before { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { box-shadow: 0 0 0 5px transparent; opacity: .55; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .state.is-live::before { animation: none; } }
 
 /* Evidence status: word + shape */
@@ -388,7 +402,7 @@ input[type="url"], input[type="text"], .select {
   transition: border-color .12s;
 }
 input[type="url"], input[type="text"] { width: 100%; font-family: var(--mono); font-size: var(--t14); }
-input:focus, .select:focus { outline: none; border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+input:focus, .select:focus { outline: none; border-color: var(--ink); }
 input[type="url"]:invalid:not(:placeholder-shown) { border-style: dashed; }
 input::placeholder { color: var(--ink-2); }
 .submit-row { display: flex; gap: var(--sp3); align-items: stretch; }
@@ -396,18 +410,19 @@ input::placeholder { color: var(--ink-2); }
 .select { padding: 8px var(--sp3); font-size: var(--t14); }
 input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--fill); margin: 0; vertical-align: middle; }
 
-/* One filled button per screen: solid forest, cream text, generous padding */
+/* One gradient button: aurora sweep, dark text, 6px radius, uppercase. */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  font: inherit; font-size: var(--t15); font-weight: var(--font-weight-medium); line-height: 1.2; white-space: nowrap;
-  padding: 12px var(--sp5); border-radius: var(--r-ctl); cursor: pointer;
-  background: var(--fill); color: var(--on-fill); border: 1px solid var(--fill);
+  font: inherit; font-size: var(--t14); font-weight: var(--font-weight-medium); line-height: 1.2; white-space: nowrap;
+  padding: 14px 22px; border-radius: var(--r-ctl); cursor: pointer;
+  background: var(--gradient-aurora); color: var(--on-fill); border: 0;
+  text-transform: uppercase; letter-spacing: 0.08em;
   text-decoration: none; transition: opacity .12s, border-color .12s;
 }
 .btn:hover { opacity: .9; }
-.btn--quiet { background: transparent; color: var(--ink); border-color: var(--line-strong); font-weight: var(--font-weight-regular); }
+.btn--quiet { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); font-weight: var(--font-weight-regular); text-transform: none; letter-spacing: 0; }
 .btn--quiet:hover { border-color: var(--ink); opacity: 1; }
-.btn--ghost { background: transparent; color: var(--ink-2); border-color: transparent; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.btn--ghost { background: transparent; color: var(--ink-2); border-color: transparent; text-transform: none; letter-spacing: 0; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .btn--ghost:hover { color: var(--ink); opacity: 1; }
 .btn--sm { padding: 7px var(--sp3); font-size: var(--t13); }
 .btn[disabled], .btn[aria-disabled="true"] { background: transparent; color: var(--ink-3); border-color: var(--line); cursor: not-allowed; opacity: 1; }
@@ -438,14 +453,18 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp5); }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
-.foot { font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp9); border-top: 1px solid var(--line); padding-top: var(--sp5); max-width: 90ch; line-height: 1.6; }
+.foot {
+  font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp9);
+  background: var(--track); border-radius: var(--r-card);
+  padding: var(--sp7) var(--sp6); max-width: none; line-height: 1.6;
+}
 .foot code { color: var(--ink); font-size: var(--t12); }
 
 /* ── Auth screens: one hairline card on the page ────────────────────────── */
 .auth { min-height: 100vh; display: grid; place-items: center; padding: var(--sp5); }
-.auth__card { width: 100%; max-width: 460px; background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--ink); border-radius: var(--r-card); padding: var(--sp7); }
+.auth__card { width: 100%; max-width: 460px; background: var(--surface); border: 0; border-radius: var(--r-card); padding: var(--sp7); }
 .auth__card .brand { margin-bottom: var(--sp6); }
-.auth h1 { font-size: var(--t32); line-height: 1.15; font-weight: var(--font-weight-regular); }
+.auth h1 { font-size: 36px; line-height: 1; font-weight: var(--font-weight-medium); letter-spacing: -0.02em; }
 .auth h1 .hl { font-size: inherit; }
 .auth p { font-size: var(--t15); color: var(--ink-2); margin-top: var(--sp4); line-height: 1.6; }
 .auth .btn { width: 100%; margin-top: var(--sp6); padding: 14px var(--sp4); }
@@ -494,3 +513,36 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .chart--canvas figcaption { flex: none; font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp4); line-height: 1.55; }
 .panel__in h3 { font-size: var(--t16); }
 @media (max-width: 720px) { .chart--canvas { height: 300px; padding: var(--sp4); } }
+
+/* ── Kinetic type: headlines arrive; two words drift across and fade ──── */
+@keyframes arise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes drift-away {
+  0%   { opacity: 0;    transform: translate3d(-16vw, 24px, 0); }
+  16%  { opacity: 0.5;  transform: translate3d(0, 0, 0); }
+  58%  { opacity: 0.5;  transform: translate3d(6vw, -6px, 0); }
+  100% { opacity: 0;    transform: translate3d(26vw, -40px, 0); }
+}
+.drift {
+  position: fixed; left: 4vw; top: 66vh; z-index: 0; pointer-events: none; user-select: none;
+  margin: 0; font-family: var(--ui); font-weight: var(--font-weight-medium);
+  font-size: clamp(86px, 16vw, 220px); line-height: 1; letter-spacing: -0.046em;
+  color: var(--color-liquid-mist); white-space: nowrap;
+  animation: drift-away 18s ease-in-out infinite;
+  animation-delay: -4s;
+}
+.drift--two { top: 14vh; left: 46vw; font-size: clamp(64px, 11vw, 150px); animation-delay: -13s; }
+.masthead, .page, .auth { position: relative; z-index: 1; }
+.view-head h1, .auth h1, .brand__name { animation: arise 0.9s cubic-bezier(.2, .7, .2, 1) both; }
+.figure__value, .hero__value, .tile__value, .meter__value { animation: arise 1.1s cubic-bezier(.2, .7, .2, 1) both; }
+.strip__figures .figure:nth-child(2) .figure__value { animation-delay: .08s; }
+.strip__figures .figure:nth-child(3) .figure__value { animation-delay: .16s; }
+.strip__figures .figure:nth-child(4) .figure__value { animation-delay: .24s; }
+.strip__figures .figure:nth-child(5) .figure__value { animation-delay: .32s; }
+@media (prefers-reduced-motion: reduce) {
+  .state.is-live::before { animation: none; }
+  .drift { animation: none; opacity: 0.1; transform: none; }
+  .view-head h1, .auth h1, .brand__name, .figure__value, .hero__value, .tile__value, .meter__value { animation: none; }
+}
