@@ -150,10 +150,20 @@
   <div class="bars" role="img" aria-label="{{ caption }}">
     {%- for r in rows %}
       <div class="bar">
-        <div class="bar__label">{{ r.label }}</div>
-        <div class="bar__track"><div class="bar__fill" style="width: {{ '%.1f'|format(r.pct) }}%; background: {{ r.color }};"></div></div>
-        <div class="bar__value">{{ r.value }}</div>
+        <div class="bar__label" title="{{ r.label }}">{{ r.label }}</div>
+        <div class="bar__track">
+          <div class="bar__fill{% if r.tone %} bar__fill--{{ r.tone }}{% endif %}" style="width: {{ '%.1f'|format(r.pct) }}%;{% if r.color and not r.tone %} background: {{ r.color }};{% endif %}"></div>
+        </div>
+        <div class="bar__value">{{ r.value }}{% if r.share %} <span class="bar__share">{{ r.share }}</span>{% endif %}</div>
       </div>
+    {%- endfor %}
+  </div>
+{%- endmacro %}
+
+{% macro mix(rows, caption="") -%}
+  <div class="mix" role="img" aria-label="{{ caption }}">
+    {%- for r in rows if r.value %}
+      <span class="mix__seg{% if r.tone %} mix__seg--{{ r.tone }}{% endif %}" style="flex-grow: {{ r.value }}" title="{{ r.label }}: {{ r.value }}"></span>
     {%- endfor %}
   </div>
 {%- endmacro %}

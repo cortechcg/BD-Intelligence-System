@@ -95,14 +95,17 @@ def test_teal_stack_has_no_shadows_and_one_button_gradient():
 
 
 def test_two_fills_only():
-    """Forest fills the primary button, the BID chip and marks; nothing else is filled."""
+    """Forest fills the primary button, the BID chip, and marks — including the portfolio bars."""
     for selector, rule in rules():
         sel = selector.strip()
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
             tok = m.group(2)
             if tok in ("ground", "surface", "track", "hover", "selected"):
                 continue
-            assert any(k in sel for k in (".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--")), f"fill {tok} on {sel[:70]}"
+            assert any(k in sel for k in (
+                ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",
+                "bar__fill", "mix__seg", "legend__swatch",
+            )), f"fill {tok} on {sel[:70]}"
 
 
 def test_brass_means_a_person_must_act_and_nothing_else():

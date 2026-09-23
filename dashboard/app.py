@@ -105,12 +105,10 @@ async def security_headers(request: Request, call_next):
     # Tender titles and model prose are rendered on these pages. Jinja
     # autoescapes them; this is the second layer. Inline style is used only
     # for chart-bar widths; inline script for the poll/notify snippet.
-    # cdn.jsdelivr.net is allowed for exactly one script: Chart.js on the
-    # Portfolio view, pinned by version and subresource-integrity hash.
     response.headers.setdefault(
         "Content-Security-Policy",
         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self'; form-action 'self'; "
+        "script-src 'self' 'unsafe-inline'; font-src 'self'; form-action 'self'; "
         "frame-ancestors 'none'; base-uri 'none'",
     )
     return response
@@ -338,17 +336,22 @@ def job_page(request: Request, trigger_id: str):
 @app.get("/portfolio", response_class=HTMLResponse)
 def portfolio_page(request: Request):
     portfolio = queries.portfolio_view()
-    stage_ramp = ["var(--ramp-1)", "var(--ramp-2)", "var(--ramp-3)", "var(--ramp-4)"]
-    rec_ramp = ["var(--rec-1)", "var(--rec-2)", "var(--rec-3)"]
+    scored = portfolio["ledger_rows"] - portfolio["unscored_ledger_rows"]
     ctx = _base_context(request, "portfolio")
     ctx.update({
         "p": portfolio,
         "stage_bars": queries.bar_rows(
-            [(s, portfolio["by_stage"][s]) for s in queries.AGENT_STAGES], stage_ramp
+            [(s, portfolio["by_stage"][s]) for s in queries.ALL_STAGES],
+            total=portfolio["ledger_rows"],
+            tones=[
+                "agent" if s in queries.AGENT_STAGES else "human"
+                for s in queries.ALL_STAGES
+            ],
         ),
         "rec_bars": queries.bar_rows(
             [(k, portfolio["by_recommendation"].get(k, 0)) for k in ("BID", "WATCH", "NO-BID")],
-            rec_ramp,
+            total=scored,
+            tones=["bid", "watch", "nobid"],
         ),
         "digest": queries.market_digest(),
         "dashboard_runs": triggers.recent(50),
@@ -380,13 +383,17 @@ def _spend_by_day(runs: list[dict]) -> dict:
         key = "completed" if r.get("status") == "succeeded" else "stopped"
         d[key] += float(spend)
     labels = sorted(days)
+    completed = [round(days[k]["completed"], 4) for k in labels]
+    stopped = [round(days[k]["stopped"], 4) for k in labels]
+    peak = max((completed[i] + stopped[i] for i in range(len(labels))), default=0.0)
     return {
         "labels": labels,
-        "completed": [round(days[k]["completed"], 4) for k in labels],
-        "stopped": [round(days[k]["stopped"], 4) for k in labels],
+        "completed": completed,
+        "stopped": stopped,
         "runs": [days[k]["runs"] for k in labels],
         "unknown": [days[k]["unknown"] for k in labels],
         "run_count": len(runs),
+        "peak": peak,
     }
 
 

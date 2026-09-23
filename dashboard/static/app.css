@@ -443,13 +443,34 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .tile__sub { font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp3); line-height: 1.55; }
 
 .bars { display: grid; gap: var(--sp3); }
-.bar { display: grid; grid-template-columns: 132px minmax(0, 1fr) 48px; align-items: center; gap: var(--sp4); }
-.bar__label { font-size: var(--t14); color: var(--ink); }
-.bar__track { height: 8px; background: var(--track); border-radius: var(--r-mark); overflow: hidden; }
+.bar { display: grid; grid-template-columns: minmax(108px, 180px) minmax(0, 1fr) auto; align-items: center; gap: var(--sp4); }
+.bar__label { font-size: var(--t14); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar__track { height: 12px; background: var(--track); border-radius: var(--r-mark); overflow: hidden; }
+.bar__track--split { display: flex; }
+.bar__track--split .bar__fill { border-radius: 0; }
 .bar__fill { height: 100%; border-radius: 0 var(--r-mark) var(--r-mark) 0; min-width: 0; }
-.bar__value { font-size: var(--t14); font-weight: var(--font-weight-medium); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.bar__fill--agent, .bar__fill--bid { background: var(--fill); }
+.bar__fill--human, .bar__fill--watch { background: var(--color-kelp-mid); }
+.bar__fill--nobid, .bar__fill--stopped { background: var(--color-forest-mid); }
+.bar__value { font-size: var(--t14); font-weight: var(--font-weight-medium); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar__share { font-weight: var(--font-weight-regular); color: var(--ink-2); margin-left: var(--sp2); }
 .chart { padding: var(--sp6); }
 .chart__foot { font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp4); }
+.panel__chart { padding: var(--sp6); display: grid; gap: var(--sp5); }
+.mix { display: flex; height: 18px; gap: 3px; border-radius: var(--r-mark); overflow: hidden; background: var(--track); }
+.mix__seg { min-width: 4px; background: var(--fill); }
+.mix__seg--agent, .mix__seg--bid { background: var(--fill); }
+.mix__seg--human, .mix__seg--watch { background: var(--color-kelp-mid); }
+.mix__seg--nobid, .mix__seg--stopped { background: var(--color-forest-mid); }
+.mix__seg--unknown { background: var(--color-forest-mid); }
+.mix__seg--lost { background: var(--color-kelp-mid); }
+.legend { display: flex; flex-wrap: wrap; gap: var(--sp4) var(--sp5); }
+.legend__item { display: inline-flex; align-items: center; gap: var(--sp2); font-size: var(--t13); color: var(--ink-2); }
+.legend__swatch { width: 10px; height: 10px; border-radius: var(--r-mark); background: var(--fill); }
+.legend__swatch--human { background: var(--color-kelp-mid); }
+.legend__swatch--stopped, .legend__swatch--unknown { background: var(--color-forest-mid); }
+.legend__swatch--lost { background: var(--color-kelp-mid); }
+.reading { font-size: var(--t16); color: var(--ink); letter-spacing: -0.01em; }
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp5); }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
@@ -502,17 +523,11 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   .table { min-width: 560px; }
   .view-head h1 { font-size: var(--t32); }
   .view-head h1.doc { font-size: var(--t20); }
-  .bar { grid-template-columns: 96px minmax(0, 1fr) 40px; }
+  .bar { grid-template-columns: 112px minmax(0, 1fr) auto; }
   .submit-row { flex-direction: column; align-items: stretch; }
 }
 
-/* ── Portfolio charts (Chart.js draws into these; tokens above are read by
-      portfolio-charts.js so series colours are the palette, not new ones) ── */
-.chart--canvas { display: flex; flex-direction: column; height: 340px; padding: var(--sp6) var(--sp6) var(--sp5); margin: 0; }
-.chart--canvas canvas { flex: 1 1 auto; min-height: 0; width: 100% !important; }
-.chart--canvas figcaption { flex: none; font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp4); line-height: 1.55; }
 .panel__in h3 { font-size: var(--t16); }
-@media (max-width: 720px) { .chart--canvas { height: 300px; padding: var(--sp4); } }
 
 /* ── Kinetic type: headlines arrive; two words drift across and fade ──── */
 @keyframes arise {
