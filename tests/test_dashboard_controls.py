@@ -360,6 +360,95 @@ def test_cancel_copy_is_rendered_where_cancel_is_offered():
     assert app_module.CANCEL_COPY in _html.unescape(html)
 
 
+def _job_page_env():
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+
+    return Environment(
+        loader=FileSystemLoader("dashboard/templates"),
+        autoescape=select_autoescape(["html"]),
+    )
+
+
+def _render_job(job, detail):
+    """Render job.html the way the route does. Raises if the template throws."""
+    return _job_page_env().get_template("job.html").render(
+        job=job, d=detail, notify=job["status"] in ("queued", "running"),
+        cancel_copy=app_module.CANCEL_COPY,
+        view="queue", viewer="ops@cortechconsultinggroup.com", csrf_token="t",
+        poll_ms=5000 if job["status"] in ("queued", "running") else 15000,
+        static_base="/s",
+        url_queue="/", url_portfolio="/p", url_detail="/o", url_job="/job",
+        url_logout="/l", url_trigger_cancel="/trigger/cancel", url_draft="/draft",
+        generated_at="2026-09-23 07:26 UTC", flash="", flash_kind="",
+    )
+
+
+def _scored_ledger(last_error=None):
+    from dashboard.queries import cell, stage_rail
+
+    return {
+        "rail": stage_rail("scored"),
+        "stage": cell("scored", source="opportunity_processing.pipeline_stage"),
+        "ui_state": "processing",
+        "last_error": cell(
+            last_error, why="no error recorded",
+            source="opportunity_processing.last_error",
+        ),
+        "has_draft": False,
+        "source_url": "https://drive.google.com/file/d/redacted/view",
+    }
+
+
+def test_job_page_renders_stuck_submit_url_row():
+    """Job 27b951ba-d95d-4435-8387-202a193787ef as it was while the page 500'd.
+
+    status running, cancel already requested, heartbeat frozen, finished_at
+    null, spend a float, ledger stage scored, last_error null. The template
+    used to slice timestamps and last_error with no type guard.
+    """
+    job = {
+        "id": "27b951ba-d95d-4435-8387-202a193787ef",
+        "status": "running",
+        "ui_state": "processing",
+        "trigger_kind": "submit_url",
+        "kind_label": "run from URL (full pipeline)",
+        "requested_by": "ops@cortechconsultinggroup.com",
+        "requested_at": "2026-09-23T06:25:27.095267+00:00",
+        "started_at": "2026-09-23T06:25:29.460624+00:00",
+        "finished_at": None,
+        "last_heartbeat_at": "2026-09-23T06:33:13.189635+00:00",
+        "cancel_requested_at": "2026-09-23T06:56:23.735034+00:00",
+        "error_kind": None,
+        "error_message": None,
+        "execution_id": None,
+        "result_summary": {},
+        "attempt_count": 1,
+        "provider_calls": 18,
+        "spend_usd": 1.528494,
+        "spend_limit_usd": 25.0,
+        "spend_known": True,
+        "source_url": "https://drive.google.com/file/d/redacted/view?usp=sharing",
+    }
+    html = _render_job(job, _scored_ledger())
+    assert "27b951ba" in html
+    assert "1.5285" in html
+    assert "Cancel requested" in html
+    assert "2026-09-23 06:25:27" in html
+    assert "Couldn't refresh, retrying" in html
+    assert "window.location.reload" not in html
+    # A non-string last_error must not raise on [:120].
+    html_bad_error = _render_job(job, _scored_ledger(last_error={"code": "x"}))
+    assert "last recorded" in html_bad_error
+    # Null timestamps and a missing URL must not raise on a slice.
+    broken = dict(job)
+    broken["requested_at"] = None
+    broken["finished_at"] = None
+    broken["source_url"] = None
+    broken["status"] = "cancelled"
+    broken["ui_state"] = "cancelled"
+    assert "27b951ba" in _render_job(broken, _scored_ledger())
+
+
 # ── re-run from stage ───────────────────────────────────────────────────────
 
 def test_rerun_rewinds_then_resumes_without_force(monkeypatch):
