@@ -3,7 +3,7 @@
 ║          CORTECH AIRTABLE AUTO-POPULATION SCRIPT                 ║
 ║                                                                  ║
 ║  This script reads your CVs and past proposals from folders      ║
-║  and automatically fills all your Airtable tables.               ║
+║  and writes consultants, rate cards, and proposal embeddings.   ║
 ║                                                                  ║
 ║  HOW TO USE:                                                     ║
 ║  1. Put all CV files (PDF or DOCX) in:  ./data/cvs/             ║
@@ -29,7 +29,7 @@ from io import BytesIO
 # ── DEPENDENCY CHECK ──────────────────────────────────────────────────────────
 # Check all required packages are installed before importing
 REQUIRED = [
-    "openai", "pyairtable", "supabase", "pdfplumber",
+    "openai", "supabase", "pdfplumber",
     "docx", "rich", "loguru", "dotenv"
 ]
 
@@ -52,7 +52,6 @@ from utils.claude_helpers import get_text
 from utils.untrusted import wrap_untrusted
 import pdfplumber
 from docx import Document as DocxDocument
-from pyairtable import Api, retry_strategy
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
@@ -120,100 +119,28 @@ SENIORITY_OPTIONS = ["Junior", "Mid", "Senior", "Principal"]
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def get_airtable_clients():
-    """Initialize Airtable API clients for all tables."""
-    api_key  = os.getenv("AIRTABLE_API_KEY")
-    base_id  = os.getenv("AIRTABLE_BASE_ID")
-
-    if not api_key or not base_id:
-        console.print("[red]Missing AIRTABLE_API_KEY or AIRTABLE_BASE_ID in .env[/red]")
-        sys.exit(1)
-
-    # Do NOT retry 429 here. urllib3 turning one 429 into "too many 429
-    # error responses" is what aborted populate after a health-check GET.
-    # 5xx still get two short retries. 429 is handled by _airtable_retry
-    # with a 30s cooldown so we wait instead of hammering.
-    retry = retry_strategy(
-        status_forcelist=(500, 502, 503, 504),
-        backoff_factor=0.5,
-        total=2,
-    )
-    api = Api(api_key, timeout=(10, 20), retry_strategy=retry)
-    base = api.base(base_id)
-
-    return {
-        "consultants":    base.table("CONSULTANTS"),
-        "past_proposals": base.table("PAST_PROPOSALS"),
-        "rate_cards":     base.table("RATE_CARDS"),
-        "opportunities":  base.table("OPPORTUNITIES"),
-        "logs":           base.table("AGENT_LOGS"),
-    }
+    """Retired. Returns an empty mapping so older call sites do not open Airtable."""
+    return {}
 
 
 def _is_airtable_429(exc: Exception) -> bool:
-    msg = str(exc).lower()
-    return "429" in msg or "too many 429" in msg or "rate limit" in msg
+    return False
 
 
 def _airtable_retry(label: str, fn, attempts: int = 3):
-    """Call fn(), waiting 30s/60s on 429 instead of failing immediately."""
-    last = None
-    for attempt in range(1, attempts + 1):
-        try:
-            return fn()
-        except Exception as e:
-            last = e
-            if not _is_airtable_429(e) or attempt == attempts:
-                raise
-            wait = 30 * attempt
-            console.print(
-                f"  [yellow]Airtable 429 on {label} — "
-                f"waiting {wait}s ({attempt}/{attempts})[/yellow]"
-            )
-            time.sleep(wait)
-    raise last
+    """Call fn() once. Airtable retries are gone."""
+    del label, attempts
+    return fn()
 
 
-def prune_agent_logs(tables: dict, keep: int = 400) -> int:
-    """Delete oldest AGENT_LOGS rows when the free-tier cap is close.
-
-    Operational logging only — safe to drop. A full base is the usual
-    cause of sustained 429s on every other table.
-    """
-    try:
-        records = _airtable_retry(
-            "AGENT_LOGS list",
-            lambda: tables["logs"].all(),
-        )
-    except Exception as e:
-        console.print(f"  [yellow]Could not list AGENT_LOGS: {e}[/yellow]")
-        return 0
-
-    count = len(records)
-    console.print(f"  AGENT_LOGS: {count} rows")
-    if count < 800:
-        return 0
-
-    records.sort(key=lambda r: r.get("createdTime") or "")
-    to_delete = [r["id"] for r in records[:-keep]]
+def prune_agent_logs(tables: dict | None = None, keep: int = 400) -> int:
+    """Airtable AGENT_LOGS are retired. Supabase agent_logs are left in place."""
+    del tables, keep
     console.print(
-        f"  [yellow]Near Airtable cap — deleting {len(to_delete)} oldest logs, "
-        f"keeping {keep}[/yellow]"
+        "  [yellow]Airtable logs are retired. "
+        "New actions are written to Supabase agent_logs. Nothing was deleted.[/yellow]"
     )
-    deleted = 0
-    for i in range(0, len(to_delete), 10):
-        batch = to_delete[i:i + 10]
-        try:
-            _airtable_retry(
-                "AGENT_LOGS delete",
-                lambda b=batch: tables["logs"].batch_delete(b),
-            )
-            deleted += len(batch)
-        except Exception as e:
-            console.print(f"  [yellow]Log prune stopped: {e}[/yellow]")
-            break
-        time.sleep(0.25)
-    console.print(f"  Pruned {deleted} AGENT_LOGS row(s)")
-    return deleted
+    return 0
 
 
 def get_llm_client():
@@ -687,19 +614,19 @@ FULL CV CONTENT:
         "tools": tools,
         "key_skills": cv_info.get("key_skills", ""),
         "key_assignments": cv_info.get("key_assignments", ""),
-        "availability_status": "Available",
+        "availability_status": cv_info.get("availability_status") or None,
         "cv_text": cv_text_for_embedding,
         "cv_last_updated": datetime.now().strftime("%Y-%m-%d"),
     }
+    if not record["availability_status"]:
+        record.pop("availability_status")
 
     try:
-        result = _airtable_retry(
-            "CONSULTANTS create",
-            lambda: tables["consultants"].create(record, typecast=True),
-        )
-        return result["id"]
+        from database.airtable_client import upsert_consultant
+
+        return upsert_consultant(record)
     except Exception as e:
-        console.print(f"  [red]Airtable rejected this record: {e}[/red]")
+        console.print(f"  [red]Supabase rejected this consultant: {e}[/red]")
         logger.error(f"Failed to add consultant {cv_info.get('full_name')}: {e}")
         return None
 
@@ -774,24 +701,29 @@ def add_proposal_to_airtable(
     raw_proposal_text: str,
     file_name: str
 ) -> str | None:
-    """Add a single proposal record to Airtable."""
+    """Store one proposal embedding. Does not call Airtable."""
 
     record = _proposal_airtable_record(proposal_info, raw_proposal_text, file_name)
 
     try:
-        result = _airtable_retry(
-            "PAST_PROPOSALS create",
-            lambda: tables["past_proposals"].create(record, typecast=True),
+        from database.supabase_client import get_supabase
+        from embed_cvs import embed_proposal
+
+        status = embed_proposal(
+            get_supabase(),
+            {"id": record["proposal_id"], "fields": record},
         )
+        if status != "embedded":
+            raise RuntimeError(status or "not embedded")
         pending = _pending_path(file_name)
         if pending.exists():
             pending.unlink()
-        return result["id"]
+        return record["proposal_id"]
     except Exception as e:
         path = save_pending_proposal(
             record, proposal_info, raw_proposal_text, file_name
         )
-        console.print(f"  [red]Airtable rejected this record: {e}[/red]")
+        console.print(f"  [red]Could not store this proposal: {e}[/red]")
         console.print(
             f"  [yellow]Extraction saved to {path} — "
             f"re-run python populate_airtable.py --retry-pending later, "
@@ -838,15 +770,20 @@ def populate_rate_cards(tables: dict) -> int:
     ]
 
     added = 0
+    from database.airtable_client import upsert_rate_card
+
     for rate in rates:
-        try:
-            rate["rate_id"] = str(uuid.uuid4())
-            rate["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-            tables["rate_cards"].create(rate, typecast=True)
+        if upsert_rate_card(
+            rate["role_level"],
+            rate["location"],
+            rate["day_rate_usd"],
+            rate["per_diem_usd"],
+        ):
             added += 1
-            time.sleep(0.25)  # stay under Airtable's ~5 req/s limit
-        except Exception as e:
-            logger.error(f"Failed to add rate: {e}")
+        else:
+            logger.error(
+                f"Failed to add rate: {rate['role_level']} / {rate['location']}"
+            )
 
     return added
 
@@ -866,12 +803,10 @@ def validate_environment() -> bool:
     required_keys = [
         "ANTHROPIC_API_KEY",
         "OPENAI_API_KEY",
-        "AIRTABLE_API_KEY",
-        "AIRTABLE_BASE_ID",
-    ]
-    optional_keys = [
         "SUPABASE_URL",
         "SUPABASE_SERVICE_KEY",
+    ]
+    optional_keys = [
         "EMAIL_SENDER",
         "EMAIL_RECIPIENTS",
     ]
@@ -928,15 +863,8 @@ def validate_environment() -> bool:
         warnings.append(f"Proposals folder not found: {PROPOSALS_DIR}")
         console.print(f"  Proposals folder not found: {PROPOSALS_DIR}")
 
-    # Keys are already checked. A live GET here is what burned the rate
-    # limit and aborted the run — 429 means "too many requests just now",
-    # not a bad API key. Proceed; the first real write fails clearly if
-    # the base is actually down.
     console.print()
-    console.print(
-        "  Airtable keys present — skipping live ping "
-        "(a health-check GET is what triggered the 429 abort)"
-    )
+    console.print("  Consultants, rates, and logs are stored in Supabase.")
 
     # Probe with a short timeout — the shared client waits up to 180s
     # per attempt, which looked hung after "files found".
@@ -981,19 +909,24 @@ def validate_environment() -> bool:
 
 
 def check_for_duplicates(tables: dict, name: str, table_key: str, field: str) -> bool:
-    """Check exact duplicate identity without blank-key wildcard matching."""
+    """True when this name is already a consultant. Never treats a blank as everyone."""
+    del tables, table_key, field
     key = str(name or "").strip()
-    # FIND('', field) matches every record in Airtable. Treat missing identity
-    # as not deduplicable rather than letting an arbitrary first row suppress
-    # an import.
-    if not key or not re.fullmatch(r"[A-Za-z0-9_ ]+", str(field or "")):
+    if not key:
         return False
     try:
-        literal = key.replace("\\", "\\\\").replace("'", "\\'")
-        records = tables[table_key].all(
-            formula=f"LOWER({{{field}}})=LOWER('{literal}')"
+        from database.airtable_client import consultant_name_key
+        from database.supabase_client import get_supabase
+
+        found = (
+            get_supabase()
+            .table("consultants")
+            .select("id")
+            .eq("name_key", consultant_name_key(key))
+            .limit(1)
+            .execute()
         )
-        return len(records) > 0
+        return bool(found.data)
     except Exception:
         return False
 
@@ -1114,16 +1047,14 @@ def run_cv_population(
             # Show preview
             if interactive:
                 show_cv_preview(cv_info, cv_file.name)
-                if not Confirm.ask("  Save this to Airtable?", default=True):
+                if not Confirm.ask("  Save this?", default=True):
                     results["skipped"] += 1
                     continue
 
-            # Add to Airtable
-            with console.status("  Saving to Airtable..."):
+            with console.status("  Saving consultant..."):
                 record_id = add_consultant_to_airtable(
                     tables, cv_info, raw_text, cv_file.stem
                 )
-                time.sleep(0.3)  # Airtable rate limit
 
             if record_id:
                 console.print(f"  [green]Added: {cv_info.get('full_name', cv_file.name)}[/green]")
@@ -1134,7 +1065,7 @@ def run_cv_population(
                     "file": cv_file.name
                 })
             else:
-                console.print(f"  [red]Failed to save to Airtable[/red]")
+                console.print(f"  [red]Failed to save[/red]")
                 results["errors"] += 1
 
         except Exception as e:
@@ -1242,15 +1173,27 @@ def run_proposal_population(
         console.print("  Skipping existing-title scan (single-file import)")
     else:
         try:
-            for rec in _airtable_retry(
-                "PAST_PROPOSALS list",
-                lambda: tables["past_proposals"].all(fields=["project_title"]),
-            ):
-                title = (rec.get("fields") or {}).get("project_title")
-                if title:
-                    existing_norm.append(_norm_title(title))
+            from database.supabase_client import get_supabase
+
+            start = 0
+            while True:
+                page = (
+                    get_supabase()
+                    .table("proposal_embeddings")
+                    .select("project_title")
+                    .range(start, start + 999)
+                    .execute()
+                )
+                batch = page.data or []
+                for rec in batch:
+                    title = rec.get("project_title")
+                    if title:
+                        existing_norm.append(_norm_title(title))
+                if len(batch) < 1000:
+                    break
+                start += 1000
             console.print(
-                f"  Airtable already has {len(existing_norm)} past proposal(s)"
+                f"  Supabase already has {len(existing_norm)} past proposal(s)"
             )
         except Exception as e:
             logger.warning(f"Could not list existing proposals (will not skip): {e}")
@@ -1308,7 +1251,7 @@ def run_proposal_population(
                 )
                 proposal_info["won"] = won_manual
 
-                if not Confirm.ask("  Save this to Airtable?", default=True):
+                if not Confirm.ask("  Save this?", default=True):
                     results["skipped"] += 1
                     continue
 
@@ -1331,7 +1274,7 @@ def run_proposal_population(
                     "airtable_id": record_id
                 })
             else:
-                console.print(f"  [red]Failed to save to Airtable[/red]")
+                console.print(f"  [red]Failed to save[/red]")
                 results["errors"] += 1
 
         except Exception as e:
@@ -1342,14 +1285,18 @@ def run_proposal_population(
     return results
 
 
-def retry_pending_proposals(tables: dict) -> dict:
-    """Push locally saved extractions to Airtable without calling Claude."""
+def retry_pending_proposals(tables: dict | None = None) -> dict:
+    """Store locally saved extractions as proposal embeddings. No Claude, no Airtable."""
+    del tables
     PENDING_DIR.mkdir(parents=True, exist_ok=True)
     files = sorted(PENDING_DIR.glob("*.json"))
     results = {"added": 0, "skipped": 0, "errors": 0, "records": []}
     if not files:
         console.print(f"[yellow]No pending files in {PENDING_DIR}[/yellow]")
         return results
+
+    from database.supabase_client import get_supabase
+    from embed_cvs import embed_proposal
 
     console.print(f"\n[bold blue]Retrying {len(files)} pending proposal(s)[/bold blue]")
     for path in files:
@@ -1358,12 +1305,14 @@ def retry_pending_proposals(tables: dict) -> dict:
         title = record.get("project_title") or path.stem
         console.print(f"\n  {path.name}: [cyan]{title}[/cyan]")
         try:
-            result = _airtable_retry(
-                "PAST_PROPOSALS create",
-                lambda r=record: tables["past_proposals"].create(r, typecast=True),
+            status = embed_proposal(
+                get_supabase(),
+                {"id": record.get("proposal_id") or path.stem, "fields": record},
             )
+            if status != "embedded":
+                raise RuntimeError(status or "not embedded")
             path.unlink()
-            console.print(f"  [green]Added ({result['id']})[/green]")
+            console.print(f"  [green]Added ({record.get('proposal_id') or path.stem})[/green]")
             results["added"] += 1
         except Exception as e:
             console.print(f"  [red]Still failing: {e}[/red]")
@@ -1408,7 +1357,7 @@ def show_final_summary(
 
     console.print()
     console.print("[bold]Next Steps:[/bold]")
-    console.print("  1. Open Airtable and review the records")
+    console.print("  1. Review the consultants and proposal rows in Supabase")
     console.print("  2. Fix any incorrect extractions manually")
     console.print("  3. Run the CV embedder to enable semantic search:")
     console.print("     [cyan]python scripts/embed_cvs.py[/cyan]")
@@ -1424,7 +1373,7 @@ def show_final_summary(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Load CVs and past proposals from data/ into Airtable."
+        description="Load CVs and past proposals from data/ into Supabase."
     )
     parser.add_argument(
         "--proposals-only",
@@ -1454,15 +1403,15 @@ def main():
     parser.add_argument(
         "--retry-pending",
         action="store_true",
-        help="Push pending_proposals/*.json to Airtable (no Claude calls).",
+        help="Store pending_proposals/*.json as embeddings (no Claude calls).",
     )
     args = parser.parse_args()
     if args.file:
         args.proposals_only = True
 
     console.print(Panel.fit(
-        "[bold blue]Cortech Airtable Auto-Population Script[/bold blue]\n"
-        "[dim]Reads your files and fills Airtable automatically[/dim]",
+        "[bold blue]Cortech consultant and proposal loader[/bold blue]\n"
+        "[dim]Reads your files and writes Supabase[/dim]",
         border_style="blue"
     ))
 
@@ -1474,7 +1423,7 @@ def main():
         return
 
     if args.retry_pending:
-        console.print("\n[bold blue]Retrying pending Airtable writes...[/bold blue]")
+        console.print("\n[bold blue]Retrying pending proposal writes...[/bold blue]")
         retry_pending_proposals(get_airtable_clients())
         return
 
@@ -1527,7 +1476,11 @@ def main():
         console.print("\n[bold blue]Populating Rate Cards...[/bold blue]")
 
         # Check if rate cards already exist
-        existing = tables["rate_cards"].all(max_records=1)
+        from database.supabase_client import get_supabase
+
+        existing = (
+            get_supabase().table("rate_cards").select("role_level").limit(1).execute().data
+        )
         if existing:
             if Confirm.ask("Rate cards already exist. Overwrite?", default=False):
                 rate_cards_added = populate_rate_cards(tables)

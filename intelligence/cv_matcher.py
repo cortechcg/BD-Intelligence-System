@@ -131,7 +131,7 @@ def parse_availability(consultant: dict | None) -> dict:
             "availability_percent": None,
             "availability_status": status_raw,
             "availability_evidence": (
-                "availability_status not on Airtable record — not inferred"
+                "availability_status not on the consultant record — not inferred"
             ),
         }
 
@@ -295,7 +295,7 @@ def score_capability_match(requirement: dict, match: dict) -> dict:
         parts["availability"] = None
         unknown.append(
             match.get("availability_evidence")
-            or "availability not on Airtable record — not inferred"
+            or "availability not on the consultant record — not inferred"
         )
     else:
         parts["availability"] = None

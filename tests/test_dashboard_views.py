@@ -64,10 +64,11 @@ def test_post_routes_are_limited_to_queueing():
         if hasattr(r, "methods") and "POST" in (r.methods or set())
     )
     assert posts == [
+        "/opportunity/outcome", "/opportunity/reviewed",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
         "/trigger/rerun", "/trigger/retry", "/trigger/url",
     ]
-    # Every one of these either enqueues a row or flags one for cancel.
+    # Queue posts enqueue or cancel. Review posts record a person's decision.
     # None calls the pipeline inline and none can act outward.
     src = inspect.getsource(app_module)
     assert "submit_single_url" not in src
@@ -145,6 +146,7 @@ def test_trigger_with_a_valid_csrf_token_gets_past_the_check(client, monkeypatch
 
     monkeypatch.setattr(app_module.triggers, "enqueue", _enqueue)
     monkeypatch.setattr(app_module.triggers, "queue_available", lambda: True)
+    monkeypatch.setattr(app_module.triggers, "aggregate_cap_reached", lambda: (False, ""))
     monkeypatch.setattr(settings, "TRIGGERS_ENABLED", True)
 
     token = auth.issue_session("staff@cortechconsultinggroup.com")
@@ -158,6 +160,62 @@ def test_trigger_with_a_valid_csrf_token_gets_past_the_check(client, monkeypatch
     assert r.status_code == 303
     assert enqueued["kind"] == "submit_url"
     assert enqueued["by"] == "staff@cortechconsultinggroup.com"
+
+
+def test_mark_reviewed_records_a_human_stage_and_does_not_send(client, monkeypatch):
+    seen = {}
+
+    def _record(url, stage):
+        seen["url"] = url
+        seen["stage"] = stage
+        return True
+
+    monkeypatch.setattr("database.supabase_client.record_human_pipeline_stage", _record)
+    token = auth.issue_session("staff@cortechconsultinggroup.com")
+    client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+    session = auth.read_session(token)
+    response = client.post(
+        "/opportunity/reviewed",
+        data={
+            "source_url": "https://example.org/tor",
+            "csrf_token": auth.csrf_token(session),
+        },
+    )
+    assert response.status_code == 303
+    assert seen == {"url": "https://example.org/tor", "stage": "reviewed"}
+    assert "send" not in response.headers["location"].lower()
+
+
+def test_mark_won_sets_crm_status_and_outcome(client, monkeypatch):
+    seen = {}
+
+    def _record(url, stage):
+        seen["stage"] = stage
+        seen["url"] = url
+        return True
+
+    def _update(record_id, fields):
+        seen["record_id"] = record_id
+        seen["status"] = fields.get("status")
+        return True
+
+    monkeypatch.setattr("database.supabase_client.record_human_pipeline_stage", _record)
+    monkeypatch.setattr("database.airtable_client.update_opportunity", _update)
+    token = auth.issue_session("staff@cortechconsultinggroup.com")
+    client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+    session = auth.read_session(token)
+    response = client.post(
+        "/opportunity/outcome",
+        data={
+            "source_url": "https://example.org/tor",
+            "outcome": "Won",
+            "csrf_token": auth.csrf_token(session),
+        },
+    )
+    assert response.status_code == 303
+    assert seen["status"] == "Won"
+    assert seen["stage"] == "outcome"
+    assert seen["record_id"] == "https://example.org/tor"
 
 
 # ── the value primitive never invents ───────────────────────────────────────
@@ -333,6 +391,9 @@ def test_drafted_page_shows_the_human_gate_and_no_send_control(env):
     detail["section_keys"] = ["executive_summary", "methodology"]
     html = _render_detail(env, detail)
     assert "needs human review before anything is sent" in html
+    assert "Mark reviewed" in html
+    assert "Mark won" in html
+    assert "Mark lost" in html
     assert "Download draft" in html
     for word in (">Send<", "Submit to", "Send to client"):
         assert word not in html

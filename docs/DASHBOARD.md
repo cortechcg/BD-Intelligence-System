@@ -24,7 +24,7 @@ Design reasoning: `docs/DASHBOARD_DESIGN.md`. Decision record: `docs/adr/013-das
 
 `submit_single_url` gained two keyword-only arguments (`force`, `retry_dead_letter`) whose defaults are the historical CLI behaviour, and now returns its result dict. That is the entire change to `main.py`. `tests/test_dashboard_parity.py` proves the CLI and the dashboard produce identical pipeline results for the same opportunity — 17 of 18 result fields byte-equal, the 18th being the per-run `execution_id`.
 
-**Nothing here can act outward.** There is no route that sends email to a client, submits to a portal, or writes `reviewed`/`outcome` — those remain human Airtable transitions (ADR 011 §2). `tests/test_dashboard_views.py` pins the POST route list and asserts the web app never imports the email senders.
+**Nothing here can act outward.** There is no route that sends email to a client or submits to a portal. `reviewed` and `outcome` are written only when a person uses Mark reviewed or Mark won / Mark lost (ADR 011 §2). `tests/test_dashboard_views.py` pins the POST route list and asserts the web app never imports the email senders.
 
 ### The review email
 
@@ -267,7 +267,7 @@ only values you type; everything else has a committed default.
 | worker | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | same two values as the web |
 | worker | `ANTHROPIC_API_KEY` | from the live worker's *Environment* tab (same name) |
 | worker | `OPENAI_API_KEY` | same source — required, embeddings |
-| worker | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` | same source — optional, CRM write is fail-open |
+| worker | `AIRTABLE_API_KEY`, `AIRTABLE_BASE_ID` | unused — the pipeline no longer calls Airtable |
 | worker | `EMAIL_RECIPIENTS` | comma-separated reviewer addresses; empty disables the review email |
 | worker | `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD` | fill if review email goes out via Gmail, else empty |
 | worker | `RESEND_API_KEY`, `EMAIL_SENDER` | fill if via Resend, else empty |

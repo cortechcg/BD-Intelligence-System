@@ -163,6 +163,8 @@ def _base_context(request: Request, view: str) -> dict:
         "url_trigger_rerun": "/trigger/rerun",
         "url_trigger_cancel": "/trigger/cancel",
         "url_draft": "/draft",
+        "url_mark_reviewed": "/opportunity/reviewed",
+        "url_mark_outcome": "/opportunity/outcome",
         "cancel_copy": CANCEL_COPY,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "flash": request.query_params.get("msg", ""),
@@ -599,6 +601,51 @@ def trigger_cancel(
         "not_found": "No such job.",
     }.get(outcome, f"Nothing to cancel ({outcome.replace('already_', 'job is ')}).")
     return _flash(f"/job/{trigger_id}", msg, "stop" if outcome == "not_found" else "")
+
+
+def _detail_back(source_url: str) -> str:
+    canonical = canonicalize_url(source_url) or source_url
+    return canonical, f"/opportunity?url={quote(canonical, safe='')}"
+
+
+@app.post("/opportunity/reviewed")
+def mark_reviewed(
+    request: Request,
+    source_url: str = Form(...),
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    """A person marks the draft reviewed. Does not email or submit."""
+    _check_csrf(session, csrf_token)
+    from database.supabase_client import record_human_pipeline_stage
+
+    canonical, back = _detail_back(source_url)
+    if record_human_pipeline_stage(canonical, "reviewed"):
+        return _flash(back, "Marked reviewed.")
+    return _flash(back, "Could not record reviewed.", "stop")
+
+
+@app.post("/opportunity/outcome")
+def mark_outcome(
+    request: Request,
+    source_url: str = Form(...),
+    outcome: str = Form(...),
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    """A person records Won or Lost. Does not email or submit."""
+    _check_csrf(session, csrf_token)
+    if outcome not in ("Won", "Lost"):
+        raise HTTPException(status_code=400, detail="outcome must be Won or Lost")
+    from database.airtable_client import update_opportunity
+    from database.supabase_client import record_human_pipeline_stage
+
+    canonical, back = _detail_back(source_url)
+    wrote = update_opportunity(canonical, {"status": outcome})
+    staged = record_human_pipeline_stage(canonical, "outcome")
+    if wrote and staged:
+        return _flash(back, f"Marked {outcome.lower()}.")
+    return _flash(back, "Could not record the outcome.", "stop")
 
 
 # ── thin JSON API (same data as the pages) ──────────────────────────────────

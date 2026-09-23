@@ -9,8 +9,7 @@ Nothing submits to clients automatically — human approval required.
 
 ## Tech stack
 - Python 3.12 + virtualenv at ~/cortech-bd-agent/cortech/
-- Airtable (pyairtable) = human-facing CRM dashboard
-- Supabase (supabase-py + pgvector) = CV vector store + document cache
+- Supabase (supabase-py + pgvector) = consultants, rate cards, agent logs, opportunity status, CV vectors, document cache
 - Anthropic Claude = chat (claude-haiku-4-5 analysis, claude-sonnet-5 proposals)
 - OpenAI API = embeddings only (text-embedding-3-small, 1536-dim)
 - Gmail SMTP = email reports
@@ -26,23 +25,23 @@ intelligence/cv_matcher.py ← Supabase pgvector semantic search
 intelligence/budget_calculator.py ← rate card × effort estimate
 intelligence/proposal_writer.py   ← full proposal generation
 database/supabase_client.py
-database/airtable_client.py
+database/airtable_client.py  ← Supabase CRM reads/writes (name kept)
 reporting/email_report.py
 scripts/populate_airtable.py
 scripts/embed_cvs.py
-check_schema.py            ← schema diagnostic, run before bulk writes
+check_schema.py            ← confirms Supabase CRM tables exist
 
-## Airtable critical rules — NEVER break these
-1. Every .create() call MUST use typecast=True or multi-select fields
-   throw 422 INVALID_MULTIPLE_CHOICE_OPTIONS errors
+## CRM rules — NEVER break these
+1. Do not call api.airtable.com. Consultants, rate cards, agent logs, and
+   opportunity status live in Supabase (`consultants`, `rate_cards`,
+   `agent_logs`, columns on `opportunity_processing`).
 2. log_agent_action() MUST be wrapped in try/except — it is called
    inside every error handler; if it throws, it cascades and kills
    the entire pipeline
-3. discovered_at field is a plain DATE field — send strftime("%Y-%m-%d")
-   never .isoformat() — full timestamps get rejected
-4. year field in PAST_PROPOSALS is NUMBER not DATE — send int not string
-5. won field in PAST_PROPOSALS is CHECKBOX — send Python bool
-6. All field names are lowercase_with_underscores — exact match required
+3. submission_deadline is a DATE — send YYYY-MM-DD, never a full timestamp
+4. A missing rate-card row leaves the budget incomplete. Do not invent a price.
+5. A missing availability value is Unknown, never free.
+6. Donor-intelligence notes were not copied. get_donor_intelligence() stays empty.
 
 ## Supabase critical rules
 1. OPENAI_API_KEY required for embeddings — text-embedding-3-small for vectors
@@ -57,20 +56,20 @@ check_schema.py            ← schema diagnostic, run before bulk writes
 2. Fetch document text (discovered → extracted)
 3. Claude analysis → structured JSON + deterministic score (extracted → scored)
 4. is_consultancy_contract gate — FALSE = save as NO-BID, return None
-5. Create Airtable OPPORTUNITIES record (BID/WATCH)
+5. Write CRM status on the processing row (BID/WATCH)
 6. CV matching via Supabase pgvector
-7. Budget calculation via rate card
+7. Budget calculation via the Supabase rate card
 8. Proposal/EOI draft via Claude Sonnet 5 (scored → drafted). Empty draft retries, then dead-letters.
-9. Update Airtable status to Reviewing
+9. Set crm_status to Reviewing
 10. Send proposal email to full team
-Human Airtable only: reviewed → outcome. Crash mid-run resumes at the last persisted stage.
+Human only, from the dashboard: reviewed → outcome (Won/Lost). Crash mid-run resumes at the last persisted stage.
 Store in Supabase cache only after durable complete (dedup on source_url).
 
 ## is_consultancy_contract gate (CRITICAL)
 The LLM returns this boolean in bid_analysis.
 Default is TRUE (fail open — never miss a real opportunity).
 FALSE only for pure staff vacancies with no deliverables.
-When FALSE: save as NO-BID in Airtable, return None, stop pipeline.
+When FALSE: save as NO-BID on the processing row, return None, stop pipeline.
 This gate prevents burning proposal tokens on CV matching and proposal
 writing for job postings.
 
@@ -88,9 +87,8 @@ Both in config.py — never hardcode model strings in other files.
 Embeddings: text-embedding-3-small (unchanged).
 
 ## Known failure modes — always check these when debugging
-- UNKNOWN_FIELD_NAME → field name typo in Airtable, run check_schema.py
-- INVALID_MULTIPLE_CHOICE_OPTIONS → missing typecast=True
-- discovered_at rejected → sending .isoformat() to a DATE field
+- CRM write rejected → the processing row was missing, or crm_status was not one of New/Reviewing/Bidding/Won/Lost/No-bid
+- submission_deadline dropped → the value was not YYYY-MM-DD
 - Embeddings returning garbage → different model in embed vs query
 - os not imported in supabase_client.py → NameError on module load
 - log_agent_action throwing → breaks pipeline, wrap in try/except
@@ -101,5 +99,5 @@ Embeddings: text-embedding-3-small (unchanged).
 ## Run commands
 python main.py --once     # single run, manual test + crontab
 python main.py            # continuous scheduler every 6 hours
-python check_schema.py    # verify all Airtable field names before bulk ops
-python scripts/embed_cvs.py  # load CVs into Supabase (run after populate)
+python check_schema.py    # confirm Supabase CRM tables exist
+python scripts/embed_cvs.py  # refresh CV embeddings from consultants (run after populate)

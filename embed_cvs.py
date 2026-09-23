@@ -3,7 +3,7 @@
 ║              CORTECH CV EMBEDDER SCRIPT                          ║
 ║                                                                  ║
 ║  Run this AFTER populate_airtable.py                             ║
-║  Takes all consultant CVs from Airtable and loads them into      ║
+║  Reads consultants and proposal files and loads them into the    ║
 ║  Supabase vector store for semantic search matching              ║
 ║                                                                  ║
 ║  Run: python embed_cvs.py                                        ║
@@ -36,11 +36,9 @@ MIN_PROPOSAL_TEXT_CHARS = 100
 
 # Per-record retries after a transient error (same consultant, not the next one).
 TRANSIENT_BACKOFFS = (5.0, 15.0, 45.0)
-# Airtable .all() is a long call — wait longer, and never urllib3-hammer 429s.
-AIRTABLE_LIST_BACKOFFS = (15.0, 45.0, 90.0)
 CIRCUIT_BREAKER_THRESHOLD = 3
 CIRCUIT_BREAKER_PAUSE_SECONDS = 45.0
-# urllib3 must not auto-retry 429 — that already hammered Airtable in this project.
+# urllib3 must not auto-retry 429.
 AIRTABLE_RETRY_STATUS_FORCELIST = (500, 502, 503, 504)
 
 _TRANSIENT_MESSAGE_MARKERS = (
@@ -289,15 +287,6 @@ def existing_embedding_row_id(
     )
 
 
-def fetch_airtable_all(table, label: str) -> list:
-    """List an Airtable table with long waits on 429/DNS — not urllib3 429 retries."""
-    return retry_on_transient(
-        table.all,
-        label=label,
-        backoffs=AIRTABLE_LIST_BACKOFFS,
-    )
-
-
 def store_single_embedding_row(
     supabase,
     table_name: str,
@@ -370,25 +359,65 @@ def get_supabase():
 
 
 def get_clients():
-    from pyairtable import Api, retry_strategy
+    """Supabase only. Kept so older call sites still receive a client."""
+    return get_supabase()
 
-    # Do not retry 429 — urllib3 "too many 429" is what crashed this
-    # script while Airtable was already rate-limited.
-    retry = retry_strategy(
-        status_forcelist=AIRTABLE_RETRY_STATUS_FORCELIST,
-        backoff_factor=0.5,
-        total=2,
-    )
-    airtable_api = Api(
-        os.getenv("AIRTABLE_API_KEY"),
-        timeout=(10, 20),
-        retry_strategy=retry,
-    )
-    airtable_base = airtable_api.base(os.getenv("AIRTABLE_BASE_ID"))
-    return (
-        airtable_base.table("CONSULTANTS"),
-        airtable_base.table("PAST_PROPOSALS"),
-        get_supabase(),
+
+def consultant_embed_records(supabase) -> list[dict]:
+    """One embed record per stored id, including legacy embedding ids."""
+    rows = []
+    start = 0
+    while True:
+        res = (
+            supabase.table("consultants")
+            .select(
+                "id,full_name,role_title,cv_text,thematic_expertise,"
+                "geographic_experience,languages,tools,seniority_level,"
+                "years_experience,day_rate_usd,availability_status,based_in,"
+                "key_skills,legacy_ids,embedding_id"
+            )
+            .range(start, start + 999)
+            .execute()
+        )
+        batch = res.data or []
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+        start += 1000
+    records = []
+    for row in rows:
+        ids = [str(item) for item in (row.get("legacy_ids") or []) if item]
+        if row.get("id") and str(row["id"]) not in ids:
+            ids.append(str(row["id"]))
+        fields = {
+            "full_name": row.get("full_name") or "",
+            "role_title": row.get("role_title") or "",
+            "cv_text": row.get("cv_text") or "",
+            "thematic_expertise": row.get("thematic_expertise") or [],
+            "geographic_experience": row.get("geographic_experience") or [],
+            "languages": row.get("languages") or [],
+            "tools": row.get("tools") or [],
+            "seniority_level": row.get("seniority_level") or "",
+            "years_experience": row.get("years_experience") or 0,
+            "day_rate_usd": row.get("day_rate_usd") or 0,
+            "availability_status": row.get("availability_status") or "",
+            "based_in": row.get("based_in") or "",
+            "key_skills": row.get("key_skills") or "",
+            "embedding_id": row.get("embedding_id") or "",
+        }
+        for record_id in ids:
+            records.append({"id": record_id, "fields": fields})
+    return records
+
+
+def proposal_files() -> list[Path]:
+    folder = Path("data/proposals")
+    if not folder.is_dir():
+        return []
+    return sorted(
+        path for path in folder.iterdir()
+        if path.is_file() and path.suffix.lower() in {".pdf", ".docx", ".txt", ".md"}
+        and "PUT_PROPOSAL" not in path.name.upper()
     )
 
 
@@ -484,7 +513,7 @@ def embed_consultant_cv(
         "seniority_level": fields.get("seniority_level", ""),
         "years_experience": fields.get("years_experience", 0),
         "day_rate_usd": fields.get("day_rate_usd", 0),
-        "availability_status": fields.get("availability_status", "Available"),
+        "availability_status": fields.get("availability_status") or "",
         "based_in": fields.get("based_in", ""),
         "key_skills": fields.get("key_skills", ""),
     }
@@ -513,17 +542,15 @@ def embed_consultant_cv(
         )
 
         try:
-            retry_on_transient(
-                lambda: consultant_table.update(
-                    airtable_id, {"embedding_id": embedding_id}, typecast=True
-                ),
-                label=f"{name} (Airtable embedding_id)",
-            )
+            supabase.table("consultants").update(
+                {"embedding_id": embedding_id}
+            ).contains("legacy_ids", [airtable_id]).execute()
         except Exception as e:
             logger.warning(
-                f"Supabase row verified for {name}, but Airtable embedding_id "
-                f"update failed: {e}"
+                f"Supabase embedding stored for {name}, but consultants."
+                f"embedding_id update failed: {e}"
             )
+        _ = consultant_table
 
         if duplicate_count:
             logger.warning(
@@ -666,6 +693,13 @@ def embed_proposal_from_file(
     suffix = path.suffix.lower()
     if suffix == ".docx":
         proposal_text = read_docx_text(path)
+    elif suffix == ".pdf":
+        import pdfplumber
+
+        with pdfplumber.open(path) as pdf:
+            proposal_text = "\n\n".join(
+                (page.extract_text() or "") for page in pdf.pages
+            )
     else:
         proposal_text = path.read_text(encoding="utf-8", errors="ignore")
 
@@ -723,7 +757,7 @@ def main():
     parser.add_argument(
         "--file",
         metavar="NAME",
-        help="Embed one file from data/proposals/ (no Airtable).",
+        help="Embed one file from data/proposals/.",
     )
     parser.add_argument(
         "--won",
@@ -749,7 +783,7 @@ def main():
     parser.add_argument(
         "--proposals-only",
         action="store_true",
-        help="Skip CVs; embed past proposals from Airtable only.",
+        help="Skip CVs; embed past proposals from data/proposals/ only.",
     )
     parser.add_argument(
         "--force",
@@ -808,7 +842,7 @@ def main():
         return
 
     try:
-        consultant_table, proposal_table, supabase = get_clients()
+        supabase = get_clients()
     except Exception as e:
         console.print(f"[red]Connection failed: {e}[/red]")
         sys.exit(1)
@@ -818,22 +852,18 @@ def main():
     circuit = NetworkCircuit()
 
     if not args.proposals_only:
-        console.print("[bold]Loading consultants from Airtable...[/bold]")
+        console.print("[bold]Loading consultants from Supabase...[/bold]")
         try:
-            consultants = fetch_airtable_all(consultant_table, "CONSULTANTS list")
+            consultants = consultant_embed_records(supabase)
         except Exception as e:
-            console.print(
-                f"[red]Airtable CONSULTANTS list failed: {e}[/red]\n"
-                "  If this is a 429, embed one proposal from disk instead:\n"
-                "  [cyan]python embed_cvs.py --file \"the-new-filename.docx\" --won[/cyan]"
-            )
+            console.print(f"[red]Could not list consultants: {e}[/red]")
             sys.exit(1)
-        console.print(f"Found [green]{len(consultants)}[/green] consultants\n")
+        console.print(f"Found [green]{len(consultants)}[/green] consultant id(s)\n")
 
         for record in track(consultants, description="Embedding CVs..."):
             status = embed_consultant_cv(
                 supabase,
-                consultant_table,
+                None,
                 record,
                 use_openai,
                 force=args.force,
@@ -843,27 +873,40 @@ def main():
             if status == "embedded":
                 time.sleep(0.3)
 
-    console.print("\n[bold]Loading past proposals from Airtable...[/bold]")
-    try:
-        proposals = fetch_airtable_all(proposal_table, "PAST_PROPOSALS list")
-    except Exception as e:
-        console.print(
-            f"[red]Airtable PAST_PROPOSALS list failed: {e}[/red]\n"
-            "  Embed from disk instead:\n"
-            "  [cyan]python embed_cvs.py --file \"the-new-filename.docx\" --won[/cyan]"
-        )
-        sys.exit(1)
-    console.print(f"Found [green]{len(proposals)}[/green] proposals\n")
+    console.print("\n[bold]Loading past proposals from data/proposals/...[/bold]")
+    proposals = proposal_files()
+    console.print(f"Found [green]{len(proposals)}[/green] proposal file(s)\n")
 
-    for record in track(proposals, description="Embedding proposals..."):
-        status = embed_proposal(
-            supabase,
-            record,
-            use_openai,
-            force=args.force,
-            circuit=circuit,
-        )
-        prop_counts[status] += 1
+    for path in track(proposals, description="Embedding proposals..."):
+        lookup = f"local:{path.name}"
+        if not args.force:
+            try:
+                existing_id = existing_embedding_row_id(
+                    supabase,
+                    "proposal_embeddings",
+                    "airtable_proposal_id",
+                    lookup,
+                )
+            except Exception as e:
+                console.print(f"[red]Lookup failed for {path.name}: {e}[/red]")
+                prop_counts["failed"] += 1
+                continue
+            if existing_id:
+                prop_counts["skipped"] += 1
+                continue
+        try:
+            status = embed_proposal_from_file(
+                supabase,
+                path,
+                won=False,
+                title=path.stem,
+                client="",
+                year=datetime.now().year,
+            )
+        except Exception as e:
+            console.print(f"[red]Embedding failed for {path.name}: {e}[/red]")
+            status = "failed"
+        prop_counts[status] = prop_counts.get(status, 0) + 1
         if status == "embedded":
             time.sleep(0.3)
 

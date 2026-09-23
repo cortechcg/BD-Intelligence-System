@@ -138,8 +138,25 @@
 <section class="section section--tight">
   <div class="band band--human">
     <div class="band__title">This draft needs human review before anything is sent.</div>
-    The agent stops at <code>drafted</code>. It does not email the client, upload to a portal, or mark anything submitted — <code>reviewed</code> and <code>outcome</code> are written only from a person's Airtable status (ADR 011 §2). Named past-work claims are matched to a retrieved chunk or left tagged <code>[NOT VERIFIED]</code> in the text (ADR 008); check them.
+    The agent stops at <code>drafted</code>. It does not email the client, upload to a portal, or mark anything submitted. A person marks <code>reviewed</code> or records <code>Won</code> / <code>Lost</code> here (ADR 011 §2). Named past-work claims are matched to a retrieved chunk or left tagged <code>[NOT VERIFIED]</code> in the text (ADR 008); check them.
     <p>{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}.</p>
+    <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="source_url" value="{{ d.source_url }}">
+      <button class="btn btn--sm">Mark reviewed</button>
+    </form>
+    <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="source_url" value="{{ d.source_url }}">
+      <input type="hidden" name="outcome" value="Won">
+      <button class="btn btn--sm btn--quiet">Mark won</button>
+    </form>
+    <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="source_url" value="{{ d.source_url }}">
+      <input type="hidden" name="outcome" value="Lost">
+      <button class="btn btn--sm btn--quiet">Mark lost</button>
+    </form>
   </div>
 </section>
 {% if d.requirement_alignment and d.requirement_alignment.headline %}

@@ -624,27 +624,23 @@ def test_analyzer_keeps_document_payload_out_of_system_instruction_channel():
     assert attack in user
 
 
-@pytest.mark.parametrize("donor, client, expected_query", [
-    ("UNICEF", "Client", True),
-    ("", "UNICEF", False),
-    ("   ", "UNICEF", False),
-    (None, None, False),
+@pytest.mark.parametrize("donor, client", [
+    ("UNICEF", "Client"),
+    ("", "UNICEF"),
+    ("   ", "UNICEF"),
+    (None, None),
 ])
-def test_donor_lookup_never_uses_blank_wildcard(monkeypatch, donor, client, expected_query):
-    formulas = []
+def test_donor_lookup_never_uses_blank_wildcard(monkeypatch, donor, client):
+    """Donor notes were not copied out of Airtable, so the lookup is always empty."""
+    called = {"n": 0}
 
-    class Table:
-        def all(self, formula):
-            formulas.append(formula)
-            return []
+    def _boom(*_args, **_kwargs):
+        called["n"] += 1
+        raise AssertionError("donor lookup must not query a table")
 
-    monkeypatch.setattr(proposal_writer, "get_table", lambda *args: Table())
-    monkeypatch.setattr("database.airtable_client._circuit_open", lambda: False)
+    monkeypatch.setattr(proposal_writer, "get_table", _boom, raising=False)
     assert proposal_writer.get_donor_intelligence(donor, client) == ""
-    assert bool(formulas) is expected_query
-    if formulas:
-        assert "FIND(''" not in formulas[0]
-        assert "LOWER({donor_name})" in formulas[0]
+    assert called["n"] == 0
 
 
 class _FakeMessages:

@@ -12,7 +12,6 @@ import smtplib
 import ssl
 import httpx
 from loguru import logger
-from database.airtable_client import get_table
 from reporting.docx_builder import build_proposal_docx, iter_client_sections
 from intelligence.requirement_alignment import (
     align_draft_to_requirements,
@@ -1318,13 +1317,11 @@ def send_market_digest_email(digest) -> None:
 
 
 def get_pipeline_summary() -> dict:
-    """Get current pipeline stats from Airtable."""
-    table = get_table("opportunities")
-
-    all_records = table.all()
+    """Pipeline counts from opportunity_processing. Fail-open to empty stats."""
+    from database.airtable_client import list_crm_opportunities
 
     stats = {
-        "total": len(all_records),
+        "total": 0,
         "new": 0,
         "bidding": 0,
         "submitted": 0,
@@ -1332,6 +1329,12 @@ def get_pipeline_summary() -> dict:
         "high_priority": [],
         "watchlist": [],
     }
+    try:
+        all_records = list_crm_opportunities()
+    except Exception as e:
+        logger.warning(f"Pipeline summary skipped (fail-open): {e}")
+        return stats
+    stats["total"] = len(all_records)
 
     today = datetime.now().date()
 

@@ -10,7 +10,11 @@ from pathlib import Path
 from loguru import logger
 
 from config import CLAUDE_MODEL
-from database.airtable_client import get_past_proposals, get_table
+from database.airtable_client import (
+    RESOLVED_CRM_STATUSES,
+    get_past_proposals,
+    list_crm_opportunities,
+)
 from database.supabase_client import EmbeddingError, get_embedding, record_human_pipeline_stage, supabase
 from utils.llm import complete, get_text, loads_json_object
 from utils.errors import SpendCapError
@@ -355,14 +359,12 @@ def _learning_source_payload(record: dict) -> dict:
 
 def process_win_loss_outcomes() -> None:
     """
-    Polls Airtable for opportunities marked Won/Lost that haven't been
-    processed into win_loss_memory yet. Checks Supabase directly for an
-    existing row (by opportunity_id) rather than needing a new Airtable
-    "processed" flag to maintain.
+    Polls opportunity_processing for Won/Lost rows that haven't been
+    processed into win_loss_memory yet. An existing row (by opportunity_id)
+    means this outcome was already learned.
     """
     try:
-        table = get_table("opportunities")
-        resolved = table.all(formula="OR({status}='Won', {status}='Lost')")
+        resolved = list_crm_opportunities(RESOLVED_CRM_STATUSES)
     except Exception as e:
         logger.warning(f"Win/loss poll failed (non-fatal): {e}")
         return

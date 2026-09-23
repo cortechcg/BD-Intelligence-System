@@ -49,7 +49,7 @@ cortech-bd-agent/
 ├── main.py                      # Orchestrator — all CLI entry points live here
 ├── config.py                    # All environment variables and constants, read once
 ├── database/
-│   ├── airtable_client.py       # CRM layer — human-facing records, NOT the source of truth for data
+│   ├── airtable_client.py       # CRM reads and writes against Supabase (historical module name)
 │   ├── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
 │   ├── organizations.py         # Fail-open org index (Phase 2)
 │   ├── market_store.py          # Fail-open observed-opportunity loaders (Phase 3)
@@ -84,8 +84,8 @@ cortech-bd-agent/
 │   └── docx_builder.py           # Renders finished sections into a formatted Word document
 ├── utils/llm.py                 # OpenAI client, complete(), get_text() — use everywhere an LLM call is made
 ├── extract_style_guide.py       # One-time script: derives real structure/style guides from data/proposals/
-├── populate_airtable.py         # One-time/occasional onboarding: loads real CVs and past proposals
-├── check_schema.py              # Diagnostic: validates Airtable field names against what the code expects
+├── populate_airtable.py         # Loads CVs and past proposals into Supabase
+├── check_schema.py              # Confirms the Supabase CRM tables exist
 ├── data/
 │   ├── cvs/                      # Real team CVs (source for embed_cvs.py)
 │   └── proposals/                # Real past submissions (source for style-guide extraction + past-work context)
@@ -106,8 +106,7 @@ Accounts needed, all free-tier-capable except where noted:
 |---|---|
 | [Anthropic](https://console.anthropic.com) | Chat: `claude-haiku-4-5` (analysis) + `claude-sonnet-5` (proposals) |
 | [OpenAI Platform](https://platform.openai.com) | Embeddings only (`text-embedding-3-small`) |
-| [Supabase](https://supabase.com) | pgvector storage, semantic search |
-| [Airtable](https://airtable.com) | Human-facing CRM dashboard |
+| [Supabase](https://supabase.com) | CRM, pgvector storage, semantic search |
 | Gmail account | Primary outgoing email (app password, not your real password) |
 | [Resend](https://resend.com) | Fallback outgoing email — required if deploying anywhere that blocks SMTP |
 | IMAP-accessible mailbox | Whatever inbox receives the ICA Daily Newsletter |
@@ -141,12 +140,14 @@ Apply `supabase_migration_organizations.sql` once so client/donor matching can p
 canonical orgs; until then the matcher fail-opens (empty index, review email still
 renders N=0 / UNKNOWN). Apply `supabase_migration_opportunity_facts.sql` once so
 `opportunities_cache` can store thematic/location/donor/`discovered_at` for the
-observed-data market digest; until then the digest fail-opens (cache timestamps
-plus Airtable secondary fields, or an honest insufficient digest). Apply
+observed-data market digest; until then the digest fail-opens to cache timestamps
+or an honest insufficient digest. Apply
+`supabase_migration_leave_airtable.sql` once so consultants, rate cards, agent
+logs, and opportunity status live in Supabase. Apply
 `supabase_migration_award_relationships.sql` once (after the organizations
 migration) so Assortis award-firm citations and Cortech-submission relationship
 edges can persist; until then those stores fail-open. Do not invent
-Airtable organization, competitor, or partner fields.
+organization, competitor, or partner fields on a second CRM.
 
 ```bash
 python main.py --once
@@ -162,9 +163,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 |---|---|
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys — used for analysis and proposal drafting |
 | `OPENAI_API_KEY` | platform.openai.com → API Keys — used for embeddings only |
-| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project → Settings → API. **Use the service role key**, not the anon key — this is server-side code, not a browser client. |
-| `AIRTABLE_API_KEY` | airtable.com/create/tokens — a personal access token scoped to the base below |
-| `AIRTABLE_BASE_ID` | Open the base in Airtable, the ID is in the URL (`app...`) |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project → Settings → API. **Use the service role key**, not the anon key — this is server-side code, not a browser client. Consultants, rate cards, logs, and opportunity status live here. |
 | `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` | Google Account → Security → 2-Step Verification → App Passwords. **Not your real Gmail password** — this won't work with one. |
 | `RESEND_API_KEY` / `EMAIL_SENDER` | resend.com → API Keys, and a verified sending domain/address. Listed in `.env.example`. |
 | `IMAP_HOST` / `IMAP_PORT` / `IMAP_USERNAME` / `IMAP_PASSWORD` | Whatever mail provider hosts the inbox receiving the ICA newsletter — likely different credentials than `GMAIL_ADDRESS` above, do not assume they're interchangeable |
@@ -175,7 +174,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` / `MAX_DOCUMENT_BYTES` / `MAX_DOWNLOAD_REDIRECTS` / `DOCUMENT_DOWNLOAD_MAX_RETRIES` / `MAX_GDRIVE_FILES` / `MAX_EXTRACTED_TEXT_CHARS` / `MAX_DOCUMENT_UNCOMPRESSED_BYTES` | Limits for untrusted document downloads and Drive annex packs. Defaults: 60 seconds, 25 MiB, 5 redirects, 2 transient retries, 25 Drive files, 120,000 extracted characters, and 100 MiB expanded DOCX content. |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
-`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing. Airtable is still fail-open.
+`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing.
 
 **`.env.example` is placeholders only.** If an older copy ever contained real keys, rotate them.
 
@@ -226,18 +225,17 @@ systemctl --user list-timers --all
 
 Playwright: the host must have Google Chrome at `/usr/bin/google-chrome` (or `google-chrome-stable`). **Do not set `PLAYWRIGHT_BROWSERS_PATH` to an empty cache** in the unit `Environment=` — Cursor sandboxes do that and bundled Chromium then fails. `launch_chromium` unsets a broken path and falls back to system Chrome so systemd and Cursor both work.
 
-**If Airtable starts returning 429s while timers run:** the usual cause is `AGENT_LOGS` hitting the free-tier 1,000-record cap. Pipeline writes already fail-open (circuit breaker, no urllib3 hammering). Operational logs are safe to **bulk-delete in the Airtable UI** (AGENT_LOGS only — not OPPORTUNITIES). Optionally: `python populate_airtable.py --prune-logs` (stops on the first 429; do not retry in a loop).
+The pipeline does not call Airtable. A failed Supabase log insert is ignored so it cannot stop a run.
 
 ---
 
 ## Data Stores at a Glance
 
-**Airtable is the human-facing CRM dashboard only — it is not the source of truth for anything the code depends on to function.** A failed Airtable write is treated as non-fatal everywhere in the pipeline; the run still completes and the team still gets a draft, just without a CRM record until Airtable's available again.
+**Supabase holds the CRM and the vectors.** A failed log insert does not stop a run. A missing rate-card row leaves that budget line incomplete.
 
 | Store | Holds | Recoverable if lost? |
 |---|---|---|
-| Supabase (`opportunities_cache`, `cv_embeddings`, `proposal_embeddings`, `win_loss_memory`) | All vector search, dedup, embeddings — the real operational data | Survives independently in the cloud; only credentials need re-adding to `.env` |
-| Airtable (`OPPORTUNITIES`, `CONSULTANTS`, `PAST_PROPOSALS`, `RATE_CARDS`, `PIPELINE_TRACKER`, `AGENT_LOGS`, `DONOR_INTELLIGENCE`) | Human-browsable records, rate cards, donor knowledge | Survives independently in the cloud; only credentials need re-adding |
+| Supabase (`opportunities_cache`, `opportunity_processing`, `cv_embeddings`, `proposal_embeddings`, `consultants`, `rate_cards`, `agent_logs`, `win_loss_memory`) | Vectors, dedup, stages, consultants, rates, status, logs | Survives independently in the cloud; only credentials need re-adding to `.env` |
 | `data/cvs/`, `data/proposals/` (Supabase Storage bucket `Cortech-documents`, **not git**) | The real source documents everything else is built from | Survive in the cloud with the rest of the Supabase project; `python sync_source_documents.py pull` restores them into a fresh clone (§Source documents) |
 | `intelligence/style_guides/*.md` (in this repo) | Extracted structure/style guides | Regenerable by re-running `extract_style_guide.py` against `data/proposals/`, if that folder survives |
 
@@ -269,7 +267,7 @@ proceeding without the real proposals), and neither Render service ships the
 documents in its image (`.dockerignore`). Only the two `PUT_*_HERE.txt`
 placeholders remain in git so the folders exist on checkout.
 
-**`AGENT_LOGS` has hit Airtable's free-tier 1,000-record cap more than once.** If Airtable writes start failing with sustained 429 errors even after retries, this is almost always the cause — it's pure operational logging, safe to bulk-delete without affecting anything the code depends on.
+Agent logs are rows in Supabase `agent_logs`. A failed insert is ignored.
 
 ---
 
@@ -289,7 +287,7 @@ These have each caused real, confirmed production failures. Documented here spec
 
 ## Disaster Recovery — Rebuilding From Zero
 
-**Read this before you need it.** This assumes the local folder — this entire directory — has been lost (stolen laptop, disk failure, accidental deletion). It does **not** assume Supabase, Airtable, or the GitHub repo have also been lost; those are separate cloud services and almost certainly still exist. A section for the more extreme "everything is gone" case is at the end.
+**Read this before you need it.** This assumes the local folder — this entire directory — has been lost (stolen laptop, disk failure, accidental deletion). It does **not** assume Supabase or the GitHub repo have also been lost. A section for the more extreme "everything is gone" case is at the end.
 
 ### Step 1 — Re-clone the code
 
@@ -316,21 +314,20 @@ If you did **not** back it up, every credential needs to be regenerated or re-fe
 
 1. `ANTHROPIC_API_KEY` — generate a fresh key at console.anthropic.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
 2. `OPENAI_API_KEY` — generate a fresh key at platform.openai.com. Needed for CV embeddings only.
-3. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding and cached opportunity that isn't the point of this step.
-4. `AIRTABLE_API_KEY` / `AIRTABLE_BASE_ID` — same logic: the base still exists in your Airtable account. Generate a new personal access token if the old one isn't recoverable, but point it at the *existing* base ID, findable in that base's URL.
-5. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
-6. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
-7. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
+3. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding, consultant, rate, and cached opportunity.
+4. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.
+5. `RESEND_API_KEY` — resend.com → API Keys → create a new one if needed.
+6. `IMAP_PASSWORD` (and host/username if those changed) — whoever manages that mailbox.
 
 ### Step 4 — Verify you're connected to the *existing* cloud data, not empty new instances
 
-Before running anything that writes data, confirm the Supabase and Airtable credentials point at your real, existing project/base:
+Before running anything that writes data, confirm the Supabase credentials point at your real, existing project:
 
 ```bash
 python check_schema.py
 ```
 
-This validates the Airtable base's field names against what the code expects — if it reports missing tables or fields entirely, you may be pointed at the wrong base ID, not a genuinely broken schema.
+This checks that `consultants`, `rate_cards`, `agent_logs`, and `opportunity_processing` are present. A missing table means the project is wrong or `supabase_migration_leave_airtable.sql` has not been applied.
 
 ### Step 5 — Only run the SQL migrations if Supabase itself needed to be recreated from scratch
 
@@ -356,16 +353,16 @@ loginctl enable-linger $(whoami)
 python main.py --once
 ```
 
-Watch it run end to end at least once before trusting the timers to run unattended. Check that a real, previously-known opportunity is correctly recognized as already-seen (confirms Supabase connectivity is real, not just credential-shaped), and that an Airtable record appears for anything new (confirms Airtable connectivity).
+Watch it run end to end at least once before trusting the timers to run unattended. Check that a real, previously-known opportunity is correctly recognized as already-seen (confirms Supabase connectivity is real, not just credential-shaped), and that a new BID/WATCH row gets a `crm_status` on `opportunity_processing`.
 
-### If everything is gone — GitHub, Supabase, and Airtable, not just the local folder
+### If everything is gone — GitHub and Supabase, not just the local folder
 
 This is a genuinely worse scenario and there's no clever recovery from it — it means starting over:
 
 - **The code** can only be rebuilt from whatever `CURSOR_TASK_*.md` files, this README, or chat history with whoever helped build it survive elsewhere. There is no shortcut here.
 - **`data/cvs/` and `data/proposals/`** — these are real business documents. Their home is the Supabase Storage bucket `Cortech-documents`; if Supabase is gone too, they must be re-sourced from wherever the *original* files came from (email, a shared drive, whoever originally supplied the CVs and past submissions) — they cannot be regenerated from code. Worth an occasional `python sync_source_documents.py pull` onto a machine that is backed up.
 - **Supabase's embeddings** can be rebuilt from scratch once `data/cvs/` is recovered, by re-running the population and embedding scripts — but this means re-processing everything, and any opportunity/dedup history is genuinely gone.
-- **Airtable's rate cards, donor intelligence, and consultant availability data** were hand-entered — if lost, they need to be hand-entered again. Worth an occasional manual export as insurance specifically because of this.
+- **Rate cards** are seeded by `supabase_migration_leave_airtable.sql` from the list in `populate_rate_cards()`. Donor-intelligence notes that existed only in Airtable were not copied. Consultant availability that was never stored on an embedding stays Unknown.
 
 ---
 
