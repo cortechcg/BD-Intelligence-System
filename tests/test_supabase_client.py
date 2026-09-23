@@ -423,3 +423,156 @@ def test_check_opportunity_stage_schema_fails_when_columns_missing(monkeypatch):
     monkeypatch.setattr(supabase_client, "supabase", _Client())
     missing = supabase_client.check_opportunity_stage_schema()
     assert missing == list(supabase_client.REQUIRED_STAGE_COLUMNS)
+
+
+def test_fact_payload_from_stored_labels_drops_non_strings():
+    assert supabase_client.fact_payload_from_stored_labels(
+        ["Evaluation", {"area": "WASH"}, 12, ""],
+        "Somalia",
+        "  UNDP  ",
+    ) == {
+        "thematic_areas": ["Evaluation"],
+        "locations": ["Somalia"],
+        "donor": "UNDP",
+    }
+    assert supabase_client.fact_payload_from_stored_labels(
+        [{"area": "WASH"}], None, None
+    ) == {}
+    assert supabase_client.fact_payload_from_stored_labels(None, None, None) == {}
+
+
+def test_backfill_opportunity_facts_from_ledger_copies_null_only(monkeypatch):
+    """Ledger string labels fill SQL-NULL cache facts; never invent or overwrite."""
+    from types import SimpleNamespace
+
+    cache = {
+        "https://example.com/null-themes": {
+            "title": "Null themes row",
+            "thematic_areas": None,
+            "locations": None,
+            "donor": None,
+        },
+        "https://example.com/already-labeled": {
+            "title": "Already labeled",
+            "thematic_areas": ["Keep Me"],
+            "locations": ["Nairobi"],
+            "donor": "Existing Donor",
+        },
+        "https://example.com/no-labels": {
+            "title": "No ledger labels",
+            "thematic_areas": None,
+            "locations": None,
+            "donor": None,
+        },
+    }
+    updates = []
+    ledger_pages = [
+        [
+            {
+                "source_url": "https://example.com/null-themes",
+                "themes": ["MEL", "Evaluation"],
+                "locs": ["Somalia"],
+                "donor": "UNICEF",
+            },
+            {
+                "source_url": "https://example.com/already-labeled",
+                "themes": ["Should Not Overwrite"],
+                "locs": ["Should Not Overwrite"],
+                "donor": "Should Not Overwrite",
+            },
+            {
+                "source_url": "https://example.com/no-labels",
+                "themes": [{"area": "WASH"}, 3],
+                "locs": None,
+                "donor": None,
+            },
+            {
+                "source_url": "https://example.com/scored-no-cache",
+                "themes": ["Scored only"],
+                "locs": ["Puntland"],
+                "donor": "FAO",
+            },
+        ]
+    ]
+
+    class _CacheQuery:
+        def __init__(self, table):
+            self._table = table
+            self._eq = None
+            self._write = None
+
+        def select(self, *_a):
+            return self
+
+        def eq(self, col, val):
+            self._eq = (col, val)
+            return self
+
+        def limit(self, *_a):
+            return self
+
+        def update(self, write):
+            self._write = write
+            return self
+
+        def execute(self):
+            if self._write is not None:
+                url = self._eq[1]
+                updates.append((url, dict(self._write)))
+                cache[url].update(self._write)
+                return SimpleNamespace(data=[cache[url]])
+            url = self._eq[1] if self._eq else None
+            row = cache.get(url)
+            return SimpleNamespace(data=[row] if row else [])
+
+    class _LedgerQuery:
+        def __init__(self):
+            self._range = (0, 199)
+
+        def select(self, *_a):
+            return self
+
+        def range(self, start, end):
+            self._range = (start, end)
+            return self
+
+        def execute(self):
+            start, _end = self._range
+            page_idx = start // 200
+            if page_idx >= len(ledger_pages):
+                return SimpleNamespace(data=[])
+            return SimpleNamespace(data=ledger_pages[page_idx])
+
+    class _Client:
+        def table(self, name):
+            if name == "opportunity_processing":
+                return _LedgerQuery()
+            if name == "opportunities_cache":
+                return _CacheQuery(name)
+            raise AssertionError(name)
+
+    monkeypatch.setattr(supabase_client, "supabase", _Client())
+    monkeypatch.setattr(
+        supabase_client, "canonicalize_url", lambda u: u
+    )
+
+    stats = supabase_client.backfill_opportunity_facts_from_ledger()
+
+    assert stats["updated"] == 1
+    assert stats["unchanged"] == 1
+    assert stats["no_cache_row"] == 1
+    assert stats["no_stored_labels"] == 1
+    assert "Null themes row" in stats["updated_titles"]
+    assert updates == [
+        (
+            "https://example.com/null-themes",
+            {
+                "thematic_areas": ["MEL", "Evaluation"],
+                "locations": ["Somalia"],
+                "donor": "UNICEF",
+            },
+        )
+    ]
+    assert cache["https://example.com/already-labeled"]["thematic_areas"] == ["Keep Me"]
+    assert cache["https://example.com/no-labels"]["thematic_areas"] is None
+    assert "https://example.com/scored-no-cache" not in cache
