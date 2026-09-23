@@ -72,6 +72,7 @@ DRAFT_META_KEYS = frozenset({
     "required_attachments",
     "required_forms",
     "format_compliance",
+    "requirement_alignment",
 })
 MIN_CLIENT_FACING_DRAFT_CHARS = 20
 
@@ -186,15 +187,45 @@ def _past_work_query(analysis: dict) -> str:
     return ". ".join(p for p in parts if p)
 
 
+def _same_assignment_title(candidate: str, analysis: dict | None) -> bool:
+    """True when a retrieved 'past' title is this tender, not an earlier job."""
+    opportunity = (analysis or {}).get("opportunity")
+    if not isinstance(opportunity, dict):
+        return False
+    current = _norm_title(_field_str(opportunity.get("title"), ""))
+    other = _norm_title(candidate)
+    if len(current) < 24 or len(other) < 24:
+        return False
+    return current == other or current.startswith(other) or other.startswith(current)
+
+
+def _norm_title(value: str) -> str:
+    text = (value or "").lower().replace("–", " ").replace("—", " ").replace("-", " ")
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
 def load_past_work_matches(analysis: dict | None = None) -> list[dict]:
     """Semantic past-assignment hits for this tender, or [] if none."""
     if not analysis:
         return []
     try:
-        return search_past_proposals(_past_work_query(analysis), match_count=8) or []
+        matches = search_past_proposals(_past_work_query(analysis), match_count=8) or []
     except Exception as e:
         logger.warning(f"Relevance search over past proposals failed: {e}")
         return []
+    kept = []
+    for match in matches:
+        if not isinstance(match, dict):
+            continue
+        title = str(match.get("project_title") or "")
+        if _same_assignment_title(title, analysis):
+            logger.info(
+                "  Dropped past-work hit that is this assignment, not prior work: "
+                f"{title[:80]}"
+            )
+            continue
+        kept.append(match)
+    return kept
 
 
 def _build_past_work_context(analysis: dict | None = None) -> str:
@@ -359,6 +390,36 @@ def _finalize_client_draft(
         )
     except Exception as e:
         logger.warning(f"  Format compliance audit failed (non-fatal): {e}")
+    try:
+        from intelligence.requirement_alignment import align_draft_to_requirements
+        grounded["requirement_alignment"] = align_draft_to_requirements(
+            analysis,
+            grounded,
+            outline=grounded.get("submission_outline") or {},
+        )
+    except Exception as e:
+        logger.warning(f"  Requirement alignment failed closed (non-fatal): {e}")
+        try:
+            from intelligence.requirement_alignment import fail_closed_requirement_alignment
+            grounded["requirement_alignment"] = fail_closed_requirement_alignment(
+                analysis,
+                outline=grounded.get("submission_outline") or {},
+                error=str(e),
+            )
+        except Exception:
+            grounded["requirement_alignment"] = {
+                "rows": [],
+                "headline": "Requirement alignment failed closed. Nothing was treated as satisfied.",
+                "method": "section_trace",
+                "error": str(e),
+                "addressed": 0,
+                "partially_addressed": 0,
+                "not_addressed": 0,
+                "total": 0,
+                "criteria_addressed": 0,
+                "criteria_total": 0,
+                "missing": [],
+            }
     return grounded
 
 
@@ -529,8 +590,9 @@ def _exemplar_block(section_name: str) -> str:
     if not excerpt:
         return ""
     return (
-        "\n\nHOUSE VOICE — REAL EXCERPTS FROM PROPOSALS CORTECH HAS SUBMITTED "
-        "AND WON WORK WITH:\n"
+        "\n\nHOUSE VOICE — EXCERPTS FROM PROPOSALS CORTECH HAS SUBMITTED. "
+        "These show register only. They are not a measured winning pattern "
+        "(the labeled set is wins without losses):\n"
         f"{excerpt}\n\n"
         "Match the register, sentence rhythm, paragraph length, and — above all "
         "— the density of concrete detail in those excerpts. Do NOT reuse their "
@@ -713,6 +775,7 @@ _META_SECTION_KEYS = {
     "required_attachments",
     "required_forms",
     "format_compliance",
+    "requirement_alignment",
 }
 
 

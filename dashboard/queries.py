@@ -585,8 +585,42 @@ def opportunity_detail(source_url: str) -> dict | None:
         "section_keys": sorted(
             k for k, v in sections.items() if isinstance(v, str) and v.strip()
         ),
+        "requirement_alignment": _requirement_alignment(analysis, sections),
     })
     return detail
+
+
+def _requirement_alignment(analysis: dict, sections: dict) -> dict:
+    """Stored trace, or a fresh one for drafts written before this check existed."""
+    if not sections:
+        return {}
+    stored = sections.get("requirement_alignment")
+    if isinstance(stored, dict) and stored.get("headline"):
+        return stored
+    try:
+        from intelligence.requirement_alignment import (
+            align_draft_to_requirements,
+            fail_closed_requirement_alignment,
+        )
+        return align_draft_to_requirements(
+            analysis,
+            sections,
+            outline=sections.get("submission_outline") or {},
+        )
+    except Exception as exc:
+        try:
+            from intelligence.requirement_alignment import fail_closed_requirement_alignment
+            return fail_closed_requirement_alignment(
+                analysis,
+                outline=sections.get("submission_outline") or {},
+                error=str(exc),
+            )
+        except Exception:
+            return {
+                "headline": "Requirement alignment failed closed. Nothing was treated as satisfied.",
+                "rows": [],
+                "error": str(exc),
+            }
 
 
 def draft_sections(source_url: str) -> dict:

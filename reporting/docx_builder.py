@@ -59,6 +59,7 @@ _DOCX_SKIP_KEYS = {
     "required_attachments",
     "required_forms",
     "format_compliance",
+    "requirement_alignment",
 }
 
 

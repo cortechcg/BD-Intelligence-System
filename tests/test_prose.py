@@ -23,6 +23,14 @@ def test_dash_bullets_become_numbered():
     assert "2. Second point" in out
 
 
+def test_markdown_headings_become_plain_lines():
+    text = "# Work-plan\n\n## Organisational profile\n\nThe plan starts here."
+    cleaned = humanize_draft(text)
+    assert "#" not in cleaned
+    assert "Work-plan" in cleaned
+    assert "Organisational profile" in cleaned
+
+
 def test_keeps_word_hyphens_and_table_separators():
     raw = (
         "| Project | Client |\n"

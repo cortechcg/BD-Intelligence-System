@@ -25,7 +25,7 @@ from utils.errors import ErrorType, SpendCapError
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
 from intelligence.analysis_schema import AnalysisSchemaError, validate_analysis_object
 from intelligence.extraction_provenance import attach_extraction_provenance
-from intelligence.tender_reader import pack_tender_text
+from intelligence.tender_reader import MAX_TENDER_CHARS, pack_tender_text
 
 
 def _normalize_opportunity(analysis: dict, fallback_title: str) -> None:
@@ -169,7 +169,9 @@ ANALYSIS_SCHEMA = """
     "cvs_required": "boolean",
     "past_work_samples_required": "number",
     "references_required": "number",
-    "financial_proposal_required": "boolean"
+    "financial_proposal_required": "boolean",
+    "required_annexes": ["named annexes, forms, or attachments the bidder must submit, empty if none"],
+    "disqualifying_conditions": ["conditions the document says will reject, disqualify, or treat a bid as non-responsive, empty if none stated"]
   },
 
   "bid_analysis": {
@@ -255,6 +257,9 @@ prescribed_proposal_sections, and estimated_budget_usd as accurately as
 the document supports. Read the FULL pack: scope of work, scoring matrices,
 and annex instructions often sit in the middle — do not skip them.
 If a field is not in the document, use null / empty — do not guess.
+required_annexes and disqualifying_conditions stay empty unless the
+document names the annex or states that a bid will be rejected,
+disqualified, or treated as non-responsive. Do not invent either.
 Copy facts; do not invent clients, countries, budgets, or credentials.
 
 SCHEMA — return a JSON object matching this exactly:
@@ -336,7 +341,7 @@ def analyze_rfp(
         logger.error(f"  Empty document — refusing analysis for '{title[:60]}'")
         return {}
 
-    tor_text = pack_tender_text(tor_text, max_chars=140000)
+    tor_text = pack_tender_text(tor_text, max_chars=MAX_TENDER_CHARS)
 
     system, document_message = _analysis_request_parts(tor_text)
     messages = [{"role": "user", "content": document_message}]

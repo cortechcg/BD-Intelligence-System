@@ -101,7 +101,10 @@ DOCUMENT_DOWNLOAD_MAX_RETRIES = _positive_int_env("DOCUMENT_DOWNLOAD_MAX_RETRIES
 # Google Drive folders are untrusted annex containers. Keep one listing from
 # expanding an opportunity into an unbounded document/parse workload.
 MAX_GDRIVE_FILES = _positive_int_env("MAX_GDRIVE_FILES", 25)
-MAX_EXTRACTED_TEXT_CHARS = _positive_int_env("MAX_EXTRACTED_TEXT_CHARS", 120_000)
+# Raw extract is larger than the model window on purpose. A 120k head cut
+# dropped scoring annexes that sit past the first ~30 pages. pack_tender_text
+# then keeps assignment sections inside MAX_TENDER_CHARS.
+MAX_EXTRACTED_TEXT_CHARS = _positive_int_env("MAX_EXTRACTED_TEXT_CHARS", 400_000)
 MAX_DOCUMENT_UNCOMPRESSED_BYTES = _positive_int_env(
     "MAX_DOCUMENT_UNCOMPRESSED_BYTES", 100 * 1024 * 1024
 )

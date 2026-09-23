@@ -504,3 +504,35 @@ def test_format_compliance_flags_over_limit_and_missing_gantt():
     assert audit["prescribed"] is True
     assert audit["gantt_ok"] is False
     assert "CVs of proposed experts" in audit["required_attachments"]
+
+
+def test_past_work_search_drops_the_tender_being_drafted(monkeypatch):
+    analysis = {
+        "opportunity": {
+            "title": (
+                "Consultancy to Develop Learning Paper 2 for SPREAD- "
+                "Integrating Peacebuilding, Livelihoods"
+            ),
+        },
+        "requirements": {"thematic_areas": ["Peacebuilding"]},
+    }
+    hits = [
+        {
+            "project_title": (
+                "Consultancy to Develop Learning Paper 2 for SPREAD – "
+                "Integrating Peacebuilding, Livelihoods, Climate Resilience"
+            ),
+            "similarity": 0.68,
+            "won": False,
+        },
+        {
+            "project_title": "Research and Learning for the Pathway to Prosperity Project",
+            "similarity": 0.60,
+            "won": False,
+        },
+    ]
+    monkeypatch.setattr(proposal_writer, "search_past_proposals", lambda *a, **k: hits)
+    kept = proposal_writer.load_past_work_matches(analysis)
+    assert [row["project_title"] for row in kept] == [
+        "Research and Learning for the Pathway to Prosperity Project"
+    ]
