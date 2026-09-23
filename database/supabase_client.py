@@ -990,6 +990,213 @@ def update_opportunity_facts(source_url: str, facts: dict | None) -> None:
         logger.warning(f"opportunity facts update failed (fail-open): {e}")
 
 
+_LEDGER_FACT_SELECT = (
+    "source_url,"
+    "themes:checkpoint->analysis->requirements->thematic_areas,"
+    "locs:checkpoint->analysis->opportunity->project_location,"
+    "donor:checkpoint->analysis->opportunity->>donor"
+)
+
+
+def fact_payload_from_stored_labels(themes, locations, donor) -> dict:
+    """Labels already stored on a ledger checkpoint or CRM row.
+
+    Non-strings are dropped. An empty result means UNKNOWN — this does not
+    invent a theme, a place, or a donor.
+    """
+    payload: dict = {}
+    clean_themes = _sanitize_fact_labels(themes)
+    clean_locations = _sanitize_fact_labels(locations)
+    clean_donor = " ".join(donor.split())[:200] if isinstance(donor, str) else ""
+    if clean_themes:
+        payload["thematic_areas"] = clean_themes
+    if clean_locations:
+        payload["locations"] = clean_locations
+    if clean_donor:
+        payload["donor"] = clean_donor
+    return payload
+
+
+def _cache_fact_row(source_url: str) -> tuple[str, dict | None]:
+    """Return ``(canonical_url, row_or_None)`` for an existing cache row."""
+    store_url = canonicalize_url(source_url) or source_url
+    res = (
+        supabase.table("opportunities_cache")
+        .select("title,thematic_areas,locations,donor")
+        .eq("source_url", store_url)
+        .limit(1)
+        .execute()
+    )
+    rows = res.data or []
+    if not rows and source_url and source_url != store_url:
+        res = (
+            supabase.table("opportunities_cache")
+            .select("title,thematic_areas,locations,donor")
+            .eq("source_url", source_url)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if rows:
+            store_url = source_url
+    return store_url, (rows[0] if rows else None)
+
+
+def _fill_null_cache_facts(source_url: str, payload: dict) -> str:
+    """Write only fact columns that are still SQL NULL. Never overwrites.
+
+    Returns ``updated``, ``unchanged``, ``missing``, or ``empty``.
+    """
+    if not source_url or not payload:
+        return "empty"
+    store_url, current = _cache_fact_row(source_url)
+    if current is None:
+        return "missing"
+    write: dict = {}
+    if current.get("thematic_areas") is None and payload.get("thematic_areas"):
+        write["thematic_areas"] = payload["thematic_areas"]
+    if current.get("locations") is None and payload.get("locations"):
+        write["locations"] = payload["locations"]
+    if current.get("donor") is None and payload.get("donor"):
+        write["donor"] = payload["donor"]
+    if not write:
+        return "unchanged"
+    supabase.table("opportunities_cache").update(write).eq(
+        "source_url", store_url
+    ).execute()
+    return "updated"
+
+
+def backfill_opportunity_facts_from_ledger(*, page_size: int = 200) -> dict:
+    """Copy checkpoint labels onto cache rows whose fact columns are still null.
+
+    ``store_opportunity`` only learned to write these columns when a run
+    durably completes. Older cache rows, and any completed row whose facts
+    update did not land, stay NULL even when ``opportunity_processing``
+    already holds the extracted strings. This copies those strings. It does
+    not insert cache rows, does not call a model, and does not overwrite a
+    non-null column. A checkpoint with no string labels leaves the cache
+    row null.
+    """
+    stats = {
+        "ledger_rows": 0,
+        "with_stored_labels": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "no_cache_row": 0,
+        "no_stored_labels": 0,
+        "updated_titles": [],
+    }
+    start = 0
+    while True:
+        page = (
+            supabase.table("opportunity_processing")
+            .select(_LEDGER_FACT_SELECT)
+            .range(start, start + page_size - 1)
+            .execute()
+            .data
+            or []
+        )
+        if not page:
+            break
+        for row in page:
+            if not isinstance(row, dict):
+                continue
+            stats["ledger_rows"] += 1
+            payload = fact_payload_from_stored_labels(
+                row.get("themes"), row.get("locs"), row.get("donor")
+            )
+            if not payload:
+                stats["no_stored_labels"] += 1
+                continue
+            stats["with_stored_labels"] += 1
+            outcome = _fill_null_cache_facts(str(row.get("source_url") or ""), payload)
+            if outcome == "updated":
+                stats["updated"] += 1
+                _store_url, current = _cache_fact_row(str(row.get("source_url") or ""))
+                title = (current or {}).get("title") or ""
+                if title and len(stats["updated_titles"]) < 20:
+                    stats["updated_titles"].append(title[:80])
+            elif outcome == "missing":
+                stats["no_cache_row"] += 1
+            else:
+                stats["unchanged"] += 1
+        if len(page) < page_size:
+            break
+        start += page_size
+    logger.info(
+        "opportunity fact backfill from ledger: "
+        f"updated={stats['updated']} unchanged={stats['unchanged']} "
+        f"no_cache={stats['no_cache_row']} unlabeled={stats['no_stored_labels']}"
+    )
+    return stats
+
+
+def backfill_opportunity_facts_from_airtable() -> dict:
+    """Copy stored Airtable OPPORTUNITIES labels onto null cache fact columns.
+
+    Same rule as the ledger backfill: string labels that already exist, null
+    columns only, no invented values. Fail-open if Airtable is rate-limited
+    or down — the cache row stays null rather than guessed.
+    """
+    stats = {
+        "available": False,
+        "records": 0,
+        "with_stored_labels": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "no_cache_row": 0,
+        "no_stored_labels": 0,
+        "error": "",
+        "updated_titles": [],
+    }
+    try:
+        from database.airtable_client import get_table
+
+        records = get_table("opportunities").all(
+            fields=["source_url", "title", "thematic_areas", "location", "donor"]
+        )
+    except Exception as exc:
+        message = str(exc)
+        stats["error"] = "429" if "429" in message else type(exc).__name__
+        logger.warning(
+            "Airtable fact backfill skipped (fail-open): " + stats["error"]
+        )
+        return stats
+
+    stats["available"] = True
+    for record in records or []:
+        if not isinstance(record, dict):
+            continue
+        stats["records"] += 1
+        fields = record.get("fields") if isinstance(record.get("fields"), dict) else {}
+        payload = fact_payload_from_stored_labels(
+            fields.get("thematic_areas"),
+            fields.get("location"),
+            fields.get("donor") if isinstance(fields.get("donor"), str) else "",
+        )
+        if not payload:
+            stats["no_stored_labels"] += 1
+            continue
+        stats["with_stored_labels"] += 1
+        outcome = _fill_null_cache_facts(str(fields.get("source_url") or ""), payload)
+        if outcome == "updated":
+            stats["updated"] += 1
+            title = fields.get("title") if isinstance(fields.get("title"), str) else ""
+            if title and len(stats["updated_titles"]) < 20:
+                stats["updated_titles"].append(title[:80])
+        elif outcome == "missing":
+            stats["no_cache_row"] += 1
+        else:
+            stats["unchanged"] += 1
+    logger.info(
+        "opportunity fact backfill from Airtable: "
+        f"updated={stats['updated']} unchanged={stats['unchanged']} "
+        f"no_cache={stats['no_cache_row']} unlabeled={stats['no_stored_labels']}"
+    )
+    return stats
+
+
 def store_document(
     opportunity_id: str,
     file_name: str,
