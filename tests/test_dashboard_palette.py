@@ -47,8 +47,10 @@ def rules():
 
 
 TEXT_PAIRS = [("ink", "ground"), ("ink-2", "ground"), ("accent", "ground"), ("on-fill", "fill")]
+# Status-chip dots take their colour from the chip's own text (currentColor),
+# so they inherit its verified contrast; only the marks drawn on cream are listed.
 MARK_PAIRS = [(fg, "ground") for fg in ("fill", "stage-done", "stage-current", "human", "halt",
-                                        "st-good", "st-processing", "st-halt", "st-resumable", "st-pending", "ink-3")]
+                                        "st-processing", "ink-3")]
 RAMP_LIGHT_END = [("ramp-1", "ground"), ("rec-1", "ground")]
 
 
@@ -113,6 +115,8 @@ def test_brass_means_a_person_must_act_and_nothing_else():
         if "focus" in sel:
             assert "accent" not in rule and "brass" not in rule, "brass is never a focus ring"
     assert ".hl--attention { color: var(--accent); }" in BODY
+    # one urgency treatment, both buckets that carry the meaning
+    assert ".figure--attention .figure__value:not(.is-zero),\n.figure--review .figure__value:not(.is-zero) { color: var(--accent);" in BODY
     assert "border-left: 2px dashed var(--human)" in BODY
 
 
@@ -159,7 +163,11 @@ def test_type_is_two_weights_and_labels_are_the_only_uppercase():
 
 
 def test_hierarchy_is_size():
-    assert re.search(r"\.figure__value \{[^}]*font-size: var\(--t56\)", BODY)
+    # The two "a person must act" figures are full display size; the three
+    # context counts are half that, so importance is not decided by digit count.
+    assert re.search(r"\.figure__value \{[^}]*font-size: var\(--t32\)", BODY)
+    assert ".figure--attention .figure__value, .figure--review .figure__value { font-size: var(--t56)" in BODY
+    assert re.search(r"\.figure__value \{[^}]*min-height: var\(--t56\)", BODY), "values share one baseline"
     assert re.search(r"\.hero__value \{[^}]*font-size: var\(--t56\)[^}]*font-weight: var\(--font-weight-medium\)", BODY)
     assert re.search(r"\.stat__value \{[^}]*font-size: var\(--t24\)", BODY)
     assert "--sp9: 96px" in ROOT and ".section { margin-top: var(--sp9); }" in BODY
