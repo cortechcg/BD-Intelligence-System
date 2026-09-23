@@ -34,33 +34,34 @@
 
 <section class="section" aria-labelledby="h-stage">
   <div class="section__head"><h2 id="h-stage">By stage</h2><span class="section__count">{{ p.ledger_rows }} ledger rows</span></div>
-  <p class="section__sub">Ledger rows at each stage. The first four are agent work; <code>reviewed</code> and <code>outcome</code> are human transitions written from Airtable. A row is counted once, at its current stage.</p>
+  <p class="section__sub">Each ledger row is counted once, at its current stage. The first four stages are the agent's work. Reviewed and outcome are written when a person marks them on the opportunity.</p>
+  {% if p.ledger_rows %}
+  {% set agent_n = p.by_stage.discovered + p.by_stage.extracted + p.by_stage.scored + p.by_stage.drafted %}
+  {% set human_n = p.by_stage.reviewed + p.by_stage.outcome %}
   <div class="panel">
-    <figure class="chart chart--canvas" aria-labelledby="h-stage">
-      <canvas id="chart-stage" height="240" aria-label="ledger rows by pipeline stage" role="img"></canvas>
-    </figure>
-    <details class="disclosure" style="margin: 0 var(--sp6)">
-      <summary>Table view <span class="muted">same counts as text</span></summary>
-      <div class="disclosure__body">
-        <table class="table">
-          <thead><tr><th>Stage</th><th class="num">Rows</th></tr></thead>
-          <tbody>
-            {% for s in p.by_stage %}<tr><td>{{ s }}</td><td class="num">{{ p.by_stage[s] }}</td></tr>{% endfor %}
-            {% if p.no_stage %}<tr><td>no stage recorded</td><td class="num">{{ p.no_stage }}</td></tr>{% endif %}
-          </tbody>
-        </table>
+    <div class="panel__chart">
+      <p class="reading">{{ agent_n }} in the agent's stages. {{ human_n }} recorded by a person.</p>
+      {{ m.mix(stage_bars, "share of ledger rows by stage") }}
+      <div class="legend">
+        <span class="legend__item"><span class="legend__swatch" aria-hidden="true"></span> Agent stages</span>
+        <span class="legend__item"><span class="legend__swatch legend__swatch--human" aria-hidden="true"></span> Recorded by a person</span>
       </div>
-    </details>
+      {{ m.bars(stage_bars, "ledger rows by pipeline stage") }}
+      {% if p.no_stage %}<p class="chart__foot">{{ p.no_stage }} ledger row{{ "s" if p.no_stage != 1 }} have no stage recorded.</p>{% endif %}
+    </div>
   </div>
+  {% else %}
+    {{ m.empty("No ledger rows yet", "A row appears when a run claims an opportunity.") }}
+  {% endif %}
 </section>
 
 <section class="section" aria-labelledby="h-rec">
   <div class="section__head"><h2 id="h-rec">By recommendation</h2><span class="section__count">n = {{ scored }} scored</span></div>
-  <p class="section__sub">From <code>bid_scorer.py</code> v1.0.0 thresholds (BID ≥ 70, WATCH ≥ 45, else NO-BID). Ordered by pursuit intent, not coloured good-to-bad.</p>
+  <p class="section__sub">From <code>bid_scorer.py</code> v1.0.0. BID is 70 or above, WATCH is 45 or above, and the rest are NO-BID. Bar length is the share of scored rows.</p>
   {% if scored > 0 %}
-  <div class="panel"><div class="chart">
+  <div class="panel"><div class="panel__chart">
     {{ m.bars(rec_bars, "ledger rows by recommendation") }}
-    <p class="chart__foot">{{ p.unscored_ledger_rows }} unscored ledger row{{ "s" if p.unscored_ledger_rows != 1 }} excluded.</p>
+    {% if p.unscored_ledger_rows %}<p class="chart__foot">{{ p.unscored_ledger_rows }} unscored ledger row{{ "s" if p.unscored_ledger_rows != 1 }} sit outside this split.</p>{% endif %}
   </div></div>
   {% else %}
     {{ m.empty("No scored rows yet", "Recommendations appear once a run reaches the scored stage.") }}
@@ -92,7 +93,24 @@
 
 <section class="section" aria-labelledby="h-outcomes">
   <div class="section__head"><h2 id="h-outcomes">Outcomes</h2><span class="section__count">a census, not a chart</span></div>
-  <p class="section__sub">A Won/Lost split drawn from this would be a lie told with geometry: there are no verified Lost labels at all.</p>
+  <p class="section__sub">Won is a ticked box on a past proposal. An unticked box stays unknown. Lost stays at zero until a verified Lost label exists.</p>
+  {% set outcome_total = p.outcomes.won + p.outcomes.unknown + p.outcomes.lost %}
+  {% if outcome_total %}
+  <div class="panel" style="margin-bottom: var(--sp5)">
+    <div class="panel__chart">
+      {{ m.mix([
+        {"label": "Won, verified", "value": p.outcomes.won, "tone": "bid"},
+        {"label": "Unknown", "value": p.outcomes.unknown, "tone": "unknown"},
+        {"label": "Lost, verified", "value": p.outcomes.lost, "tone": "lost"},
+      ], "verified outcome census") }}
+      <div class="legend">
+        <span class="legend__item"><span class="legend__swatch" aria-hidden="true"></span> Won {{ p.outcomes.won }}</span>
+        <span class="legend__item"><span class="legend__swatch legend__swatch--unknown" aria-hidden="true"></span> Unknown {{ p.outcomes.unknown }}</span>
+        <span class="legend__item"><span class="legend__swatch legend__swatch--lost" aria-hidden="true"></span> Lost {{ p.outcomes.lost }}</span>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   <div class="tiles">
     <div class="tile">
       <div class="tile__label">Won, verified</div>
@@ -128,10 +146,30 @@
   <p class="section__sub">Spend recorded on each job. Cancelled and failed runs are listed with what they cost; cancelling does not hide money that was spent.</p>
   {% if dashboard_runs %}
   <div class="panel" style="margin-bottom: var(--sp5)">
-    <figure class="chart chart--canvas">
-      <canvas id="chart-spend" height="240" aria-label="dashboard spend per day, USD" role="img"></canvas>
-      <figcaption class="chart__foot">The {{ charts.spend.run_count }} most recent runs, grouped by the day they were requested (UTC). Runs that stopped early — failed, cancelled, cap-halted — are their own series.{% if charts.spend.unknown | sum %} {{ charts.spend.unknown | sum }} run{{ "s" if charts.spend.unknown | sum != 1 }} recorded no spend and are not drawn; unrecorded is not zero.{% endif %}</figcaption>
-    </figure>
+    <div class="panel__chart">
+      <div class="bars" role="img" aria-label="dashboard spend per day, USD">
+        {% for i in range(charts.spend.labels|length) %}
+          {% set done = charts.spend.completed[i] %}
+          {% set stop = charts.spend.stopped[i] %}
+          {% set day_total = done + stop %}
+          {% set done_w = (100.0 * done / charts.spend.peak) if charts.spend.peak else 0 %}
+          {% set stop_w = (100.0 * stop / charts.spend.peak) if charts.spend.peak else 0 %}
+          <div class="bar">
+            <div class="bar__label">{{ charts.spend.labels[i] }}</div>
+            <div class="bar__track bar__track--split">
+              {% if done_w %}<div class="bar__fill bar__fill--agent" style="width: {{ '%.1f'|format(done_w) }}%"></div>{% endif %}
+              {% if stop_w %}<div class="bar__fill bar__fill--stopped" style="width: {{ '%.1f'|format(stop_w) }}%"></div>{% endif %}
+            </div>
+            <div class="bar__value">{% if day_total %}{{ "%.2f"|format(day_total) }}{% else %}<span class="v-missing" title="no spend recorded">—</span>{% endif %}{% if charts.spend.unknown[i] %} <span class="bar__share">{{ charts.spend.unknown[i] }} unrecorded</span>{% endif %}</div>
+          </div>
+        {% endfor %}
+      </div>
+      <div class="legend">
+        <span class="legend__item"><span class="legend__swatch" aria-hidden="true"></span> Completed</span>
+        <span class="legend__item"><span class="legend__swatch legend__swatch--stopped" aria-hidden="true"></span> Stopped early</span>
+      </div>
+      <p class="chart__foot">The {{ charts.spend.run_count }} most recent runs, grouped by the day they were requested (UTC). A stopped run is failed, cancelled, or halted at the spend cap. Its cost stays in the bar.{% if charts.spend.unknown | sum %} {{ charts.spend.unknown | sum }} run{{ "s" if charts.spend.unknown | sum != 1 }} recorded no spend. Unrecorded is left blank.{% endif %}</p>
+    </div>
   </div>
   <div class="table-wrap">
     <table class="table table--jobs">
@@ -162,7 +200,7 @@
 <section class="section" aria-labelledby="h-digest">
   <div class="section__head"><h2 id="h-digest">Market digest</h2>
     <span class="section__count">as of {{ digest.as_of }}, {{ digest.store_row_count }} stored rows, {{ digest.dated_row_count }} dated</span></div>
-  <p class="section__sub">What has been stored, aggregated (<code>intelligence/market_trends.py</code>, the same code behind the weekly digest email). Supabase rows only, so counts can be lower than the email, which also merges Airtable. It is not external market research.</p>
+  <p class="section__sub">What has been stored, aggregated by <code>intelligence/market_trends.py</code>, the same code as the weekly digest email. These are stored rows, not external market research.</p>
 
   <div class="two-col">
     {% for days in [30, 90] %}
@@ -171,18 +209,21 @@
       <div class="panel">
         <div class="panel__in" style="padding-bottom: 0"><h3>Themes, {{ days }} days</h3></div>
         {% if w.is_trend %}
-          <figure class="chart chart--canvas" style="padding-top: var(--sp3)">
-            <canvas id="chart-themes-{{ days }}" height="260" aria-label="opportunities by thematic area, last {{ days }} days" role="img"></canvas>
-          </figure>
-          <details class="disclosure" style="margin: 0 var(--sp6)">
-            <summary>Table view <span class="muted">{{ w.sample_clause() }}</span></summary>
-            <div class="disclosure__body">
-              <table class="table">
-                <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
-                <tbody>{% for c in w.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
-              </table>
+          <div class="panel__chart" style="padding-top: var(--sp3)">
+            <div class="bars" role="img" aria-label="opportunities by thematic area, last {{ days }} days">
+              {% set top = w.counts | map(attribute='count') | max %}
+              {% for c in w.counts[:10] %}
+                {% set raw = (100.0 * c.count / top) if top else 0 %}
+                {% set width = ([raw, 2] | max) if c.count else 0 %}
+                <div class="bar">
+                  <div class="bar__label" title="{{ c.label }}">{{ c.label }}</div>
+                  <div class="bar__track"><div class="bar__fill bar__fill--agent" style="width: {{ '%.1f'|format(width) }}%"></div></div>
+                  <div class="bar__value">{{ c.count }}</div>
+                </div>
+              {% endfor %}
             </div>
-          </details>
+            <p class="chart__foot">{{ w.sample_clause() }} {{ w.coverage_clause() }}</p>
+          </div>
         {% else %}
           <div class="panel__in">{{ m.empty("Too few dated rows to call a trend", w.message) }}</div>
         {% endif %}
@@ -196,18 +237,21 @@
   <div class="panel" style="margin-top: var(--sp5)">
     <div class="panel__in" style="padding-bottom: 0"><h3>Geography, 30 days</h3></div>
     {% if g.is_trend %}
-      <figure class="chart chart--canvas" style="padding-top: var(--sp3)">
-        <canvas id="chart-geo-30" height="260" aria-label="opportunities by location, last 30 days" role="img"></canvas>
-      </figure>
-      <details class="disclosure" style="margin: 0 var(--sp6)">
-        <summary>Table view <span class="muted">{{ g.sample_clause() }}</span></summary>
-        <div class="disclosure__body">
-          <table class="table">
-            <thead><tr><th>Label</th><th class="num">Count</th></tr></thead>
-            <tbody>{% for c in g.counts[:10] %}<tr><td>{{ c.label }}</td><td class="num">{{ c.count }}</td></tr>{% endfor %}</tbody>
-          </table>
+      <div class="panel__chart" style="padding-top: var(--sp3)">
+        <div class="bars" role="img" aria-label="opportunities by location, last 30 days">
+          {% set top = g.counts | map(attribute='count') | max %}
+          {% for c in g.counts[:10] %}
+            {% set raw = (100.0 * c.count / top) if top else 0 %}
+            {% set width = ([raw, 2] | max) if c.count else 0 %}
+            <div class="bar">
+              <div class="bar__label" title="{{ c.label }}">{{ c.label }}</div>
+              <div class="bar__track"><div class="bar__fill bar__fill--human" style="width: {{ '%.1f'|format(width) }}%"></div></div>
+              <div class="bar__value">{{ c.count }}</div>
+            </div>
+          {% endfor %}
         </div>
-      </details>
+        <p class="chart__foot">{{ g.sample_clause() }} {{ g.coverage_clause() }}</p>
+      </div>
     {% else %}
       <div class="panel__in">{{ m.empty("Too few dated rows to call a trend", g.message) }}</div>
     {% endif %}
@@ -226,13 +270,4 @@
   {{ m.empty("The digest could not be built from stored rows right now", "It aggregates stored Supabase rows only; try again after the next discovery run.") }}
 </section>
 {% endif %}
-
-<script type="application/json" id="chart-data">{{ charts | tojson }}</script>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"
-        integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi"
-        crossorigin="anonymous"></script>
-<script src="{{ static_base }}/portfolio-charts.js?v={{ static_v }}"></script>
 {% endblock %}

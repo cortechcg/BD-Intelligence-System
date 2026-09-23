@@ -399,6 +399,75 @@ def test_drafted_page_shows_the_human_gate_and_no_send_control(env):
         assert word not in html
 
 
+def test_portfolio_bars_are_html_and_survive_without_a_canvas(env):
+    from dashboard.queries import AGENT_STAGES, ALL_STAGES, bar_rows
+
+    by_stage = {s: 0 for s in ALL_STAGES}
+    by_stage.update({
+        "discovered": 8, "extracted": 4, "scored": 6, "drafted": 7, "reviewed": 2,
+    })
+    stage_bars = bar_rows(
+        [(s, by_stage[s]) for s in ALL_STAGES],
+        total=27,
+        tones=["agent" if s in AGENT_STAGES else "human" for s in ALL_STAGES],
+    )
+    rec_bars = bar_rows(
+        [("BID", 10), ("WATCH", 9), ("NO-BID", 6)],
+        total=25,
+        tones=["bid", "watch", "nobid"],
+    )
+    html = env.get_template("portfolio.html").render(
+        p={
+            "ledger_rows": 27,
+            "unscored_ledger_rows": 2,
+            "cache_rows": 40,
+            "by_stage": by_stage,
+            "no_stage": 0,
+            "by_state": {"completed": 20, "pending": 0},
+            "outcomes": {
+                "won": 3, "lost": 0, "unknown": 12,
+                "threshold_note": "n is too small",
+                "notes": [],
+            },
+        },
+        stage_bars=stage_bars,
+        rec_bars=rec_bars,
+        scored=25,
+        spend={"available": False},
+        cap_blocked=False,
+        dashboard_runs=[],
+        charts={"spend": {"labels": [], "completed": [], "stopped": [], "unknown": [], "runs": [], "run_count": 0, "peak": 0}},
+        digest=None,
+        view="portfolio",
+        viewer="t@cortechconsultinggroup.com",
+        csrf_token="t",
+        poll_ms=15000,
+        static_base="/static",
+        static_v="t",
+        url_queue="/",
+        url_portfolio="/portfolio",
+        url_job="/job",
+        url_logout="/l",
+        generated_at="now",
+        flash="",
+        flash_kind="",
+    )
+    assert 'id="chart-stage"' not in html
+    assert "chart.js" not in html
+    assert "Airtable" not in html
+    assert 'class="mix"' in html
+    assert "bar__fill--agent" in html
+    assert "bar__fill--human" in html
+    assert "width: 29.6%" in html or "width: 29.6" in html
+    assert stage_bars[0]["share"] == "30%" or stage_bars[0]["label"] == "discovered"
+    drafted = next(row for row in stage_bars if row["label"] == "drafted")
+    assert drafted["value"] == 7
+    assert drafted["pct"] > 20
+    assert "8 in the agent's stages" not in html
+    assert "25 in the agent's stages" in html
+    assert "2 recorded by a person" in html
+
+
 # ── failure classification ──────────────────────────────────────────────────
 
 def test_classify_failure_recognises_a_spend_cap_halt():

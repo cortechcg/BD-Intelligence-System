@@ -816,16 +816,41 @@ def market_digest(force: bool = False):
     return digest
 
 
-def bar_rows(counts: Iterable[tuple[str, int]], ramp: list[str]) -> list[dict]:
-    """Direct-labelled bar rows. Required relief for the sub-3:1 brass ramp."""
+def bar_rows(
+    counts: Iterable[tuple[str, int]],
+    ramp: list[str] | None = None,
+    *,
+    total: int | None = None,
+    tones: list[str] | None = None,
+) -> list[dict]:
+    """Direct-labelled bar rows.
+
+    ``pct`` is the bar width. It is the share of ``total`` when that is the
+    real denominator (the ledger, the scored rows). A value above zero is
+    never drawn at nothing: the width floors at 2% so a single row stays
+    visible. ``share`` is the unfloored percent, printed beside the count.
+    """
     items = [(str(k), int(v)) for k, v in counts]
     top = max((v for _, v in items), default=0)
+    denom = top if total is None else int(total)
+    ramp = list(ramp or [])
+    tones = list(tones or [])
     out = []
     for i, (label, value) in enumerate(items):
+        raw = (value / denom * 100) if denom else 0.0
+        width = 2.0 if value and raw < 2 else raw
+        if not denom:
+            share = ""
+        elif raw >= 10 or abs(raw - round(raw)) < 0.05:
+            share = f"{round(raw)}%"
+        else:
+            share = f"{raw:.1f}%"
         out.append({
             "label": label,
             "value": value,
-            "pct": (value / top * 100) if top else 0.0,
-            "color": ramp[min(i, len(ramp) - 1)],
+            "pct": width,
+            "share": share,
+            "color": ramp[min(i, len(ramp) - 1)] if ramp else "",
+            "tone": tones[i] if i < len(tones) else "",
         })
     return out
