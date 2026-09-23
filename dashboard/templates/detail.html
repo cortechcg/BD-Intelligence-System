@@ -311,15 +311,17 @@
   <div class="section__head"><h2 id="h-jobs">Dashboard jobs</h2><span class="section__count">{{ jobs | length }}</span></div>
   <div class="table-wrap">
     <table class="table table--jobs">
-      <colgroup><col class="c-id"><col class="c-when"><col class="c-by"><col class="c-kind"><col class="c-status"><col class="c-spend"></colgroup>
-      <thead><tr><th>Job</th><th>Requested</th><th>By</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th></tr></thead>
+      <colgroup><col class="c-id"><col class="c-when"><col class="c-kind"><col class="c-status"><col class="c-spend"></colgroup>
+      <thead><tr><th>Job</th><th>Requested</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th></tr></thead>
       <tbody>
       {% for j in jobs %}
         <tr>
           <td class="mono"><a href="{{ url_job }}/{{ j.id }}">{{ j.id[:8] }}</a></td>
-          <td class="mono nowrap">{{ j.requested_at[:16] | replace("T", " ") }}</td>
-          <td class="nowrap">{{ j.requested_by }}</td>
-          <td class="nowrap">{{ j.kind_label }}</td>
+          <td class="nowrap">
+            <div class="mono">{{ j.requested_at[:16] | replace("T", " ") }}</div>
+            <div class="t-sub clamp-1" title="{{ j.requested_by }}">{{ j.requested_by }}</div>
+          </td>
+          <td>{{ j.kind_label }}</td>
           <td>{{ m.state_chip(j.ui_state, live=(j.status == "running")) }}{% if j.error_message %}<div class="t-sub clamp-2" title="{{ j.error_message }}">{{ j.error_message[:120] }}</div>{% endif %}</td>
           <td class="num mono">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
         </tr>
