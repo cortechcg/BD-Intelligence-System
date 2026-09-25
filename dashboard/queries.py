@@ -272,12 +272,20 @@ def _ledger_urls(cap: int = 5000) -> set[str]:
     return {_canon(r.get("source_url")) for r in (res.data or []) if isinstance(r, dict)}
 
 
-def list_cache_without_ledger(limit: int = 50, scan: int = 400) -> tuple[list[dict], int]:
+def _cache_title_rank(row: dict) -> tuple:
+    """Titled rows first, then the newest discovery date."""
+    title = (row.get("title") or "").strip()
+    titled = 1 if title and title.lower() != "unknown" else 0
+    return (titled, row.get("discovered_at") or "")
+
+
+def list_cache_without_ledger(limit: int = 50, scan: int = 2000) -> tuple[list[dict], int]:
     """Discovered-and-cached opportunities the agent has never claimed.
 
     Returns ``(items, total_cache_rows)``. ``scan`` bounds how far back we look;
     the caller shows the real total so the list is never mistaken for the whole
-    store.
+    store. Rows that already have a title are shown before blank ones, so a
+    pile of untitled links does not hide a new portal find.
     """
     sb = get_supabase()
     known = _ledger_urls()
@@ -287,21 +295,17 @@ def list_cache_without_ledger(limit: int = 50, scan: int = 400) -> tuple[list[di
             "source_url,title,donor,discovered_at,processed_at,airtable_opportunity_id",
             count="exact",
         )
-        .order("discovered_at", desc=True)
+        .order("discovered_at", desc=True, nullsfirst=False)
         .limit(scan)
         .execute()
     )
     total = res.count if res.count is not None else len(res.data or [])
-    out: list[dict] = []
-    for row in res.data or []:
-        if not isinstance(row, dict):
-            continue
-        if _canon(row.get("source_url")) in known:
-            continue
-        out.append(_cache_row_to_item(row))
-        if len(out) >= limit:
-            break
-    return out, int(total)
+    waiting = [
+        row for row in (res.data or [])
+        if isinstance(row, dict) and _canon(row.get("source_url")) not in known
+    ]
+    waiting.sort(key=_cache_title_rank, reverse=True)
+    return [_cache_row_to_item(row) for row in waiting[:limit]], int(total)
 
 
 HALTED_STATES = ("failed", "dead_letter", "spend_cap", "cancelled")

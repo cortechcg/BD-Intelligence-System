@@ -244,7 +244,7 @@
     <h2 id="h-unclaimed">Discovered, not yet run</h2>
     <span class="section__count">{{ c.cache_without_ledger_shown }} newest of {{ c.cache_rows }}</span>
   </div>
-  <p class="section__sub">Found by discovery, never claimed for processing. Tick rows and draft them in one go; each becomes its own job and the aggregate cap applies to all of them.</p>
+  <p class="section__sub">Discovery saves the title and the link and stops. Nothing here calls a model. Tick rows and press Draft this when you want a draft; each row becomes its own job.</p>
   {% if queue.cache_only %}
     {% if triggering_enabled %}
     <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar" style="margin-bottom: var(--sp3)">

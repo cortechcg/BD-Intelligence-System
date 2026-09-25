@@ -265,7 +265,8 @@ def test_record_discovered_opportunity_does_not_embed(monkeypatch):
     row = calls["insert"][0]
     assert row["title"] == "Water supply evaluation"
     assert "embedding" not in row
-    assert calls["facts"][0][1]["discovered_at"][:10] == calls["facts"][0][1]["discovered_at"]
+    assert row["discovered_at"] == row["discovered_at"][:10]
+    assert len(row["discovered_at"]) == 10
 
 
 def test_store_opportunity_retries_without_hash_when_column_missing(monkeypatch):
