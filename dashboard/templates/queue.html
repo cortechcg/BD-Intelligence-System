@@ -60,7 +60,13 @@
       {% endif %}
       <td>
         <div class="t-title clamp-2">
-          <a href="{{ url_detail }}?url={{ item.source_url | urlencode }}" title="{{ item.source_url }}">{{ m.doc_value(item.title, "untitled") }}</a>
+          <a href="{{ url_detail }}?url={{ item.source_url | urlencode }}" title="{{ item.source_url }}">
+            {%- if item.title.value -%}
+            <span class="doc" title="{{ item.title.source }}">{{ item.title.value }}</span>
+            {%- else -%}
+            <span class="v-missing" title="{{ item.title.why }}">untitled</span>
+            {%- endif -%}
+          </a>
         </div>
         <div class="t-sub mono">{{ m.host(item.source_url) }}</div>
       </td>
@@ -242,12 +248,12 @@
 <section class="section" id="unclaimed" aria-labelledby="h-unclaimed">
   <div class="section__head">
     <h2 id="h-unclaimed">Discovered, not yet run</h2>
-    <span class="section__count">{{ c.cache_without_ledger_shown }} newest of {{ c.cache_rows }}</span>
+    <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
   </div>
   <p class="section__sub">Discovery saves the title and the link and stops. Nothing here calls a model. Tick rows and press Draft this when you want a draft; each row becomes its own job.</p>
   {% if queue.cache_only %}
     {% if triggering_enabled %}
-    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar" style="margin-bottom: var(--sp3)">
+    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="btn btn--sm" type="submit" id="bulk-submit">Draft selected</button>
       <span class="small muted">Max {{ bulk_max }} per click.</span>

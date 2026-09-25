@@ -52,6 +52,8 @@ def test_named_modules_do_not_reintroduce_crash_patterns():
         assert "response.content[0].text" not in source, path
         assert "from utils.claude_helpers import get_text" in source, path
     main = (ROOT / "main.py").read_text()
-    assert "result.get('title', 'Unknown')[:50]" not in main
-    assert "(result.get('title') or 'Unknown')[:50]" in main
-    assert "(opp.get('title') or 'Unknown')[:50]" in main
+    # Discovery no longer slices a result title. The crash is the default
+    # form: .get(key, default) still returns None when the key is present.
+    assert "result.get('title', 'Unknown')" not in main
+    assert "opp.get('title', 'Unknown')" not in main
+    assert ".get('title', 'Unknown')[" not in main
