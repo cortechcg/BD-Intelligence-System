@@ -77,7 +77,7 @@ def test_pipeline_credentials_live_on_the_worker_only():
     for k in ("SUPABASE_URL", "SUPABASE_SERVICE_KEY",
               "DASHBOARD_AGGREGATE_CAP_USD", "DASHBOARD_AGGREGATE_WINDOW_HOURS"):
         assert k in web and k in worker, k
-    for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "AIRTABLE_API_KEY", "AIRTABLE_BASE_ID",
+    for k in ("QWEN_API_KEY", "OPENAI_API_KEY", "AIRTABLE_API_KEY", "AIRTABLE_BASE_ID",
               "MAX_RUN_COST_USD", "EMAIL_RECIPIENTS"):
         assert k in worker and k not in web, k
 

@@ -9,4 +9,4 @@ def test_unknown_model_cost_is_none():
 def test_known_model_cost_is_estimated_not_zero():
     cost = estimate_cost_usd(CLAUDE_MODEL, 1_000_000, 0)
     assert cost is not None
-    assert cost == 1.00
+    assert cost == 0.40

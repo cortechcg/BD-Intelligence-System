@@ -44,13 +44,13 @@ class _FakeMessages:
 
 class _FakeClient:
     def __init__(self, messages):
-        self.messages = messages
+        self.chat = SimpleNamespace(completions=messages)
 
 
 def test_zero_cap_blocks_complete_before_provider(monkeypatch):
     messages = _FakeMessages()
     monkeypatch.setattr(
-        "utils.llm.get_anthropic_client",
+        "utils.llm.get_qwen_client",
         lambda **kwargs: _FakeClient(messages),
     )
     start_run_spend_cap(0.0)
@@ -70,7 +70,7 @@ def test_zero_cap_blocks_complete_before_provider(monkeypatch):
 def test_tiny_cap_allows_one_then_halts(monkeypatch):
     messages = _FakeMessages()
     monkeypatch.setattr(
-        "utils.llm.get_anthropic_client",
+        "utils.llm.get_qwen_client",
         lambda **kwargs: _FakeClient(messages),
     )
     # First call is ~$4.6e-5 at haiku list prices with 11/7 tokens — too small
@@ -96,7 +96,7 @@ def test_spend_cap_during_draft_leaves_scored_retryable(monkeypatch):
             raise AssertionError("provider must not be called")
 
     monkeypatch.setattr(
-        "utils.llm.get_anthropic_client",
+        "utils.llm.get_qwen_client",
         lambda **kwargs: SimpleNamespace(messages=_Msgs()),
     )
 

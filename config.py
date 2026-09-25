@@ -136,6 +136,41 @@ def _without_anthropic_api_key_for_client_construction():
                 os.environ["ANTHROPIC_API_KEY"] = environment_value
 
 
+QWEN_BASE_URL = "https://api-inference.modelscope.ai/v1"
+
+
+def get_qwen_api_key() -> str | None:
+    """Return a cleaned ModelScope key for the Qwen chat API."""
+    load_dotenv(_ENV_PATH, override=True, interpolate=False)
+    raw = os.getenv("QWEN_API_KEY") or ""
+    key = raw.strip().strip('"').strip("'").removeprefix("Bearer ").strip()
+    return key or None
+
+
+def get_qwen_client(*, timeout: float | None = None, max_retries: int | None = None):
+    """Shared OpenAI-compatible client for ModelScope Qwen."""
+    from openai import OpenAI
+
+    api_key = get_qwen_api_key()
+    if not api_key:
+        raise ValueError(
+            "QWEN_API_KEY is not set. Add it to .env and restart the terminal."
+        )
+    to = ANTHROPIC_TIMEOUT_SECONDS if timeout is None else timeout
+    retries = ANTHROPIC_MAX_RETRIES if max_retries is None else max_retries
+    cache_key = f"qwen:{api_key}:{to}:{retries}"
+    client = _CLIENT_CACHE.get(cache_key)
+    if client is None:
+        client = OpenAI(
+            api_key=api_key,
+            base_url=QWEN_BASE_URL,
+            timeout=to,
+            max_retries=retries,
+        )
+        _CLIENT_CACHE[cache_key] = client
+    return client
+
+
 def get_anthropic_client(*, timeout: float | None = None, max_retries: int | None = None):
     """Shared Anthropic client — always uses the sanitized key from .env.
 
@@ -228,25 +263,27 @@ TABLES = {
     "donor_intelligence": "DONOR_INTELLIGENCE",
 }
 
-# ── CLAUDE SETTINGS ───────────────────────────────────────────
+# ── CHAT MODELS ───────────────────────────────────────────────
 # Two constants — never hardcode model IDs at call sites.
-CLAUDE_MODEL = "claude-haiku-4-5"          # analysis, extraction, ToR reading
-CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"  # proposal / EOI writing
+# Names stay CLAUDE_MODEL so existing call sites do not change.
+CLAUDE_MODEL = "Qwen-Ambassador/Qwen3.7-Plus"          # analysis, extraction, ToR reading
+CLAUDE_MODEL_PROPOSAL = "Qwen-Ambassador/Qwen3.8-Max"  # proposal / EOI writing
 CLAUDE_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
-# Update when Anthropic publishes new rates; these are not invoices.
+# Qwen3.7 Plus is the US under-256k rate. Qwen3.8 Max uses the higher
+# published band so the spend cap does not undercount.
 CLAUDE_PRICING_PER_MTOK = {
-    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
-    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 10.00},
+    CLAUDE_MODEL: {"input": 0.40, "output": 1.60},
+    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 6.00},
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes
 # are fail-open. IMAP/Gmail are optional source/channel credentials.
 # OPENAI_API_KEY remains required for embeddings (text-embedding-3-small).
 REQUIRED_ENV_VARS = (
-    "ANTHROPIC_API_KEY",
+    "QWEN_API_KEY",
     "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
@@ -257,8 +294,8 @@ def validate_required_env() -> list[str]:
     """Return names of missing required vars. Raises SystemExit if any missing
     when called from main's entry point."""
     missing = []
-    if not ANTHROPIC_API_KEY:
-        missing.append("ANTHROPIC_API_KEY")
+    if not get_qwen_api_key():
+        missing.append("QWEN_API_KEY")
     if not OPENAI_API_KEY:
         missing.append("OPENAI_API_KEY")
     if not SUPABASE_URL:
