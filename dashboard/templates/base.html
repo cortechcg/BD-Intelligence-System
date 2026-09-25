@@ -30,7 +30,7 @@
   </div>
 </header>
 
-<main class="page">
+<main class="page{% if view == 'portfolio' %} page--portfolio{% endif %}">
   {% block content %}{% endblock %}
 
   <p class="foot">
