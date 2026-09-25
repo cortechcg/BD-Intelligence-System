@@ -88,7 +88,7 @@ def test_teal_stack_has_no_shadows_and_one_button_gradient():
     for selector, rule in rules():
         sel = selector.strip()
         if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
-            raise AssertionError(f"shadow: {sel[:70]}")
+            assert "page--portfolio" in sel, f"shadow: {sel[:70]}"
         assert "gradient(" not in rule, f"gradient in {sel[:70]}"
     assert "background: var(--gradient-aurora)" in BODY
     assert ".panel--hero { border-top: 0; }" in BODY
@@ -100,7 +100,7 @@ def test_two_fills_only():
         sel = selector.strip()
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
             tok = m.group(2)
-            if tok in ("ground", "surface", "track", "hover", "selected"):
+            if tok in ("ground", "surface", "track", "hover", "selected", "glass"):
                 continue
             assert any(k in sel for k in (
                 ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",

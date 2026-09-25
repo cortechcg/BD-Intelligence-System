@@ -101,6 +101,10 @@
   --sp7: 48px; --sp8: 64px; --sp9: 96px;
 
   --r-card: 16px; --r-ctl: 6px; --r-pill: 6px; --r-mark: 2px;
+  /* Portfolio glass. Same teal, thinned so the page shows through. */
+  --glass: color-mix(in srgb, var(--color-liquid-kelp) 46%, transparent);
+  --glass-line: color-mix(in srgb, var(--color-aqua) 26%, transparent);
+  --glass-shadow: 0 8px 32px color-mix(in srgb, var(--color-liquid-abyss) 72%, transparent);
   --measure: 66ch;
   --page-max-width: 1440px;
 }
@@ -471,6 +475,29 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .legend__swatch--stopped, .legend__swatch--unknown { background: var(--color-forest-mid); }
 .legend__swatch--lost { background: var(--color-kelp-mid); }
 .reading { font-size: var(--t16); color: var(--ink); letter-spacing: -0.01em; }
+
+/* Portfolio only: frosted kelp. Queue, detail, and login stay solid. */
+.page--portfolio .tile,
+.page--portfolio .panel,
+.page--portfolio .table-wrap,
+.page--portfolio .foot {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.page--portfolio .tile.panel--hero { border-top: 2px solid var(--ink); }
+@media (prefers-reduced-transparency: reduce) {
+  .page--portfolio .tile,
+  .page--portfolio .panel,
+  .page--portfolio .table-wrap,
+  .page--portfolio .foot {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp5); }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
