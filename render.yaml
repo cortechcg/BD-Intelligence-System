@@ -146,13 +146,13 @@ services:
     envVars:
       # ── Required: config.require_env() exits 1 at boot if any is missing ──
       # (verified: with only Supabase set → "Missing required environment
-      # variables: ANTHROPIC_API_KEY, OPENAI_API_KEY", exit 1)
+      # variables: QWEN_API_KEY, OPENAI_API_KEY", exit 1)
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
+      - key: QWEN_API_KEY
+        sync: false               # ModelScope Qwen chat (analysis and drafts)
       - key: OPENAI_API_KEY
         sync: false               # embeddings (text-embedding-3-small)
 

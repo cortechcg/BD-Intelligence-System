@@ -8,7 +8,7 @@ One public function:
 import json
 from loguru import logger
 
-import anthropic
+import openai
 
 from config import (
     ANTHROPIC_MAX_RETRIES,
@@ -16,7 +16,7 @@ from config import (
     CLAUDE_MAX_TOKENS,
     CORTECH_PROFILE,
     env_file_save_hint,
-    get_anthropic_api_key,
+    get_qwen_api_key,
 )
 from database.airtable_client import log_agent_action
 from utils.llm import complete, usage_totals
@@ -465,7 +465,7 @@ def analyze_rfp(
             pass
         return {}
 
-    except anthropic.APITimeoutError:
+    except openai.APITimeoutError:
         from config import ANTHROPIC_TIMEOUT_SECONDS
         logger.error(
             f"  Analysis timed out after {ANTHROPIC_TIMEOUT_SECONDS:.0f}s "
@@ -475,7 +475,7 @@ def analyze_rfp(
         )
         return {}
 
-    except anthropic.RateLimitError:
+    except openai.RateLimitError:
         logger.error(
             f"  Anthropic rate limit hit — waiting 60s "
             f"error_type={ErrorType.RATE_LIMIT_ERROR}"
@@ -484,20 +484,19 @@ def analyze_rfp(
         time.sleep(60)
         return {}
 
-    except anthropic.AuthenticationError:
+    except openai.AuthenticationError:
         suffix = "????"
         try:
-            k = get_anthropic_api_key() or ""
+            k = get_qwen_api_key() or ""
             if len(k) >= 4:
                 suffix = k[-4:]
         except Exception:
             pass
         logger.error(
-            f"  Anthropic rejected API key ending ...{suffix} (401 invalid). "
+            f"  Qwen rejected API key ending ...{suffix} (401 invalid). "
             f"{env_file_save_hint()} "
-            "Create a new key at https://console.anthropic.com/settings/keys "
-            "paste it in .env as "
-            f"ANTHROPIC_API_KEY=sk-ant-... with no quotes, save, and rerun. "
+            "Paste the ModelScope key in .env as "
+            "QWEN_API_KEY=... with no quotes, save, and rerun. "
             f"error_type={ErrorType.AUTH_ERROR}"
         )
         return {}

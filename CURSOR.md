@@ -10,7 +10,7 @@ Nothing submits to clients automatically — human approval required.
 ## Tech stack
 - Python 3.12 + virtualenv at ~/cortech-bd-agent/cortech/
 - Supabase (supabase-py + pgvector) = consultants, rate cards, agent logs, opportunity status, CV vectors, document cache
-- Anthropic Claude = chat (claude-haiku-4-5 analysis, claude-sonnet-5 proposals)
+- Qwen via ModelScope = chat (Qwen3.7-Plus analysis, Qwen3.8-Max proposals)
 - OpenAI API = embeddings only (text-embedding-3-small, 1536-dim)
 - Gmail SMTP = email reports
 
@@ -45,7 +45,7 @@ check_schema.py            ← confirms Supabase CRM tables exist
 
 ## Supabase critical rules
 1. OPENAI_API_KEY required for embeddings — text-embedding-3-small for vectors
-   ANTHROPIC_API_KEY required for all chat / analysis / drafting
+   QWEN_API_KEY required for all chat / analysis / drafting
 2. Embedding model MUST be identical between embed_cvs.py and
    supabase_client.py — mixing models = silent garbage match results
 3. import os required at top of supabase_client.py
@@ -81,8 +81,8 @@ The LLM is_consultancy_contract gate does the real quality filtering.
 Do NOT make the RSS filter strict — it kills real opportunities.
 
 ## Models
-CLAUDE_MODEL = "claude-haiku-4-5"           # analysis + extraction + ToR reading
-CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5"   # proposal writing
+CLAUDE_MODEL = "Qwen-Ambassador/Qwen3.7-Plus"           # analysis + extraction + ToR reading
+CLAUDE_MODEL_PROPOSAL = "Qwen-Ambassador/Qwen3.8-Max"   # proposal writing
 Both in config.py — never hardcode model strings in other files.
 Embeddings: text-embedding-3-small (unchanged).
 

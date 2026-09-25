@@ -176,8 +176,8 @@ def test_spend_cap_kill_leaves_hosted_row_resumable(monkeypatch, hosted_stage_co
                 raise AssertionError("hosted kill-test must not call Anthropic")
 
         monkeypatch.setattr(
-            "utils.llm.get_anthropic_client",
-            lambda **kwargs: SimpleNamespace(messages=_Msgs()),
+            "utils.llm.get_qwen_client",
+            lambda **kwargs: SimpleNamespace(chat=SimpleNamespace(completions=_Msgs())),
         )
         monkeypatch.setattr("config.MAX_RUN_COST_USD", 0.0)
         monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", 5)

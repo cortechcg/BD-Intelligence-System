@@ -46,7 +46,7 @@ if missing:
     sys.exit(1)
 
 # ── IMPORTS ───────────────────────────────────────────────────────────────────
-from config import CLAUDE_MODEL, get_anthropic_api_key, get_anthropic_client, get_openai_api_key
+from config import CLAUDE_MODEL, get_openai_api_key, get_qwen_api_key, get_qwen_client
 from utils.llm import complete
 from utils.claude_helpers import get_text
 from utils.untrusted import wrap_untrusted
@@ -146,9 +146,9 @@ def prune_agent_logs(tables: dict | None = None, keep: int = 400) -> int:
 def get_llm_client():
     """Initialize the Anthropic client used for extraction."""
     try:
-        return get_anthropic_client()
+        return get_qwen_client()
     except ValueError:
-        console.print("[red]Missing ANTHROPIC_API_KEY in .env[/red]")
+        console.print("[red]Missing QWEN_API_KEY in .env[/red]")
         sys.exit(1)
 
 
@@ -801,7 +801,7 @@ def validate_environment() -> bool:
 
     # Check .env keys
     required_keys = [
-        "ANTHROPIC_API_KEY",
+        "QWEN_API_KEY",
         "OPENAI_API_KEY",
         "SUPABASE_URL",
         "SUPABASE_SERVICE_KEY",
@@ -812,18 +812,14 @@ def validate_environment() -> bool:
     ]
 
     for key in required_keys:
-        if key == "ANTHROPIC_API_KEY":
-            val = get_anthropic_api_key()
+        if key == "QWEN_API_KEY":
+            val = get_qwen_api_key()
         elif key == "OPENAI_API_KEY":
             val = get_openai_api_key()
         else:
             val = os.getenv(key)
         if not val:
             errors.append(f"Missing: {key}")
-        elif key == "ANTHROPIC_API_KEY" and not val.startswith("sk-ant-"):
-            errors.append(
-                f"{key} should start with sk-ant- (check for a pasted wrong key)"
-            )
         elif key == "OPENAI_API_KEY" and not val.startswith("sk-"):
             errors.append(
                 f"{key} should start with sk- (check for a pasted wrong key)"
@@ -833,11 +829,11 @@ def validate_environment() -> bool:
         else:
             console.print(f"  {key}: {'*' * 8}{val[-4:]}")
 
-    raw_env = os.environ.get("ANTHROPIC_API_KEY")
-    cleaned = get_anthropic_api_key()
+    raw_env = os.environ.get("QWEN_API_KEY")
+    cleaned = get_qwen_api_key()
     if raw_env and cleaned and raw_env.strip() != cleaned:
         warnings.append(
-            "ANTHROPIC_API_KEY in the shell differed from .env — config now uses .env (override=True)"
+            "QWEN_API_KEY in the shell differed from .env — config now uses .env (override=True)"
         )
 
     for key in optional_keys:
@@ -868,7 +864,7 @@ def validate_environment() -> bool:
 
     # Probe with a short timeout — the shared client waits up to 180s
     # per attempt, which looked hung after "files found".
-    console.print("  Testing Anthropic API...")
+    console.print("  Testing Qwen API...")
     try:
         complete(
             model=CLAUDE_MODEL,
@@ -877,19 +873,18 @@ def validate_environment() -> bool:
             timeout=20.0,
             max_retries=0,
         )
-        console.print("  Anthropic API: OK")
+        console.print("  Qwen API: OK")
     except Exception as e:
         err = str(e)
         if "401" in err or "authentication" in err.lower() or "invalid_api_key" in err:
             errors.append(
-                "Anthropic API rejected the key (401 invalid). "
-                "Create a fresh key at console.anthropic.com → API Keys, "
-                "paste it in .env as ANTHROPIC_API_KEY=sk-ant-... (no quotes), "
+                "Qwen rejected the key (401 invalid). "
+                "Paste the ModelScope key in .env as QWEN_API_KEY=... (no quotes), "
                 "then open a new terminal and run again."
             )
         else:
-            errors.append(f"Anthropic API failed: {e}")
-        console.print(f"  Anthropic API failed: {e}")
+            errors.append(f"Qwen API failed: {e}")
+        console.print(f"  Qwen API failed: {e}")
 
     # Show results
     console.print()

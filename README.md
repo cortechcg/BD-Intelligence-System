@@ -104,7 +104,7 @@ Accounts needed, all free-tier-capable except where noted:
 
 | Service | Used for |
 |---|---|
-| [Anthropic](https://console.anthropic.com) | Chat: `claude-haiku-4-5` (analysis) + `claude-sonnet-5` (proposals) |
+| [ModelScope Qwen](https://www.modelscope.cn) | Chat: `Qwen3.7-Plus` (analysis) + `Qwen3.8-Max` (proposals) |
 | [OpenAI Platform](https://platform.openai.com) | Embeddings only (`text-embedding-3-small`) |
 | [Supabase](https://supabase.com) | CRM, pgvector storage, semantic search |
 | Gmail account | Primary outgoing email (app password, not your real password) |
@@ -161,7 +161,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 
 | Variable | Where to get it |
 |---|---|
-| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys — used for analysis and proposal drafting |
+| `QWEN_API_KEY` | ModelScope API key — used for analysis and proposal drafting |
 | `OPENAI_API_KEY` | platform.openai.com → API Keys — used for embeddings only |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Supabase project → Settings → API. **Use the service role key**, not the anon key — this is server-side code, not a browser client. Consultants, rate cards, logs, and opportunity status live here. |
 | `GMAIL_ADDRESS` / `GMAIL_APP_PASSWORD` | Google Account → Security → 2-Step Verification → App Passwords. **Not your real Gmail password** — this won't work with one. |
@@ -174,7 +174,7 @@ Watch the output. A clean run should show discovery, filtering, and (if anything
 | `DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS` / `MAX_DOCUMENT_BYTES` / `MAX_DOWNLOAD_REDIRECTS` / `DOCUMENT_DOWNLOAD_MAX_RETRIES` / `MAX_GDRIVE_FILES` / `MAX_EXTRACTED_TEXT_CHARS` / `MAX_DOCUMENT_UNCOMPRESSED_BYTES` | Limits for untrusted document downloads and Drive annex packs. Defaults: 60 seconds, 25 MiB, 5 redirects, 2 transient retries, 25 Drive files, 120,000 extracted characters, and 100 MiB expanded DOCX content. |
 | `MAX_OPPORTUNITIES_PER_RUN` | Cap on drafts per discovery run. Default `15`. |
 
-`python main.py` fails at startup if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing.
+`python main.py` fails at startup if `QWEN_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_KEY` are missing.
 
 **`.env.example` is placeholders only.** If an older copy ever contained real keys, rotate them.
 
@@ -312,7 +312,7 @@ This is the step that actually matters. If you kept a secure backup of your real
 
 If you did **not** back it up, every credential needs to be regenerated or re-fetched from its source, one at a time, using the [Environment Variables Reference](#environment-variables-reference) table above:
 
-1. `ANTHROPIC_API_KEY` — generate a fresh key at console.anthropic.com. The old one, if it still exists, should be revoked regardless, since you don't know for certain it wasn't exposed.
+1. `QWEN_API_KEY` — the ModelScope key for Qwen chat. Do not commit it.
 2. `OPENAI_API_KEY` — generate a fresh key at platform.openai.com. Needed for CV embeddings only.
 3. `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` — **your Supabase project and its data are almost certainly still alive.** Log into supabase.com, find the existing project (don't create a new one), and pull the URL and service role key from Settings → API. Creating a *new* project here would mean starting with an empty database, losing every embedding, consultant, rate, and cached opportunity.
 4. `GMAIL_APP_PASSWORD` — app passwords aren't recoverable, only regeneratable. Google Account → Security → App Passwords → create a new one. The Gmail address itself is unaffected.

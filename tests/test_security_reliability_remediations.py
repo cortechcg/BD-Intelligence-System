@@ -682,7 +682,7 @@ class _FakeMessages:
 
 class _FakeClient:
     def __init__(self, responses):
-        self.messages = _FakeMessages(responses)
+        self.chat = SimpleNamespace(completions=_FakeMessages(responses))
 
 
 def _response(inp=None, out=None, request_id="req-test"):
@@ -696,7 +696,7 @@ def test_provider_boundary_aggregates_actual_and_unknown_usage(monkeypatch):
     client = _FakeClient([
         _response(11, 7, "one"), _response(5, 3, "two"), _response(),
     ])
-    monkeypatch.setattr(llm, "get_anthropic_client", lambda **kwargs: client)
+    monkeypatch.setattr(llm, "get_qwen_client", lambda **kwargs: client)
     reset_opportunity_usage("opp-1")
     complete(CLAUDE_MODEL_PROPOSAL, [{"role": "user", "content": "a"}], stage="first")
     complete(CLAUDE_MODEL_PROPOSAL, [{"role": "user", "content": "b"}], stage="retry")
