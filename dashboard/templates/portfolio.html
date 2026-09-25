@@ -6,11 +6,6 @@
 
 <div class="view-head">
   <h1>Portfolio <span class="hl">{{ scored }} scored of {{ p.ledger_rows }}</span></h1>
-  <div class="view-head__meta">
-    <span>{{ p.cache_rows }} cached</span>
-    <span>{{ p.ledger_rows }} in the ledger</span>
-    <span>{{ scored }} scored</span>
-  </div>
 </div>
 
 {# ── Coverage first: the denominators everything below is read against ─── #}
@@ -18,12 +13,12 @@
   <div class="tile panel--hero">
     <div class="tile__label">Cached opportunities</div>
     <div class="tile__value">{{ p.cache_rows }}</div>
-    <div class="tile__sub">Found by discovery. Most have never been claimed for processing.</div>
+    <div class="tile__sub">Found by discovery. Most were never claimed.</div>
   </div>
   <div class="tile">
     <div class="tile__label">With a ledger row</div>
     <div class="tile__value">{{ p.ledger_rows }}</div>
-    <div class="tile__sub">Claimed at least once. The stage and recommendation counts below describe these rows only.</div>
+    <div class="tile__sub">Claimed at least once. Stages and recommendations below count these only.</div>
   </div>
   <div class="tile">
     <div class="tile__label">Scored</div>
@@ -34,13 +29,16 @@
 
 <section class="section" aria-labelledby="h-stage">
   <div class="section__head"><h2 id="h-stage">By stage</h2><span class="section__count">{{ p.ledger_rows }} ledger rows</span></div>
-  <p class="section__sub">Each ledger row is counted once, at its current stage. The first four stages are the agent's work. Reviewed and outcome are written when a person marks them on the opportunity.</p>
+  <p class="section__sub">One row, one stage. The first four are the agent's. Reviewed and outcome are a person's mark.</p>
   {% if p.ledger_rows %}
   {% set agent_n = p.by_stage.discovered + p.by_stage.extracted + p.by_stage.scored + p.by_stage.drafted %}
   {% set human_n = p.by_stage.reviewed + p.by_stage.outcome %}
   <div class="panel">
     <div class="panel__chart">
-      <p class="reading">{{ agent_n }} in the agent's stages. {{ human_n }} recorded by a person.</p>
+      <div class="reading-stack">
+        <p class="reading"><span class="reading__n">{{ agent_n }} in the agent's stages.</span></p>
+        <p class="reading reading--quiet"><span class="reading__n">{{ human_n }} recorded by a person.</span></p>
+      </div>
       {{ m.mix(stage_bars, "share of ledger rows by stage") }}
       <div class="legend">
         <span class="legend__item"><span class="legend__swatch" aria-hidden="true"></span> Agent stages</span>
@@ -57,9 +55,10 @@
 
 <section class="section" aria-labelledby="h-rec">
   <div class="section__head"><h2 id="h-rec">By recommendation</h2><span class="section__count">n = {{ scored }} scored</span></div>
-  <p class="section__sub">From <code>bid_scorer.py</code> v1.0.0. BID is 70 or above, WATCH is 45 or above, and the rest are NO-BID. Bar length is the share of scored rows.</p>
+  <p class="section__sub">Bar length is the share of the {{ scored }} scored rows.</p>
   {% if scored > 0 %}
   <div class="panel"><div class="panel__chart">
+    <p class="reading reading--rule">BID is 70 or above. WATCH is 45 or above. The rest are NO-BID.</p>
     {{ m.bars(rec_bars, "ledger rows by recommendation") }}
     {% if p.unscored_ledger_rows %}<p class="chart__foot">{{ p.unscored_ledger_rows }} unscored ledger row{{ "s" if p.unscored_ledger_rows != 1 }} sit outside this split.</p>{% endif %}
   </div></div>
@@ -98,6 +97,7 @@
   {% if outcome_total %}
   <div class="panel" style="margin-bottom: var(--sp5)">
     <div class="panel__chart">
+      <p class="reading"><span class="reading__n">{{ p.outcomes.won }} won.</span> <span class="reading__n">{{ p.outcomes.unknown }} unknown.</span> <span class="reading__n">{{ p.outcomes.lost }} lost.</span></p>
       {{ m.mix([
         {"label": "Won, verified", "value": p.outcomes.won, "tone": "bid"},
         {"label": "Unknown", "value": p.outcomes.unknown, "tone": "unknown"},
