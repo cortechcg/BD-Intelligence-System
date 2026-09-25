@@ -102,7 +102,7 @@
 
   --r-card: 16px; --r-ctl: 6px; --r-pill: 6px; --r-mark: 2px;
   /* Portfolio glass. Same teal, thinned so the page shows through. */
-  --glass: color-mix(in srgb, var(--color-liquid-kelp) 46%, transparent);
+  --glass: color-mix(in srgb, var(--color-liquid-kelp) 78%, transparent);
   --glass-line: color-mix(in srgb, var(--color-aqua) 26%, transparent);
   --glass-shadow: 0 8px 32px color-mix(in srgb, var(--color-liquid-abyss) 72%, transparent);
   --measure: 66ch;
@@ -490,6 +490,45 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   -webkit-backdrop-filter: blur(16px);
 }
 .page--portfolio .tile.panel--hero { border-top: 2px solid var(--ink); }
+.page--portfolio .tile__value {
+  font-size: var(--t56);
+  letter-spacing: -0.045em;
+  margin-top: var(--sp4);
+}
+.page--portfolio .tile__sub {
+  font-size: var(--t15);
+  line-height: 1.45;
+  max-width: 34ch;
+}
+.page--portfolio .reading {
+  margin: 0;
+  font-size: var(--t32);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  font-weight: var(--font-weight-medium);
+  max-width: 18em;
+}
+.page--portfolio .reading--quiet {
+  font-size: var(--t20);
+  font-weight: var(--font-weight-regular);
+  color: var(--ink-2);
+}
+.page--portfolio .reading--rule { max-width: 11em; }
+.page--portfolio .reading-stack { display: grid; gap: var(--sp2); }
+.page--portfolio .reading__n {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+}
+.page--portfolio .mix { height: 28px; }
+.page--portfolio .bar { grid-template-columns: minmax(148px, 240px) minmax(0, 1fr) auto; }
+.page--portfolio .bar__track { height: 16px; }
+.page--portfolio .bar__label,
+.page--portfolio .bar__value { font-size: var(--t16); }
+.page--portfolio .legend__item { font-size: var(--t15); color: var(--ink); }
+.page--portfolio .chart__foot { font-size: var(--t15); }
+.page--portfolio .table td.num { font-size: var(--t20); color: var(--ink); }
+.page--portfolio .section__sub { font-size: var(--t16); max-width: 62ch; }
+.page--portfolio .view-head h1 .hl { font-size: var(--t24); }
 @media (prefers-reduced-transparency: reduce) {
   .page--portfolio .tile,
   .page--portfolio .panel,
@@ -552,7 +591,10 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   .table { min-width: 560px; }
   .view-head h1 { font-size: var(--t32); }
   .view-head h1.doc { font-size: var(--t20); }
-  .bar { grid-template-columns: 112px minmax(0, 1fr) auto; }
+  .bar, .page--portfolio .bar { grid-template-columns: 120px minmax(0, 1fr) auto; }
+  .page--portfolio .tile__value { font-size: var(--t44); }
+  .page--portfolio .reading,
+  .page--portfolio .reading--rule { font-size: var(--t24); max-width: none; }
   .submit-row { flex-direction: column; align-items: stretch; }
 }
 
