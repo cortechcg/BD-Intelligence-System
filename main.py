@@ -81,6 +81,7 @@ from database.supabase_client import (
     load_processing_snapshot,
     opportunity_ledger_available,
     persist_opportunity_stage,
+    record_discovered_opportunity,
     store_opportunity,
 )
 from database.airtable_client import (
@@ -546,22 +547,18 @@ def _run_pipeline() -> None:
     """
     Main pipeline execution — called by scheduler and --once flag.
 
-    Discovers new opportunities from all sources, runs each through
-    the full pipeline, sends individual proposal emails per opportunity,
-    and sends a summary report at the end of each run.
+    Discovers new opportunities and saves title, link, and date.
+    Draft this is what runs analysis and spends tokens.
     """
     eid = new_execution_id()
-    _start_execution_budget()
     console.print(Panel.fit(
         f"[bold blue]Cortech BD Agent Running[/bold blue]\n"
         f"[dim]{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  execution_id={eid}[/dim]",
         border_style="blue",
     ))
     log_stage("pipeline", "start", execution_id=eid)
-    _refresh_outcome_learning()
 
-    all_new: list[dict]              = []
-    processed_opportunities: list[dict] = []
+    all_new: list[dict] = []
 
     # ── SOURCE 1: RSS FEEDS (unused — RSS_FEEDS is empty) ─────────────────
     if RSS_FEEDS:
@@ -634,44 +631,14 @@ def _run_pipeline() -> None:
             unique_new.append(opp)
     all_new = unique_new
 
-    if all_new and not opportunity_ledger_available():
-        logger.error(
-            f"Skipping {len(all_new)} bulk discoveries: opportunity_processing "
-            "ledger is missing. Apply supabase_migration_opportunity_state.sql. "
-            "Use python main.py --submit-url for a one-off."
-        )
-        console.print(
-            "[red]opportunity_processing table missing in Supabase — "
-            "refusing to draft bulk discoveries as new. "
-            "Apply supabase_migration_opportunity_state.sql. "
-            "Manual --submit-url still works.[/red]"
-        )
-        all_new = []
-
     total = len(all_new)
     console.print(
         f"\n[bold]Found {total} new opportunit"
         f"{'y' if total == 1 else 'ies'} after filtering[/bold]"
     )
 
-    # ── CAP THE RUN ────────────────────────────────────────────────────────
-    # Deferred, not dropped: only processed opportunities are written to
-    # Supabase, so the remainder is rediscovered by the next run.
-    if total > MAX_OPPORTUNITIES_PER_RUN:
-        deferred = total - MAX_OPPORTUNITIES_PER_RUN
-        console.print(
-            f"[yellow]Processing the first {MAX_OPPORTUNITIES_PER_RUN} this run — "
-            f"{deferred} deferred to the next run. Raise "
-            f"MAX_OPPORTUNITIES_PER_RUN in .env to widen this.[/yellow]"
-        )
-        logger.warning(
-            f"Run capped at {MAX_OPPORTUNITIES_PER_RUN} of {total} opportunities "
-            f"— {deferred} deferred to the next run"
-        )
-        all_new = all_new[:MAX_OPPORTUNITIES_PER_RUN]
-        total = len(all_new)
-
-    # ── SEND STATUS REPORT IF NOTHING FOUND ───────────────────────────────
+    # Discovery only remembers the tender. Analysis, embeddings, and the
+    # draft run when someone clicks Draft this.
     if not all_new:
         console.print(
             "[yellow]No new opportunities this run. "
@@ -683,70 +650,20 @@ def _run_pipeline() -> None:
             logger.error(f"Status report email failed: {e}")
         return
 
-    # ── PROCESS EACH OPPORTUNITY ───────────────────────────────────────────
-    for opp in track(all_new, description="Processing opportunities..."):
-        try:
-            result = process_opportunity(opp)
+    saved = 0
+    for opp in all_new:
+        url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url") or "") or (
+            opp.get("dedup_url") or opp.get("source_url") or ""
+        )
+        title = opp.get("title") if isinstance(opp.get("title"), str) else ""
+        if record_discovered_opportunity(url, title):
+            saved += 1
 
-            if result:
-                processed_opportunities.append(result)
-
-                # Send individual proposal email immediately after each
-                # successful pipeline run — one email per opportunity so
-                # each review is self-contained and actionable
-                try:
-                    send_proposal_email(result)
-                except Exception as email_err:
-                    logger.error(
-                        f"Proposal email failed for "
-                        f"'{(result.get('title') or 'Unknown')[:50]}': {email_err}"
-                    )
-
-        except Exception as e:
-            logger.error(
-                f"Pipeline error for "
-                f"'{(opp.get('title') or 'Unknown')[:60]}': {e}"
-            )
-            try:
-                log_agent_action(
-                    action_type="Error",
-                    description=(
-                        f"Pipeline exception: "
-                        f"{(opp.get('title') or 'Unknown')[:50]}"
-                    ),
-                    status="Error",
-                    error_message=str(e),
-                )
-            except Exception:
-                pass
-
-    # ── SEND PIPELINE SUMMARY EMAIL ────────────────────────────────────────
-    # Lightweight summary of the full run — the detailed value is in
-    # the individual per-proposal emails sent above
-    logger.info("Sending pipeline summary report...")
-    summary_list = [
-        {
-            "title":               r.get("title", ""),
-            "client":              r.get("client", ""),
-            "relevance_score":     r.get("score", 0),
-            "bid_recommendation":  r.get("recommendation", "WATCH"),
-            "submission_deadline": r.get("deadline", ""),
-        }
-        for r in processed_opportunities
-    ]
-
-    try:
-        send_report(new_opportunities=summary_list)
-    except Exception as e:
-        logger.error(f"Summary report email failed: {e}")
-
-    # ── RUN SUMMARY ────────────────────────────────────────────────────────
-    n = len(processed_opportunities)
     console.print(Panel.fit(
-        f"[bold green]Pipeline Complete[/bold green]\n"
-        f"Discovered:       {total} opportunities\n"
-        f"Proposals drafted: {n}\n"
-        f"Emails sent:      {n} individual + 1 summary",
+        f"[bold green]Discovery saved[/bold green]\n"
+        f"Found: {total}\n"
+        f"Waiting on the queue: {saved}\n"
+        f"Drafts: 0 — a person clicks Draft this",
         border_style="green",
     ))
 
@@ -754,8 +671,8 @@ def _run_pipeline() -> None:
         log_agent_action(
             action_type="Discovery",
             description=(
-                f"Run complete: {total} discovered, "
-                f"{n} proposals drafted"
+                f"Run complete: {total} found, {saved} saved for the queue, "
+                f"none drafted"
             ),
             tokens_used=0,
             status="Success",
@@ -774,66 +691,27 @@ def _run_assortis_check() -> None:
     Runs independently of run_pipeline() — the newsletter arrives on
     its own schedule, not the general discovery cycle's.
 
-    Emails each drafted proposal exactly like run_pipeline() does. A
-    draft that only lands in Airtable is a draft nobody reads.
+    Saves each new tender for the queue. Draft this is what spends tokens.
     """
     logger.info("Checking Assortis/ICA newsletter...")
     new_execution_id()
-    _start_execution_budget()
-    _refresh_outcome_learning()
     opportunities = check_assortis_newsletter()
-    if opportunities and not opportunity_ledger_available():
-        logger.error(
-            f"Skipping {len(opportunities)} Assortis discoveries: "
-            "opportunity_processing ledger is missing. "
-            "Apply supabase_migration_opportunity_state.sql."
-        )
-        opportunities = []
-    remaining = _remaining_execution_budget()
-    if len(opportunities) > remaining:
-        logger.warning(
-            f"Assortis run capped at {remaining} of {len(opportunities)} "
-            "opportunities; remainder will be rediscovered/retried next run"
-        )
-        opportunities = opportunities[:remaining]
-    drafted = 0
+    saved = 0
     for opp in opportunities:
-        try:
-            result = process_opportunity(opp)
-            if result:
-                drafted += 1
-                try:
-                    send_proposal_email(result)
-                except Exception as email_err:
-                    logger.error(
-                        f"Proposal email failed for "
-                        f"'{(result.get('title') or 'Unknown')[:50]}': {email_err}"
-                    )
-        except Exception as e:
-            logger.error(
-                f"Assortis pipeline error for "
-                f"'{(opp.get('title') or 'Unknown')[:60]}': {e}"
-            )
-            try:
-                log_agent_action(
-                    action_type="Error",
-                    description=(
-                        f"Assortis pipeline exception: "
-                        f"{(opp.get('title') or 'Unknown')[:50]}"
-                    ),
-                    status="Error",
-                    error_message=str(e),
-                )
-            except Exception:
-                pass
+        url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url") or "") or (
+            opp.get("dedup_url") or opp.get("source_url") or ""
+        )
+        title = opp.get("title") if isinstance(opp.get("title"), str) else ""
+        if record_discovered_opportunity(url, title):
+            saved += 1
     logger.info(
         f"Assortis check complete — {len(opportunities)} opportunity(ies) found, "
-        f"{drafted} drafted and emailed"
+        f"{saved} saved for the queue, none drafted"
     )
 
 
 def run_assortis_check() -> None:
-    """Public, monitored newsletter-only command with the same hard cap."""
+    """Public, monitored newsletter-only command. Saves tenders, does not draft."""
     return _run_monitored("assortis", _run_assortis_check)
 
 

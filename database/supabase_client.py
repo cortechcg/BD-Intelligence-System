@@ -1,4 +1,6 @@
 # database/supabase_client.py
+from datetime import datetime
+
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL, env_file_save_hint, get_openai_api_key
 from loguru import logger
@@ -825,6 +827,46 @@ def find_opportunity_by_content_hash(digest: str) -> Optional[dict]:
             return None
         logger.warning(f"content_hash lookup failed (non-fatal): {e}")
         return None
+
+
+def record_discovered_opportunity(source_url: str, title: str = "") -> bool:
+    """Remember a tender for the queue. No embedding and no model call.
+
+    An existing row keeps its stored text. A blank title does not wipe a
+    real one. ``discovered_at`` is set only on the first insert.
+    """
+    store_url = canonicalize_url(source_url) or str(source_url or "").strip()
+    if not store_url:
+        return False
+    clean_title = title.strip() if isinstance(title, str) else ""
+    try:
+        existing = (
+            supabase.table("opportunities_cache")
+            .select("source_url,title")
+            .eq("source_url", store_url)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            stored = (existing.data[0].get("title") or "").strip()
+            if clean_title and not stored:
+                supabase.table("opportunities_cache").update(
+                    {"title": clean_title}
+                ).eq("source_url", store_url).execute()
+            return True
+        supabase.table("opportunities_cache").insert({
+            "source_url": store_url,
+            "title": clean_title,
+            "raw_text": "",
+        }).execute()
+        update_opportunity_facts(
+            store_url,
+            {"discovered_at": datetime.now().strftime("%Y-%m-%d")},
+        )
+        return True
+    except Exception as exc:
+        logger.warning(f"Could not remember discovered opportunity (non-fatal): {exc}")
+        return False
 
 
 def store_opportunity(

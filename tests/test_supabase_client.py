@@ -216,6 +216,58 @@ def test_store_opportunity_writes_content_hash(monkeypatch):
     assert row["source_url"] == "https://procurement.example/tender"
 
 
+def test_record_discovered_opportunity_does_not_embed(monkeypatch):
+    from types import SimpleNamespace
+
+    calls = {"insert": [], "update": [], "facts": []}
+
+    class _Table:
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=[])
+
+        def insert(self, row):
+            calls["insert"].append(row)
+
+            class _Call:
+                def execute(_self):
+                    return SimpleNamespace(data=[{"id": "new"}])
+
+            return _Call()
+
+        def update(self, row):
+            calls["update"].append(row)
+            return self
+
+    monkeypatch.setattr(supabase_client, "supabase", type("C", (), {"table": lambda self, name: _Table()})())
+    monkeypatch.setattr(
+        supabase_client,
+        "get_embedding",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("embedding")),
+    )
+    monkeypatch.setattr(
+        supabase_client,
+        "update_opportunity_facts",
+        lambda url, facts: calls["facts"].append((url, facts)),
+    )
+    assert supabase_client.record_discovered_opportunity(
+        "https://procurement.example/tender",
+        "Water supply evaluation",
+    )
+    row = calls["insert"][0]
+    assert row["title"] == "Water supply evaluation"
+    assert "embedding" not in row
+    assert calls["facts"][0][1]["discovered_at"][:10] == calls["facts"][0][1]["discovered_at"]
+
+
 def test_store_opportunity_retries_without_hash_when_column_missing(monkeypatch):
     from types import SimpleNamespace
 

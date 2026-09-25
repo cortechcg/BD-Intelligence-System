@@ -55,6 +55,86 @@ SCRAPE_SOURCES = [
         "scroll_selector":   'a[href*="/tenders/"]',
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
+    {
+        "name":              "Save the Children tenders",
+        "url":               "https://www.savethechildren.net/tenders",
+        "selector":          "div.three_col-listing-card",
+        "link_selector":     "a[href]",
+        "title_selector":    "h3.three_col-listing-card__h3",
+        "base_url":          "https://www.savethechildren.net",
+        "needs_browser":     False,
+        "href_must_contain": "/tenders/",
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "African Development Bank procurement",
+        "url":               "https://www.afdb.org/en/projects-and-operations/procurement",
+        "selector":          "div.views-field-title a[href*='/en/documents/']",
+        "link_selector":     "a[href]",
+        "title_selector":    "a",
+        "base_url":          "https://www.afdb.org",
+        "needs_browser":     False,
+        "href_must_contain": "/en/documents/",
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "Danish Refugee Council tenders",
+        "url":               "https://drc.ngo/en/tenders/",
+        "selector":          "article.tenderList__item:not([data-status='archived'])",
+        "link_selector":     "a[href]",
+        "title_selector":    "span.tenderList__item__title",
+        "base_url":          "https://drc.ngo",
+        "needs_browser":     False,
+        "href_must_contain": "/en/tenders/",
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "UNDP procurement notices",
+        "url":               "https://procurement-notices.undp.org/",
+        "selector":          "a[href*='view_notice.cfm'], a[href*='view_negotiation.cfm']",
+        "link_selector":     "a[href]",
+        "title_selector":    "span",
+        "base_url":          "https://procurement-notices.undp.org",
+        "needs_browser":     False,
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "World Bank procurement notices",
+        "url":               "https://projects.worldbank.org/en/projects-operations/opportunities?srce=both",
+        "json_url":          (
+            "https://search.worldbank.org/api/v2/procnotices"
+            "?format=json&fl=id,bid_description,project_ctry_name,project_name,notice_type,notice_status"
+            "&srt=submission_date%20desc,id%20asc&apilang=en&rows=20&os=0"
+        ),
+        "json_kind":         "worldbank",
+        "base_url":          "https://projects.worldbank.org",
+        "needs_browser":     False,
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "World Bank consultancy EOIs",
+        "url":               "https://wbgeprocure-rfxnow.worldbank.org/rfxnow/public/advertisement/index.html",
+        "json_url":          (
+            "https://wbgeprocure-rfxnow.worldbank.org/rfxnow/json/advertisement/activeAdvertisements.json"
+        ),
+        "json_kind":         "rfxnow",
+        "base_url":          "https://wbgeprocure-rfxnow.worldbank.org",
+        "needs_browser":     False,
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
+    {
+        "name":              "UNGM procurement notices",
+        "url":               "https://www.ungm.org/Public/Notice",
+        "selector":          "a[href*='/Public/Notice/']",
+        "link_selector":     "a[href]",
+        "title_selector":    "a",
+        "base_url":          "https://www.ungm.org",
+        "needs_browser":     True,
+        "wait_for":          "a[href*='/Public/Notice/']",
+        "href_must_contain": "/Public/Notice/",
+        "post_load_wait_ms": 4000,
+        "timeout":           DEFAULT_TIMEOUT_MS,
+    },
 ]
 
 
@@ -325,6 +405,94 @@ def parse_tenders_from_html(
     return found
 
 
+def listings_from_json(payload: dict, source: dict) -> list[dict]:
+    """Turn a portal JSON list into the same dicts the HTML parser returns.
+
+    Only title, link, and a short public summary are kept. Contact fields
+    that some payloads include are ignored.
+    """
+    if not isinstance(payload, dict):
+        return []
+    name = source.get("name", "")
+    kind = source.get("json_kind")
+    found: list[dict] = []
+
+    if kind == "worldbank":
+        rows = payload.get("procnotices") or []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            notice_id = str(row.get("id") or "").strip()
+            title = str(row.get("bid_description") or row.get("project_name") or "").strip()
+            if len(notice_id) < 4 or len(title) < 10:
+                continue
+            country = str(row.get("project_ctry_name") or "").strip()
+            notice_type = str(row.get("notice_type") or "").strip()
+            url = (
+                "https://projects.worldbank.org/en/projects-operations/"
+                f"procurement-detail/{notice_id}"
+            )
+            found.append({
+                "title": title,
+                "source_url": canonicalize_url(url) or url,
+                "summary": " ".join(part for part in (country, notice_type, title) if part)[:400],
+                "source_portal": name,
+                "published": "",
+            })
+        return found
+
+    if kind == "rfxnow":
+        rows = payload.get("advertisementList") or []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            notice_id = str(row.get("id") or "").strip()
+            title = str(row.get("procurementTitle") or "").strip()
+            if not notice_id.isdigit() or len(title) < 10:
+                continue
+            url = (
+                "https://wbgeprocure-rfxnow.worldbank.org/rfxnow/public/"
+                f"advertisement/{notice_id}/view.html"
+            )
+            found.append({
+                "title": title,
+                "source_url": canonicalize_url(url) or url,
+                "summary": title[:400],
+                "source_portal": name,
+                "published": "",
+            })
+    return found
+
+
+async def fetch_json(url: str, timeout_ms: int) -> dict | None:
+    """GET a public JSON list. Same redirect checks as the HTML fetch."""
+    current_url = url
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=timeout_ms / 1000,
+            headers={**HTTP_HEADERS, "Accept": "application/json"},
+        ) as client:
+            for redirect_count in range(MAX_DOWNLOAD_REDIRECTS + 1):
+                assert_public_http_url(current_url, resolve=True)
+                response = await client.get(current_url)
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("location")
+                    if not location or redirect_count >= MAX_DOWNLOAD_REDIRECTS:
+                        return None
+                    next_url = urljoin(current_url, location)
+                    assert_safe_redirect(current_url, next_url)
+                    current_url = next_url
+                    continue
+                if response.status_code >= 400:
+                    return None
+                data = response.json()
+                return data if isinstance(data, dict) else None
+    except Exception as e:
+        logger.warning(f"  JSON list fetch failed (non-fatal): {e}")
+    return None
+
+
 # ── MAIN ASYNC RUNNER ─────────────────────────────────────────────────────────
 
 async def scrape_one_source(browser, source: dict) -> list[dict]:
@@ -332,21 +500,30 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
     name = source.get("name", "unknown")
     logger.info(f"  Scraping: {name}")
     try:
-        html = await fetch_page_content(
-            browser,
-            source["url"],
-            source.get("wait_for"),
-            source.get("timeout", DEFAULT_TIMEOUT_MS),
-            needs_browser=source.get("needs_browser", False),
-            post_load_wait_ms=source.get("post_load_wait_ms", 2000),
-            scroll_selector=source.get("scroll_selector"),
-        )
+        if source.get("json_url"):
+            payload = await fetch_json(
+                source["json_url"],
+                source.get("timeout", DEFAULT_TIMEOUT_MS),
+            )
+            if not payload:
+                logger.warning(f"  No JSON returned for {name} — skipping")
+                return []
+            raw_items = listings_from_json(payload, source)
+        else:
+            html = await fetch_page_content(
+                browser,
+                source["url"],
+                source.get("wait_for"),
+                source.get("timeout", DEFAULT_TIMEOUT_MS),
+                needs_browser=source.get("needs_browser", False),
+                post_load_wait_ms=source.get("post_load_wait_ms", 2000),
+                scroll_selector=source.get("scroll_selector"),
+            )
+            if not html:
+                logger.warning(f"  No HTML returned for {name} — skipping")
+                return []
+            raw_items = parse_tenders_from_html(html, source)
 
-        if not html:
-            logger.warning(f"  No HTML returned for {name} — skipping")
-            return []
-
-        raw_items = parse_tenders_from_html(html, source)
         logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
 
         passed: list[dict] = []
