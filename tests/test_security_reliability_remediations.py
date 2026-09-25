@@ -288,31 +288,60 @@ def test_direct_process_calls_create_and_enforce_an_implicit_budget(monkeypatch)
     assert processed == ["One"]
 
 
-@pytest.mark.parametrize("cap, expected", [(0, 0), (1, 1), (2, 2), (5, 3)])
-def test_assortis_processing_boundary_obeys_every_cap(monkeypatch, cap, expected):
+def test_assortis_saves_every_find_and_does_not_draft(monkeypatch):
+    saved = []
     processed = []
-    monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", cap)
-    monkeypatch.setattr(main, "check_assortis_newsletter", lambda: [{"id": i} for i in range(3)])
+    monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", 1)
+    monkeypatch.setattr(
+        main,
+        "check_assortis_newsletter",
+        lambda: [
+            {"title": f"Tender {i}", "source_url": f"https://x.test/{i}"}
+            for i in range(3)
+        ],
+    )
+    monkeypatch.setattr(
+        main,
+        "record_discovered_opportunity",
+        lambda url, title="": saved.append(url) or True,
+    )
     monkeypatch.setattr(main, "process_opportunity", lambda opp: processed.append(opp) or None)
-    monkeypatch.setattr(main, "opportunity_ledger_available", lambda: True)
     monkeypatch.setattr(main, "ping_healthcheck", lambda **kwargs: True)
     main.run_assortis_check()
-    assert len(processed) == expected
+    assert len(saved) == 3
+    assert processed == []
 
 
-@pytest.mark.parametrize("cap, expected", [(0, 0), (1, 1), (2, 2), (5, 3)])
-def test_normal_pipeline_cap_limits_actual_processing(monkeypatch, cap, expected):
+def test_discovery_saves_every_find_and_does_not_draft(monkeypatch):
+    saved = []
     processed = []
-    monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", cap)
+    monkeypatch.setattr(main, "MAX_OPPORTUNITIES_PER_RUN", 1)
     monkeypatch.setattr(main, "RSS_FEEDS", [])
-    monkeypatch.setattr(main, "scrape_non_rss_sources", lambda: [{"source_url": f"https://x.test/{i}"} for i in range(3)])
+    monkeypatch.setattr(
+        main,
+        "scrape_non_rss_sources",
+        lambda: [
+            {"title": f"Tender {i}", "source_url": f"https://x.test/{i}"}
+            for i in range(3)
+        ],
+    )
     monkeypatch.setattr(main, "check_assortis_newsletter", lambda: [])
+    monkeypatch.setattr(
+        main,
+        "record_discovered_opportunity",
+        lambda url, title="": saved.append((url, title)) or True,
+    )
     monkeypatch.setattr(main, "process_opportunity", lambda opp: processed.append(opp) or None)
-    monkeypatch.setattr(main, "opportunity_ledger_available", lambda: True)
     monkeypatch.setattr(main, "send_report", lambda **kwargs: None)
+    monkeypatch.setattr(main, "send_proposal_email", lambda *args, **kwargs: None)
     monkeypatch.setattr(main, "ping_healthcheck", lambda **kwargs: True)
     main.run_pipeline()
-    assert len(processed) == expected
+    assert saved == [
+        ("https://x.test/0", "Tender 0"),
+        ("https://x.test/1", "Tender 1"),
+        ("https://x.test/2", "Tender 2"),
+    ]
+    assert processed == []
 
 
 def test_all_report_templates_escape_untrusted_values_and_reject_unsafe_hrefs(monkeypatch):
