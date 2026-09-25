@@ -854,15 +854,13 @@ def record_discovered_opportunity(source_url: str, title: str = "") -> bool:
                     {"title": clean_title}
                 ).eq("source_url", store_url).execute()
             return True
+        discovered_on = datetime.now().strftime("%Y-%m-%d")
         supabase.table("opportunities_cache").insert({
             "source_url": store_url,
             "title": clean_title,
             "raw_text": "",
+            "discovered_at": discovered_on,
         }).execute()
-        update_opportunity_facts(
-            store_url,
-            {"discovered_at": datetime.now().strftime("%Y-%m-%d")},
-        )
         return True
     except Exception as exc:
         logger.warning(f"Could not remember discovered opportunity (non-fatal): {exc}")
