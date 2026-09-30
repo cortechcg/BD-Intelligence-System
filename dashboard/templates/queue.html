@@ -167,8 +167,7 @@
       <input type="url" id="url" name="url" required placeholder="https://… tender or ToR page" autocomplete="off" spellcheck="false">
       <button class="btn" type="submit">Queue for processing</button>
     </div>
-    <p class="field__hint">Runs the same code path as <code>python main.py --submit-url</code> on the background worker.
-      Model calls take minutes; the stage shown here is whatever the ledger says, and a run stops at <strong>drafted</strong>. Nothing is sent.</p>
+    <p class="field__hint">One job on the worker. It stops at <strong>drafted</strong>. Nothing is sent.</p>
   </form>
   {% else %}
   <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
@@ -212,7 +211,7 @@
     <h2 id="h-attention">Needs attention</h2>
     <span class="section__count">{{ c.halted }}</span>
   </div>
-  <p class="section__sub">Runs the agent stopped on. Failed and spend-cap halts keep their stage and resume from the checkpoint; <code>dead_letter</code> means drafting failed three times and waits for a person.</p>
+  <p class="section__sub">Halted runs. Resume keeps the stage and the checkpoint. A dead letter has failed to draft three times.</p>
   {% if queue.halted %}
     {{ opp_table(queue.halted) }}
   {% else %}
@@ -237,7 +236,7 @@
     <h2 id="h-drafted">Awaiting review</h2>
     <span class="section__count">{{ c.drafted }}</span>
   </div>
-  <p class="section__sub">Reached <code>drafted</code>. Every one of these needs a person before anything leaves the building.</p>
+  <p class="section__sub">Reached drafted. A person reviews before anything leaves.</p>
   {% if queue.drafted %}
     {{ opp_table(queue.drafted) }}
   {% else %}
@@ -250,7 +249,7 @@
     <h2 id="h-unclaimed">Discovered, not yet run</h2>
     <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
   </div>
-  <p class="section__sub">Discovery saves the title and the link and stops. Nothing here calls a model. Tick rows and press Draft this when you want a draft; each row becomes its own job.</p>
+  <p class="section__sub">Title and link only. Draft this starts the job.</p>
   {% if queue.cache_only %}
     {% if triggering_enabled %}
     <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
@@ -270,7 +269,7 @@
     <h2 id="h-skips">Stopped by design</h2>
     <span class="section__count">{{ c.terminal_skip }}</span>
   </div>
-  <p class="section__sub">Completed without drafting: the consultancy gate said no, or the scorer returned NO-BID, before any proposal tokens were spent. Not dropped work.</p>
+  <p class="section__sub">Stopped before a draft: not a consultancy, or a NO-BID.</p>
   {% if queue.terminal_skip %}
     {{ opp_table(queue.terminal_skip) }}
   {% else %}
