@@ -151,7 +151,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 }
 .brand { display: inline-flex; align-items: center; gap: var(--sp2); text-decoration: none; color: var(--ink); }
 .brand__mark { display: none; }
-.brand__name { font-weight: var(--font-weight-medium); font-size: var(--t16); color: var(--ink); }
+.brand__name { font-weight: var(--font-weight-medium); font-size: var(--t20); letter-spacing: -0.03em; color: var(--ink); }
 .brand__name span { font-weight: var(--font-weight-regular); color: var(--ink-2); }
 .nav { display: flex; gap: var(--sp5); align-items: center; }
 .nav a {
@@ -160,7 +160,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
   padding-bottom: 0; border-bottom: 0;
 }
 .nav a:hover { color: var(--ink); }
-.nav a[aria-current="page"] { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); border-bottom: 1px solid var(--ink); padding-bottom: 2px; }
 .who { margin-left: auto; display: flex; align-items: center; gap: var(--sp5); font-size: var(--t13); color: var(--ink-2); }
 .who a { color: var(--ink); text-decoration-color: var(--line-strong); }
 
@@ -169,7 +169,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 .view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp5); flex-wrap: wrap; margin-bottom: var(--sp7); }
 .view-head h1 { font-size: 68px; line-height: 0.95; font-weight: var(--font-weight-medium); letter-spacing: -0.045em; }
 .view-head h1 .hl { display: block; font-size: var(--t20); line-height: 1.3; margin-top: var(--sp3); font-weight: var(--font-weight-medium); letter-spacing: 0; }
-.view-head h1.doc { font-family: var(--doc); font-size: var(--t24); line-height: 1.35; max-width: 32em; }
+.view-head h1.doc { font-family: var(--doc); font-size: var(--t32); line-height: 1.2; letter-spacing: -0.03em; max-width: 22em; }
 .view-head__meta { font-size: var(--t14); color: var(--ink-2); display: flex; gap: var(--sp2) var(--sp5); flex-wrap: wrap; align-items: center; }
 
 .section { margin-top: var(--sp9); }
@@ -186,6 +186,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
       instrument carries a 2px forest rule on top. ─────────────────────── */
 .panel { background: var(--surface); border: 0; border-radius: var(--r-card); }
 .panel--hero { border-top: 0; }
+.page .panel--hero { border-top: 2px solid var(--ink); }
 .panel__in { padding: var(--sp6); }
 
 /* Hero strip: figures + meter in one instrument */
@@ -340,7 +341,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .table-wrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; }
 .table th { text-align: left; padding: var(--sp4) var(--sp5); border-bottom: 1px solid var(--line); white-space: nowrap; }
-.table td { padding: var(--sp4) var(--sp5); border-top: 1px solid var(--line); vertical-align: middle; color: var(--ink-2); line-height: 1.5; }
+.table td { padding: var(--sp5); border-top: 1px solid var(--line); vertical-align: middle; color: var(--ink-2); line-height: 1.5; }
 .table tbody tr:first-child td { border-top: 0; }
 .table tbody tr:hover { background: var(--hover); }
 .table tbody tr.is-selected { background: var(--selected); }
@@ -355,7 +356,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .table--jobs td.nowrap { overflow: hidden; text-overflow: ellipsis; }
 .table--jobs td { overflow-wrap: break-word; }
 .table--jobs td .mono { overflow-wrap: normal; }
-.table .t-title { font-family: var(--doc); font-size: var(--t16); line-height: 1.4; color: var(--ink); }
+.table .t-title { font-family: var(--doc); font-size: var(--t20); line-height: 1.3; color: var(--ink); }
 .table .t-title a { color: inherit; text-decoration: none; }
 .table .t-title a:hover { text-decoration: underline; }
 .table .t-sub { font-size: var(--t13); color: var(--ink-2); margin-top: 3px; }
@@ -377,6 +378,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .table--queue .c-act   { width: 112px; }
 .table--queue .c-sel   { width: 44px; }
 .table--queue td { overflow-wrap: break-word; }
+.table--queue td.num { color: var(--ink); font-size: var(--t16); }
 .table--queue .t-sub.mono { overflow-wrap: anywhere; }
 .factors .evidence { font-family: var(--doc); font-size: var(--t14); color: var(--ink-2); max-width: var(--measure); }
 
@@ -481,8 +483,7 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 /* Portfolio only: frosted kelp. Queue, detail, and login stay solid. */
 .page--portfolio .tile,
 .page--portfolio .panel,
-.page--portfolio .table-wrap,
-.page--portfolio .foot {
+.page--portfolio .table-wrap {
   background: var(--glass);
   border: 1px solid var(--glass-line);
   box-shadow: var(--glass-shadow);
@@ -595,8 +596,7 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 @media (prefers-reduced-transparency: reduce) {
   .page--portfolio .tile,
   .page--portfolio .panel,
-  .page--portfolio .table-wrap,
-  .page--portfolio .foot {
+  .page--portfolio .table-wrap {
     background: var(--surface);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -606,15 +606,15 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 
 /* ── Footer ─────────────────────────────────────────────────────────────── */
 .foot {
-  font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp9);
-  background: var(--track); border-radius: var(--r-card);
-  padding: var(--sp7) var(--sp6); max-width: none; line-height: 1.6;
+  font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp8);
+  background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0;
+  padding: var(--sp5) 0 0; max-width: 62ch; line-height: 1.55;
 }
 .foot code { color: var(--ink); font-size: var(--t12); }
 
 /* ── Auth screens: one hairline card on the page ────────────────────────── */
 .auth { min-height: 100vh; display: grid; place-items: center; padding: var(--sp5); }
-.auth__card { width: 100%; max-width: 460px; background: var(--surface); border: 0; border-radius: var(--r-card); padding: var(--sp7); }
+.auth__card { width: 100%; max-width: 460px; background: var(--surface); border: 0; border-top: 2px solid var(--ink); border-radius: var(--r-card); padding: var(--sp7); }
 .auth__card .brand { margin-bottom: var(--sp6); }
 .auth h1 { font-size: 44px; line-height: 0.95; font-weight: var(--font-weight-medium); letter-spacing: -0.04em; }
 .auth h1 .hl { font-size: inherit; }

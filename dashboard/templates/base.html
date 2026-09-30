@@ -34,13 +34,8 @@
   {% block content %}{% endblock %}
 
   <p class="foot">
-    Read-only over Supabase except for the trigger queue. This tool can run
-    <code>discovered → extracted → scored → drafted</code> and nothing past it —
-    there is no submit action, by design (ADR 011). Scores come from
-    <code>intelligence/bid_scorer.py</code> v1.0.0; WIN PROBABILITY is a
-    heuristic, not a calibrated P(win) — see <code>docs/SCORING_MODEL.md</code>
-    and <code>docs/adr/010-calibrated-win-probability.md</code>.
-    {% if generated_at %}<br>Rendered {{ generated_at }}.{% endif %}
+    Stops at <code>drafted</code>. Nothing is sent to a client.
+    {% if generated_at %}Rendered {{ generated_at }}.{% endif %}
   </p>
 </main>
 
