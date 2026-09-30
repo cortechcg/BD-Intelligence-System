@@ -1,7 +1,7 @@
-/* Cortech BD dashboard — abyssal teal, 2026-09-23.
-   Near-black teal canvas, kelp cards, no shadows. Depth is a step in the
-   same green, not a lift off the page. Lavender phosphor is only the
-   signal that a person must act. The one gradient is the primary button.
+/* Cortech BD dashboard — warm paper desk, 2026-09-30.
+   Ivory page, white cards, ink type. Forest green is the work (BID,
+   done stages, the primary button). Copper is only the signal that a
+   person must act. The one gradient is the primary button.
    Outfit stands in for Matter: weight 400 and 500 only, tight tracking
    on display sizes, wide tracking on uppercase labels.
    Mapping and contrast: tests/test_dashboard_palette.py.
@@ -32,31 +32,31 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* ── Teal stack plus one pink signal. Charts still read --color-forest. */
-  --color-liquid-abyss: #012624;
-  --color-liquid-deep:  #011d1c;
-  --color-liquid-kelp:  #003734;
-  --color-liquid-mist:  #edfffe;
-  --color-platinum:     #ffffff;
-  --color-silver-mist:  #bbc7c6;
-  --color-slate-deep:   #707777;
-  --color-lavender-phosphor: #fde9ff;
-  --color-aqua:         #cbfffc;
-  --color-teal-mark:    #00827c;
-  --color-kelp-mid:     #7ee0d8;
-  --gradient-aurora: linear-gradient(90deg, #cbfffc 0%, #edfffe 26%, #fffdfa 48%, #fad1ff 89%);
+  /* ── Paper stack. Forest is the work. Copper is "a person must act". */
+  --color-liquid-abyss: #f3efe6;
+  --color-liquid-deep:  #e4ddd0;
+  --color-liquid-kelp:  #fffdf8;
+  --color-liquid-mist:  #c4b8a6;
+  --color-platinum:     #1c1916;
+  --color-silver-mist:  #5c564e;
+  --color-slate-deep:   #8a837a;
+  --color-lavender-phosphor: #8c2f12;
+  --color-aqua:         #0c2c28;
+  --color-teal-mark:    #1a564c;
+  --color-kelp-mid:     #2f7a68;
+  --gradient-aurora: linear-gradient(90deg, #0c2c28 0%, #1a564c 62%, #8c2f12 100%);
 
   --color-cream:      var(--color-liquid-abyss); /* name kept so older notes still resolve */
   --color-forest:     var(--color-aqua);         /* chart series and labels */
   --color-forest-mid: var(--color-teal-mark);
   --color-moss:       var(--color-silver-mist);
   --color-sage:       var(--color-slate-deep);   /* large missing figures only — 3.52:1 */
-  --color-hairline:   #1d4a46;
+  --color-hairline:   #d4cdc0;
   --color-track:      var(--color-liquid-deep);
   --color-brass:      var(--color-lavender-phosphor);
-  --ramp-1: var(--color-aqua); --ramp-2: var(--color-kelp-mid); --ramp-3: var(--color-teal-mark); --ramp-4: var(--color-liquid-kelp);
+  --ramp-1: #4e9a86; --ramp-2: var(--color-kelp-mid); --ramp-3: var(--color-teal-mark); --ramp-4: var(--color-aqua);
 
   --font-outfit: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-regular: 400; --font-weight-medium: 500;
@@ -69,8 +69,8 @@
   --ink-3:     var(--color-slate-deep);
   --line:      var(--color-hairline);
   --line-strong: var(--color-teal-mark);
-  --fill:      var(--color-aqua);           /* BID chip and marks; dark text on it */
-  --on-fill:   var(--color-liquid-abyss);
+  --fill:      var(--color-aqua);           /* BID chip and marks; light text on it */
+  --on-fill:   #f6f1e8;
   --accent:    var(--color-lavender-phosphor);
   --hover:     var(--color-track);
   --selected:  var(--color-track);
@@ -78,7 +78,7 @@
 
   /* Pipeline rail (docs §14.2): forest for done, mid forest for current, brass for the person */
   --stage-done:    var(--color-aqua);
-  --stage-current: var(--color-teal-mark);
+  --stage-current: var(--color-kelp-mid);
   --human:   var(--color-lavender-phosphor);
   --halt:    var(--color-lavender-phosphor);
   --track:   var(--color-track);
@@ -101,10 +101,10 @@
   --sp7: 48px; --sp8: 64px; --sp9: 96px;
 
   --r-card: 16px; --r-ctl: 6px; --r-pill: 6px; --r-mark: 2px;
-  /* Portfolio glass. Same teal, thinned so the page shows through. */
+  /* Portfolio glass. White cards, a soft ink shadow. */
   --glass: color-mix(in srgb, var(--color-liquid-kelp) 78%, transparent);
-  --glass-line: color-mix(in srgb, var(--color-aqua) 26%, transparent);
-  --glass-shadow: 0 8px 32px color-mix(in srgb, var(--color-liquid-abyss) 72%, transparent);
+  --glass-line: color-mix(in srgb, var(--color-platinum) 14%, transparent);
+  --glass-shadow: 0 8px 32px color-mix(in srgb, var(--color-platinum) 10%, transparent);
   --measure: 66ch;
   --page-max-width: 1440px;
 }
@@ -144,7 +144,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 }
 
 /* ── Masthead ───────────────────────────────────────────────────────────── */
-.masthead { border-bottom: 1px solid var(--line); background: transparent; }
+.masthead { border-bottom: 1px solid var(--line); background: var(--surface); }
 .masthead__in {
   max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--sp5);
   display: flex; align-items: center; gap: var(--sp6); min-height: 80px;

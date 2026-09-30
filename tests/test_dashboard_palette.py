@@ -1,8 +1,8 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Abyssal teal (2026-09-23): abyss page, kelp cards, deep tracks. Platinum
-headings, silver body. Lavender phosphor only where a person must act.
-Every text colour must clear WCAG AA (4.5:1) on the abyss, and every mark
+Warm paper desk (2026-09-30): ivory page, white cards, warm wells.
+Ink headings, forest for the work, copper only where a person must act.
+Every text colour must clear WCAG AA (4.5:1) on the page, and every mark
 must clear 3:1. The one gradient is the primary button.
 """
 from __future__ import annotations
@@ -80,10 +80,10 @@ def test_sage_is_display_figures_only():
 
 
 def test_teal_stack_has_no_shadows_and_one_button_gradient():
-    """Depth is abyss, then deep tracks, then kelp cards. No drop shadow."""
-    assert token("ground") == "#012624"
-    assert token("surface") == "#003734"
-    assert token("track") == "#011d1c"
+    """Depth is paper, then a warm well, then a white card. No drop shadow."""
+    assert token("ground") == "#f3efe6"
+    assert token("surface") == "#fffdf8"
+    assert token("track") == "#e4ddd0"
     assert token("surface") != token("ground")
     for selector, rule in rules():
         sel = selector.strip()
