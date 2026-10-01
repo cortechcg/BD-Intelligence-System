@@ -142,6 +142,39 @@ def test_drive_folder_and_html_extraction_obey_resource_caps(monkeypatch):
     assert len(downloader.extract_text_from_html("<p>abcdefghijklmnopqrstuvwxyz</p>")) == 10
 
 
+def test_drive_folder_listing_walks_a_nested_folder(monkeypatch):
+    """A share link that only contains another folder still yields the files."""
+    parent = (
+        '<div class="flip-entry" id="entry-CHILD">'
+        '<a href="https://drive.google.com/drive/folders/CHILD">'
+        '<div class="flip-entry-title">RFP pack</div></a></div>'
+    ) + ("x" * 250)
+    child = (
+        '<div class="flip-entry" id="entry-FILE1">'
+        '<a href="https://drive.google.com/file/d/FILE1/view">'
+        '<div class="flip-entry-title">ToR.docx</div></a></div>'
+    ) + ("x" * 250)
+
+    def fake(url):
+        if "id=CHILD" in url:
+            return child.encode()
+        return parent.encode()
+
+    monkeypatch.setattr(downloader, "download_document", fake)
+    assert downloader._list_gdrive_folder_files("PARENT") == [("FILE1", "ToR.docx")]
+
+
+def test_xlsx_is_not_parsed_as_a_word_file(monkeypatch):
+    monkeypatch.setattr(
+        downloader,
+        "extract_text_from_docx",
+        lambda _content: (_ for _ in ()).throw(AssertionError("xlsx must not go through docx")),
+    )
+    text, kind = downloader._extract_from_bytes(b"PK\x03\x04not-a-docx", "Annex A1.xlsx")
+    assert text == ""
+    assert kind == "xlsx"
+
+
 def test_docx_zip_expansion_is_bounded_before_python_docx_parses_it(monkeypatch):
     payload = BytesIO()
     with ZipFile(payload, "w") as archive:
