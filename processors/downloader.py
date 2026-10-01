@@ -345,6 +345,10 @@ def _extract_from_bytes(content: bytes, filename: str = "") -> tuple[str, str]:
     name = filename.lower()
     if content[:4] == b"%PDF" or name.endswith(".pdf"):
         return extract_text_from_pdf(content), "pdf"
+    # Bid workbooks are zip containers too. Sending them through the Word
+    # parser only logs a document error and adds no tender text.
+    if name.endswith((".xlsx", ".xls")):
+        return "", "xlsx"
     if content[:2] == b"PK" or name.endswith(".docx"):
         return extract_text_from_docx(content), "docx"
     try:
@@ -410,11 +414,11 @@ def _download_gdrive_file(file_id: str) -> bytes:
     )
 
 
-def _list_gdrive_folder_files(folder_id: str) -> list[tuple[str, str]]:
-    """
-    List files in a public Drive folder via the embed view.
-    Returns [(file_id, filename), ...] sorted so Annex I/II/III stay in order.
-    """
+# A shared link is often a folder that only holds the real pack one level down.
+_MAX_GDRIVE_FOLDER_DEPTH = 3
+
+
+def _drive_embed_html(folder_id: str) -> str:
     embed_url = f"https://drive.google.com/embeddedfolderview?id={folder_id}"
     html = ""
     try:
@@ -427,36 +431,111 @@ def _list_gdrive_folder_files(folder_id: str) -> list[tuple[str, str]]:
             f"https://drive.google.com/drive/folders/{folder_id}"
         )
         html = rendered or html
+    return html
 
+
+def _entries_from_drive_html(html: str) -> tuple[list[tuple[str, str]], list[str]]:
+    """Files as (id, name), plus child folder ids, from a public folder page."""
     files: list[tuple[str, str]] = []
-    seen: set[str] = set()
+    folders: list[str] = []
+    seen_files: set[str] = set()
+    seen_folders: set[str] = set()
 
+    for chunk in re.split(r'class="flip-entry"', html)[1:]:
+        id_match = re.search(r'id="entry-([a-zA-Z0-9_-]+)"', chunk)
+        if not id_match:
+            continue
+        entry_id = id_match.group(1)
+        href_match = re.search(r'href="([^"]+)"', chunk)
+        href = href_match.group(1) if href_match else ""
+        title_match = re.search(r'class="flip-entry-title">([^<]*)', chunk)
+        name = (title_match.group(1) if title_match else "").strip()
+        if "/folders/" in href:
+            if entry_id not in seen_folders:
+                seen_folders.add(entry_id)
+                folders.append(entry_id)
+            continue
+        if entry_id not in seen_files:
+            seen_files.add(entry_id)
+            files.append((entry_id, name or f"file_{entry_id[:8]}"))
+
+    if files or folders:
+        return files, folders
+
+    # Bare file anchors (older embed markup, and the unit-test fixture).
     for match in re.finditer(
         r"https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)/[^\"'\s]*\"[^>]*>([^<]+)",
         html,
     ):
         file_id, name = match.group(1), match.group(2).strip()
-        if file_id not in seen and name:
-            seen.add(file_id)
+        if file_id not in seen_files and name:
+            seen_files.add(file_id)
             files.append((file_id, name))
 
     if not files:
-        for match in re.finditer(
-            r"/file/d/([a-zA-Z0-9_-]+)",
-            html,
-        ):
+        for match in re.finditer(r"/file/d/([a-zA-Z0-9_-]+)", html):
             file_id = match.group(1)
-            if file_id not in seen:
-                seen.add(file_id)
+            if file_id not in seen_files:
+                seen_files.add(file_id)
                 files.append((file_id, f"file_{file_id[:8]}"))
+    return files, folders
 
-    files.sort(key=lambda item: item[1].lower())
-    if len(files) > MAX_GDRIVE_FILES:
+
+def _list_gdrive_folder_files(
+    folder_id: str,
+    *,
+    _depth: int = 0,
+    _seen_folders: set[str] | None = None,
+    _seen_files: set[str] | None = None,
+) -> list[tuple[str, str]]:
+    """
+    List files in a public Drive folder via the embed view.
+    Returns [(file_id, filename), ...] sorted so Annex I/II/III stay in order.
+    A folder that only contains another folder is walked, up to three levels.
+    """
+    if _seen_folders is None:
+        _seen_folders = set()
+    if _seen_files is None:
+        _seen_files = set()
+    if (
+        not folder_id
+        or folder_id in _seen_folders
+        or _depth > _MAX_GDRIVE_FOLDER_DEPTH
+    ):
+        return []
+    _seen_folders.add(folder_id)
+
+    files, child_folders = _entries_from_drive_html(_drive_embed_html(folder_id))
+    kept: list[tuple[str, str]] = []
+    for file_id, name in files:
+        if file_id in _seen_files:
+            continue
+        _seen_files.add(file_id)
+        kept.append((file_id, name))
+
+    for child_id in child_folders:
+        if len(kept) >= MAX_GDRIVE_FILES:
+            break
+        if _depth == 0:
+            logger.info("  Drive folder contains a subfolder — listing that too")
+        kept.extend(
+            _list_gdrive_folder_files(
+                child_id,
+                _depth=_depth + 1,
+                _seen_folders=_seen_folders,
+                _seen_files=_seen_files,
+            )
+        )
+
+    if _depth != 0:
+        return kept
+    kept.sort(key=lambda item: item[1].lower())
+    if len(kept) > MAX_GDRIVE_FILES:
         logger.warning(
-            f"Drive folder has {len(files)} files; limiting this opportunity to "
+            f"Drive folder has {len(kept)} files; limiting this opportunity to "
             f"the first {MAX_GDRIVE_FILES}"
         )
-    return files[:MAX_GDRIVE_FILES]
+    return kept[:MAX_GDRIVE_FILES]
 
 
 def fetch_gdrive_and_extract(url: str) -> str:
