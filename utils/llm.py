@@ -7,7 +7,7 @@ import json
 import re
 from typing import Any
 
-from config import get_qwen_client
+from config import get_anthropic_client
 
 
 def system_text(system: Any) -> str | None:
@@ -39,43 +39,6 @@ def system_text(system: Any) -> str | None:
     return str(system) or None
 
 
-def _openai_content(content: Any) -> str:
-    """Flatten Anthropic text blocks into one chat string."""
-    if content is None:
-        return ""
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for block in content:
-            if isinstance(block, str):
-                if block:
-                    parts.append(block)
-            elif isinstance(block, dict):
-                text = block.get("text") or ""
-                if text:
-                    parts.append(text)
-            else:
-                text = getattr(block, "text", "") or ""
-                if text:
-                    parts.append(text)
-        return "\n\n".join(parts)
-    return str(content)
-
-
-def _openai_messages(messages: list[dict], system: Any) -> list[dict]:
-    out: list[dict] = []
-    system_s = system_text(system)
-    if system_s:
-        out.append({"role": "system", "content": system_s})
-    for msg in messages or []:
-        out.append({
-            "role": msg.get("role") or "user",
-            "content": _openai_content(msg.get("content")),
-        })
-    return out
-
-
 def complete(
     model: str,
     messages: list[dict],
@@ -85,7 +48,7 @@ def complete(
     max_retries: int | None = None,
     stage: str = "",
 ):
-    """One Qwen chat call with provider-bound usage recording.
+    """One Claude chat call with provider-bound usage recording.
 
     Recording here is the lowest reliable common boundary: every chat
     request, including retries/continuations, is counted exactly once from the
@@ -96,12 +59,15 @@ def complete(
     from utils.observability import assert_under_spend_cap, record_usage
 
     assert_under_spend_cap()
-    client = get_qwen_client(timeout=timeout, max_retries=max_retries)
-    response = client.chat.completions.create(
-        model=model,
-        max_tokens=max_tokens,
-        messages=_openai_messages(messages, system),
-    )
+    client = get_anthropic_client(timeout=timeout, max_retries=max_retries)
+    kwargs = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+    if system is not None:
+        kwargs["system"] = system
+    response = client.messages.create(**kwargs)
     record_usage(response, model, stage=stage)
     return response
 
