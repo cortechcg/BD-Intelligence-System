@@ -266,24 +266,24 @@ TABLES = {
 # ── CHAT MODELS ───────────────────────────────────────────────
 # Two constants — never hardcode model IDs at call sites.
 # Names stay CLAUDE_MODEL so existing call sites do not change.
-CLAUDE_MODEL = "Qwen-Ambassador/Qwen3.7-Plus"          # analysis, extraction, ToR reading
-CLAUDE_MODEL_PROPOSAL = "Qwen-Ambassador/Qwen3.8-Max"  # proposal / EOI writing
+# Haiku 5.5 is not on the Claude API yet; analysis uses Haiku 4.5.
+CLAUDE_MODEL = "claude-haiku-4-5"            # analysis, extraction, scoring, ToR reading
+CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5-5"  # proposal / EOI writing
 CLAUDE_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
-# Qwen3.7 Plus is the US under-256k rate. Qwen3.8 Max uses the higher
-# published band so the spend cap does not undercount.
+# Haiku 4.5 is $1 / $5. Sonnet 5.5 is $2 / $10.
 CLAUDE_PRICING_PER_MTOK = {
-    CLAUDE_MODEL: {"input": 0.40, "output": 1.60},
-    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 6.00},
+    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
+    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 10.00},
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes
 # are fail-open. IMAP/Gmail are optional source/channel credentials.
 # OPENAI_API_KEY remains required for embeddings (text-embedding-3-small).
 REQUIRED_ENV_VARS = (
-    "QWEN_API_KEY",
+    "ANTHROPIC_API_KEY",
     "OPENAI_API_KEY",
     "SUPABASE_URL",
     "SUPABASE_SERVICE_KEY",
@@ -294,8 +294,8 @@ def validate_required_env() -> list[str]:
     """Return names of missing required vars. Raises SystemExit if any missing
     when called from main's entry point."""
     missing = []
-    if not get_qwen_api_key():
-        missing.append("QWEN_API_KEY")
+    if not get_anthropic_api_key():
+        missing.append("ANTHROPIC_API_KEY")
     if not OPENAI_API_KEY:
         missing.append("OPENAI_API_KEY")
     if not SUPABASE_URL:
