@@ -1,9 +1,8 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Warm paper desk (2026-09-30): ivory page, white cards, warm wells.
-Ink headings, forest for the work, copper only where a person must act.
-Every text colour must clear WCAG AA (4.5:1) on the page, and every mark
-must clear 3:1. The one gradient is the primary button.
+Cool glass desk: a deep field, frosted panels, mint for the work, ice only
+where a person must act. Every text colour must clear WCAG AA (4.5:1) on the
+page, and every mark must clear 3:1. The one gradient is the primary button.
 """
 from __future__ import annotations
 
@@ -79,16 +78,20 @@ def test_sage_is_display_figures_only():
             assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", "aria-disabled")), f"sage as text: {sel[:70]}"
 
 
-def test_teal_stack_has_no_shadows_and_one_button_gradient():
-    """Depth is paper, then a warm well, then a white card. No drop shadow."""
-    assert token("ground") == "#f3efe6"
-    assert token("surface") == "#fffdf8"
-    assert token("track") == "#e4ddd0"
+def test_glass_desk_is_cool_and_the_button_is_the_only_gradient():
+    """Depth is a dark field, then a frosted panel. One light button gradient."""
+    assert token("ground") == "#0b1018"
+    assert token("surface") == "#16202c"
+    assert token("track") == "#1c2838"
     assert token("surface") != token("ground")
+    shadow_ok = (
+        "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
+        ".band", ".notice", ".empty", ".disclosure", ".sidenav", ".stageboard",
+    )
     for selector, rule in rules():
         sel = selector.strip()
         if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
-            assert "page--portfolio" in sel, f"shadow: {sel[:70]}"
+            assert any(k in sel for k in shadow_ok), f"shadow: {sel[:70]}"
         assert "gradient(" not in rule, f"gradient in {sel[:70]}"
     assert "background: var(--gradient-aurora)" in BODY
     assert ".panel--hero { border-top: 0; }" in BODY
@@ -104,7 +107,7 @@ def test_two_fills_only():
                 continue
             assert any(k in sel for k in (
                 ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",
-                "bar__fill", "mix__seg", "legend__swatch",
+                "bar__fill", "mix__seg", "legend__swatch", ".orb",
             )), f"fill {tok} on {sel[:70]}"
 
 
@@ -112,7 +115,7 @@ def test_brass_means_a_person_must_act_and_nothing_else():
     for selector, rule in rules():
         sel = selector.strip()
         if re.search(r"background(-color)?:\s*var\(--(accent|human|halt|st-halt|color-brass)\)", rule):
-            assert any(k in sel for k in ("rail__seg", "meter__fill", "state--", "::before")), f"brass fill outside marks: {sel[:70]}"
+            assert any(k in sel for k in ("rail__seg", "meter__fill", "state--", "::before", ".orb")), f"brass fill outside marks: {sel[:70]}"
         for m in re.finditer(r"(?<![-\w])color:\s*var\(--([\w-]+)\)", rule):
             if m.group(1) in ("accent", "human", "halt", "color-brass", "st-halt"):
                 assert "attention" in sel, f"brass used as text outside an attention signal: {sel[:70]}"
