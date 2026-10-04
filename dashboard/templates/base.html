@@ -8,19 +8,29 @@
 <link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
 </head>
 <body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
+<div class="atmosphere" aria-hidden="true">
+  <span class="orb orb--a"></span>
+  <span class="orb orb--b"></span>
+  <span class="orb orb--c"></span>
+</div>
 <p class="drift" aria-hidden="true">Cortech</p>
 <p class="drift drift--two" aria-hidden="true">BD</p>
 
+<div class="shell">
+<aside class="sidenav">
+  <a class="brand" href="{{ url_queue }}" aria-label="Cortech BD, queue">
+    <span class="brand__mark" aria-hidden="true"></span>
+    <span class="brand__name">Cortech <span>BD</span></span>
+  </a>
+  <nav class="nav" aria-label="views">
+    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>Queue</a>
+    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>Portfolio</a>
+  </nav>
+</aside>
+
+<div class="shell__main">
 <header class="masthead">
   <div class="masthead__in">
-    <a class="brand" href="{{ url_queue }}" aria-label="Cortech BD, queue">
-      <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand__name">Cortech <span>BD</span></span>
-    </a>
-    <nav class="nav" aria-label="views">
-      <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>Queue</a>
-      <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>Portfolio</a>
-    </nav>
     {% if viewer %}
     <div class="who">
       <span class="email">{{ viewer }}</span>
@@ -38,6 +48,8 @@
     {% if generated_at %}Rendered {{ generated_at }}.{% endif %}
   </p>
 </main>
+</div>
+</div>
 
 {% if notify and job %}
 <script>
