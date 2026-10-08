@@ -211,7 +211,11 @@ def configure_logging() -> None:
 
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Optional[float]:
-    """ESTIMATED USD from config.CLAUDE_PRICING_PER_MTOK. None if unknown."""
+    """ESTIMATED USD from config.CLAUDE_PRICING_PER_MTOK. None if unknown.
+
+    A row may set long_prompt_tokens. Prompts over that count use input_long
+    and output_long. Haiku 5.5 does this at 100,000 prompt tokens.
+    """
     from config import CLAUDE_PRICING_PER_MTOK
 
     prices = CLAUDE_PRICING_PER_MTOK.get(model)
@@ -219,6 +223,10 @@ def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> Opti
         return None
     inp = prices.get("input")
     out = prices.get("output")
+    threshold = prices.get("long_prompt_tokens")
+    if threshold is not None and input_tokens > threshold:
+        inp = prices.get("input_long", inp)
+        out = prices.get("output_long", out)
     if inp is None or out is None:
         return None
     return (input_tokens / 1_000_000) * inp + (output_tokens / 1_000_000) * out

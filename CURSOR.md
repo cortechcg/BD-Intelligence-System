@@ -10,7 +10,7 @@ Nothing submits to clients automatically — human approval required.
 ## Tech stack
 - Python 3.12 + virtualenv at ~/cortech-bd-agent/cortech/
 - Supabase (supabase-py + pgvector) = consultants, rate cards, agent logs, opportunity status, CV vectors, document cache
-- Claude = chat (Haiku 4.5 analysis and scoring, Sonnet 5.5 proposals)
+- Claude = chat (Haiku 5.5 for analysis, scoring, technical proposals, and EOIs)
 - OpenAI API = embeddings only (text-embedding-3-small, 1536-dim)
 - Gmail SMTP = email reports
 
@@ -81,8 +81,8 @@ The LLM is_consultancy_contract gate does the real quality filtering.
 Do NOT make the RSS filter strict — it kills real opportunities.
 
 ## Models
-CLAUDE_MODEL = "claude-haiku-4-5"            # analysis + extraction + scoring + ToR reading
-CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5-5"  # proposal writing
+CLAUDE_MODEL = "claude-haiku-5-5"            # analysis + extraction + scoring + ToR reading
+CLAUDE_MODEL_PROPOSAL = "claude-haiku-5-5"  # technical proposals and EOIs
 Both in config.py — never hardcode model strings in other files.
 Embeddings: text-embedding-3-small (unchanged).
 
