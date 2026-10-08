@@ -2,9 +2,13 @@ import asyncio
 import os
 
 from monitors.scraper import (
+    html_is_usable,
+    is_interstitial_html,
     listings_from_json,
+    listings_from_ungm_html,
     parse_tenders_from_html,
     scrape_one_source,
+    somali_listing_token,
     SCRAPE_SOURCES,
 )
 
@@ -35,6 +39,36 @@ def test_parse_tenders_extracts_somalijobs_links():
     assert "/tenders/" in items[0]["source_url"]
 
 
+def test_somali_card_uses_the_heading_and_reads_the_listing_token():
+    source = _source("Somali Jobs Tenders")
+    assert source["listing_url"].endswith("/tenders/fetch/")
+    assert source["needs_browser"] is False
+    html = """
+    <a class="jobs-listing-container" href="/tenders/baidoa/1/school-rehabilitation">
+      <h2 class="jobs-listing-title">Invitation to tender for school rehabilitation in Baidoa</h2>
+      <p>Trocaire Yesterday</p>
+    </a>
+    <script>var api_token = "listing-token"</script>
+    """
+    items = parse_tenders_from_html(html, source)
+    assert len(items) == 1
+    assert items[0]["title"] == "Invitation to tender for school rehabilitation in Baidoa"
+    assert "Yesterday" not in items[0]["title"]
+    assert somali_listing_token(html) == "listing-token"
+
+
+def test_cloudflare_interstitial_is_not_a_tender_page():
+    challenge = (
+        "<html><head><title>Just a moment...</title></head><body>"
+        + ("x" * 6000)
+        + "</body></html>"
+    )
+    real = "<html><body>" + ("procurement notice " * 400) + "</body></html>"
+    assert is_interstitial_html(challenge) is True
+    assert html_is_usable(challenge) is False
+    assert html_is_usable(real) is True
+
+
 def test_parse_save_the_children_uses_the_card_title():
     html = """
     <div class="three_col-listing-card">
@@ -55,7 +89,11 @@ def test_parse_afdb_document_links():
     </div>
     <a href="/en/documents/board-documents">Board documents</a>
     """
-    items = parse_tenders_from_html(html, _source("African Development Bank procurement"))
+    source = _source("African Development Bank procurement")
+    assert source["needs_browser"] is True
+    assert any("request-for-expression-of-interest" in url for url in source["page_urls"])
+    assert "projects-and-operations/procurement" not in source["url"]
+    items = parse_tenders_from_html(html, source)
     assert len(items) == 1
     assert "Kenya" in items[0]["title"]
     assert "/en/documents/eoi-kenya-wash-evaluation" in items[0]["source_url"]
@@ -91,15 +129,35 @@ def test_parse_undp_notice_rows():
     assert "view_notice.cfm?notice_id=42" in items[0]["source_url"]
 
 
-def test_parse_ungm_notice_links():
+def test_parse_ungm_notice_rows():
     html = """
+    <div role="row" data-noticeid="314510" class="tableRow dataRow notice-table">
+      <div class="tableCell">
+        <a href="javascript:void(0);">Save</a>
+      </div>
+      <div class="tableCell resultTitle">
+        <span class="ungm-title ungm-title--small">Evaluation of refugee livelihoods in Kenya</span>
+        <a href="/Public/Notice/314510"><title>Open in a new window</title></a>
+      </div>
+      <div class="tableCell">08-Oct-2026 03:00 (GMT -4.00)</div>
+      <div class="tableCell">21-Sep-2026</div>
+      <div class="tableCell">UNDP</div>
+      <div class="tableCell">Request for proposal</div>
+      <div class="tableCell">UNDP-KEN-001</div>
+      <div class="tableCell">Kenya</div>
+    </div>
     <a href="/Public/Notice">Procurement opportunities</a>
-    <a href="/Public/Notice/314510">Evaluation of refugee livelihoods in Kenya</a>
     """
-    items = parse_tenders_from_html(html, _source("UNGM procurement notices"))
+    source = _source("UNGM procurement notices")
+    assert source["search_url"].endswith("/Public/Notice/Search")
+    assert source["needs_browser"] is False
+    items = listings_from_ungm_html(html, source)
     assert len(items) == 1
-    assert "Kenya" in items[0]["title"]
+    assert items[0]["title"] == "Evaluation of refugee livelihoods in Kenya"
     assert items[0]["source_url"].endswith("/Public/Notice/314510")
+    assert "Kenya" in items[0]["summary"]
+    assert "Open in a new window" not in items[0]["title"]
+    assert "javascript" not in items[0]["source_url"]
 
 
 def test_worldbank_and_rfx_json_keep_title_and_link_only():
