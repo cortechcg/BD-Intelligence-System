@@ -31,6 +31,15 @@ HTTP_HEADERS = {
 }
 MIN_USEFUL_HTML_CHARS = 5000
 DEFAULT_TIMEOUT_MS = 45000
+# A Cloudflare interstitial is longer than MIN_USEFUL_HTML_CHARS. Length
+# alone must not make that page look like a tender list.
+_INTERSTITIAL_MARKERS = (
+    "just a moment",
+    "cf-browser-verification",
+    "challenge-platform",
+    "/cdn-cgi/challenge-platform",
+    "enable javascript and cookies to continue",
+)
 
 
 # ── SOURCE DEFINITIONS ────────────────────────────────────────────────────────
@@ -42,17 +51,18 @@ DEFAULT_TIMEOUT_MS = 45000
 
 SCRAPE_SOURCES = [
     {
+        # The tenders page is a shell. The rows arrive from a POST to
+        # /tenders/fetch/ that carries the page's api_token. One page,
+        # newest first. No browser.
         "name":              "Somali Jobs Tenders",
         "url":               "https://www.somalijobs.com/tenders",
-        "selector":          "a[href*='/tenders/']",
+        "listing_url":       "https://www.somalijobs.com/tenders/fetch/",
+        "selector":          "a.jobs-listing-container",
         "link_selector":     "a[href]",
-        "title_selector":    "a",
+        "title_selector":    "h2.jobs-listing-title",
         "base_url":          "https://www.somalijobs.com",
-        "needs_browser":     True,
-        "wait_for":          'a[href*="/tenders/"]',
+        "needs_browser":     False,
         "href_must_contain": "/tenders/",
-        "post_load_wait_ms": 8000,
-        "scroll_selector":   'a[href*="/tenders/"]',
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
     {
@@ -67,13 +77,22 @@ SCRAPE_SOURCES = [
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
     {
+        # The old procurement URL is a menu, and a plain fetch of it is a
+        # Cloudflare interstitial. These four pages are the notice lists.
         "name":              "African Development Bank procurement",
-        "url":               "https://www.afdb.org/en/projects-and-operations/procurement",
+        "url":               "https://www.afdb.org/en/documents/project-related-procurement/procurement-notices/request-for-expression-of-interest",
+        "page_urls": [
+            "https://www.afdb.org/en/documents/project-related-procurement/procurement-notices/request-for-expression-of-interest",
+            "https://www.afdb.org/en/documents/project-related-procurement/procurement-notices/specific-procurement-notices",
+            "https://www.afdb.org/en/documents/project-related-procurement/procurement-notices/general-procurement-notices",
+            "https://www.afdb.org/en/documents/project-related-procurement/procurement-notices/invitation-for-bids",
+        ],
         "selector":          "div.views-field-title a[href*='/en/documents/']",
         "link_selector":     "a[href]",
         "title_selector":    "a",
         "base_url":          "https://www.afdb.org",
-        "needs_browser":     False,
+        "needs_browser":     True,
+        "wait_for":          "div.views-field-title a[href*='/en/documents/']",
         "href_must_contain": "/en/documents/",
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
@@ -123,22 +142,45 @@ SCRAPE_SOURCES = [
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
     {
+        # The public table is empty until the page POSTs /Public/Notice/Search.
+        # Logged out. Express Interest is not this source's job.
         "name":              "UNGM procurement notices",
         "url":               "https://www.ungm.org/Public/Notice",
-        "selector":          "a[href*='/Public/Notice/']",
-        "link_selector":     "a[href]",
-        "title_selector":    "a",
+        "search_url":        "https://www.ungm.org/Public/Notice/Search",
         "base_url":          "https://www.ungm.org",
-        "needs_browser":     True,
-        "wait_for":          "a[href*='/Public/Notice/']",
-        "href_must_contain": "/Public/Notice/",
-        "post_load_wait_ms": 4000,
+        "needs_browser":     False,
         "timeout":           DEFAULT_TIMEOUT_MS,
     },
 ]
 
 
 # ── PAGE FETCHERS ─────────────────────────────────────────────────────────────
+
+def is_interstitial_html(html: str) -> bool:
+    """True for a bot-check page that is not the tender list."""
+    sample = (html or "")[:12000].lower()
+    return any(marker in sample for marker in _INTERSTITIAL_MARKERS)
+
+
+def html_is_usable(html: str) -> bool:
+    """Long enough to be a real page, and not a bot-check interstitial."""
+    return bool(html) and len(html) >= MIN_USEFUL_HTML_CHARS and not is_interstitial_html(html)
+
+
+def somali_listing_token(html: str) -> str:
+    """The token the Somali Jobs tenders page puts in api_token."""
+    soup = BeautifulSoup(html or "", "lxml")
+    for script in soup.select("script"):
+        raw = script.string or ""
+        marker = raw.find("api_token")
+        if marker < 0:
+            continue
+        q1 = raw.find('"', marker)
+        q2 = raw.find('"', q1 + 1) if q1 >= 0 else -1
+        if q2 > q1:
+            return raw[q1 + 1:q2].strip()
+    return ""
+
 
 async def fetch_with_httpx(url: str, timeout_ms: int) -> str | None:
     """Fast static fetch with the same per-hop SSRF policy as downloads."""
@@ -175,8 +217,14 @@ async def fetch_with_httpx(url: str, timeout_ms: int) -> str | None:
                         if len(body) > MAX_DOCUMENT_BYTES:
                             raise ValueError("Scraper page exceeds configured byte limit")
                     text = body.decode(response.encoding or "utf-8", errors="replace")
-                    if len(text) >= MIN_USEFUL_HTML_CHARS:
+                    if html_is_usable(text):
                         return text
+                    if is_interstitial_html(text):
+                        logger.warning(
+                            f"  httpx got an interstitial ({len(text)} chars), "
+                            f"not a tender list: {url}"
+                        )
+                        return None
                     logger.debug(
                         f"  httpx returned thin page ({response.status_code}, "
                         f"{len(text)} chars): {url}"
@@ -258,6 +306,11 @@ async def fetch_with_browser(
         if scroll_selector:
             await _scroll_to_load_all(page, scroll_selector)
         html = await page.content()
+        if is_interstitial_html(html):
+            logger.warning(
+                f"  browser got an interstitial, not a tender list: {url}"
+            )
+            return None
         if len(html) >= MIN_USEFUL_HTML_CHARS:
             return html
         logger.debug(
@@ -464,6 +517,126 @@ def listings_from_json(payload: dict, source: dict) -> list[dict]:
     return found
 
 
+def listings_from_ungm_html(html: str, source: dict) -> list[dict]:
+    """Rows from the public UNGM notice search.
+
+    The search returns the table body, not JSON. Each row is a notice.
+    Title, the public notice link, and a short summary (country, agency,
+    type) are kept. Save and Express Interest controls are ignored.
+    """
+    soup = BeautifulSoup(html or "", "lxml")
+    name = source.get("name", "")
+    base = (source.get("base_url") or "https://www.ungm.org").rstrip("/")
+    found: list[dict] = []
+    seen: set[str] = set()
+
+    for row in soup.select("div.dataRow"):
+        notice_id = str(row.get("data-noticeid") or "").strip()
+        if not notice_id.isdigit():
+            continue
+        title_el = row.select_one("span.ungm-title")
+        title = " ".join(title_el.get_text(" ", strip=True).split()) if title_el else ""
+        if len(title) < 10 or notice_id in seen:
+            continue
+        seen.add(notice_id)
+
+        cells = [
+            child for child in row.find_all("div", recursive=False)
+            if "tableCell" in (child.get("class") or [])
+        ]
+
+        def cell(index: int) -> str:
+            if index >= len(cells):
+                return ""
+            return " ".join(cells[index].get_text(" ", strip=True).split())
+
+        country = cell(7)
+        agency = cell(4)
+        notice_type = cell(5)
+        reference = cell(6)
+        url = f"{base}/Public/Notice/{notice_id}"
+        summary = " ".join(
+            part for part in (country, agency, notice_type, reference, title) if part
+        )[:400]
+        found.append({
+            "title": title,
+            "source_url": canonicalize_url(url) or url,
+            "summary": summary,
+            "source_portal": name,
+            "published": "",
+        })
+    return found
+
+
+def _ungm_search_body() -> dict:
+    """The same first page the public notice table requests. Active only."""
+    return {
+        "PageIndex": 0,
+        "PageSize": 15,
+        "Title": "",
+        "Description": "",
+        "Reference": "",
+        "PublishedFrom": "",
+        "PublishedTo": "",
+        "DeadlineFrom": "",
+        "DeadlineTo": "",
+        "Countries": [],
+        "Agencies": [],
+        "UNSPSCs": [],
+        "NoticeTypes": [],
+        "SortField": "Deadline",
+        "SortAscending": True,
+        "isPicker": False,
+        "IsSustainable": False,
+        "IsActive": True,
+        "NoticeDisplayType": None,
+        "NoticeSearchTotalLabelId": "noticeSearchTotal",
+        "TypeOfCompetitions": [],
+    }
+
+
+async def fetch_ungm_notices(timeout_ms: int) -> str | None:
+    """One page of public UNGM notices. No account, no Express Interest."""
+    page_url = "https://www.ungm.org/Public/Notice"
+    search_url = "https://www.ungm.org/Public/Notice/Search"
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=timeout_ms / 1000,
+            headers=HTTP_HEADERS,
+        ) as client:
+            assert_public_http_url(page_url, resolve=True)
+            page = await client.get(page_url)
+            if page.status_code >= 400:
+                logger.warning(f"  UNGM notice page returned {page.status_code}")
+                return None
+            token_el = BeautifulSoup(page.text, "lxml").select_one(
+                'input[name="__RequestVerificationToken"]'
+            )
+            token = (token_el.get("value") if token_el else "") or ""
+            if not token:
+                logger.warning("  UNGM notice page had no verification token")
+                return None
+            assert_public_http_url(search_url, resolve=True)
+            response = await client.post(
+                search_url,
+                json=_ungm_search_body(),
+                headers={
+                    "Accept": "text/html",
+                    "RequestVerificationToken": token,
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": page_url,
+                },
+            )
+            if response.status_code >= 400:
+                logger.warning(f"  UNGM notice search returned {response.status_code}")
+                return None
+            return response.text
+    except Exception as e:
+        logger.warning(f"  UNGM notice search failed (non-fatal): {e}")
+    return None
+
+
 async def fetch_json(url: str, timeout_ms: int) -> dict | None:
     """GET a public JSON list. Same redirect checks as the HTML fetch."""
     current_url = url
@@ -495,12 +668,101 @@ async def fetch_json(url: str, timeout_ms: int) -> dict | None:
 
 # ── MAIN ASYNC RUNNER ─────────────────────────────────────────────────────────
 
+_SOMALI_PAGE = "https://www.somalijobs.com/tenders"
+_SOMALI_LISTING = "https://www.somalijobs.com/tenders/fetch/"
+
+
+async def fetch_somali_tenders(timeout_ms: int) -> str | None:
+    """One page of Somali Jobs tenders. The public list is a POST, not the shell."""
+    try:
+        async with httpx.AsyncClient(
+            follow_redirects=False,
+            timeout=timeout_ms / 1000,
+            headers=HTTP_HEADERS,
+        ) as client:
+            assert_public_http_url(_SOMALI_PAGE, resolve=True)
+            page = await client.get(_SOMALI_PAGE)
+            if page.status_code >= 400:
+                logger.warning(f"  Somali Jobs tenders page returned {page.status_code}")
+                return None
+            token = somali_listing_token(page.text)
+            if not token:
+                logger.warning("  Somali Jobs tenders page had no listing token")
+                return None
+            assert_public_http_url(_SOMALI_LISTING, resolve=True)
+            response = None
+            for _attempt in range(2):
+                response = await client.post(
+                    _SOMALI_LISTING,
+                    data={
+                        "page": "1",
+                        "filter_locations": "[]",
+                        "filter_dateposted": "[]",
+                        "filter_search": "",
+                        "sortby": "newest",
+                    },
+                    headers={
+                        "Accept": "text/html",
+                        "CSRF-Token": token,
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Referer": _SOMALI_PAGE,
+                        "Origin": "https://www.somalijobs.com",
+                    },
+                )
+                text = response.text or ""
+                if response.status_code < 400 and "jobs-listing-container" in text:
+                    return text
+            status = response.status_code if response is not None else 0
+            logger.warning(
+                f"  Somali Jobs listing returned {status} without tender rows"
+            )
+    except Exception as e:
+        logger.warning(f"  Somali Jobs listing failed (non-fatal): {e}")
+    return None
+
+
 async def scrape_one_source(browser, source: dict) -> list[dict]:
     """Fetch, parse, dedupe, and filter a single scrape source."""
     name = source.get("name", "unknown")
     logger.info(f"  Scraping: {name}")
     try:
-        if source.get("json_url"):
+        if source.get("listing_url"):
+            html = await fetch_somali_tenders(source.get("timeout", DEFAULT_TIMEOUT_MS))
+            if not html:
+                logger.warning(f"  No Somali Jobs rows returned for {name} — skipping")
+                return []
+            raw_items = parse_tenders_from_html(html, source)
+        elif source.get("page_urls"):
+            raw_items = []
+            seen_urls: set[str] = set()
+            for page_url in source["page_urls"]:
+                html = await fetch_page_content(
+                    browser,
+                    page_url,
+                    source.get("wait_for"),
+                    source.get("timeout", DEFAULT_TIMEOUT_MS),
+                    needs_browser=source.get("needs_browser", False),
+                    post_load_wait_ms=source.get("post_load_wait_ms", 2000),
+                    scroll_selector=source.get("scroll_selector"),
+                )
+                if not html:
+                    logger.warning(f"  No HTML returned for {name} — skipping that page")
+                    continue
+                for item in parse_tenders_from_html(html, source):
+                    if item["source_url"] in seen_urls:
+                        continue
+                    seen_urls.add(item["source_url"])
+                    raw_items.append(item)
+            if not raw_items:
+                logger.warning(f"  No rows returned for {name} — skipping")
+                return []
+        elif source.get("search_url"):
+            html = await fetch_ungm_notices(source.get("timeout", DEFAULT_TIMEOUT_MS))
+            if not html:
+                logger.warning(f"  No UNGM rows returned for {name} — skipping")
+                return []
+            raw_items = listings_from_ungm_html(html, source)
+        elif source.get("json_url"):
             payload = await fetch_json(
                 source["json_url"],
                 source.get("timeout", DEFAULT_TIMEOUT_MS),

@@ -11,7 +11,7 @@ Entry points:
   python main.py               → continuous scheduler every CHECK_INTERVAL_HOURS
 
 Pipeline (runs for every opportunity that passes the three-gate filter):
-  1.  Discovery: Assortis newsletter + Somali Jobs scraper
+  1.  Discovery: portal scrapers (Somali Jobs, AfDB, UNGM, World Bank, and the rest) + Assortis newsletter. RSS is unused.
   2.  Document download and text extraction
   3.  LLM analysis → structured JSON + is_consultancy_contract gate
   4.  Airtable opportunity record creation
@@ -579,8 +579,8 @@ def _run_pipeline() -> None:
             except Exception:
                 pass
 
-    # ── SOURCE 2: SOMALI JOBS SCRAPER ──────────────────────────────────────
-    # https://www.somalijobs.com/tenders — Playwright for JS-rendered pages.
+    # ── SOURCE 2: PORTAL SCRAPERS ──────────────────────────────────────────
+    # Somali Jobs, AfDB, UNGM, World Bank, and the other lists in SCRAPE_SOURCES.
     logger.info("Running web scrapers...")
     try:
         scraped_results = scrape_non_rss_sources()
@@ -599,9 +599,8 @@ def _run_pipeline() -> None:
             pass
 
     # ── SOURCE 3: ASSORTIS / ICA DAILY NEWSLETTER (EMAIL) ──────────────────
-    # Only processes UNSEEN newsletter emails and marks them seen, so this
-    # is safe to run here AND on the dedicated 01:45 schedule — whichever
-    # runs first wins, the other finds nothing unread.
+    # Reads the newsletter without setting the Seen flag. Dedup is the
+    # opportunities ledger, so a second run the same day does not draft again.
     logger.info("Checking Assortis/ICA newsletter...")
     try:
         assortis_results = check_assortis_newsletter()

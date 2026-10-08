@@ -11,7 +11,7 @@ systemd timers (or python main.py --once)
    main.run_pipeline()          execution_id set here
         │
         ├─ RSS (httpx timeout + URL canonicalization)
-        ├─ Playwright scraper (Somali Jobs)
+        ├─ Portal scrapers (Somali Jobs listing, AfDB notice pages, UNGM, World Bank, UNDP, DRC, Save the Children)
         └─ IMAP Assortis newsletter
                 │
                 ▼

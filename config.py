@@ -402,9 +402,8 @@ COMPETITIVE STRENGTHS:
 6. Rapid mobilization capacity
 """
 
-# Discovery is limited to two sources:
-# Assortis (ICA newsletter via IMAP) and Somali Jobs (Playwright scraper).
 # RSS is unused — keep the list empty so monitor_rss_feeds() is a no-op.
+# Portal lists live in monitors/scraper.py. Assortis is the newsletter source.
 RSS_FEEDS = []
 
 URGENT_DEADLINE_DAYS = 3    # Flag as urgent if deadline in N days
