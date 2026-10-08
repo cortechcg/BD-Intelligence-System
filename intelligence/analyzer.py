@@ -1,6 +1,6 @@
 # intelligence/analyzer.py
 """
-RFP/ToR analysis via Claude Haiku 4.5.
+RFP/ToR analysis via Claude Haiku 5.5.
 One public function:
   analyze_rfp() → structured JSON from full document text
 """

@@ -104,7 +104,7 @@ Accounts needed, all free-tier-capable except where noted:
 
 | Service | Used for |
 |---|---|
-| [Anthropic](https://platform.claude.com) | Chat: Haiku 4.5 (analysis and scoring) + Sonnet 5.5 (proposals) |
+| [Anthropic](https://platform.claude.com) | Chat: Haiku 5.5 (analysis, scoring, technical proposals, and EOIs) |
 | [OpenAI Platform](https://platform.openai.com) | Embeddings only (`text-embedding-3-small`) |
 | [Supabase](https://supabase.com) | CRM, pgvector storage, semantic search |
 | Gmail account | Primary outgoing email (app password, not your real password) |

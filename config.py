@@ -266,17 +266,22 @@ TABLES = {
 # ── CHAT MODELS ───────────────────────────────────────────────
 # Two constants — never hardcode model IDs at call sites.
 # Names stay CLAUDE_MODEL so existing call sites do not change.
-# Haiku 5.5 is not on the Claude API yet; analysis uses Haiku 4.5.
-CLAUDE_MODEL = "claude-haiku-4-5"            # analysis, extraction, scoring, ToR reading
-CLAUDE_MODEL_PROPOSAL = "claude-sonnet-5-5"  # proposal / EOI writing
+# Both jobs use Haiku 5.5 (claude-haiku-5-5): analysis and drafts.
+CLAUDE_MODEL = "claude-haiku-5-5"            # analysis, extraction, scoring, ToR reading
+CLAUDE_MODEL_PROPOSAL = "claude-haiku-5-5"  # technical proposals and EOIs
 CLAUDE_MAX_TOKENS = 8192
 
 # ESTIMATED list prices (USD per million tokens). Used only for observability.
 # If a model is missing here, estimated_cost_usd is UNKNOWN — never invented.
-# Haiku 4.5 is $1 / $5. Sonnet 5.5 is $2 / $10.
+# Haiku 5.5: $0.10 / $0.50 up to 100k prompt tokens; $0.50 / $2.50 above that.
 CLAUDE_PRICING_PER_MTOK = {
-    CLAUDE_MODEL: {"input": 1.00, "output": 5.00},
-    CLAUDE_MODEL_PROPOSAL: {"input": 2.00, "output": 10.00},
+    "claude-haiku-5-5": {
+        "input": 0.10,
+        "output": 0.50,
+        "input_long": 0.50,
+        "output_long": 2.50,
+        "long_prompt_tokens": 100_000,
+    },
 }
 
 # Fail loud at process start. Airtable is intentionally omitted — CRM writes
