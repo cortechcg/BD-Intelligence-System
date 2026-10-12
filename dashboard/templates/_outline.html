@@ -52,7 +52,7 @@
     <div class="panel__in stack">
       <p class="label">Next</p>
       <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
-      <p class="doc">The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.</p>
+      <p class="doc">{% if d.has_draft %}This draft stays until you write again. Edit the chapters, or open another outline below. Nothing is sent to the client.{% else %}The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.{% endif %}</p>
       {% if opener %}
         {{ outline_form(opener, d.source_url, csrf_token, url_outline) }}
       {% else %}
