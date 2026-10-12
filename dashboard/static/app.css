@@ -498,6 +498,22 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   align-items: center;
 }
 .outline-row input { min-width: 0; font-size: var(--t13); }
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp3);
+  margin: 0 0 var(--sp5);
+  padding: 0;
+  list-style: none;
+}
+.steps__item {
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  padding: var(--sp4);
+  color: var(--ink);
+}
+.steps__item .label { display: block; margin-bottom: var(--sp2); }
 .choices { display: grid; gap: var(--sp3); }
 .choice {
   border: 1px solid var(--glass-line);
@@ -762,6 +778,7 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   .page--portfolio .stageboard--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .submit-row { flex-direction: column; align-items: stretch; }
   .outline-row { grid-template-columns: minmax(0, 1fr); }
+  .steps { grid-template-columns: 1fr; }
   .outline-row--head { display: none; }
 }
 

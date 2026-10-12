@@ -132,6 +132,11 @@
       var cur = document.querySelector("main.page");
       if (!next || !cur) throw new Error("no page");
       cur.replaceWith(document.importNode(next, true));
+      var nextCss = doc.querySelector('link[rel="stylesheet"]');
+      var curCss = document.querySelector('link[rel="stylesheet"]');
+      if (nextCss && curCss && nextCss.getAttribute("href") !== curCss.getAttribute("href")) {
+        curCss.href = nextCss.href;
+      }
       if (doc.body && doc.body.dataset.pollMs) {
         document.body.dataset.pollMs = doc.body.dataset.pollMs;
       }

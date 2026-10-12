@@ -408,6 +408,7 @@ def test_drafted_page_shows_the_human_gate_and_no_send_control(env):
     html = _render_detail(env, detail)
     assert "Nothing here is sent to the client" in html
     assert "Change the chapters" in html
+    assert html.find("Change the chapters") < html.find("WIN PROBABILITY")
     assert "Write the draft" in html
     assert "Mark reviewed" in html
     assert "Mark won" in html
@@ -431,6 +432,7 @@ def test_scored_opportunity_leads_with_the_outline(env):
     detail["accepted_outline"] = None
     html = _render_detail(env, detail)
     assert "Choose the chapters" in html
+    assert html.find("Choose the chapters") < html.find("WIN PROBABILITY")
     assert "Methodology" in html
     assert 'action="/opportunity/outline"' in html
     assert "Write the draft" in html

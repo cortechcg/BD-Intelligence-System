@@ -79,6 +79,16 @@ app.mount("/static", _FreshStatic(directory=str(HERE / "static")), name="static"
 templates = Jinja2Templates(directory=str(HERE / "templates"))
 
 
+@app.middleware("http")
+async def _dont_cache_pages(request: Request, call_next):
+    """Pages must not stick in the browser. A cached shell keeps the old desk
+    after a deploy, because the poll only replaces <main>."""
+    response = await call_next(request)
+    if "text/html" in response.headers.get("content-type", ""):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 PUBLIC_PATHS = {"/auth/login", "/auth/google", "/auth/callback", "/auth/denied", "/healthz"}
 
 #: The one description of what Cancel does. Rendered verbatim in the UI and
