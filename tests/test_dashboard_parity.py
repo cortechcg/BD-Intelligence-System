@@ -84,6 +84,7 @@ def stubbed_pipeline(monkeypatch, tmp_path):
     monkeypatch.setattr(main, "complete_opportunity_processing", lambda *a, **k: True)
     monkeypatch.setattr(main, "fail_opportunity_processing", lambda *a, **k: True)
     monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *a, **k: True)
+    monkeypatch.setattr(main, "release_scored_for_outline", lambda *a, **k: True)
     monkeypatch.setattr(
         main, "match_team_to_requirements",
         lambda *a, **k: {"matched_team": [], "capability_summary": "none"},
@@ -235,7 +236,9 @@ def test_dashboard_trigger_matches_cli_submit_url_exactly(stubbed_pipeline):
     assert outcome["result"]["recommendation"] == cli_result["recommendation"]
     assert outcome["result"]["score"] == cli_result["score"]
     assert outcome["result"]["client"] == cli_result["client"]
-    assert outcome["result"]["has_draft"] is True
+    assert outcome["result"]["has_draft"] is False
+    assert outcome["result"]["awaiting_outline"] is True
+    assert outcome["result"]["recommended_template"]
 
 
 def test_only_per_run_fields_differ_between_two_identical_runs(stubbed_pipeline):

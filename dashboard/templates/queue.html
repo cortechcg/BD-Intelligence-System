@@ -13,6 +13,8 @@
       <input type="hidden" name="source_url" value="{{ item.source_url }}">
       <button class="btn btn--sm" title="resumes from the last good checkpoint">Retry</button>
     </form>
+    {% elif item.stage.value == "scored" %}
+    <a class="btn btn--sm" href="{{ url_detail }}?url={{ item.source_url | urlencode }}">Choose outline</a>
     {% else %}
     <form method="post" action="{{ url_trigger_existing }}" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -20,7 +22,7 @@
       <button class="btn btn--sm{% if item.ui_state not in ('failed', 'spend_cap', 'cancelled') %} btn--quiet{% endif %}">
         {% if item.ui_state in ("failed", "spend_cap", "cancelled") %}Resume
         {%- elif item.stage.value in ("drafted", "reviewed", "outcome") %}Re-draft
-        {%- else %}Draft this{% endif %}
+        {%- else %}Score{% endif %}
       </button>
     </form>
     {% endif %}
@@ -118,22 +120,27 @@
       <div class="figure__label">Needs attention</div>
       <div class="figure__sub">halted runs</div>
     </a>
-    <a class="figure" href="#in-flight">
-      <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
-      <div class="figure__label">In flight</div>
-      <div class="figure__sub">claimed, not yet drafted</div>
+    <a class="figure figure--outline" href="#outline">
+      <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
+      <div class="figure__label">Choose outline</div>
+      <div class="figure__sub">scored, waiting on chapters</div>
     </a>
     <a class="figure figure--review" href="#drafted">
       <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
       <div class="figure__label">Awaiting review</div>
       <div class="figure__sub">reached drafted</div>
     </a>
-    <a class="figure" href="#skips">
+    <a class="figure figure--flight" href="#in-flight">
+      <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
+      <div class="figure__label">In flight</div>
+      <div class="figure__sub">reading or scoring</div>
+    </a>
+    <a class="figure figure--stopped" href="#skips">
       <div class="figure__value{% if not c.terminal_skip %} is-zero{% endif %}">{{ c.terminal_skip }}</div>
       <div class="figure__label">Stopped by design</div>
       <div class="figure__sub">gate or NO-BID before drafting</div>
     </a>
-    <a class="figure" href="#unclaimed">
+    <a class="figure figure--found" href="#unclaimed">
       <div class="figure__value">{{ c.cache_rows }}</div>
       <div class="figure__label">Discovered</div>
       <div class="figure__sub">{{ c.cache_without_ledger_shown }} newest unclaimed shown</div>
@@ -165,9 +172,9 @@
     <label class="sr-only" for="url">Tender URL</label>
     <div class="submit-row">
       <input type="url" id="url" name="url" required placeholder="https://… tender or ToR page" autocomplete="off" spellcheck="false">
-      <button class="btn" type="submit">Queue for processing</button>
+      <button class="btn" type="submit">Score this ToR</button>
     </div>
-    <p class="field__hint">One job on the worker. It stops at <strong>drafted</strong>. Nothing is sent.</p>
+    <p class="field__hint">Reads and scores the ToR, then waits for you to choose the chapters. Nothing is sent.</p>
   </form>
   {% else %}
   <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
@@ -219,6 +226,19 @@
   {% endif %}
 </section>
 
+<section class="section" id="outline" aria-labelledby="h-outline">
+  <div class="section__head">
+    <h2 id="h-outline">Choose an outline</h2>
+    <span class="section__count">{{ c.choose_outline }}</span>
+  </div>
+  <p class="section__sub">Scored and waiting. Open one, keep the recommended chapters or pick another outline, then write the draft.</p>
+  {% if queue.choose_outline %}
+    {{ opp_table(queue.choose_outline) }}
+  {% else %}
+    {{ m.empty("No outline is waiting", "After a score, the tender waits here until you choose its chapters.") }}
+  {% endif %}
+</section>
+
 <section class="section" id="in-flight" aria-labelledby="h-inflight">
   <div class="section__head">
     <h2 id="h-inflight">In flight</h2>
@@ -227,7 +247,7 @@
   {% if queue.in_flight %}
     {{ opp_table(queue.in_flight) }}
   {% else %}
-    {{ m.empty("No run in flight", "Queue a tender above, or draft one of the discovered rows below.") }}
+    {{ m.empty("Nothing is being read", "Queue a ToR above, or score one of the discovered rows below.") }}
   {% endif %}
 </section>
 
@@ -249,12 +269,12 @@
     <h2 id="h-unclaimed">Discovered, not yet run</h2>
     <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
   </div>
-  <p class="section__sub">Title and link only. Draft this starts the job.</p>
+  <p class="section__sub">Title and link only. Score starts the reading. The draft waits until you choose the chapters.</p>
   {% if queue.cache_only %}
     {% if triggering_enabled %}
     <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="btn btn--sm" type="submit" id="bulk-submit">Draft selected</button>
+      <button class="btn btn--sm" type="submit" id="bulk-submit">Score selected</button>
       <span class="small muted">Max {{ bulk_max }} per click.</span>
     </form>
     {% endif %}

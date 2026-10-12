@@ -311,6 +311,21 @@ def list_cache_without_ledger(limit: int = 50, scan: int = 2000) -> tuple[list[d
 HALTED_STATES = ("failed", "dead_letter", "spend_cap", "cancelled")
 
 
+def queue_bucket(item: dict) -> str:
+    """Which queue a ledger row belongs in. Scored work waits for an outline."""
+    stage = (item.get("stage") or {}).get("value")
+    state = item.get("ui_state")
+    if state in HALTED_STATES:
+        return "halted"
+    if stage == "drafted" or stage in HUMAN_STAGES:
+        return "drafted"
+    if state == "completed":
+        return "terminal_skip"
+    if stage == "scored" and state != "processing":
+        return "choose_outline"
+    return "in_flight"
+
+
 def queue_view(limit: int = 50) -> dict:
     """Backing data for the Trigger / Queue screen.
 
@@ -323,16 +338,17 @@ def queue_view(limit: int = 50) -> dict:
     """
     ledger = list_ledger_items()
 
-    halted, in_flight, terminal_skip, drafted = [], [], [], []
+    halted, in_flight, choose_outline, terminal_skip, drafted = [], [], [], [], []
     for item in ledger:
-        stage = item["stage"]["value"]
-        state = item["ui_state"]
-        if state in HALTED_STATES:
+        bucket = queue_bucket(item)
+        if bucket == "halted":
             halted.append(item)
-        elif stage == "drafted" or stage in HUMAN_STAGES:
+        elif bucket == "drafted":
             drafted.append(item)
-        elif state == "completed":
+        elif bucket == "terminal_skip":
             terminal_skip.append(item)
+        elif bucket == "choose_outline":
+            choose_outline.append(item)
         else:
             in_flight.append(item)
 
@@ -340,6 +356,7 @@ def queue_view(limit: int = 50) -> dict:
     return {
         "halted": halted,
         "in_flight": in_flight,
+        "choose_outline": choose_outline,
         "terminal_skip": terminal_skip,
         "drafted": drafted[:limit],
         "cache_only": undiscovered,
@@ -349,6 +366,7 @@ def queue_view(limit: int = 50) -> dict:
             "cache_without_ledger_shown": len(undiscovered),
             "halted": len(halted),
             "in_flight": len(in_flight),
+            "choose_outline": len(choose_outline),
             "terminal_skip": len(terminal_skip),
             "drafted": len(drafted),
         },
@@ -590,8 +608,33 @@ def opportunity_detail(source_url: str) -> dict | None:
             k for k, v in sections.items() if isinstance(v, str) and v.strip()
         ),
         "requirement_alignment": _requirement_alignment(analysis, sections),
+        "recommended_outline": _outline_or_none(cp.get("recommended_outline")),
+        "accepted_outline": _outline_or_none(cp.get("accepted_outline")),
+        "draft_templates": _draft_template_catalog(),
+        "awaiting_outline": _awaiting_outline(item, cp, sections),
     })
     return detail
+
+
+def _outline_or_none(value) -> dict | None:
+    if isinstance(value, dict) and isinstance(value.get("sections"), list) and value.get("sections"):
+        return value
+    return None
+
+
+def _draft_template_catalog() -> list:
+    from intelligence.draft_templates import catalog
+    return catalog()
+
+
+def _awaiting_outline(item: dict, checkpoint: dict, sections: dict) -> bool:
+    stage = item.get("stage") if isinstance(item.get("stage"), dict) else {}
+    if stage.get("value") != "scored":
+        return False
+    if sections:
+        return False
+    accepted = checkpoint.get("accepted_outline") if isinstance(checkpoint.get("accepted_outline"), dict) else {}
+    return not (isinstance(accepted.get("sections"), list) and accepted.get("sections"))
 
 
 def _requirement_alignment(analysis: dict, sections: dict) -> dict:

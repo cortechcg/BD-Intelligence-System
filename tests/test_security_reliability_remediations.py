@@ -78,6 +78,7 @@ def _pipeline_dependencies(monkeypatch):
     })
     monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "release_scored_for_outline", lambda *args, **kwargs: True)
     monkeypatch.setattr(
         main,
         "build_client_intelligence",
@@ -122,8 +123,9 @@ def test_analysis_failure_is_not_cached_or_marked_complete_and_is_retryable(monk
     monkeypatch.setattr(main, "analyze_rfp", lambda *args, **kwargs: _analysis())
     result = main.process_opportunity(source)
     assert result is not None
-    assert completed == [("https://procurement.example/tender", "claim-1")]
-    assert len(cached) == 1
+    assert result["awaiting_outline"] is True
+    assert completed == []
+    assert cached == []
 
 
 def test_content_hash_duplicate_skips_reanalysis_and_is_terminal(monkeypatch):

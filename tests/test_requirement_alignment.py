@@ -1,6 +1,11 @@
+import pytest
+
+from intelligence.proposal_writer import DraftingError
 from intelligence.requirement_alignment import (
     align_draft_to_requirements,
+    criteria_alignment_percent,
     fail_closed_requirement_alignment,
+    meets_evaluation_bar,
 )
 from reporting import email_report
 
@@ -264,3 +269,91 @@ def test_fifty_page_tor_is_not_cut_before_the_scoring_section():
     packed = pack_tender_text(text)
     assert "40 percent" in packed
     assert len(packed) == len(text.strip()) or "40 percent" in packed
+
+
+def test_alignment_score_uses_criterion_weights():
+    report = align_draft_to_requirements(_analysis(), _sections())
+    # 40% addressed, 30% missing → 40/70.
+    assert report["criteria_score_percent"] == 57.1
+    assert report["meets_criteria_bar"] is False
+    assert "Alignment score 57.1%" in report["headline"]
+
+    both = _sections()
+    both["methodology"] += (
+        " The firm offers nutrition survey experience in Gedo from a completed "
+        "assignment in that region."
+    )
+    passed = align_draft_to_requirements(_analysis(), both)
+    assert passed["criteria_score_percent"] == 100.0
+    assert meets_evaluation_bar(passed["criteria_score_percent"]) is True
+
+
+def test_partial_credit_is_half_the_weight():
+    sections = _sections()
+    sections["methodology"] = (
+        "The field team will work in Beletweyne on listing tasks. "
+        + ("Notes continue here. " * 20)
+    )
+    report = align_draft_to_requirements(_analysis(), sections)
+    # Only the 40% criterion is partial. 20/70.
+    assert report["criteria_score_percent"] == 28.6
+    assert criteria_alignment_percent(report["rows"]) == 28.6
+
+
+def test_equal_weights_when_any_criterion_has_no_weight():
+    rows = [
+        {"kind": "evaluation_criterion", "status": "addressed", "weight_percent": 40},
+        {"kind": "evaluation_criterion", "status": "addressed"},
+        {"kind": "evaluation_criterion", "status": "addressed", "weight_percent": 20},
+        {"kind": "evaluation_criterion", "status": "not_addressed", "weight_percent": 10},
+        {"kind": "evaluation_criterion", "status": "addressed", "weight_percent": 10},
+    ]
+    # One weight is missing, so each criterion counts once: 4/5 = 80.
+    assert criteria_alignment_percent(rows) == 80.0
+    assert meets_evaluation_bar(80.0) is True
+    assert meets_evaluation_bar(79.9) is False
+
+
+def test_draft_is_rewritten_until_criteria_alignment_clears_80(monkeypatch):
+    from intelligence import proposal_writer
+
+    sections = _sections()
+    calls = []
+
+    def rewrite(stage, model, tokens, blocks, prompt):
+        calls.append(stage)
+        return (
+            sections["methodology"]
+            + " The firm offers nutrition survey experience in Gedo from a "
+            "completed assignment in that region."
+        )
+
+    monkeypatch.setattr(proposal_writer, "_generate_section", rewrite)
+    raised = proposal_writer._raise_to_criteria_bar(sections, _analysis(), [])
+    assert calls == ["methodology_criteria_repair"]
+    report = align_draft_to_requirements(_analysis(), raised)
+    assert report["criteria_score_percent"] >= 80
+    assert report["meets_criteria_bar"] is True
+
+
+def test_draft_below_80_after_repair_is_not_returned(monkeypatch):
+    from intelligence import proposal_writer
+
+    monkeypatch.setattr(
+        proposal_writer,
+        "_generate_section",
+        lambda *args, **kwargs: "The team will continue the same field plan. " * 8,
+    )
+    with pytest.raises(DraftingError, match="80%"):
+        proposal_writer._raise_to_criteria_bar(_sections(), _analysis(), [])
+
+
+def test_missing_criteria_does_not_invent_a_passing_score():
+    from intelligence import proposal_writer
+
+    sections = {"methodology": "A complete methods chapter for this assignment. " * 12}
+    returned = proposal_writer._raise_to_criteria_bar(sections, {}, [])
+    assert returned["methodology"].startswith("A complete methods")
+    report = align_draft_to_requirements({}, returned)
+    assert report["criteria_score_percent"] is None
+    assert report["meets_criteria_bar"] is False

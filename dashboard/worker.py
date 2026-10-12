@@ -116,6 +116,12 @@ def _result_summary(result: dict | None, snapshot: dict) -> dict:
             "draft_path": result.get("_draft_path"),
         })
         summary["has_draft"] = bool(result.get("proposal_sections"))
+        summary["awaiting_outline"] = bool(result.get("awaiting_outline"))
+        outline = result.get("recommended_outline")
+        if isinstance(outline, dict) and outline.get("name"):
+            summary["recommended_template"] = outline.get("name")
+            if outline.get("submission_type"):
+                summary["outline_submission_type"] = outline.get("submission_type")
     return {k: v for k, v in summary.items() if v is not None}
 
 

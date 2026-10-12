@@ -146,22 +146,68 @@ def test_assert_usable_client_draft():
         assert_usable_client_draft(None)
 
 
-def test_run_pipeline_persists_extracted_then_scored_then_drafted():
+def test_run_pipeline_stops_after_score_with_a_recommended_outline():
     stages = []
+    drafts = []
 
     def persist(url, token, stage, checkpoint):
-        stages.append(stage)
+        stages.append((stage, checkpoint))
         assert checkpoint.get("full_text")
-        if stage in ("scored", "drafted"):
-            assert checkpoint.get("analysis")
         return True
+
+    def draft(*args, **kwargs):
+        drafts.append(kwargs.get("accepted_outline"))
+        return {"cover_letter": "A complete client-facing cover letter for review."}
 
     outcome = run_opportunity_pipeline(
         {"title": "Eval", "source_url": "https://example.test/eval"},
         claim_token="tok",
-        deps=_deps(persist_stage=persist),
+        deps=_deps(persist_stage=persist, draft_bid_or_watch_proposal=draft),
         snapshot=ProcessingSnapshot(resume_available=True),
     )
+    assert outcome.disposition == "awaiting_outline"
+    assert outcome.result["awaiting_outline"] is True
+    assert drafts == []
+    assert [stage for stage, _ in stages] == ["extracted", "scored", "scored"]
+    recommended = stages[-1][1]["recommended_outline"]
+    headings = [item["heading"] for item in recommended["sections"]]
+    assert "Methodology" in headings
+    assert recommended["submission_type"] == "FULL_PROPOSAL"
+    assert not stages[-1][1].get("accepted_outline", {}).get("sections")
+
+
+def test_accepted_outline_is_what_the_draft_stage_receives():
+    drafts = []
+    accepted = {
+        "id": "custom",
+        "name": "Custom",
+        "submission_type": "EOI",
+        "sections": [{"heading": "Letter of interest"}],
+    }
+
+    def draft(*args, **kwargs):
+        drafts.append(kwargs)
+        return {"cover_letter": "A complete client-facing cover letter for review."}
+
+    outcome = run_opportunity_pipeline(
+        {"title": "Eval", "source_url": "https://example.test/eval"},
+        claim_token="tok",
+        deps=_deps(draft_bid_or_watch_proposal=draft),
+        snapshot=ProcessingSnapshot(
+            pipeline_stage="scored",
+            resume_available=True,
+            checkpoint={
+                "full_text": "Terms of Reference " * 40,
+                "analysis": _analysis(),
+                "accepted_outline": accepted,
+                "recommended_outline": {
+                    "sections": [{"heading": "Methodology"}],
+                },
+                "title": "Eval",
+            },
+        ),
+    )
     assert outcome.disposition == "success"
-    assert stages == ["extracted", "scored", "drafted"]
+    assert drafts and drafts[0]["submission_type"] == "EOI"
+    assert drafts[0]["accepted_outline"]["sections"][0]["heading"] == "Letter of interest"
     assert outcome.result["proposal_sections"]["cover_letter"].startswith("A complete")

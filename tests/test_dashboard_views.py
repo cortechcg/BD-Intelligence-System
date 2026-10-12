@@ -64,15 +64,27 @@ def test_post_routes_are_limited_to_queueing():
         if hasattr(r, "methods") and "POST" in (r.methods or set())
     )
     assert posts == [
-        "/opportunity/outcome", "/opportunity/reviewed",
+        "/api/opportunity/outline",
+        "/opportunity/outcome", "/opportunity/outline", "/opportunity/reviewed",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
         "/trigger/rerun", "/trigger/retry", "/trigger/url",
     ]
     # Queue posts enqueue or cancel. Review posts record a person's decision.
-    # None calls the pipeline inline and none can act outward.
+    # The outline post stores chapters for a later draft. None calls the
+    # pipeline inline and none can act outward.
     src = inspect.getsource(app_module)
     assert "submit_single_url" not in src
     assert "process_opportunity" not in src
+
+
+def test_scored_rows_wait_for_an_outline_instead_of_looking_in_flight():
+    item = {"stage": {"value": "scored"}, "ui_state": "pending"}
+    assert queries.queue_bucket(item) == "choose_outline"
+    item["ui_state"] = "processing"
+    assert queries.queue_bucket(item) == "in_flight"
+    assert queries.queue_bucket({"stage": {"value": "extracted"}, "ui_state": "pending"}) == "in_flight"
+    assert queries.queue_bucket({"stage": {"value": "drafted"}, "ui_state": "pending"}) == "drafted"
+    assert queries.queue_bucket({"stage": {"value": "scored"}, "ui_state": "failed"}) == "halted"
 
 
 def test_pipeline_stages_the_dashboard_exposes_stop_at_drafted():
@@ -337,7 +349,8 @@ def _render_detail(env, detail):
         view="queue", viewer="t@cortechconsultinggroup.com", csrf_token="t",
         poll_ms=15000, static_base="/static", url_queue="/", url_portfolio="/p",
         url_detail="/o", url_logout="/l", url_trigger_url="/tu",
-        url_trigger_existing="/te", url_draft="/draft", generated_at="now",
+        url_trigger_existing="/te", url_draft="/draft", url_outline="/opportunity/outline",
+        generated_at="now",
         in_flight_urls=set(), triggering_enabled=True,
         triggering_disabled_reason="", flash="", flash_kind="",
     )
@@ -386,17 +399,42 @@ def test_calibrated_win_probability_is_shown_empty_never_hidden(env):
 
 
 def test_drafted_page_shows_the_human_gate_and_no_send_control(env):
+    from intelligence.draft_templates import catalog
+
     detail = _detail("completed", "", stage="drafted")
     detail["has_draft"] = True
     detail["section_keys"] = ["executive_summary", "methodology"]
+    detail["draft_templates"] = catalog()
     html = _render_detail(env, detail)
-    assert "needs human review before anything is sent" in html
+    assert "Nothing here is sent to the client" in html
+    assert "Change the chapters" in html
+    assert "Write the draft" in html
     assert "Mark reviewed" in html
     assert "Mark won" in html
     assert "Mark lost" in html
     assert "Download draft" in html
     for word in (">Send<", "Submit to", "Send to client"):
         assert word not in html
+
+
+def test_scored_opportunity_leads_with_the_outline(env):
+    from intelligence.draft_templates import catalog, recommend_outline
+
+    detail = _detail("pending", "")
+    detail["recommended_outline"] = recommend_outline({
+        "bid_analysis": {"submission_type": "FULL_PROPOSAL"},
+        "submission_requirements": {"prescribed_proposal_sections": [
+            {"heading": "Methodology", "page_limit": "8"},
+        ]},
+    })
+    detail["draft_templates"] = catalog()
+    detail["accepted_outline"] = None
+    html = _render_detail(env, detail)
+    assert "Choose the chapters" in html
+    assert "Methodology" in html
+    assert 'action="/opportunity/outline"' in html
+    assert "Write the draft" in html
+    assert "Score this ToR" not in html
 
 
 def test_portfolio_bars_are_html_and_survive_without_a_canvas(env):

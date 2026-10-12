@@ -20,6 +20,7 @@ from utils.money_scrub import (
 from utils.untrusted import wrap_untrusted
 from utils.prose import humanize_draft
 from utils.observability import ensure_opportunity_usage, opportunity_usage
+from intelligence.draft_templates import as_submission_outline, outline_is_accepted
 from intelligence.tender_reader import (
     build_format_compliance,
     build_tor_brief,
@@ -380,8 +381,15 @@ def _finalize_client_draft(
     sections: dict,
     analysis: dict | None,
     matched_team_result: dict | None,
+    system_blocks: list[dict] | None = None,
 ) -> dict:
-    """Ground claims, then prove the client-facing file has no financial information."""
+    """Ground claims, then prove the client-facing file has no financial information.
+
+    When the tender has evaluation criteria, the draft is rewritten until
+    the traced alignment is at least 80%, or drafting fails.
+    """
+    if system_blocks is not None:
+        sections = _raise_to_criteria_bar(sections, analysis, system_blocks)
     grounded = _attach_claim_grounding(sections, analysis, matched_team_result)
     _final_money_audit(grounded)
     try:
@@ -788,9 +796,11 @@ block — not writing a generic Cortech brochure or recycling another assignment
 2. If the documents prescribe headings, page limits, lots, forms, or annexes,
    follow them exactly. House structure is a fallback only when the documents
    prescribe nothing.
-3. Name THIS assignment's title, buyer, geography, lots or sites, target
-   groups, deliverables, and at least one scored or shortlisting criterion
-   the documents actually state.
+3. Every evaluation or shortlisting criterion must be answered in the
+   section that owns it, in the client's own words. A scored criterion
+   that never appears as a real answer in the draft is a lost mark.
+   Name THIS assignment's title, buyer, geography, lots or sites, target
+   groups, and deliverables.
 4. Past assignments and house-voice excerpts are evidence and register only.
    Do not import another ToR's method, geography, problem, or section list.
 5. If a sentence would still be true for a different buyer, rewrite it
@@ -1226,6 +1236,7 @@ def build_system_blocks(
     extra_context: str = "",
     submission_type: str = "FULL_PROPOSAL",
     matched_team_result: dict | None = None,
+    accepted_outline: dict | None = None,
 ) -> list[dict]:
     """
     Return trusted system guidance plus a separate untrusted tender payload.
@@ -1246,8 +1257,16 @@ def build_system_blocks(
         tor_text, analysis, doc_block=doc_block, submission_type=submission_type
     )
     document_lock = format_document_lock(lock)
-    submission_outline = plan_draft_outline(lock, analysis, submission_type)
-    if submission_outline.get("prescribed"):
+    if outline_is_accepted(accepted_outline):
+        submission_outline = as_submission_outline(accepted_outline)
+        names = ", ".join(
+            str(item.get("heading") or "")
+            for item in submission_outline.get("sections") or []
+        )
+        logger.info(f"  Drafting the outline the reviewer accepted: {names}")
+    else:
+        submission_outline = plan_draft_outline(lock, analysis, submission_type)
+    if submission_outline.get("prescribed") and not outline_is_accepted(accepted_outline):
         names = ", ".join(
             str(item.get("heading") or "")
             for item in submission_outline.get("sections") or []
@@ -1267,7 +1286,7 @@ def build_system_blocks(
                 "  Attachments/forms for the human, not drafted as chapters: "
                 + "; ".join(str(x) for x in extras[:8])
             )
-    else:
+    elif not outline_is_accepted(accepted_outline):
         logger.info("  No ToR-prescribed section list — using Cortech house structure")
     win_strategy = build_win_strategy(
         tor_text,
@@ -1797,6 +1816,175 @@ def _log_proposal_usage(
         pass
 
 
+_CRITERIA_REPAIR_ROUNDS = 2
+_CRITERIA_SECTION_ORDER = (
+    "methodology",
+    "approach_summary",
+    "technical_proposal_body",
+    "understanding",
+    "introduction_and_framework",
+    "executive_summary",
+    "relevant_experience",
+    "org_profile_and_track_record",
+    "firm_profile",
+    "team_section",
+    "key_experts",
+)
+
+
+def _criterion_terms(row: dict) -> list[str]:
+    from intelligence.requirement_alignment import _terms
+
+    label = str(row.get("label") or "")
+    name = re.sub(r"\s*\([^)]*%\)\s*$", "", label).strip() or str(row.get("text") or "")
+    strong, _weak = _terms(name)
+    return strong
+
+
+def _section_for_criterion(row: dict, sections: dict) -> str:
+    """The chapter that should carry this criterion. Prefer one already traced."""
+    current = str(row.get("section") or "")
+    if current and isinstance(sections.get(current), str) and sections[current].strip():
+        return current
+    terms = _criterion_terms(row)
+    headings = {}
+    order = sections.get("section_order")
+    if isinstance(order, list):
+        for item in order:
+            if isinstance(item, (list, tuple)) and len(item) >= 2:
+                headings[str(item[0])] = str(item[1] or item[0])
+    best_key = ""
+    best = 0
+    for key, value in sections.items():
+        if key in DRAFT_META_KEYS or not isinstance(value, str) or not value.strip():
+            continue
+        heading = f"{headings.get(key, '')} {key.replace('_', ' ')}".lower()
+        score = sum(1 for term in terms if term in heading)
+        if score > best:
+            best = score
+            best_key = key
+    if best_key:
+        return best_key
+    for key in _CRITERIA_SECTION_ORDER:
+        if isinstance(sections.get(key), str) and sections[key].strip():
+            return key
+    longest = ""
+    longest_words = 0
+    for key, value in sections.items():
+        if key in DRAFT_META_KEYS or not isinstance(value, str):
+            continue
+        words = len(value.split())
+        if words > longest_words:
+            longest = key
+            longest_words = words
+    return longest
+
+
+def _rewrite_section_for_criteria(
+    key: str,
+    current: str,
+    rows: list[dict],
+    analysis: dict,
+    system_blocks: list[dict],
+) -> str:
+    """Rewrite one chapter so each missed criterion is answered in the client's words."""
+    lines = []
+    for row in rows:
+        weight = row.get("weight_percent")
+        weight_note = f" ({weight:g}% of the score)" if isinstance(weight, (int, float)) and not isinstance(weight, bool) else ""
+        lines.append(
+            f"- {row.get('label') or row.get('text')}{weight_note}: "
+            f"{row.get('text') or row.get('label')}"
+        )
+    user_prompt = f"""Rewrite this proposal section so it answers the evaluation criteria below.
+
+Each criterion needs its own paragraph. Use the criterion's own name, not a
+paraphrase that drops its distinctive words. State how Cortech meets it on
+THIS assignment, with the geography, deliverables, and method the tender
+asks for. A keyword list is not an answer. Keep every accurate fact already
+in the section. Do not add prices, day rates, or a budget.
+
+CRITERIA THIS SECTION MUST NOW ANSWER:
+{chr(10).join(lines)}
+
+CURRENT SECTION:
+{current}
+
+{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}"""
+    return _generate_section(
+        f"{key}_criteria_repair",
+        CLAUDE_MODEL_PROPOSAL,
+        CLAUDE_MAX_TOKENS,
+        system_blocks,
+        user_prompt,
+    )
+
+
+def _raise_to_criteria_bar(
+    sections: dict,
+    analysis: dict | None,
+    system_blocks: list[dict],
+) -> dict:
+    """Rewrite until traced evaluation-criteria alignment is at least 80%.
+
+    No criteria in the analysis means the bar cannot be measured. That is
+    reported and the draft is not given a passing score.
+    """
+    from intelligence.requirement_alignment import (
+        EVALUATION_ALIGNMENT_BAR,
+        align_draft_to_requirements,
+        meets_evaluation_bar,
+    )
+
+    outline = sections.get("submission_outline") if isinstance(sections.get("submission_outline"), dict) else {}
+    report = align_draft_to_requirements(analysis, sections, outline=outline)
+    if not report.get("criteria_total"):
+        logger.info(
+            "  No evaluation criteria were extracted — an 80% alignment score "
+            "cannot be claimed"
+        )
+        return sections
+    percent = report.get("criteria_score_percent")
+    if meets_evaluation_bar(percent):
+        logger.info(
+            f"  Evaluation alignment {percent}% — at or above {EVALUATION_ALIGNMENT_BAR}%"
+        )
+        return sections
+    for round_index in range(1, _CRITERIA_REPAIR_ROUNDS + 1):
+        unmet = [
+            row for row in (report.get("rows") or [])
+            if row.get("kind") == "evaluation_criterion" and row.get("status") != "addressed"
+        ]
+        by_section: dict[str, list] = {}
+        for row in unmet:
+            key = _section_for_criterion(row, sections)
+            if key:
+                by_section.setdefault(key, []).append(row)
+        if not by_section:
+            break
+        logger.info(
+            f"  Evaluation alignment {percent}% — rewriting {len(by_section)} "
+            f"section(s), round {round_index}"
+        )
+        for key, rows in by_section.items():
+            sections[key] = _rewrite_section_for_criteria(
+                key, sections.get(key) or "", rows, analysis or {}, system_blocks
+            )
+        report = align_draft_to_requirements(analysis, sections, outline=outline)
+        percent = report.get("criteria_score_percent")
+        if meets_evaluation_bar(percent):
+            logger.info(
+                f"  Evaluation alignment {percent}% after repair "
+                f"(bar {EVALUATION_ALIGNMENT_BAR}%)"
+            )
+            return sections
+    missing = "; ".join(str(item) for item in (report.get("missing") or [])[:8]) or "see the criterion trace"
+    raise DraftingError(
+        f"draft alignment is {percent}% against the evaluation criteria; "
+        f"the bar is {EVALUATION_ALIGNMENT_BAR}%. Missing: {missing}"
+    )
+
+
 def _repair_weakest_section(
     sections: dict,
     analysis: dict,
@@ -2140,6 +2328,7 @@ def generate_eoi(
     matched_team_result: dict,
     opportunity_id: str = None,
     tor_text: str = "",
+    accepted_outline: dict | None = None,
 ) -> dict:
     """
     Submission-ready Expression of Interest aligned to REOI / shortlisting
@@ -2168,6 +2357,7 @@ def generate_eoi(
         extra_context,
         submission_type="EOI",
         matched_team_result=matched_team_result,
+        accepted_outline=accepted_outline,
     )
     outline = (_draft_meta(system_blocks).get("submission_outline") or {})
 
@@ -2210,7 +2400,7 @@ def generate_eoi(
         sections = _attach_draft_meta(sections, system_blocks)
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
         sections = _repair_weakest_section(sections, analysis, system_blocks)
-        sections = _finalize_client_draft(sections, analysis, matched_team_result)
+        sections = _finalize_client_draft(sections, analysis, matched_team_result, system_blocks)
         try:
             _log_proposal_usage(f"Generated EOI for: {title[:60]}", opportunity_id, usage_before)
         except Exception:
@@ -2413,7 +2603,7 @@ SECTIONS ALREADY DRAFTED:
     sections = _attach_draft_meta(sections, system_blocks)
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
     sections = _repair_weakest_section(sections, analysis, system_blocks)
-    sections = _finalize_client_draft(sections, analysis, matched_team_result)
+    sections = _finalize_client_draft(sections, analysis, matched_team_result, system_blocks)
 
     try:
             _log_proposal_usage(f"Generated EOI for: {title[:60]}", opportunity_id, usage_before)
@@ -2430,6 +2620,7 @@ def generate_proposal(
     budget: dict,
     opportunity_id: str = None,
     tor_text: str = "",
+    accepted_outline: dict | None = None,
 ) -> dict:
     """
     Generate a proposal draft routed by bid_recommendation:
@@ -2469,9 +2660,14 @@ def generate_proposal(
         extra_context,
         submission_type="FULL_PROPOSAL",
         matched_team_result=matched_team_result,
+        accepted_outline=accepted_outline,
     )
 
-    if recommendation == "WATCH" and not FULL_DRAFT_FOR_WATCH:
+    if (
+        recommendation == "WATCH"
+        and not FULL_DRAFT_FOR_WATCH
+        and not outline_is_accepted(accepted_outline)
+    ):
         logger.info("  WATCH + FULL_DRAFT_FOR_WATCH disabled — quick flag only")
         sections = {
             "cover_letter": generate_cover_letter(
@@ -2488,7 +2684,7 @@ def generate_proposal(
         sections = _attach_draft_meta(sections, system_blocks)
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
         sections = _repair_weakest_section(sections, analysis, system_blocks)
-        sections = _finalize_client_draft(sections, analysis, matched_team_result)
+        sections = _finalize_client_draft(sections, analysis, matched_team_result, system_blocks)
         try:
             _log_proposal_usage(
                 f"Generated WATCH quick-flag for: {title[:60]}", opportunity_id, usage_before
@@ -2525,7 +2721,7 @@ def generate_proposal(
         sections = _attach_draft_meta(sections, system_blocks)
         sections["quality_score"] = generate_quality_self_score(sections, analysis)
         sections = _repair_weakest_section(sections, analysis, system_blocks)
-        sections = _finalize_client_draft(sections, analysis, matched_team_result)
+        sections = _finalize_client_draft(sections, analysis, matched_team_result, system_blocks)
         try:
             _log_proposal_usage(
                 f"Generated full draft proposal for: {title[:60]}", opportunity_id, usage_before
@@ -2561,7 +2757,7 @@ def generate_proposal(
     sections = _attach_draft_meta(sections, system_blocks)
     sections["quality_score"] = generate_quality_self_score(sections, analysis)
     sections = _repair_weakest_section(sections, analysis, system_blocks)
-    sections = _finalize_client_draft(sections, analysis, matched_team_result)
+    sections = _finalize_client_draft(sections, analysis, matched_team_result, system_blocks)
 
     try:
         _log_proposal_usage(
@@ -2605,6 +2801,7 @@ def draft_bid_or_watch_proposal(
     opportunity_id: str | None = None,
     tor_text: str = "",
     submission_type: str = "FULL_PROPOSAL",
+    accepted_outline: dict | None = None,
 ) -> dict:
     """Stage service around EOI / full proposal. Empty output is an error."""
     try:
@@ -2614,6 +2811,7 @@ def draft_bid_or_watch_proposal(
                 matched_team_result,
                 opportunity_id=opportunity_id,
                 tor_text=tor_text,
+                accepted_outline=accepted_outline,
             )
         else:
             sections = generate_proposal(
@@ -2622,6 +2820,7 @@ def draft_bid_or_watch_proposal(
                 budget or {},
                 opportunity_id=opportunity_id,
                 tor_text=tor_text,
+                accepted_outline=accepted_outline,
             )
     except DraftingError:
         raise

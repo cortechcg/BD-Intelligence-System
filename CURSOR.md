@@ -57,12 +57,10 @@ check_schema.py            ← confirms Supabase CRM tables exist
 3. Claude analysis → structured JSON + deterministic score (extracted → scored)
 4. is_consultancy_contract gate — FALSE = save as NO-BID, return None
 5. Write CRM status on the processing row (BID/WATCH)
-6. CV matching via Supabase pgvector
-7. Budget calculation via the Supabase rate card
-8. Proposal/EOI draft via Claude Sonnet 5 (scored → drafted). Empty draft retries, then dead-letters.
-9. Set crm_status to Reviewing
-10. Send proposal email to full team
-Human only, from the dashboard: reviewed → outcome (Won/Lost). Crash mid-run resumes at the last persisted stage.
+6. Stop. Store a recommended outline (the ToR's chapters, or the house outline when the ToR lists none) and release the lease. Do not match CVs, price a budget, or draft.
+7. A person selects that recommendation or a house template (technical or EOI), may edit the headings, and saves it on this opportunity (`POST /api/opportunity/outline`). The catalog itself is unchanged.
+8. The next run matches CVs, calculates the budget, and drafts only the accepted outline (an EOI stays an EOI). The draft is kept only when traced alignment to the extracted evaluation criteria is at least 80% (addressed counts full, partial counts half, ToR weights used when every criterion has one). Below that, the writer rewrites the chapters that missed criteria. A draft that stays under 80% retries, then dead-letters. Then set crm_status to Reviewing and send the proposal email.
+Human only, from the dashboard: reviewed → outcome (Won/Lost). Crash mid-run resumes at the last persisted stage. A scored row with no accepted outline resumes by stopping again, not by drafting.
 Store in Supabase cache only after durable complete (dedup on source_url).
 
 ## is_consultancy_contract gate (CRITICAL)

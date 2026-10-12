@@ -16,6 +16,11 @@ from intelligence.tender_reader import estimated_pages, word_count
 
 STATUSES = ("addressed", "partially_addressed", "not_addressed")
 
+# Addressed counts in full. Partially addressed counts as half. The bar is
+# the share of evaluation-criterion weight the draft actually traces, not a
+# promise that a buyer's panel will award that mark.
+EVALUATION_ALIGNMENT_BAR = 80
+
 # Metadata stored beside the draft. Not client-facing sections.
 _SKIP_KEYS = {
     "submission_type",
@@ -505,6 +510,7 @@ def _report(rows: list[dict], error: str = "") -> dict:
             row["quote"] = ""
     criteria = [row for row in rows if row.get("kind") == "evaluation_criterion"]
     criteria_addressed = sum(1 for row in criteria if row.get("status") == "addressed")
+    criteria_score = criteria_alignment_percent(rows)
     missing = [
         row.get("label") or ""
         for row in criteria
@@ -525,6 +531,11 @@ def _report(rows: list[dict], error: str = "") -> dict:
             1 for row in criteria if row.get("status") == "partially_addressed"
         )
         headline += "."
+        if criteria_score is not None:
+            headline += (
+                f" Alignment score {criteria_score:g}% "
+                f"(bar {EVALUATION_ALIGNMENT_BAR}%)."
+            )
         if partial_criteria:
             headline += (
                 f" {partial_criteria} of {len(criteria)} are only partially addressed."
@@ -560,11 +571,53 @@ def _report(rows: list[dict], error: str = "") -> dict:
         "total": len(rows),
         "criteria_addressed": criteria_addressed,
         "criteria_total": len(criteria),
+        "criteria_score_percent": criteria_score,
+        "criteria_bar_percent": EVALUATION_ALIGNMENT_BAR,
+        "meets_criteria_bar": meets_evaluation_bar(criteria_score),
         "missing": [item for item in missing if item],
         "headline": headline,
         "method": "section_trace",
         "error": error,
     }
+
+
+def criteria_alignment_percent(rows: list[dict] | None) -> float | None:
+    """Weighted share of evaluation criteria the draft traces.
+
+    A criterion with no weight, or a set where any weight is missing, is
+    scored equally with the others. Addressed earns its full weight.
+    Partially addressed earns half. Not addressed earns nothing.
+    """
+    criteria = [
+        row for row in (rows or [])
+        if isinstance(row, dict) and row.get("kind") == "evaluation_criterion"
+    ]
+    if not criteria:
+        return None
+    weights: list[float] = []
+    for row in criteria:
+        weight = row.get("weight_percent")
+        if isinstance(weight, (int, float)) and not isinstance(weight, bool) and weight > 0:
+            weights.append(float(weight))
+        else:
+            weights.append(0.0)
+    if any(weight <= 0 for weight in weights):
+        weights = [1.0] * len(criteria)
+    total = sum(weights)
+    if total <= 0:
+        return None
+    earned = 0.0
+    for row, weight in zip(criteria, weights):
+        status = row.get("status")
+        if status == "addressed":
+            earned += weight
+        elif status == "partially_addressed":
+            earned += weight * 0.5
+    return round(100.0 * earned / total, 1)
+
+
+def meets_evaluation_bar(percent: float | None) -> bool:
+    return isinstance(percent, (int, float)) and not isinstance(percent, bool) and percent >= EVALUATION_ALIGNMENT_BAR
 
 
 def _draft_sections(sections: dict | None) -> list[tuple[str, str, str]]:
