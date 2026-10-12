@@ -157,6 +157,10 @@ def test_spend_cap_kill_leaves_hosted_row_resumable(monkeypatch, hosted_stage_co
         "matrix": [],
         "source_url": source_url,
         "dedup_url": canonicalize_url(source_url),
+        "accepted_outline": {
+            "submission_type": "FULL_PROPOSAL",
+            "sections": [{"heading": "Cover letter"}],
+        },
     }
     try:
         assert persist_opportunity_stage(source_url, token, "extracted", ckpt)

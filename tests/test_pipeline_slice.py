@@ -96,6 +96,7 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
     })
     monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "release_scored_for_outline", lambda *args, **kwargs: True)
     _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({
@@ -105,11 +106,12 @@ def test_process_opportunity_runs_verified_vertical_slice(monkeypatch):
     })
 
     assert result is not None
+    assert result["awaiting_outline"] is True
     assert result["recommendation"] == "BID"  # not the LLM's NO-BID audit value
-    assert result["budget"]["status"] == "INSUFFICIENT DATA"
-    assert stored[0][0] == "https://procurement.example/tender"
-    assert any(fields.get("status") == "Reviewing" for _, fields in updates)
-    assert any(row["requirement"].startswith("Financial") for row in result["compliance_matrix"])
+    assert result["recommended_outline"]["sections"]
+    assert not result.get("proposal_sections")
+    assert stored == []
+    assert not any(fields.get("status") == "Reviewing" for _, fields in updates)
 
 
 def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
@@ -137,6 +139,7 @@ def test_no_bid_is_recorded_for_human_review_not_as_final_status(monkeypatch):
     })
     monkeypatch.setattr(main, "persist_opportunity_stage", lambda *args, **kwargs: True)
     monkeypatch.setattr(main, "dead_letter_opportunity_processing", lambda *args, **kwargs: True)
+    monkeypatch.setattr(main, "release_scored_for_outline", lambda *args, **kwargs: True)
     _stub_client_intelligence(monkeypatch)
 
     result = main.process_opportunity({

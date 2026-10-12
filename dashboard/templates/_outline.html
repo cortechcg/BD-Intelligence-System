@@ -1,0 +1,81 @@
+{% macro chapter_rows(sections) %}
+  {% for section in sections %}
+  <div class="outline-row">
+    <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200">
+    <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="pages" maxlength="40" inputmode="numeric">
+    <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="optional" maxlength="400">
+  </div>
+  {% endfor %}
+  <div class="outline-row">
+    <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a chapter">
+    <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40" inputmode="numeric">
+    <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="optional" maxlength="400">
+  </div>
+{% endmacro %}
+
+{% macro outline_form(outline, source_url, csrf_token, url_outline) %}
+<form method="post" action="{{ url_outline }}" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="source_url" value="{{ source_url }}">
+  <input type="hidden" name="template_id" value="{{ outline.id }}">
+  <input type="hidden" name="submission_type" value="{{ outline.submission_type }}">
+  <input type="hidden" name="outline_name" value="{{ outline.name }}">
+  <div class="outline-head">
+    <span class="label">{{ outline.name }}</span>
+    <span class="small muted">{% if outline.submission_type == "EOI" %}Expression of interest{% else %}Technical proposal{% endif %}</span>
+  </div>
+  {% if outline.summary %}<p class="field__hint">{{ outline.summary }}</p>{% endif %}
+  <div class="outline-list">
+    <div class="outline-row outline-row--head">
+      <span class="label">Chapter</span>
+      <span class="label">Pages</span>
+      <span class="label">Must cover</span>
+    </div>
+    {{ chapter_rows(outline.sections or []) }}
+  </div>
+  <p class="field__hint">Clear a heading to drop that chapter. The blank row adds one.</p>
+  <div class="row">
+    <button class="btn" type="submit" name="intent" value="draft">Write the draft</button>
+    <button class="btn btn--quiet" type="submit" name="intent" value="save">Save outline</button>
+  </div>
+</form>
+{% endmacro %}
+
+{% macro studio(d, csrf_token, url_outline) %}
+{% set accepted = d.accepted_outline %}
+{% set recommended = d.recommended_outline %}
+{% set primary = accepted or recommended %}
+{% set templates = d.draft_templates or [] %}
+{% set opener = primary if primary and primary.sections else (templates[0] if templates else none) %}
+<section class="section section--first" aria-labelledby="h-outline">
+  <div class="panel panel--hero">
+    <div class="panel__in stack">
+      <p class="label">Next</p>
+      <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
+      <p class="doc">The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.</p>
+      {% if opener %}
+        {{ outline_form(opener, d.source_url, csrf_token, url_outline) }}
+      {% else %}
+        <p class="field__hint">No outline is available for this opportunity yet.</p>
+      {% endif %}
+      {% if templates %}
+      <div class="choices">
+        {% for template in templates %}
+          {% if not opener or template.id != opener.id %}
+          <details class="choice">
+            <summary>
+              <span class="choice__name">{{ template.name }}</span>
+              <span class="choice__sum">{{ template.summary }}</span>
+            </summary>
+            <div class="choice__body">
+              {{ outline_form(template, d.source_url, csrf_token, url_outline) }}
+            </div>
+          </details>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endmacro %}

@@ -132,6 +132,10 @@ def test_spend_cap_during_draft_leaves_scored_retryable(monkeypatch):
     row = ledger.rows["https://procurement.example/spend-cap"]
     assert row["pipeline_stage"] == "scored"
     assert row["state"] == "failed"
+    row["checkpoint"]["accepted_outline"] = {
+        "submission_type": "FULL_PROPOSAL",
+        "sections": [{"heading": "Cover letter"}],
+    }
 
     monkeypatch.setattr(main, "generate_proposal", draft_hits_cap)
     fetches = []

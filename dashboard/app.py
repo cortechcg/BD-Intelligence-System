@@ -30,6 +30,8 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 
 from dashboard import auth, queries, settings, triggers
+from database.supabase_client import save_accepted_outline
+from intelligence.draft_templates import catalog, resolve_outline
 from utils.urls import canonicalize_url
 
 HERE = Path(__file__).resolve().parent
@@ -163,6 +165,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_draft": "/draft",
         "url_mark_reviewed": "/opportunity/reviewed",
         "url_mark_outcome": "/opportunity/outcome",
+        "url_outline": "/opportunity/outline",
         "cancel_copy": CANCEL_COPY,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "flash": request.query_params.get("msg", ""),
@@ -632,6 +635,59 @@ def mark_reviewed(
     return _flash(back, "Could not record reviewed.", "stop")
 
 
+@app.post("/opportunity/outline")
+async def opportunity_outline(request: Request, session: dict = Depends(require_session)):
+    """Save the chapters for this opportunity. Optionally start the draft.
+
+    Edited headings win over the template id. This does not call a model
+    until intent is ``draft``, and then only by queueing the existing worker.
+    """
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    source_url = str(form.get("source_url") or "").strip()
+    back = f"/opportunity?url={quote(source_url, safe='')}" if source_url else "/"
+    if not source_url:
+        return _flash("/", "Missing the opportunity.", "stop")
+    detail = queries.opportunity_detail(source_url)
+    if detail is None:
+        return _flash("/", "No stored row for that opportunity.", "stop")
+
+    headings = [str(value) for value in form.getlist("heading")]
+    limits = [str(value) for value in form.getlist("page_limit")]
+    musts = [str(value) for value in form.getlist("must_include")]
+    sections = []
+    for index, heading in enumerate(headings):
+        if not heading.strip():
+            continue
+        raw_must = musts[index] if index < len(musts) else ""
+        sections.append({
+            "heading": heading,
+            "page_limit": limits[index] if index < len(limits) else "",
+            "must_include": [
+                part.strip()
+                for part in raw_must.replace(";", "\n").split("\n")
+                if part.strip()
+            ],
+        })
+    payload = {
+        "template_id": str(form.get("template_id") or "from_tor"),
+        "submission_type": str(form.get("submission_type") or ""),
+        "name": str(form.get("outline_name") or ""),
+    }
+    if sections:
+        payload["sections"] = sections
+    try:
+        outline = resolve_outline(payload, detail.get("recommended_outline"))
+    except ValueError as exc:
+        return _flash(back, str(exc), "stop")
+    ok, reason = save_accepted_outline(source_url, outline)
+    if not ok:
+        return _flash(back, reason, "stop")
+    if str(form.get("intent") or "") == "draft":
+        return _enqueue_one(source_url, triggers.DRAFT_EXISTING, session, back=back)
+    return _flash(back, "Outline saved. Write the draft when the chapters look right.")
+
+
 @app.post("/opportunity/outcome")
 def mark_outcome(
     request: Request,
@@ -669,6 +725,46 @@ def api_opportunity(url: str, session: dict = Depends(require_session)):
     if detail is None:
         raise HTTPException(status_code=404, detail="no stored row for that URL")
     return detail
+
+
+@app.get("/api/draft-templates")
+def api_draft_templates(session: dict = Depends(require_session)):
+    """House outlines. The per-ToR recommendation is on GET /api/opportunity."""
+    return {"templates": catalog()}
+
+
+@app.post("/api/opportunity/outline")
+async def api_save_outline(request: Request, session: dict = Depends(require_session)):
+    """Save the outline for one scored opportunity. Does not draft.
+
+    JSON body: source_url, csrf_token, and either template_id
+    (from_tor, house_technical, house_eoi) or sections
+    [{heading, page_limit, must_include}]. Optional submission_type
+    (FULL_PROPOSAL or EOI) and name. Edited sections replace the template.
+    The save belongs to this opportunity.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="expected a JSON object")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expected a JSON object")
+    _check_csrf(session, str(body.get("csrf_token") or ""))
+    source_url = str(body.get("source_url") or "").strip()
+    if not source_url:
+        raise HTTPException(status_code=400, detail="source_url is required")
+    detail = queries.opportunity_detail(source_url)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="no stored row for that URL")
+    try:
+        outline = resolve_outline(body, detail.get("recommended_outline"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    ok, reason = save_accepted_outline(source_url, outline)
+    if not ok:
+        status = 409 if "in progress" in reason else 400
+        raise HTTPException(status_code=status, detail=reason)
+    return {"ok": True, "accepted_outline": outline}
 
 
 @app.get("/api/job/{trigger_id}")

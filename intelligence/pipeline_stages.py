@@ -2,8 +2,9 @@
 
 Lease ownership stays in ``opportunity_processing.state``. Progress uses
 ``pipeline_stage``: discovered → extracted → scored → drafted → reviewed →
-outcome. ``reviewed`` / ``outcome`` are human/Airtable transitions, not
-autonomous submit.
+outcome. Scoring stores a recommended outline and stops. Drafting runs only
+after a person accepts an outline on the checkpoint. ``reviewed`` / ``outcome``
+are human/Airtable transitions, not autonomous submit.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from loguru import logger
 from rich.console import Console
 
 from intelligence.bid_scorer import apply_bid_intelligence
+from intelligence.draft_templates import outline_is_accepted, recommend_outline
 from intelligence.budget_calculator import calculate_budget
 from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import match_team_to_requirements
@@ -85,7 +87,7 @@ class ProcessingSnapshot:
 @dataclass
 class PipelineOutcome:
     result: dict | None = None
-    disposition: str = "retryable"  # success | terminal | retryable | dead_letter
+    disposition: str = "retryable"  # success | awaiting_outline | terminal | retryable | dead_letter
     error: str = ""
     increment_draft_fail: bool = False
 
@@ -105,6 +107,7 @@ class StageDeps:
     save_draft_memory: Callable = save_draft_memory
     build_client_intelligence: Callable = build_client_intelligence
     persist_stage: Callable | None = None
+    release_for_outline: Callable = lambda *args, **kwargs: True
     log_stage: Callable = log_stage
 
 
@@ -135,6 +138,8 @@ class OpportunityContext:
     proposal_sections: dict = field(default_factory=dict)
     matrix: list = field(default_factory=list)
     submission_type: str = "FULL_PROPOSAL"
+    recommended_outline: dict = field(default_factory=dict)
+    accepted_outline: dict = field(default_factory=dict)
 
     def to_checkpoint(self) -> dict:
         return {
@@ -155,6 +160,8 @@ class OpportunityContext:
             "submission_type": self.submission_type,
             "source_url": self.source_url,
             "dedup_url": self.dedup_url,
+            "recommended_outline": self.recommended_outline,
+            "accepted_outline": self.accepted_outline,
         }
 
     def apply_checkpoint(self, checkpoint: dict | None) -> None:
@@ -190,6 +197,10 @@ class OpportunityContext:
             self.matrix = data["matrix"]
         if data.get("submission_type"):
             self.submission_type = str(data["submission_type"])
+        if isinstance(data.get("recommended_outline"), dict):
+            self.recommended_outline = data["recommended_outline"]
+        if isinstance(data.get("accepted_outline"), dict):
+            self.accepted_outline = data["accepted_outline"]
 
     def _refresh_from_analysis(self) -> None:
         analysis = self.analysis if isinstance(self.analysis, dict) else {}
@@ -233,6 +244,9 @@ class OpportunityContext:
             "llm_usage": usage,
             "estimated_cost_usd": est_cost,
             "_cache_text": self.full_text,
+            "awaiting_outline": False,
+            "recommended_outline": self.recommended_outline,
+            "accepted_outline": self.accepted_outline,
         }
 
 
@@ -274,6 +288,13 @@ def _persist(deps: StageDeps, source_url: str, claim_token: str, stage: str, ctx
     if not persist or not claim_token:
         return
     persist(source_url, claim_token, stage, ctx.to_checkpoint())
+
+
+def _ensure_recommended_outline(ctx: OpportunityContext) -> None:
+    """Fill the recommendation from the scored analysis. Keep one already stored."""
+    if outline_is_accepted(ctx.recommended_outline):
+        return
+    ctx.recommended_outline = recommend_outline(ctx.analysis)
 
 
 def run_extract_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityContext:
@@ -520,6 +541,14 @@ def run_draft_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
     ctx.submission_type = (ctx.analysis.get("bid_analysis") or {}).get(
         "submission_type"
     ) or "FULL_PROPOSAL"
+    # The accepted outline decides technical proposal vs EOI. The score's
+    # guess must not grow an EOI into a full method, or the reverse.
+    chosen = str((ctx.accepted_outline or {}).get("submission_type") or "")
+    if chosen in ("EOI", "FULL_PROPOSAL"):
+        ctx.submission_type = chosen
+        bid = ctx.analysis.get("bid_analysis")
+        if isinstance(bid, dict):
+            bid["submission_type"] = chosen
 
     logger.info("  Step 4: Preparing internal budget for team review...")
     project_locations = ctx.opportunity.get("project_location") or []
@@ -557,6 +586,7 @@ def run_draft_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
             opportunity_id=ctx.opp_id,
             tor_text=ctx.full_text,
             submission_type=ctx.submission_type,
+            accepted_outline=ctx.accepted_outline,
         )
         ctx.proposal_sections = assert_usable_client_draft(ctx.proposal_sections)
     except SpendCapError:
@@ -665,13 +695,22 @@ def run_opportunity_pipeline(
                 ctx = run_extract_stage(ctx, deps)
                 _persist(deps, ctx.dedup_url, claim_token, "extracted", ctx)
             ctx = run_score_stage(ctx, deps)
+            _ensure_recommended_outline(ctx)
             _persist(deps, ctx.dedup_url, claim_token, "scored", ctx)
             stage = "scored"
 
         if stage == "scored":
             if not ctx.analysis:
                 ctx = run_score_stage(ctx, deps)
+            _ensure_recommended_outline(ctx)
+            if not outline_is_accepted(ctx.accepted_outline):
                 _persist(deps, ctx.dedup_url, claim_token, "scored", ctx)
+                if claim_token:
+                    deps.release_for_outline(ctx.dedup_url, claim_token)
+                result = ctx.to_result()
+                result["awaiting_outline"] = True
+                result.pop("_cache_text", None)
+                return PipelineOutcome(result=result, disposition="awaiting_outline")
             ctx = run_draft_stage(ctx, deps)
             _persist(deps, ctx.dedup_url, claim_token, "drafted", ctx)
             return PipelineOutcome(result=ctx.to_result(), disposition="success")

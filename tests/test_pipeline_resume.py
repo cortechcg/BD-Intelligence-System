@@ -162,6 +162,7 @@ def _wire_ledger(monkeypatch, ledger: MemoryLedger):
     monkeypatch.setattr(main, "complete_opportunity_processing", ledger.complete)
     monkeypatch.setattr(main, "fail_opportunity_processing", ledger.fail)
     monkeypatch.setattr(main, "dead_letter_opportunity_processing", ledger.dead_letter)
+    monkeypatch.setattr(main, "release_scored_for_outline", lambda *a, **k: True)
     monkeypatch.setattr(main, "store_opportunity", lambda *a, **k: "cache")
     monkeypatch.setattr(main, "find_opportunity_by_content_hash", lambda *a, **k: None)
     monkeypatch.setattr(
@@ -184,8 +185,16 @@ def _wire_ledger(monkeypatch, ledger: MemoryLedger):
     monkeypatch.setattr(main, "build_compliance_matrix", lambda *a, **k: [])
 
 
-def test_kill_mid_run_after_scored_resumes_at_draft_not_from_scratch(monkeypatch):
-    """Simulate a crash between scored and drafted; the next claim resumes."""
+_ACCEPTED = {
+    "id": "custom",
+    "name": "Custom",
+    "submission_type": "FULL_PROPOSAL",
+    "sections": [{"heading": "Cover letter"}],
+}
+
+
+def test_kill_mid_run_after_scored_waits_for_an_outline_then_drafts(monkeypatch):
+    """A crash after scoring keeps the checkpoint. Drafting waits for an outline."""
     ledger = MemoryLedger()
     ledger.kill_after_stage = "scored"
     fetches = []
@@ -225,12 +234,21 @@ def test_kill_mid_run_after_scored_resumes_at_draft_not_from_scratch(monkeypatch
     assert analyses == [1]
     assert drafts == []
 
+    paused = main.process_opportunity(source)
+    assert paused is not None
+    assert paused.get("awaiting_outline") is True
+    assert drafts == []
+    assert fetches == [1], "resume must not re-fetch"
+    assert analyses == [1], "resume must not re-analyze"
+    row = ledger.rows["https://procurement.example/resume-me"]
+    row["checkpoint"]["accepted_outline"] = dict(_ACCEPTED)
+
     result = main.process_opportunity(source)
     assert result is not None
     assert result["proposal_sections"]["cover_letter"].startswith("Resumed")
     assert fetches == [1], "resume must not re-fetch"
     assert analyses == [1], "resume must not re-analyze"
-    assert drafts == [1], "resume starts at draft"
+    assert drafts == [1], "draft starts only after an outline is accepted"
     assert ledger.rows["https://procurement.example/resume-me"]["state"] == "completed"
     assert ledger.rows["https://procurement.example/resume-me"]["pipeline_stage"] == "drafted"
 
@@ -244,6 +262,10 @@ def test_drafting_failure_is_retryable_then_dead_lettered(monkeypatch):
         "title": "Somalia MEL",
         "source_url": "https://procurement.example/empty-draft",
     }
+    paused = main.process_opportunity(source)
+    assert paused is not None and paused.get("awaiting_outline") is True
+    row = ledger.rows["https://procurement.example/empty-draft"]
+    row["checkpoint"]["accepted_outline"] = dict(_ACCEPTED)
     for _ in range(MAX_DRAFT_FAILURES - 1):
         assert main.process_opportunity(source) is None
         row = ledger.rows["https://procurement.example/empty-draft"]

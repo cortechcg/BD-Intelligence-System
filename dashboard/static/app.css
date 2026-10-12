@@ -192,6 +192,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 .view-head__meta { font-size: var(--t14); color: var(--ink-2); display: flex; gap: var(--sp2) var(--sp5); flex-wrap: wrap; align-items: center; }
 
 .section { margin-top: var(--sp9); }
+.section--first { margin-top: var(--sp5); }
 .section--tight { margin-top: var(--sp7); }
 .section__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp4); margin-bottom: var(--sp5); }
 .section__head h2 { font-size: var(--t24); line-height: 1.2; }
@@ -217,15 +218,16 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
   display: grid;
   grid-template-columns: 1.15fr 1fr 1fr;
   grid-template-areas:
-    "attention flight found"
-    "review stopped found";
+    "attention outline review"
+    "flight stopped found";
   padding: var(--sp6); gap: var(--sp5);
 }
 .strip__figures .figure--attention { grid-area: attention; }
-.strip__figures .figure:nth-child(2) { grid-area: flight; }
+.strip__figures .figure--outline { grid-area: outline; }
 .strip__figures .figure--review { grid-area: review; }
-.strip__figures .figure:nth-child(4) { grid-area: stopped; }
-.strip__figures .figure:nth-child(5) { grid-area: found; }
+.strip__figures .figure--flight { grid-area: flight; }
+.strip__figures .figure--stopped { grid-area: stopped; }
+.strip__figures .figure--found { grid-area: found; }
 .strip__meter { padding: var(--sp7) var(--sp6); border-left: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; gap: var(--sp4); }
 .strip__meter .meter__head { flex-direction: column; align-items: flex-start; gap: var(--sp1); }
 
@@ -238,10 +240,9 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 .figure__label { color: var(--ink); margin-top: var(--sp4); min-height: 2.8em; }
 .figure__sub { font-size: var(--t13); color: var(--ink-2); margin-top: var(--sp1); }
 a.figure:hover .figure__label { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
-/* The two buckets that mean "a person must act" lead the card: full display
-   size and brass, one treatment for one meaning. The three context counts sit
-   at half that size, so the most actionable number reads first however many
-   digits the others happen to have. */
+/* The two buckets that mean "a person must act now" lead the card: full
+   display size and brass, one treatment for one meaning. The other counts
+   sit at half that size. */}
 .figure--attention .figure__value, .figure--review .figure__value { font-size: var(--t56); letter-spacing: -0.02em; }
 .figure--attention .figure__value:not(.is-zero),
 .figure--review .figure__value:not(.is-zero) { color: var(--accent); font-weight: var(--font-weight-medium); }
@@ -485,6 +486,36 @@ form.inline { margin: 0; display: inline; }
 form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
 .toolbar { display: flex; align-items: center; gap: var(--sp3); }
 .toolbar--stack { margin-bottom: var(--sp3); }
+
+/* Outline studio: the decision that sits between the score and the draft. */
+.panel__in > h2 { font-size: var(--t24); line-height: 1.2; font-weight: var(--font-weight-medium); }
+.outline-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp3); }
+.outline-list { display: flex; flex-direction: column; gap: var(--sp2); }
+.outline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 96px minmax(0, 1.2fr);
+  gap: var(--sp2);
+  align-items: center;
+}
+.outline-row input { min-width: 0; font-size: var(--t13); }
+.choices { display: grid; gap: var(--sp3); }
+.choice {
+  border: 1px solid var(--glass-line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+.choice summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp2);
+  padding: var(--sp4);
+}
+.choice summary::-webkit-details-marker { display: none; }
+.choice__name { color: var(--ink); font-weight: var(--font-weight-medium); }
+.choice__sum { color: var(--ink-2); font-size: var(--t13); }
+.choice__body { padding: 0 var(--sp4) var(--sp4); border-top: 1px solid var(--line); }
 
 .iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--r-pill); color: var(--ink); text-decoration: none; font-size: var(--t13); border: 1px solid var(--line-strong); }
 .iconbtn:hover { border-color: var(--ink); }
@@ -730,6 +761,8 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   .page--portfolio .stageboard,
   .page--portfolio .stageboard--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .submit-row { flex-direction: column; align-items: stretch; }
+  .outline-row { grid-template-columns: minmax(0, 1fr); }
+  .outline-row--head { display: none; }
 }
 
 .panel__in h3 { font-size: var(--t16); }

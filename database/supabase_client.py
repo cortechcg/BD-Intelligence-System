@@ -1,5 +1,5 @@
 # database/supabase_client.py
-from datetime import datetime
+from datetime import datetime, timezone
 
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_SERVICE_KEY, CLAUDE_MODEL, env_file_save_hint, get_openai_api_key
@@ -691,6 +691,106 @@ def persist_opportunity_stage(
             f"{canonical[:80]}: {e}"
         )
         return False
+
+
+def release_scored_for_outline(source_url: str, claim_token: str) -> bool:
+    """Drop the lease after scoring so a person can choose an outline.
+
+    pipeline_stage stays scored. state becomes pending so the next draft can
+    claim the same checkpoint. This is not a failure and not a completion.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical or not claim_token:
+        return False
+    try:
+        result = (
+            supabase.table("opportunity_processing")
+            .update({
+                "state": "pending",
+                "lease_until": None,
+                "last_error": None,
+                "claim_token": "",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("source_url", canonical)
+            .eq("claim_token", claim_token)
+            .eq("state", "processing")
+            .execute()
+        )
+        return bool(result.data)
+    except Exception as e:
+        logger.warning(f"Could not release scored opportunity for an outline: {e}")
+        return False
+
+
+_DRAFT_CHECKPOINT_KEYS = (
+    "matched_team_result",
+    "budget",
+    "proposal_sections",
+    "matrix",
+)
+
+
+def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
+    """Store the outline for this opportunity. Does not call a model.
+
+    Refused while a worker holds the lease. A later draft resumes from scored
+    and writes only this outline. A previous draft on the row is cleared so
+    the next run does not return the old text.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False, "missing url"
+    if not isinstance(outline, dict) or not outline.get("sections"):
+        return False, "outline has no sections"
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state, pipeline_stage, checkpoint")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load opportunity for outline save: {e}")
+        return False, "could not load the opportunity"
+    rows = loaded.data or []
+    if not rows:
+        return False, "score this opportunity before choosing an outline"
+    row = rows[0]
+    if row.get("state") == "processing":
+        return False, "a run is in progress — wait until scoring finishes"
+    checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+    if not isinstance(checkpoint.get("analysis"), dict) or not checkpoint.get("analysis"):
+        return False, "score this opportunity before choosing an outline"
+    checkpoint = dict(checkpoint)
+    checkpoint["accepted_outline"] = outline
+    for key in _DRAFT_CHECKPOINT_KEYS:
+        checkpoint.pop(key, None)
+    try:
+        updated = (
+            supabase.table("opportunity_processing")
+            .update({
+                "checkpoint": checkpoint,
+                "pipeline_stage": "scored",
+                "state": "pending",
+                "lease_until": None,
+                "claim_token": "",
+                "completed_at": None,
+                "last_error": None,
+                "draft_fail_count": 0,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("source_url", canonical)
+            .neq("state", "processing")
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not save the accepted outline: {e}")
+        return False, "could not save the outline"
+    if not updated.data:
+        return False, "could not save the outline"
+    return True, "saved"
 
 
 def dead_letter_opportunity_processing(

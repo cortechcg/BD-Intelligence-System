@@ -82,6 +82,7 @@ from database.supabase_client import (
     opportunity_ledger_available,
     persist_opportunity_stage,
     record_discovered_opportunity,
+    release_scored_for_outline,
     store_opportunity,
 )
 from database.airtable_client import (
@@ -258,6 +259,12 @@ def process_opportunity(
         _pipeline_error.reset(err_token)
         _pipeline_increment_draft.reset(draft_token)
 
+    if outcome == "awaiting_outline" and result:
+        # Scored and waiting for a person to accept an outline. The lease is
+        # already released. Completing the ledger here would block the draft.
+        result.pop("_cache_text", None)
+        return result
+
     if result:
         cache_text = result.pop("_cache_text", "")
         cache_title = result.get("title") or title
@@ -322,6 +329,7 @@ def _draft_via_main_hooks(
     opportunity_id=None,
     tor_text="",
     submission_type="FULL_PROPOSAL",
+    accepted_outline=None,
 ):
     """Draft through main.generate_proposal / generate_eoi so tests can patch them."""
     try:
@@ -331,6 +339,7 @@ def _draft_via_main_hooks(
                 matched_team_result,
                 opportunity_id=opportunity_id,
                 tor_text=tor_text,
+                accepted_outline=accepted_outline,
             )
         else:
             sections = generate_proposal(
@@ -339,6 +348,7 @@ def _draft_via_main_hooks(
                 budget or {},
                 opportunity_id=opportunity_id,
                 tor_text=tor_text,
+                accepted_outline=accepted_outline,
             )
     except SpendCapError:
         raise
@@ -391,6 +401,7 @@ def _process_opportunity_pipeline(
         save_draft_memory=save_draft_memory,
         build_client_intelligence=build_client_intelligence,
         persist_stage=persist_opportunity_stage,
+        release_for_outline=release_scored_for_outline,
         log_stage=log_stage,
     )
     outcome = run_opportunity_pipeline(
@@ -402,6 +413,8 @@ def _process_opportunity_pipeline(
     )
     if outcome.disposition == "success":
         _pipeline_outcome.set("retryable")
+    elif outcome.disposition == "awaiting_outline":
+        _pipeline_outcome.set("awaiting_outline")
     else:
         _pipeline_outcome.set(outcome.disposition)
     _pipeline_error.set(outcome.error or "")
@@ -480,6 +493,22 @@ def submit_single_url(
             "usually a fetch failure or insufficient extracted text.[/red]"
         )
         return None
+
+    if result.get("awaiting_outline"):
+        outline = result.get("recommended_outline") if isinstance(result.get("recommended_outline"), dict) else {}
+        headings = [
+            str(item.get("heading") or "")
+            for item in (outline.get("sections") or [])
+            if isinstance(item, dict) and item.get("heading")
+        ]
+        console.print(Panel(
+            f"{outline.get('name') or 'Recommended outline'}\n"
+            + ("\n".join(f"- {heading}" for heading in headings) or "No chapters yet.")
+            + "\n\nScoring is saved. Drafting waits until an outline is accepted.",
+            title="Choose a template",
+            style="bold cyan",
+        ))
+        return result
 
     if not result.get("analysis", {}).get("bid_analysis", {}).get(
         "is_consultancy_contract", True
