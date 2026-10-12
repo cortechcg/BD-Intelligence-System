@@ -140,6 +140,7 @@ class OpportunityContext:
     submission_type: str = "FULL_PROPOSAL"
     recommended_outline: dict = field(default_factory=dict)
     accepted_outline: dict = field(default_factory=dict)
+    skip_to_draft: bool = False
 
     def to_checkpoint(self) -> dict:
         return {
@@ -162,6 +163,7 @@ class OpportunityContext:
             "dedup_url": self.dedup_url,
             "recommended_outline": self.recommended_outline,
             "accepted_outline": self.accepted_outline,
+            "skip_to_draft": self.skip_to_draft,
         }
 
     def apply_checkpoint(self, checkpoint: dict | None) -> None:
@@ -201,6 +203,7 @@ class OpportunityContext:
             self.recommended_outline = data["recommended_outline"]
         if isinstance(data.get("accepted_outline"), dict):
             self.accepted_outline = data["accepted_outline"]
+        self.skip_to_draft = bool(data.get("skip_to_draft"))
 
     def _refresh_from_analysis(self) -> None:
         analysis = self.analysis if isinstance(self.analysis, dict) else {}
@@ -288,6 +291,25 @@ def _persist(deps: StageDeps, source_url: str, claim_token: str, stage: str, ctx
     if not persist or not claim_token:
         return
     persist(source_url, claim_token, stage, ctx.to_checkpoint())
+
+
+def _direct_draft_analysis(outline: dict) -> dict:
+    """A thin analysis so drafting can run without a score.
+
+    No fit number and no evaluation criteria are invented. The chosen
+    outline decides technical proposal versus EOI.
+    """
+    submission = str(outline.get("submission_type") or "")
+    if submission not in ("EOI", "FULL_PROPOSAL"):
+        submission = "FULL_PROPOSAL"
+    return {
+        "bid_analysis": {
+            "submission_type": submission,
+            "is_consultancy_contract": True,
+            "bid_recommendation": "BID",
+            "rationale": "The reviewer chose the chapters and skipped the score.",
+        }
+    }
 
 
 def _ensure_recommended_outline(ctx: OpportunityContext) -> None:
@@ -685,6 +707,32 @@ def run_opportunity_pipeline(
         stage = "scored"
 
     try:
+        if ctx.skip_to_draft and outline_is_accepted(ctx.accepted_outline):
+            # The reviewer already chose the chapters. Read the file, then
+            # draft. Do not analyse or score, and do not stop for an outline.
+            if not ctx.full_text:
+                ctx = run_extract_stage(ctx, deps)
+                _persist(deps, ctx.dedup_url, claim_token, "extracted", ctx)
+            if not ctx.analysis:
+                ctx.analysis = _direct_draft_analysis(ctx.accepted_outline)
+                ctx._refresh_from_analysis()
+                ctx.fit_score = None
+                ctx.win_prob = None
+            if deps.create_opportunity and not ctx.airtable_record_id:
+                try:
+                    ctx.airtable_record_id = deps.create_opportunity({
+                        "title": ctx.title or "Unknown",
+                        "source_url": ctx.source_url,
+                        "source_portal": (ctx.raw or {}).get("source_portal") or "Manual submission",
+                        "bid_recommendation": "BID",
+                        "status": "New",
+                    })
+                except Exception as exc:
+                    logger.warning(f"  Direct-draft status note failed (non-fatal): {exc}")
+            ctx = run_draft_stage(ctx, deps)
+            _persist(deps, ctx.dedup_url, claim_token, "drafted", ctx)
+            return PipelineOutcome(result=ctx.to_result(), disposition="success")
+
         if stage == "discovered":
             ctx = run_extract_stage(ctx, deps)
             _persist(deps, ctx.dedup_url, claim_token, "extracted", ctx)

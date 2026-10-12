@@ -174,6 +174,50 @@ def test_trigger_with_a_valid_csrf_token_gets_past_the_check(client, monkeypatch
     assert enqueued["by"] == "staff@cortechconsultinggroup.com"
 
 
+def test_draft_now_stores_the_chapters_and_does_not_force_a_rescore(client, monkeypatch):
+    seeded = {}
+    enqueued = {}
+
+    def _seed(url, outline):
+        seeded["url"] = url
+        seeded["outline"] = outline
+        return True, "saved"
+
+    def _enqueue(url, kind, by):
+        enqueued.update({"url": url, "kind": kind, "by": by})
+        return "trigger-id"
+
+    monkeypatch.setattr(app_module, "seed_direct_draft", _seed)
+    monkeypatch.setattr(app_module.triggers, "enqueue", _enqueue)
+    monkeypatch.setattr(app_module.triggers, "queue_available", lambda: True)
+    monkeypatch.setattr(app_module.triggers, "aggregate_cap_reached", lambda: (False, ""))
+    monkeypatch.setattr(app_module.triggers, "in_flight_by_url", lambda: {})
+    monkeypatch.setattr(settings, "TRIGGERS_ENABLED", True)
+
+    token = auth.issue_session("staff@cortechconsultinggroup.com")
+    client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+    session = auth.read_session(token)
+    response = client.post(
+        "/trigger/url",
+        data={
+            "url": "https://example.org/tor",
+            "csrf_token": auth.csrf_token(session),
+            "intent": "draft",
+            "template_id": "house_eoi",
+            "submission_type": "EOI",
+            "outline_name": "Cortech EOI",
+            "heading": ["Letter of interest", "Firm profile"],
+            "page_limit": ["1", ""],
+            "must_include": ["why Cortech", ""],
+        },
+    )
+    assert response.status_code == 303
+    assert enqueued["kind"] == "draft_existing"
+    assert seeded["outline"]["submission_type"] == "EOI"
+    assert seeded["outline"]["sections"][0]["heading"] == "Letter of interest"
+    assert seeded["outline"]["sections"][0]["must_include"] == ["why Cortech"]
+
+
 def test_mark_reviewed_records_a_human_stage_and_does_not_send(client, monkeypatch):
     seen = {}
 

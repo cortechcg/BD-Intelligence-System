@@ -731,6 +731,73 @@ _DRAFT_CHECKPOINT_KEYS = (
 )
 
 
+def seed_direct_draft(source_url: str, outline: dict) -> tuple[bool, str]:
+    """Store a chosen outline so the next run drafts without scoring.
+
+    The file is still read. Requirements extraction and the score are not.
+    Refused while a worker holds the lease. No new SQL function.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False, "missing url"
+    if not isinstance(outline, dict) or not outline.get("sections"):
+        return False, "outline has no sections"
+    checkpoint = {
+        "accepted_outline": outline,
+        "skip_to_draft": True,
+        "source_url": canonical,
+        "dedup_url": canonical,
+        "submission_type": outline.get("submission_type") or "FULL_PROPOSAL",
+    }
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load opportunity for a direct draft: {e}")
+        return False, "could not load the opportunity"
+    rows = loaded.data or []
+    if rows and rows[0].get("state") == "processing":
+        return False, "a run is in progress — wait until it finishes"
+    payload = {
+        "state": "pending",
+        "pipeline_stage": "discovered",
+        "checkpoint": checkpoint,
+        "lease_until": None,
+        "claim_token": "",
+        "completed_at": None,
+        "last_error": None,
+        "draft_fail_count": 0,
+        "updated_at": now,
+    }
+    try:
+        if rows:
+            updated = (
+                supabase.table("opportunity_processing")
+                .update(payload)
+                .eq("source_url", canonical)
+                .neq("state", "processing")
+                .execute()
+            )
+            if not updated.data:
+                return False, "could not save the outline"
+        else:
+            supabase.table("opportunity_processing").insert({
+                "source_url": canonical,
+                "title": "",
+                **payload,
+            }).execute()
+    except Exception as e:
+        logger.warning(f"Could not seed a direct draft: {e}")
+        return False, "could not save the outline"
+    return True, "saved"
+
+
 def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
     """Store the outline for this opportunity. Does not call a model.
 
