@@ -514,6 +514,9 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   color: var(--ink);
 }
 .steps__item .label { display: block; margin-bottom: var(--sp2); }
+.direct { margin-top: var(--sp5); }
+.direct-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+label.choice { padding: var(--sp4); cursor: pointer; }
 .choices { display: grid; gap: var(--sp3); }
 .choice {
   border: 1px solid var(--glass-line);

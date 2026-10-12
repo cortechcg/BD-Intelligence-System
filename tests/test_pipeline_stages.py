@@ -176,6 +176,66 @@ def test_run_pipeline_stops_after_score_with_a_recommended_outline():
     assert not stages[-1][1].get("accepted_outline", {}).get("sections")
 
 
+def test_direct_draft_skips_the_score_and_still_reads_the_file():
+    stages = []
+    drafts = []
+    fetches = []
+
+    def persist(url, token, stage, checkpoint):
+        stages.append(stage)
+        assert checkpoint.get("skip_to_draft") is True
+        return True
+
+    def fetch(*args, **kwargs):
+        fetches.append(args[0] if args else "")
+        return "Terms of Reference " * 40
+
+    def analyze(*args, **kwargs):
+        raise AssertionError("the score must not run")
+
+    def draft(*args, **kwargs):
+        drafts.append((args, kwargs))
+        return {"cover_letter": "A complete client-facing cover letter for review."}
+
+    accepted = {
+        "id": "house_eoi",
+        "name": "Cortech EOI",
+        "submission_type": "EOI",
+        "sections": [
+            {"heading": "Letter of interest"},
+            {"heading": "Firm profile"},
+        ],
+    }
+    outcome = run_opportunity_pipeline(
+        {"title": "Eval", "source_url": "https://example.test/eval"},
+        claim_token="tok",
+        deps=_deps(
+            fetch_and_extract=fetch,
+            analyze_rfp=analyze,
+            persist_stage=persist,
+            draft_bid_or_watch_proposal=draft,
+        ),
+        snapshot=ProcessingSnapshot(
+            pipeline_stage="discovered",
+            resume_available=True,
+            checkpoint={
+                "accepted_outline": accepted,
+                "skip_to_draft": True,
+            },
+        ),
+    )
+    assert fetches == ["https://example.test/eval"]
+    assert outcome.disposition == "success"
+    assert stages == ["extracted", "drafted"]
+    analysis, kwargs = drafts[0][0][0], drafts[0][1]
+    assert kwargs["submission_type"] == "EOI"
+    assert kwargs["tor_text"].startswith("Terms of Reference")
+    assert kwargs["accepted_outline"]["sections"][0]["heading"] == "Letter of interest"
+    assert "evaluation_criteria" not in analysis
+    assert analysis["bid_analysis"]["bid_recommendation"] == "BID"
+    assert outcome.result["score"] is None
+
+
 def test_accepted_outline_is_what_the_draft_stage_receives():
     drafts = []
     accepted = {

@@ -30,7 +30,7 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 
 from dashboard import auth, queries, settings, triggers
-from database.supabase_client import save_accepted_outline
+from database.supabase_client import save_accepted_outline, seed_direct_draft
 from intelligence.draft_templates import catalog, resolve_outline
 from utils.urls import canonicalize_url
 
@@ -293,6 +293,7 @@ def queue_page(request: Request):
     ctx = _base_context(request, "queue")
     ctx.update({
         "queue": queries.queue_view(limit=40),
+        "draft_templates": catalog(),
         "triggers": triggers.recent(12),
         "in_flight": triggers.in_flight_by_url(),
         "triggering_enabled": enabled,
@@ -528,13 +529,62 @@ def _enqueue_one(url: str, kind: str, session: dict, back: str = "/") -> Redirec
     return RedirectResponse(f"/job/{trigger_id}", status_code=303)
 
 
+def _outline_from_form(form) -> tuple[dict | None, str]:
+    """Chapters posted with a link. Empty headings are dropped."""
+    headings = [str(value) for value in form.getlist("heading")]
+    limits = [str(value) for value in form.getlist("page_limit")]
+    musts = [str(value) for value in form.getlist("must_include")]
+    sections = []
+    for index, heading in enumerate(headings):
+        if not heading.strip():
+            continue
+        raw_must = musts[index] if index < len(musts) else ""
+        sections.append({
+            "heading": heading,
+            "page_limit": limits[index] if index < len(limits) else "",
+            "must_include": [
+                part.strip()
+                for part in raw_must.replace(";", "\n").split("\n")
+                if part.strip()
+            ],
+        })
+    payload = {
+        "template_id": str(form.get("template_id") or "house_technical"),
+        "submission_type": str(form.get("submission_type") or ""),
+        "name": str(form.get("outline_name") or ""),
+    }
+    if sections:
+        payload["sections"] = sections
+    try:
+        return resolve_outline(payload, None), ""
+    except ValueError as exc:
+        return None, str(exc)
+
+
 @app.post("/trigger/url")
-def trigger_url(
-    request: Request, url: str = Form(...), csrf_token: str = Form(""),
-    session: dict = Depends(require_session),
-):
-    _check_csrf(session, csrf_token)
-    return _enqueue_one(url, triggers.SUBMIT_URL, session)
+async def trigger_url(request: Request, session: dict = Depends(require_session)):
+    """Score a pasted link, or draft it from the chapters on this form.
+
+    ``intent=draft`` stores the outline first and queues a resume, so the
+    worker does not wipe the chapters with a full reprocess.
+    """
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    url = str(form.get("url") or "").strip()
+    if str(form.get("intent") or "") != "draft":
+        return _enqueue_one(url, triggers.SUBMIT_URL, session)
+    canonical = canonicalize_url(url) or ""
+    if not canonical:
+        return _flash("/", "That is not a usable URL.", "stop")
+    if triggers.in_flight_by_url().get(canonical):
+        return _flash("/", "Already queued or running — nothing was started twice.", "stop")
+    outline, error = _outline_from_form(form)
+    if error or outline is None:
+        return _flash("/", error or "Choose the chapters first.", "stop")
+    ok, reason = seed_direct_draft(canonical, outline)
+    if not ok:
+        return _flash("/", reason, "stop")
+    return _enqueue_one(canonical, triggers.DRAFT_EXISTING, session)
 
 
 @app.post("/trigger/existing")

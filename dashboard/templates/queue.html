@@ -173,14 +173,58 @@
 <section class="section section--tight" aria-labelledby="h-submit">
   <div class="section__head"><h2 id="h-submit">Queue a tender</h2></div>
   {% if triggering_enabled %}
-  <form method="post" action="{{ url_trigger_url }}" class="field">
+  <form method="post" action="{{ url_trigger_url }}" class="field stack">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label class="sr-only" for="url">Tender URL</label>
     <div class="submit-row">
       <input type="url" id="url" name="url" required placeholder="https://… tender or ToR page" autocomplete="off" spellcheck="false">
-      <button class="btn" type="submit">Score this ToR</button>
+      <button class="btn" type="submit" name="intent" value="score">Score this ToR</button>
     </div>
     <p class="field__hint">Reads and scores the ToR, then waits for you to choose the chapters. Nothing is sent.</p>
+    {% if draft_templates %}
+    <div class="direct">
+      <p class="label">Or draft now</p>
+      <p class="field__hint">Skips the score and the requirements extract. The file is still read, then these chapters are written. Edit a heading before you start. Nothing is sent.</p>
+      <div class="choices">
+        {% for template in draft_templates %}
+        <label class="choice">
+          <input type="radio" name="template_pick" value="{{ template.id }}" {% if loop.first %}checked{% endif %}>
+          <span class="choice__name">{{ template.name }}</span>
+          <span class="choice__sum">{{ template.summary }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% for template in draft_templates %}
+      <fieldset class="direct-set stack" data-template="{{ template.id }}" {% if not loop.first %}disabled hidden{% endif %}>
+        <input type="hidden" name="template_id" value="{{ template.id }}">
+        <input type="hidden" name="submission_type" value="{{ template.submission_type }}">
+        <input type="hidden" name="outline_name" value="{{ template.name }}">
+        <div class="outline-list">
+          <div class="outline-row outline-row--head">
+            <span class="label">Chapter</span>
+            <span class="label">Pages</span>
+            <span class="label">Must cover</span>
+          </div>
+          {% for section in template.sections %}
+          <div class="outline-row">
+            <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200">
+            <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="pages" maxlength="40">
+            <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="optional" maxlength="400">
+          </div>
+          {% endfor %}
+          <div class="outline-row">
+            <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a chapter">
+            <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40">
+            <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="optional" maxlength="400">
+          </div>
+        </div>
+      </fieldset>
+      {% endfor %}
+      <div class="row">
+        <button class="btn" type="submit" name="intent" value="draft">Draft now</button>
+      </div>
+    </div>
+    {% endif %}
   </form>
   {% else %}
   <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
@@ -303,4 +347,25 @@
   {% endif %}
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var sets = document.querySelectorAll(".direct-set");
+  var picks = document.querySelectorAll('input[name="template_pick"]');
+  if (!sets.length || !picks.length) return;
+  function apply() {
+    var chosen = picks[0].value;
+    picks.forEach(function (pick) { if (pick.checked) chosen = pick.value; });
+    sets.forEach(function (set) {
+      var on = set.getAttribute("data-template") === chosen;
+      set.disabled = !on;
+      set.hidden = !on;
+    });
+  }
+  picks.forEach(function (pick) { pick.addEventListener("change", apply); });
+  apply();
+})();
+</script>
 {% endblock %}
