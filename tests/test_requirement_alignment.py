@@ -76,6 +76,15 @@ def test_unmentioned_criterion_is_not_treated_as_satisfied():
     assert missed["quote"] == ""
 
 
+def test_naming_a_criterion_is_not_a_scored_answer():
+    sections = _sections()
+    sections["methodology"] = "Household registration in Beletweyne."
+    report = align_draft_to_requirements(_analysis(), sections)
+    hit = next(row for row in report["rows"] if row["id"] == "evaluation_criterion:0")
+    assert hit["status"] == "partially_addressed"
+    assert report["meets_criteria_bar"] is False
+
+
 def test_partial_match_is_not_counted_as_addressed():
     sections = _sections()
     sections["methodology"] = (

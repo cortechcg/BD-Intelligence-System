@@ -2,7 +2,7 @@
 import copy
 import json
 import re
-from contextvars import copy_context
+from contextvars import ContextVar, copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from loguru import logger
@@ -20,6 +20,12 @@ from utils.money_scrub import (
 from utils.untrusted import wrap_untrusted
 from utils.prose import humanize_draft
 from utils.observability import ensure_opportunity_usage, opportunity_usage
+from intelligence.draft_compiler import (
+    brief_for_section,
+    build_claim_sheet,
+    chapters_owned_by_siblings,
+    compile_client_draft,
+)
 from intelligence.draft_templates import as_submission_outline, outline_is_accepted
 from intelligence.tender_reader import (
     build_format_compliance,
@@ -74,8 +80,15 @@ DRAFT_META_KEYS = frozenset({
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "claim_sheet",
+    "draft_editor",
 })
 MIN_CLIENT_FACING_DRAFT_CHARS = 20
+
+# One sheet for the draft being written. Cleared at the start of each draft
+# so a failed run cannot leak facts into the next tender.
+_CLAIM_SHEET: ContextVar[dict] = ContextVar("claim_sheet", default={})
+_SECTION_BRIEF: ContextVar[str] = ContextVar("section_brief", default="")
 
 
 # Fallback only. When the ToR/RFP/REOI lists required contents, that list
@@ -386,10 +399,12 @@ def _finalize_client_draft(
     """Ground claims, then prove the client-facing file has no financial information.
 
     When the tender has evaluation criteria, the draft is rewritten until
-    the traced alignment is at least 80%, or drafting fails.
+    the traced alignment is at least 80%, or drafting fails. The compiler
+    then puts the cover letter first and drops a chapter that repeats another.
     """
     if system_blocks is not None:
         sections = _raise_to_criteria_bar(sections, analysis, system_blocks)
+    sections = compile_client_draft(sections)
     grounded = _attach_claim_grounding(sections, analysis, matched_team_result)
     _final_money_audit(grounded)
     try:
@@ -464,6 +479,9 @@ def _attach_draft_meta(sections: dict, system_blocks: list[dict]) -> dict:
             sections["required_forms"] = outline["required_forms"]
     elif isinstance(outline, dict) and outline.get("omitted_financial"):
         sections["omitted_financial"] = outline["omitted_financial"]
+    sheet = _CLAIM_SHEET.get() or {}
+    if sheet.get("claims") or sheet.get("sections"):
+        sections["claim_sheet"] = sheet
     return sections
 
 
@@ -784,6 +802,8 @@ _META_SECTION_KEYS = {
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "claim_sheet",
+    "draft_editor",
 }
 
 
@@ -797,8 +817,10 @@ block — not writing a generic Cortech brochure or recycling another assignment
    follow them exactly. House structure is a fallback only when the documents
    prescribe nothing.
 3. Every evaluation or shortlisting criterion must be answered in the
-   section that owns it, in the client's own words. A scored criterion
-   that never appears as a real answer in the draft is a lost mark.
+   section that owns it, in the client's own words, as its own paragraph
+   of at least 60 words: the criterion's name, how Cortech meets it on
+   THIS assignment, and the evidence. Naming the criterion is not a mark.
+   A scored criterion without that paragraph is a lost mark.
    Name THIS assignment's title, buyer, geography, lots or sites, target
    groups, and deliverables.
 4. Past assignments and house-voice excerpts are evidence and register only.
@@ -835,17 +857,24 @@ def _eval_criteria_block(analysis: dict, submission_type: str = "FULL_PROPOSAL")
     if criteria:
         if submission_type == "EOI":
             block = (
-                "HOW THIS EOI WILL BE SHORTLISTED (these decide whether Cortech "
-                "reaches the RFP stage — every one of them must be visibly and "
-                "explicitly addressed, and where a weight is given, depth should "
-                "follow the weight):\n"
+                "HOW THIS EOI WILL BE SHORTLISTED. These decide whether Cortech "
+                "reaches the RFP stage. Answer a criterion in this chapter only "
+                "when this chapter owns it. Each owned criterion needs its own "
+                "paragraph of at least 60 words: the client's name for it, how "
+                "Cortech meets it, and the evidence. A keyword is not a mark. "
+                "Where a weight is given, the heavier criterion gets the longer "
+                "answer.\n"
                 + json.dumps(criteria, indent=2)
             )
         else:
             block = (
-                "HOW THIS PROPOSAL WILL BE SCORED (these decide the bid — every one "
-                "of them must be visibly and explicitly addressed, and where a "
-                "weight is given, depth should follow the weight):\n"
+                "HOW THIS PROPOSAL WILL BE SCORED. These decide the bid. "
+                "Answer a criterion in this chapter only when this chapter owns it. "
+                "Each owned criterion needs its own paragraph of at least 60 words: "
+                "the client's criterion name, how Cortech meets it on this assignment "
+                "(geography, method, deliverable), and the evidence. A keyword is not "
+                "a mark. Where a weight is given, the heavier criterion gets the longer "
+                "answer.\n"
                 + json.dumps(criteria, indent=2)
             )
     else:
@@ -1596,6 +1625,22 @@ def _section_user_messages(
     return messages
 
 
+def _active_brief(section_name: str) -> str:
+    """Ownership rules for this chapter. A repair call uses the chapter key."""
+    current = _SECTION_BRIEF.get()
+    if current:
+        return current
+    sheet = _CLAIM_SHEET.get() or {}
+    if not sheet:
+        return ""
+    key = section_name or ""
+    for suffix in ("_criteria_repair", "_repair"):
+        if key.endswith(suffix):
+            key = key[: -len(suffix)]
+            break
+    return brief_for_section(sheet, key)
+
+
 def _generate_section(
     section_name: str,
     model: str,
@@ -1615,8 +1660,11 @@ def _generate_section(
         block for block in system_blocks
         if isinstance(block, dict) and block.get("type") == "text"
     ]
+    brief = _active_brief(section_name)
     live_prompt = (
-        f"{COMPREHENSION_LOCK}\n\n{user_prompt}{_exemplar_block(section_name)}"
+        f"{COMPREHENSION_LOCK}\n\n{brief}\n\n{user_prompt}{_exemplar_block(section_name)}"
+        if brief
+        else f"{COMPREHENSION_LOCK}\n\n{user_prompt}{_exemplar_block(section_name)}"
     )
     messages = _section_user_messages(system_blocks, live_prompt)
     assembled = ""
@@ -1689,12 +1737,21 @@ def _run_parallel_sections(jobs: dict) -> dict:
     sections = {}
     workers = min(4, max(1, len(jobs)))
     logger.info(f"  Writing {len(jobs)} sections in parallel (workers={workers})")
+
+    def _invoke(key, fn):
+        brief = brief_for_section(_CLAIM_SHEET.get() or {}, key)
+        token = _SECTION_BRIEF.set(brief)
+        try:
+            return fn()
+        finally:
+            _SECTION_BRIEF.reset(token)
+
     with ThreadPoolExecutor(max_workers=workers) as pool:
         # Context variables do not cross threads automatically. Each copied
         # context references the same lock-protected per-opportunity usage
         # bucket, so section calls aggregate without races or double counting.
         futures = {
-            pool.submit(copy_context().run, fn): key
+            pool.submit(copy_context().run, _invoke, key, fn): key
             for key, fn in jobs.items()
         }
         for fut in as_completed(futures):
@@ -1763,6 +1820,8 @@ def _final_money_audit(sections: dict) -> None:
             "submission_outline",
             "lightweight",
             "lightweight_reason",
+            "claim_sheet",
+            "draft_editor",
         }:
             continue
         sections[key] = scrub(value, str(key))
@@ -1896,13 +1955,15 @@ def _rewrite_section_for_criteria(
             f"- {row.get('label') or row.get('text')}{weight_note}: "
             f"{row.get('text') or row.get('label')}"
         )
-    user_prompt = f"""Rewrite this proposal section so it answers the evaluation criteria below.
+    user_prompt = f"""Rewrite this proposal section so a procurement panel can score it.
 
-Each criterion needs its own paragraph. Use the criterion's own name, not a
-paraphrase that drops its distinctive words. State how Cortech meets it on
-THIS assignment, with the geography, deliverables, and method the tender
-asks for. A keyword list is not an answer. Keep every accurate fact already
-in the section. Do not add prices, day rates, or a budget.
+Each criterion below needs its own paragraph of at least 60 words. Use the
+criterion's own name. Then say how Cortech meets it on THIS assignment: the
+geography, the method, the deliverable, and the evidence (a past assignment,
+a named expert, or a requirement the tender states). A keyword, a heading, or
+a single sentence that only repeats the criterion name does not score. Keep
+every accurate fact already in the section. Do not add prices, day rates, or
+a budget. Do not paste in a chapter that another heading already covers.
 
 CRITERIA THIS SECTION MUST NOW ANSWER:
 {chr(10).join(lines)}
@@ -2169,6 +2230,8 @@ single paragraph unless the page limit is one page.
 
 Do not rename this heading to a Cortech house heading. Do not add extra
 house chapters unless this heading is that chapter.
+Write this heading only. Do not open or close with a cover letter.
+Do not rewrite a chapter the section brief assigns to another heading.
 This is a {stage} for: {title}
 CLIENT: {client_name}
 
@@ -2202,6 +2265,7 @@ def _house_writer_for(
     submission_type: str,
     item: dict | None = None,
     sibling_routes: list | None = None,
+    sibling_headings: list | None = None,
 ):
     """Return the existing house generator for a mapped ToR heading, or None."""
     rules = _draft_rules_for(item or {})
@@ -2259,6 +2323,7 @@ def _house_writer_for(
             matched_team_result=matched_team_result,
             item=item or {},
             sibling_routes=sibling_routes or [],
+            sibling_headings=sibling_headings or [],
             submission_type=submission_type,
             draft_rules=rules,
         )
@@ -2284,6 +2349,11 @@ def _jobs_from_outline(
         for i in (outline.get("sections") or [])
         if isinstance(i, dict)
     ]
+    sibling_headings = [
+        str(i.get("heading") or "")
+        for i in (outline.get("sections") or [])
+        if isinstance(i, dict)
+    ]
     for item in outline.get("sections") or []:
         if not isinstance(item, dict) or not item.get("key"):
             continue
@@ -2305,6 +2375,10 @@ def _jobs_from_outline(
                 item=item,
                 sibling_routes=[
                     r for r in sibling_routes if r and r != route
+                ],
+                sibling_headings=[
+                    h for h in sibling_headings
+                    if h and h != str(item.get("heading") or "")
                 ],
             )
             if house is not None:
@@ -2351,6 +2425,7 @@ def generate_eoi(
         + _team_digest(matched_team_result)
     )
     logger.info(f"Generating EOI for: {title[:60]}")
+    _CLAIM_SHEET.set({})
     system_blocks = build_system_blocks(
         analysis,
         tor_text,
@@ -2359,6 +2434,11 @@ def generate_eoi(
         matched_team_result=matched_team_result,
         accepted_outline=accepted_outline,
     )
+    _CLAIM_SHEET.set(build_claim_sheet(
+        analysis,
+        _draft_meta(system_blocks).get("submission_outline") or {},
+        "EOI",
+    ))
     outline = (_draft_meta(system_blocks).get("submission_outline") or {})
 
     team_summary = json.dumps({
@@ -2654,6 +2734,7 @@ def generate_proposal(
         + _team_digest(matched_team_result)
     )
     logger.info(f"Generating proposal ({recommendation}) for: {title[:60]}")
+    _CLAIM_SHEET.set({})
     system_blocks = build_system_blocks(
         analysis,
         tor_text,
@@ -2662,6 +2743,11 @@ def generate_proposal(
         matched_team_result=matched_team_result,
         accepted_outline=accepted_outline,
     )
+    _CLAIM_SHEET.set(build_claim_sheet(
+        analysis,
+        _draft_meta(system_blocks).get("submission_outline") or {},
+        "FULL_PROPOSAL",
+    ))
 
     if (
         recommendation == "WATCH"
@@ -2920,6 +3006,7 @@ def generate_technical_proposal_body(
     matched_team_result: dict | None = None,
     item: dict | None = None,
     sibling_routes: list | None = None,
+    sibling_headings: list | None = None,
     submission_type: str = "FULL_PROPOSAL",
     draft_rules: str = "",
 ) -> str:
@@ -2933,6 +3020,7 @@ def generate_technical_proposal_body(
     item = item if isinstance(item, dict) else {}
     analysis = analysis or {}
     skip = {str(r) for r in (sibling_routes or []) if r}
+    skip |= chapters_owned_by_siblings(sibling_routes or [], sibling_headings or [])
     heading = str(item.get("heading") or "Technical proposal").strip()
     _opportunity, title, client_name, _donor, _deadline = _opportunity_fields(analysis)
     rules = draft_rules or _draft_rules_for(item)
@@ -3065,10 +3153,16 @@ def _generate_technical_proposal_body_fallback(
             "Work plan with a complete markdown Gantt (activities x weeks/months)"
         )
     if item.get("must_include"):
-        include.extend(str(c) for c in item["must_include"] if str(c).strip())
-    topics = "\n".join(f"- {t}" for t in include) or (
-        "- A complete technical offer for this assignment"
-    )
+        for child in item["must_include"]:
+            label = str(child or "").strip()
+            if not label:
+                continue
+            if chapters_owned_by_siblings([], [label]) & skip:
+                continue
+            include.append(label)
+    if not include:
+        return ""
+    topics = "\n".join(f"- {t}" for t in include)
     team_note = _team_digest(matched_team_result) if matched_team_result else ""
     stage = (
         "Expression of Interest"

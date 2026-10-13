@@ -1020,6 +1020,8 @@ def _route_heading(heading: str, submission_type: str) -> str:
         h,
     ):
         return "approach_summary" if eoi else "methodology"
+    if re.search(r"scope of (the )?(work|services|deliverables)|deliverables", h):
+        return "deliverables"
     if re.search(r"background|introduction|conceptual framework", h):
         return "introduction_and_framework"
     compact = _compact_heading(heading)

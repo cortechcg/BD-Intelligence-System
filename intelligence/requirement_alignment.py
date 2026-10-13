@@ -19,7 +19,10 @@ STATUSES = ("addressed", "partially_addressed", "not_addressed")
 # Addressed counts in full. Partially addressed counts as half. The bar is
 # the share of evaluation-criterion weight the draft actually traces, not a
 # promise that a buyer's panel will award that mark.
+# A criterion is addressed only when its own words sit in a paragraph long
+# enough to be an answer. A name dropped into a short line is partial.
 EVALUATION_ALIGNMENT_BAR = 80
+_SCORED_PARAGRAPH_WORDS = 40
 
 # Metadata stored beside the draft. Not client-facing sections.
 _SKIP_KEYS = {
@@ -38,6 +41,8 @@ _SKIP_KEYS = {
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "claim_sheet",
+    "draft_editor",
 }
 
 # Words that appear in almost every technical proposal. Matching only these
@@ -356,6 +361,16 @@ def _trace(requirement: dict, drafted: list[tuple[str, str, str]], sections: dic
     return _flag(requirement, "Not traced; not treated as satisfied.")
 
 
+def _paragraph_containing(text: str, sentence: str) -> str:
+    """The blank-line paragraph that holds the cited sentence."""
+    if not sentence:
+        return ""
+    for paragraph in re.split(r"\n\s*\n", text or ""):
+        if sentence in paragraph:
+            return paragraph
+    return sentence
+
+
 def _trace_lexical(requirement: dict, drafted: list[tuple[str, str, str]]) -> dict:
     name_text, detail_text = _criterion_parts(requirement)
     name_strong, name_weak = _terms(name_text)
@@ -386,23 +401,41 @@ def _trace_lexical(requirement: dict, drafted: list[tuple[str, str, str]]) -> di
                 best_quote = sentence.strip()[:400]
                 best_name = found_name
                 best_detail = found_detail
-    if not best_quote or best_quote not in _section_text(drafted, best_section):
+    section_text = _section_text(drafted, best_section)
+    if not best_quote or best_quote not in section_text:
         return _flag(requirement, "No drafted sentence contains this requirement. Not treated as satisfied.")
     # The criterion's own words must be in the quote. Description overlap
     # alone (method names repeated in an experience paragraph) is partial.
-    addressed = len(best_name) >= 2 or (
+    # Those words must also sit in a paragraph a panel could score. A short
+    # line that only names the criterion is not an answer.
+    name_hit = len(best_name) >= 2 or (
         kind_is_deadline(requirement) and len(best_name) >= 1
     )
-    partial = (not addressed) and (len(best_name) >= 1 or len(best_detail) >= 2)
+    paragraph = _paragraph_containing(section_text, best_quote)
+    scored_paragraph = (
+        kind_is_deadline(requirement)
+        or word_count(paragraph) >= _SCORED_PARAGRAPH_WORDS
+    )
+    addressed = name_hit and scored_paragraph
+    partial = (not addressed) and (
+        name_hit or len(best_name) >= 1 or len(best_detail) >= 2
+    )
     if not addressed and not partial:
         return _flag(requirement, "No drafted sentence contains this requirement. Not treated as satisfied.")
+    if name_hit and not scored_paragraph:
+        note = (
+            f"Cited from {best_section}. The criterion is named, but not in a "
+            "paragraph long enough to score."
+        )
+    else:
+        note = f"Cited from {best_section}."
     status = "addressed" if addressed else "partially_addressed"
     return _cited(
         requirement,
         status,
         best_section,
         best_quote,
-        f"Cited from {best_section}.",
+        note,
     )
 
 

@@ -60,6 +60,8 @@ _DOCX_SKIP_KEYS = {
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "claim_sheet",
+    "draft_editor",
 }
 
 
