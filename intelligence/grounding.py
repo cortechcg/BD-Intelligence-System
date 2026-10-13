@@ -82,6 +82,12 @@ _SKIP_KEYS = {
     "section_order",
     "omitted_financial",
     "submission_outline",
+    "claim_sheet",
+    "draft_editor",
+    "required_attachments",
+    "required_forms",
+    "format_compliance",
+    "requirement_alignment",
 }
 
 _PERSON_RE = re.compile(

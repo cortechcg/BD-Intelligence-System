@@ -1,8 +1,8 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Cool glass desk: a deep field, frosted panels, mint for the work, ice only
-where a person must act. Every text colour must clear WCAG AA (4.5:1) on the
-page, and every mark must clear 3:1. The one gradient is the primary button.
+Ink and champagne: a warm-black field, ivory type, champagne where a person
+must act. Every text colour must clear WCAG AA (4.5:1) on the page, and every
+mark must clear 3:1. The one gradient is the gold button.
 """
 from __future__ import annotations
 
@@ -78,11 +78,11 @@ def test_sage_is_display_figures_only():
             assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", "aria-disabled")), f"sage as text: {sel[:70]}"
 
 
-def test_glass_desk_is_cool_and_the_button_is_the_only_gradient():
-    """Depth is a dark field, then a frosted panel. One light button gradient."""
-    assert token("ground") == "#0b1018"
-    assert token("surface") == "#16202c"
-    assert token("track") == "#1c2838"
+def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
+    """Warm-black field, lifted card, warm well. One champagne button gradient."""
+    assert token("ground") == "#14120e"
+    assert token("surface") == "#1e1b16"
+    assert token("track") == "#2c2822"
     assert token("surface") != token("ground")
     shadow_ok = (
         "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
@@ -137,14 +137,14 @@ def test_rail_is_thin_and_human_segment_is_distinct():
     assert contrast(token("stage-current"), token("stage-done")) >= 1.8, "current vs done must differ in lightness"
 
 
-def test_ramps_are_one_green_hue_and_monotone():
+def test_ramps_are_one_champagne_hue_and_monotone():
     toks = [token(f"ramp-{i}") for i in range(1, 5)]
     lums = [_lum(t) for t in toks]
     assert lums == sorted(lums, reverse=True), "light→dark along the pipeline"
     assert all(a - b >= 0.04 for a, b in zip(lums, lums[1:]))
     for t in toks:
         r, g, b = int(t[1:3], 16), int(t[3:5], 16), int(t[5:7], 16)
-        assert g >= r and g >= b, f"{t} is not a green"
+        assert r >= g and r >= b, f"{t} is not champagne"
 
 
 def test_recommendation_uses_weight_and_shape_not_hue():

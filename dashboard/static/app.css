@@ -1,13 +1,13 @@
-/* Cortech BD dashboard — cool glass desk.
-   A deep field, frosted panels, ice where a person must act, mint where
-   the work is done. The one gradient is the primary button.
+/* Cortech BD dashboard — ink and champagne.
+   A warm-black field, ivory type, champagne where a person must act.
+   Serif for the name and the page title. The one gradient is the gold button.
    Outfit at weight 400 and 500 only.
    Mapping and contrast: tests/test_dashboard_palette.py.
    Rules of this file:
      * every colour is a token in :root; no hex/rgb() past the token block
-     * surfaces are the cool stack: abyss (field), deep (wells), kelp (cards)
-     * phosphor = a person needs to act. Never a button fill, never a ring,
-       never body text
+     * surfaces are ink, a lifted card, and a warm well
+     * champagne = a person needs to act. Never a focus ring, never body text
+       except on an attention figure
      * Outfit at 400 and 500 only
      * radii: 16 cards, 6 controls and chips, 2px on thin marks */
 
@@ -31,29 +31,29 @@
 :root {
   color-scheme: dark;
 
-  /* ── Cool field. Mint is the work. Ice is "a person must act". */
-  --color-liquid-abyss: #0b1018;
-  --color-liquid-deep:  #1c2838;
-  --color-liquid-kelp:  #16202c;
-  --color-liquid-mist:  #4d647c;
-  --color-platinum:     #eef3f8;
-  --color-silver-mist:  #c5d0dc;
-  --color-slate-deep:   #5e666e;
-  --color-lavender-phosphor: #8ec9de;
-  --color-aqua:         #72c498;
-  --color-teal-mark:    #9adbb8;
-  --color-kelp-mid:     #f4fff8;
-  --gradient-aurora: linear-gradient(90deg, #d9ffe8 0%, #8ec9de 62%, #d7e6ff 100%);
+  /* ── Warm ink. Champagne is the work and "a person must act". */
+  --color-liquid-abyss: #14120e;
+  --color-liquid-deep:  #2c2822;
+  --color-liquid-kelp:  #1e1b16;
+  --color-liquid-mist:  #7a7366;
+  --color-platinum:     #f7f2e8;
+  --color-silver-mist:  #d2c7b6;
+  --color-slate-deep:   #7a7366;
+  --color-lavender-phosphor: #e8cb8c;
+  --color-aqua:         #e8cb8c;
+  --color-teal-mark:    #c4a15a;
+  --color-kelp-mid:     #8d6b32;
+  --gradient-aurora: linear-gradient(100deg, #f8edd4 0%, #e8cb8c 46%, #c4a15a 100%);
 
   --color-cream:      var(--color-liquid-abyss); /* name kept so older notes still resolve */
   --color-forest:     var(--color-aqua);         /* chart series and labels */
   --color-forest-mid: var(--color-teal-mark);
   --color-moss:       var(--color-silver-mist);
   --color-sage:       var(--color-slate-deep);   /* large missing figures only */
-  --color-hairline:   #31445a;
+  --color-hairline:   #3a342c;
   --color-track:      var(--color-liquid-deep);
   --color-brass:      var(--color-lavender-phosphor);
-  --ramp-1: var(--color-kelp-mid); --ramp-2: #c9f5dc; --ramp-3: var(--color-teal-mark); --ramp-4: var(--color-aqua);
+  --ramp-1: #f0d7a2; --ramp-2: #c9a15a; --ramp-3: #8d6a2e; --ramp-4: #5c4318;
 
   --font-outfit: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-weight-regular: 400; --font-weight-medium: 500;
@@ -67,7 +67,7 @@
   --line:      var(--color-hairline);
   --line-strong: var(--color-teal-mark);
   --fill:      var(--color-aqua);           /* BID chip and marks; dark text on it */
-  --on-fill:   #0b1018;
+  --on-fill:   #1a1610;
   --accent:    var(--color-lavender-phosphor);
   --hover:     var(--color-track);
   --selected:  var(--color-track);
@@ -98,10 +98,10 @@
   --sp7: 48px; --sp8: 64px; --sp9: 96px;
 
   --r-card: 16px; --r-ctl: 6px; --r-pill: 6px; --r-mark: 2px;
-  /* Frosted panels over the field. A dark shadow plus a 1px light rim. */
-  --glass: color-mix(in srgb, var(--color-liquid-kelp) 62%, transparent);
-  --glass-line: color-mix(in srgb, var(--color-platinum) 18%, transparent);
-  --glass-shadow: 0 24px 60px color-mix(in srgb, #000000 42%, transparent);
+  /* Lifted cards on ink. One soft shadow. */
+  --glass: var(--surface);
+  --glass-line: var(--line);
+  --glass-shadow: 0 18px 50px color-mix(in srgb, #000000 38%, transparent);
   --measure: 66ch;
   --page-max-width: 1440px;
 }
@@ -118,6 +118,7 @@ body {
 }
 h1, h2, h3, p, dl, ol, ul, figure { margin: 0; }
 h1, h2, h3 { color: var(--ink); font-weight: var(--font-weight-medium); letter-spacing: -0.02em; line-height: 1.1; }
+h1 { font-family: var(--doc); font-weight: var(--font-weight-regular); }
 strong { color: var(--ink); font-weight: var(--font-weight-medium); }
 a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-strong); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:hover { text-decoration-color: var(--ink); }
@@ -142,10 +143,10 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 
 /* ── Field, then the desk ───────────────────────────────────────────────── */
 .atmosphere { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.orb { position: absolute; width: 560px; height: 560px; border-radius: 50%; filter: blur(30px); opacity: 0.42; }
-.orb--a { background: var(--accent); top: -180px; right: -120px; }
-.orb--b { background: var(--fill); bottom: -220px; left: -80px; width: 640px; height: 640px; }
-.orb--c { background: var(--stage-current); top: 38vh; left: 36vw; width: 380px; height: 380px; opacity: 0.22; }
+.orb { position: absolute; width: 560px; height: 560px; border-radius: 50%; filter: blur(70px); opacity: 0; }
+.orb--a { background: var(--accent); top: -220px; right: -80px; width: 720px; height: 420px; opacity: 0.16; }
+.orb--b { background: var(--fill); bottom: -220px; left: -80px; width: 640px; height: 640px; opacity: 0; }
+.orb--c { background: var(--stage-current); top: 38vh; left: 36vw; width: 380px; height: 380px; opacity: 0; }
 
 .shell { position: relative; z-index: 1; display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
 .shell__main { min-width: 0; }
@@ -153,14 +154,12 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
   position: sticky; top: 0; height: 100vh;
   display: flex; flex-direction: column; gap: var(--sp6);
   padding: var(--sp6) var(--sp4);
-  background: var(--glass);
-  border-right: 1px solid var(--glass-line);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
+  background: var(--ground);
+  border-right: 1px solid var(--line);
+  box-shadow: none;
 }
 .sidenav .brand { padding: 0 var(--sp2); }
-.sidenav .nav { flex-direction: column; align-items: stretch; gap: var(--sp2); }
+.sidenav .nav { flex-direction: column; align-items: stretch; gap: var(--sp1); }
 
 /* ── Masthead ───────────────────────────────────────────────────────────── */
 .masthead { border-bottom: 1px solid var(--glass-line); background: transparent; }
@@ -168,9 +167,9 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
   max-width: var(--page-max-width); margin: 0 auto; padding: 0 var(--sp5);
   display: flex; align-items: center; gap: var(--sp6); min-height: 64px;
 }
-.brand { display: inline-flex; align-items: center; gap: var(--sp2); text-decoration: none; color: var(--ink); }
-.brand__mark { display: none; }
-.brand__name { font-weight: var(--font-weight-medium); font-size: var(--t20); letter-spacing: -0.03em; color: var(--ink); }
+.brand { display: inline-flex; align-items: center; gap: var(--sp3); text-decoration: none; color: var(--ink); }
+.brand__mark { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--line-strong); background: transparent; flex: none; }
+.brand__name { font-family: var(--doc); font-weight: var(--font-weight-regular); font-size: var(--t20); letter-spacing: -0.03em; color: var(--ink); }
 .brand__name span { font-weight: var(--font-weight-regular); color: var(--ink-2); }
 .nav { display: flex; gap: var(--sp5); align-items: center; }
 .nav a {
@@ -178,16 +177,16 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
   text-decoration: none; text-transform: uppercase; letter-spacing: 0.12em;
   padding: 10px var(--sp3); border-bottom: 0; border-radius: var(--r-ctl);
 }
-.nav a:hover { color: var(--ink); background: var(--hover); }
-.nav a[aria-current="page"] { color: var(--ink); background: var(--track); border-bottom: 0; }
+.nav a:hover { color: var(--ink); background: transparent; }
+.nav a[aria-current="page"] { color: var(--ink); background: transparent; border-bottom: 0; border-left: 2px solid var(--line-strong); border-radius: 0; }
 .who { margin-left: auto; display: flex; align-items: center; gap: var(--sp5); font-size: var(--t13); color: var(--ink-2); }
 .who a { color: var(--ink); text-decoration-color: var(--line-strong); }
 
 /* ── Page frame ─────────────────────────────────────────────────────────── */
 .page { max-width: var(--page-max-width); margin: 0 auto; padding: var(--sp8) var(--sp5) var(--sp9); }
 .view-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp5); flex-wrap: wrap; margin-bottom: var(--sp7); }
-.view-head h1 { font-size: 68px; line-height: 0.95; font-weight: var(--font-weight-medium); letter-spacing: -0.045em; }
-.view-head h1 .hl { display: block; font-size: var(--t20); line-height: 1.3; margin-top: var(--sp3); font-weight: var(--font-weight-medium); letter-spacing: 0; }
+.view-head h1 { font-family: var(--doc); font-size: 72px; line-height: 0.92; font-weight: var(--font-weight-regular); letter-spacing: -0.03em; }
+.view-head h1 .hl { display: block; font-family: var(--doc); font-size: var(--t20); line-height: 1.3; margin-top: var(--sp3); font-weight: var(--font-weight-regular); letter-spacing: 0; font-style: italic; }
 .view-head h1.doc { font-family: var(--doc); font-size: var(--t32); line-height: 1.2; letter-spacing: -0.03em; max-width: 22em; }
 .view-head__meta { font-size: var(--t14); color: var(--ink-2); display: flex; gap: var(--sp2) var(--sp5); flex-wrap: wrap; align-items: center; }
 
@@ -202,14 +201,13 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 .row { display: flex; align-items: center; gap: var(--sp3); flex-wrap: wrap; }
 .stack > * + * { margin-top: var(--sp3); }
 
-/* ── Cards: frosted glass on the field. The hero keeps a 2px ink rule. ── */
+/* ── Cards: lifted ink. The hero keeps a champagne rule. ── */
 .panel {
-  background: var(--glass); border: 1px solid var(--glass-line); border-radius: var(--r-card);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-line);
-  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-card);
+  box-shadow: var(--glass-shadow);
 }
 .panel--hero { border-top: 0; }
-.page .panel--hero { border-top: 2px solid var(--ink); }
+.page .panel--hero { border-top: 2px solid var(--line-strong); }
 .panel__in { padding: var(--sp6); }
 
 /* Hero strip: figures + meter in one instrument */
@@ -234,7 +232,7 @@ code { font-family: var(--mono); font-size: 0.9em; color: inherit; }
 /* Figures: the hierarchy is size and weight */
 .figure { display: block; text-decoration: none; color: inherit; min-width: 0; }
 .figure__value { display: flex; align-items: flex-end; min-height: var(--t56);
-  font-size: var(--t32); font-weight: var(--font-weight-regular); line-height: 1; letter-spacing: -0.01em;
+  font-family: var(--doc); font-size: var(--t32); font-weight: var(--font-weight-regular); line-height: 1; letter-spacing: -0.03em;
   color: var(--ink); font-variant-numeric: proportional-nums; }
 .figure__value.is-zero { color: var(--ink-3); }
 .figure__label { color: var(--ink); margin-top: var(--sp4); min-height: 2.8em; }
@@ -250,7 +248,7 @@ a.figure:hover .figure__label { text-decoration: underline; text-underline-offse
 .figure--attention:has(.is-zero), .figure--review:has(.is-zero) { border-left-color: var(--line); }
 
 .hero { min-width: 0; }
-.hero__value { font-size: var(--t56); font-weight: var(--font-weight-medium); line-height: 1; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: proportional-nums; }
+.hero__value { font-family: var(--doc); font-size: var(--t56); font-weight: var(--font-weight-medium); line-height: 1; letter-spacing: -0.03em; color: var(--ink); font-variant-numeric: proportional-nums; }
 .hero__value.is-missing { color: var(--ink-3); font-weight: var(--font-weight-regular); }
 .hero__label { color: var(--ink); margin-top: var(--sp4); }
 .hero__label .v-prov, .stat__label .v-prov, .stat__label .v-why { font-weight: var(--font-weight-regular); color: var(--ink-2); text-transform: none; letter-spacing: 0; }
@@ -507,13 +505,14 @@ form.rerun { display: inline-flex; align-items: center; gap: var(--sp2); }
   list-style: none;
 }
 .steps__item {
-  border: 1px solid var(--glass-line);
+  border: 1px solid var(--line);
   border-radius: var(--r-card);
   background: var(--surface);
-  padding: var(--sp4);
+  padding: var(--sp4) var(--sp4) var(--sp5);
   color: var(--ink);
+  font-family: var(--doc);
 }
-.steps__item .label { display: block; margin-bottom: var(--sp2); }
+.steps__item .label { display: block; margin-bottom: var(--sp2); font-family: var(--doc); letter-spacing: 0.16em; }
 .direct { margin-top: var(--sp5); }
 .direct-set { border: 0; margin: 0; padding: 0; min-width: 0; }
 label.choice { padding: var(--sp4); cursor: pointer; }
@@ -721,13 +720,12 @@ label.choice { padding: var(--sp4); cursor: pointer; }
 .auth { min-height: 100vh; display: grid; place-items: center; padding: var(--sp5); }
 .auth__card {
   width: 100%; max-width: 460px;
-  background: var(--glass); border: 1px solid var(--glass-line); border-top: 2px solid var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-top: 2px solid var(--line-strong);
   border-radius: var(--r-card); padding: var(--sp7);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-line);
-  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+  box-shadow: var(--glass-shadow);
 }
 .auth__card .brand { margin-bottom: var(--sp6); }
-.auth h1 { font-size: 44px; line-height: 0.95; font-weight: var(--font-weight-medium); letter-spacing: -0.04em; }
+.auth h1 { font-family: var(--doc); font-size: 48px; line-height: 0.95; font-weight: var(--font-weight-regular); letter-spacing: -0.03em; }
 .auth h1 .hl { font-size: inherit; }
 .auth p { font-size: var(--t15); color: var(--ink-2); margin-top: var(--sp4); line-height: 1.6; }
 .auth .btn { width: 100%; margin-top: var(--sp6); padding: 14px var(--sp4); }
@@ -787,33 +785,9 @@ label.choice { padding: var(--sp4); cursor: pointer; }
 
 .panel__in h3 { font-size: var(--t16); }
 
-/* ── Kinetic type: headlines arrive; two words drift across and fade ──── */
-@keyframes arise {
-  from { opacity: 0; transform: translateY(18px); }
-  to { opacity: 1; transform: none; }
-}
-@keyframes drift-away {
-  0%   { opacity: 0;    transform: translate3d(-12vw, 18px, 0); }
-  16%  { opacity: 0.16; transform: translate3d(0, 0, 0); }
-  58%  { opacity: 0.16; transform: translate3d(4vw, -4px, 0); }
-  100% { opacity: 0;    transform: translate3d(18vw, -28px, 0); }
-}
-.drift {
-  position: fixed; left: 8vw; top: 74vh; z-index: 0; pointer-events: none; user-select: none;
-  margin: 0; font-family: var(--ui); font-weight: var(--font-weight-medium);
-  font-size: clamp(72px, 12vw, 160px); line-height: 1; letter-spacing: -0.046em;
-  color: var(--color-liquid-mist); white-space: nowrap;
-  animation: drift-away 18s ease-in-out infinite;
-  animation-delay: -4s;
-}
-.drift--two { top: 18vh; left: 62vw; font-size: clamp(56px, 8vw, 120px); animation-delay: -13s; }
+/* The page is still. No drifting words, no entrance motion. */
+.drift { display: none; }
 .masthead, .page, .auth { position: relative; z-index: 1; }
-.view-head h1, .auth h1, .brand__name { animation: arise 0.9s cubic-bezier(.2, .7, .2, 1) both; }
-.figure__value, .hero__value, .tile__value, .meter__value { animation: arise 1.1s cubic-bezier(.2, .7, .2, 1) both; }
-.strip__figures .figure:nth-child(2) .figure__value { animation-delay: .08s; }
-.strip__figures .figure:nth-child(3) .figure__value { animation-delay: .16s; }
-.strip__figures .figure:nth-child(4) .figure__value { animation-delay: .24s; }
-.strip__figures .figure:nth-child(5) .figure__value { animation-delay: .32s; }
 @media (prefers-reduced-motion: reduce) {
   .state.is-live::before { animation: none; }
   .drift { animation: none; opacity: 0.1; transform: none; }

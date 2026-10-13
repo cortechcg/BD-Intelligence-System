@@ -535,6 +535,8 @@ def submit_single_url(
         "lightweight", "lightweight_reason", "submission_type", "quality_score",
         "claim_grounding", "tender_brief", "win_strategy", "document_lock",
         "section_order", "omitted_financial", "submission_outline",
+        "claim_sheet", "draft_editor", "required_attachments", "required_forms",
+        "format_compliance", "requirement_alignment",
     }
     with open(out_path, "w") as f:
         written = set()
