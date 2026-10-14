@@ -92,7 +92,7 @@ def test_parse_garbage_consultancy_flag_is_schema_failure_not_true():
         parse_analysis_payload(payload, "Title")
 
 
-def test_analyze_rfp_malformed_json_returns_empty_without_retry(monkeypatch):
+def test_analyze_rfp_malformed_json_retries_once_then_refuses(monkeypatch):
     calls = []
 
     def complete(**kwargs):
@@ -101,8 +101,43 @@ def test_analyze_rfp_malformed_json_returns_empty_without_retry(monkeypatch):
 
     _patch_llm(monkeypatch, complete)
     assert analyze_rfp(_TOR) == {}
-    assert len(calls) == 1
-    assert calls[0]["model"] == CLAUDE_MODEL
+    assert len(calls) == 2
+    assert all(call["model"] == CLAUDE_MODEL for call in calls)
+    assert calls[1]["stage"] == "analyze_rfp_json_retry"
+    repair = calls[1]["messages"][-1]["content"]
+    assert "was not a JSON object because" in repair
+    assert "not-json" not in repair
+    from intelligence.analyzer import last_analysis_refusal
+    assert "not a json object" in last_analysis_refusal().lower()
+
+
+def test_empty_reply_retries_once_and_keeps_the_repaired_object(monkeypatch):
+    calls = []
+    good = json.dumps({
+        "opportunity": {"title": "Somalia MEL Evaluation", "client": "UNICEF"},
+        "bid_analysis": {"is_consultancy_contract": True},
+    })
+    texts = ["", good]
+
+    def complete(**kwargs):
+        calls.append(kwargs)
+        text = texts.pop(0)
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="thinking", thinking="...")] if not text else [
+                SimpleNamespace(type="text", text=text)
+            ],
+            stop_reason="end_turn" if text else "max_tokens",
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+    _patch_llm(monkeypatch, complete)
+    analysis = analyze_rfp(_TOR)
+    assert analysis["opportunity"]["client"] == "UNICEF"
+    assert len(calls) == 2
+    assert calls[1]["stage"] == "analyze_rfp_json_retry"
+    assert calls[1]["messages"][1]["content"] == "(no text)"
+    assert "stop_reason=max_tokens" in calls[1]["messages"][-1]["content"]
+    assert "content=thinking" in calls[1]["messages"][-1]["content"]
 
 
 def test_schema_violation_retries_once_then_fails(monkeypatch):
@@ -309,3 +344,28 @@ def test_schema_refuse_does_not_crash_if_log_agent_action_raises(monkeypatch):
     monkeypatch.setattr("intelligence.analyzer.usage_totals", lambda _r: (1, 1))
     monkeypatch.setattr("intelligence.analyzer.log_agent_action", boom)
     assert analyze_rfp(_TOR) == {}
+
+
+def test_failure_chip_uses_analysis_not_ingestion():
+    from dashboard.worker import _failure_from_ledger
+    from utils.errors import ErrorType
+
+    status, kind, message = _failure_from_ledger({
+        "state": "failed",
+        "last_error": "response was not a JSON object: empty analysis payload; stop_reason=max_tokens; no text in the reply",
+    })
+    assert status == "failed"
+    assert kind == ErrorType.ANALYSIS_ERROR
+    assert "empty analysis payload" in message
+
+    status, kind, _message = _failure_from_ledger({
+        "state": "failed",
+        "last_error": "Claude rejected the API key (401 invalid)",
+    })
+    assert kind == ErrorType.AUTH_ERROR
+
+    status, kind, _message = _failure_from_ledger({
+        "state": "failed",
+        "last_error": "could not download the tender PDF",
+    })
+    assert kind == ErrorType.INGESTION_ERROR

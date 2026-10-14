@@ -89,6 +89,23 @@ def _failure_from_ledger(snapshot: dict) -> tuple[str, str, str]:
         return "cancelled", ErrorType.CANCELLED, last_error
     if "spend cap" in low or "max_run_cost_usd" in low:
         return "failed", ErrorType.SPEND_CAP_ERROR, last_error
+    if "rejected the api key" in low or "401 invalid" in low:
+        return "failed", ErrorType.AUTH_ERROR, last_error
+    if "analysis timed out" in low or "timed out after" in low:
+        return "failed", ErrorType.TIMEOUT_ERROR, last_error
+    if "rate limit" in low:
+        return "failed", ErrorType.RATE_LIMIT_ERROR, last_error
+    if any(marker in low for marker in (
+        "analysis returned empty",
+        "not a json object",
+        "empty analysis payload",
+        "no text in the reply",
+        "stop_reason=",
+        "schema validation failed",
+        "empty document",
+        "analysis failed",
+    )):
+        return "failed", ErrorType.ANALYSIS_ERROR, last_error
     if last_error:
         return "failed", ErrorType.INGESTION_ERROR, last_error
     return "failed", ErrorType.INGESTION_ERROR, (

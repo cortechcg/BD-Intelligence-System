@@ -17,6 +17,7 @@ from intelligence.pipeline_stages import (
     run_opportunity_pipeline,
     run_score_stage,
 )
+from intelligence.analyzer import analyze_rfp
 from intelligence.proposal_writer import (
     DraftingError,
     assert_usable_client_draft,
@@ -271,3 +272,32 @@ def test_accepted_outline_is_what_the_draft_stage_receives():
     assert drafts and drafts[0]["submission_type"] == "EOI"
     assert drafts[0]["accepted_outline"]["sections"][0]["heading"] == "Letter of interest"
     assert outcome.result["proposal_sections"]["cover_letter"].startswith("A complete")
+
+
+def test_score_stage_names_an_unusable_analysis_reply(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "intelligence.analyzer.complete",
+        lambda **kwargs: SimpleNamespace(
+            content=[SimpleNamespace(type="thinking", thinking="hidden")],
+            stop_reason="max_tokens",
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        ),
+    )
+    monkeypatch.setattr("intelligence.analyzer.usage_totals", lambda _response: (1, 1))
+    monkeypatch.setattr("intelligence.analyzer.log_agent_action", lambda **kwargs: None)
+
+    ctx = context_from_raw({
+        "title": "Somalia MEL",
+        "source_url": "https://example.com/tor",
+    })
+    ctx.full_text = "Terms of Reference for an evaluation of a livelihoods programme. " * 4
+    with pytest.raises(RetryableStageError) as exc:
+        run_score_stage(ctx, _deps(analyze_rfp=analyze_rfp))
+
+    assert exc.value.error_type == "ANALYSIS_ERROR"
+    assert "not a JSON object" in exc.value.reason
+    assert "stop_reason=max_tokens" in exc.value.reason
+    assert "content=thinking" in exc.value.reason
+    assert "empty analysis payload" in exc.value.reason
