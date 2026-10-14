@@ -29,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
+from config import CLAUDE_MODEL
 from dashboard import auth, queries, settings, triggers
 from database.supabase_client import save_accepted_outline, seed_direct_draft
 from intelligence.draft_templates import catalog, resolve_outline
@@ -177,6 +178,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_mark_outcome": "/opportunity/outcome",
         "url_outline": "/opportunity/outline",
         "cancel_copy": CANCEL_COPY,
+        "claude_model": CLAUDE_MODEL,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "flash": request.query_params.get("msg", ""),
         "flash_kind": request.query_params.get("kind", ""),
