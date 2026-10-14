@@ -585,3 +585,110 @@ def test_outline_customizer_guards_against_disappearing_text_and_persists_drafts
     assert "outline-input--scope" in html
     assert "data-insert-tor" in html
 
+
+def test_five_stage_bid_desk_components_render_across_stages(env):
+    from intelligence.draft_templates import catalog, recommend_outline
+
+    detail = _detail("completed", "", stage="drafted")
+    detail["has_draft"] = True
+    detail["fit"] = queries.cell(82, source="bid_scorer")
+    detail["recommendation"] = queries.cell("BID", source="bid_scorer")
+    detail["section_keys"] = ["executive_summary", "methodology"]
+    detail["recommended_outline"] = recommend_outline({
+        "bid_analysis": {"submission_type": "FULL_PROPOSAL"},
+        "submission_requirements": {"prescribed_proposal_sections": [
+            {"heading": "Methodology", "page_limit": "8"},
+        ]},
+    })
+    detail["draft_templates"] = catalog()
+    detail["matched_team_result"] = {
+        "team_strength_score": 88,
+        "roles": [{
+            "role_title": "Team Leader",
+            "recommended": {
+                "name": "Dr. Amina Hassan",
+                "match_score": 92,
+                "availability": "Available",
+            },
+        }],
+    }
+    html = _render_detail(env, detail)
+    # Top bar 5-stage stepper & 5-segment progress bar
+    assert "BID DESK" in html
+    assert "stage-progress" in html
+    for label in ("Source", "Opportunities", "Analysis", "Draft", "Review pack"):
+        assert label in html
+    # Stage 3: 120px Fit Gauge Ring, Document Chip, Client History, Team Match bar
+    assert "gauge-ring" in html
+    assert "doc-chip" in html
+    assert "Internal, not in the Word file" in html
+    assert "Counted from stored records" in html
+    assert "match-bar" in html
+    assert "Dr. Amina Hassan" in html
+    # Stage 4: Document Type choice cards, Template Gallery, No-fees rule
+    assert "Technical Proposal" in html
+    assert "Expression of Interest (EOI)" in html
+    assert "Follow the TOR format" in html
+    assert "No fees or prices go into the Word file" in html
+    # Stage 5: Dark Headline Tiles, Internal Budget, Email Preview Card, Hard Stop
+    assert "tile--dark" in html
+    assert "Internal budget working" in html
+    assert "Insufficient data" in html
+    assert "DRAFT PROPOSAL:" in html
+    assert "REVIEW REQUIRED" in html
+    assert "Nothing here is sent to the client" in html
+
+
+def test_trigger_url_supports_uploaded_tor_file_and_auto_draft(client, monkeypatch):
+    seeded = {}
+    enqueued = {}
+
+    def _seed_auto(url, *, title="", full_text="", auto_accept_outline=True, accepted_outline=None):
+        seeded.update({
+            "url": url,
+            "title": title,
+            "full_text": full_text,
+            "auto_accept_outline": auto_accept_outline,
+            "accepted_outline": accepted_outline,
+        })
+        return True, "saved"
+
+    def _enqueue(url, kind, by):
+        enqueued.update({"url": url, "kind": kind, "by": by})
+        return "trigger-upload-1"
+
+    monkeypatch.setattr(app_module, "seed_auto_pipeline", _seed_auto)
+    monkeypatch.setattr(app_module.triggers, "enqueue", _enqueue)
+    monkeypatch.setattr(app_module.triggers, "queue_available", lambda: True)
+    monkeypatch.setattr(app_module.triggers, "aggregate_cap_reached", lambda: (False, ""))
+    monkeypatch.setattr(app_module.triggers, "in_flight_by_url", lambda: {})
+    monkeypatch.setattr(settings, "TRIGGERS_ENABLED", True)
+
+    token = auth.issue_session("staff@cortechconsultinggroup.com")
+    client.cookies.set(settings.SESSION_COOKIE_NAME, token)
+    session = auth.read_session(token)
+
+    tor_body = (
+        "Terms of Reference: Endline Evaluation of the Resilience and Livelihoods Programme "
+        "in Somalia and Kenya. Scope of work, methodology, deliverables, evaluation criteria, "
+        "and team leader qualifications are detailed below. "
+    ) * 8
+
+    response = client.post(
+        "/trigger/url",
+        data={
+            "csrf_token": auth.csrf_token(session),
+            "intent": "auto",
+            "auto_draft": "1",
+        },
+        files={"tor_file": ("UNICEF_Somalia_TOR.txt", tor_body.encode("utf-8"), "text/plain")},
+    )
+    assert response.status_code == 303
+    assert enqueued["kind"] == "draft_existing"
+    assert seeded["auto_accept_outline"] is True
+    assert "Endline Evaluation" in seeded["full_text"]
+    assert "UNICEF Somalia TOR" in seeded["title"]
+    assert seeded["url"].startswith("https://upload.cortechconsultinggroup.com/tor/")
+
+
+

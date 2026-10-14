@@ -798,6 +798,93 @@ def seed_direct_draft(source_url: str, outline: dict) -> tuple[bool, str]:
     return True, "saved"
 
 
+def seed_auto_pipeline(
+    source_url: str,
+    *,
+    title: str = "",
+    full_text: str = "",
+    auto_accept_outline: bool = True,
+    accepted_outline: dict | None = None,
+) -> tuple[bool, str]:
+    """Seed an opportunity for end-to-end Analyze -> Score -> Draft (or uploaded ToR).
+
+    Preserves any uploaded ``full_text`` and sets ``auto_accept_outline`` so the
+    worker runs extraction, full RFP analysis, deterministic fit scoring, and
+    immediately drafts the proposal without stopping at the outline gate.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False, "missing url"
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state, title, checkpoint")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load opportunity for auto pipeline: {e}")
+        return False, "could not load the opportunity"
+    rows = loaded.data or []
+    if rows and rows[0].get("state") == "processing":
+        return False, "a run is in progress — wait until it finishes"
+
+    existing_row = rows[0] if rows and isinstance(rows[0], dict) else {}
+    existing_ckpt = existing_row.get("checkpoint") if isinstance(existing_row.get("checkpoint"), dict) else {}
+    resolved_title = (title or existing_row.get("title") or existing_ckpt.get("title") or "").strip()
+    resolved_text = (full_text or existing_ckpt.get("full_text") or "").strip()
+
+    checkpoint: dict = {
+        "source_url": canonical,
+        "dedup_url": canonical,
+        "auto_accept_outline": bool(auto_accept_outline),
+    }
+    if resolved_title:
+        checkpoint["title"] = resolved_title
+    if resolved_text:
+        checkpoint["full_text"] = resolved_text
+    if isinstance(accepted_outline, dict) and accepted_outline.get("sections"):
+        checkpoint["accepted_outline"] = accepted_outline
+        checkpoint["submission_type"] = accepted_outline.get("submission_type") or "FULL_PROPOSAL"
+
+    payload = {
+        "state": "pending",
+        "pipeline_stage": "discovered",
+        "checkpoint": checkpoint,
+        "lease_until": None,
+        "claim_token": "",
+        "completed_at": None,
+        "last_error": None,
+        "draft_fail_count": 0,
+        "updated_at": now,
+    }
+    if resolved_title:
+        payload["title"] = resolved_title
+    try:
+        if rows:
+            updated = (
+                supabase.table("opportunity_processing")
+                .update(payload)
+                .eq("source_url", canonical)
+                .neq("state", "processing")
+                .execute()
+            )
+            if not updated.data:
+                return False, "could not queue the opportunity"
+        else:
+            supabase.table("opportunity_processing").insert({
+                "source_url": canonical,
+                "title": resolved_title,
+                **payload,
+            }).execute()
+    except Exception as e:
+        logger.warning(f"Could not seed auto pipeline: {e}")
+        return False, "could not queue the opportunity"
+    return True, "saved"
+
+
 def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
     """Store the outline for this opportunity. Does not call a model.
 

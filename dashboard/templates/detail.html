@@ -1,29 +1,36 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
 {% import "_outline.html" as outline %}
-{% block title %}{{ d.title.value or "Opportunity" }} · Cortech BD{% endblock %}
+{% block title %}{{ d.title.value or "Opportunity" }} · {{ product_name or "Cortech BD" }}{% endblock %}
 
 {% block content %}
 {% set human_done = d.stage.value in ("reviewed", "outcome") %}
 {% set rec_name = (d.recommendation.value or "") %}
 {% set ready_for_outline = (d.stage.value in ("scored", "drafted", "reviewed", "outcome") or d.recommended_outline or d.accepted_outline) and rec_name != "NO-BID" %}
+{% set is_drive = "drive.google.com" in (d.source_url or "") or "docs.google.com" in (d.source_url or "") %}
 
 <div class="view-head">
   <div>
     <div class="eyebrow">
-      Opportunity Workspace
+      Terms of reference (TOR) · Stage {{ 5 if d.has_draft else (4 if ready_for_outline else 3) }} of 5
       {% if d.submission_type and d.submission_type.value %}
         · {{ d.submission_type.value | replace("_", " ") }}
       {% endif %}
     </div>
     <h1 class="doc">{{ m.doc_value(d.title, "untitled — title not extracted") }}</h1>
     <div class="view-head__meta">
-      <span class="badge-pill"><a class="iconbtn iconbtn--sm" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span class="mono">{{ m.host(d.source_url) }}</span></span>
+      <span class="badge-pill">
+        <a class="iconbtn iconbtn--sm" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a>
+        <span class="mono">{{ m.host(d.source_url) }}</span>
+      </span>
       <span class="badge-pill">client {{ m.value_terse(d.client) }}</span>
       <span class="badge-pill">deadline {{ m.value_terse(d.deadline) }}</span>
       {% if d.budget_usd and d.budget_usd.value is not none %}
       <span class="badge-pill mono">USD {{ "{:,.0f}".format(d.budget_usd.value) }}</span>
       {% endif %}
+      <a class="badge-pill" href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">
+        {% if is_drive %}Open TOR in Drive ↗{% else %}Open source page ↗{% endif %}
+      </a>
     </div>
   </div>
   <div class="row">
@@ -34,27 +41,27 @@
   </div>
 </div>
 
-{# ── 3-Step Workflow Progression Bar ───────────────────────────────────── #}
+{# ── 3-Step Opportunity Workflow Bar ───────────────────────────────────── #}
 <ol class="steps" style="margin-bottom: var(--sp5)" aria-label="Opportunity workflow">
   <li class="steps__item {% if ready_for_outline or d.has_draft %}is-done{% else %}is-active{% endif %}">
-    <span class="steps__num">1</span>
+    <span class="steps__num">3</span>
     <div class="steps__text">
-      <strong>Score &amp; Understand ToR / RFP</strong>
-      <span>Extract criteria, deliverables &amp; Cortech fit</span>
+      <strong>Stage 3 · Extract &amp; Score ToR</strong>
+      <span>Brief, client history, fit &amp; team match</span>
     </div>
   </li>
   <li class="steps__item {% if d.has_draft %}is-done{% elif ready_for_outline %}is-active{% endif %}">
-    <span class="steps__num">2</span>
+    <span class="steps__num">4</span>
     <div class="steps__text">
-      <strong>Recommend or Customize Template</strong>
+      <strong>Stage 4 · Customize Template &amp; Chapters</strong>
       <span>Confirm ToR-prescribed, Technical Proposal, or EOI chapters</span>
     </div>
   </li>
   <li class="steps__item {% if d.has_draft %}is-active{% endif %}{% if human_done %} is-done{% endif %}">
-    <span class="steps__num">3</span>
+    <span class="steps__num">5</span>
     <div class="steps__text">
-      <strong>Draft Aligned Technical Proposal / EOI</strong>
-      <span>Verified against ToR evaluation criteria &amp; human review</span>
+      <strong>Stage 5 · Review Pack &amp; Client Draft</strong>
+      <span>Compliance matrix, internal budget &amp; human decision</span>
     </div>
   </li>
 </ol>
@@ -63,13 +70,18 @@
 <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
 
+{# ══════════════════════════════════════════════════════════════════════════
+   STAGE 4 STUDIO (or Stage 3 "Score this ToR" action when not yet scored).
+   Kept at the top of the page so "Choose the chapters" / "Change the chapters"
+   always precedes "WIN PROBABILITY".
+   ══════════════════════════════════════════════════════════════════════════ #}
 {% if ready_for_outline %}
   {{ outline.studio(d, csrf_token, url_outline) }}
 {% else %}
 <section class="section section--first" aria-labelledby="h-next">
   <div class="panel panel--hero">
     <div class="panel__in stack">
-      <p class="label">Step 1 of 3 · Next Action</p>
+      <p class="label">Stage 3 of 5 · Next Action</p>
       <h2 id="h-next">Score this ToR</h2>
       <p class="doc">The agent reads the document and scores it, then stops. You choose the chapters before it writes. Nothing is sent to the client.</p>
       {% if triggering_enabled and d.ui_state not in ("dead_letter", "failed", "spend_cap", "cancelled") %}
@@ -84,135 +96,566 @@
 </section>
 {% endif %}
 
-{# ── The instrument: score, recommendation, and where the run stands ────── #}
-<div class="panel panel--hero">
-  <div class="score-band">
-    <div class="hero">
-      {% if d.win_heuristic.value is not none %}
-        <div class="hero__value" title="{{ d.win_heuristic.source }}">{{ d.win_heuristic.value }}</div>
-        <div class="hero__label">WIN PROBABILITY <span class="v-prov">{{ d.win_heuristic.label }}</span></div>
-      {% else %}
-        <div class="hero__value is-missing" title="{{ d.win_heuristic.source }}">—</div>
-        <div class="hero__label">WIN PROBABILITY <span class="v-prov">{{ d.win_heuristic.why }}</span></div>
-      {% endif %}
+{# ══════════════════════════════════════════════════════════════════════════
+   STAGE 3 OF 5 — EXTRACTION, FIT SCORING, TEAM MATCH & WIN STRATEGY
+   ══════════════════════════════════════════════════════════════════════════ #}
+<section class="stack" id="stage-3-analysis" aria-labelledby="h-stage-3">
+  <div class="row-between">
+    <div>
+      <span class="label">Stage 3 of 5 · Extraction, Fit Scoring &amp; Team Match</span>
+      <h2 class="h2" id="h-stage-3">Fit gauge, TOR brief, client history &amp; team match</h2>
     </div>
-    <div class="stat">
-      <div class="stat__value{% if d.fit.value is none %} is-missing{% endif %}" title="{{ d.fit.source }}">{{ d.fit.value if d.fit.value is not none else "—" }}</div>
-      <div class="stat__label">FIT
-        {% if d.fit.value is not none %}{% if d.fit_dim.status %}{{ m.ev_label(d.fit_dim.status) }}{% endif %}{% if d.fit_dim.coverage is not none %} <span class="v-prov">coverage {{ d.fit_dim.coverage }}</span>{% endif %}
-        {% else %}<span class="v-why">{{ d.fit.why }}</span>{% endif %}</div>
-    </div>
-    <div class="stat">
-      <div class="stat__value">{{ m.rec_chip(d.recommendation, "lg") }}</div>
-      <div class="stat__label">Recommendation</div>
-    </div>
-    <div class="stat">
-      <div class="stat__value{% if d.win_calibrated.value is none %} is-missing{% endif %}" title="{{ d.win_calibrated.source }}">{{ d.win_calibrated.value if d.win_calibrated.value is not none else "—" }}</div>
-      <div class="stat__label">Calibrated P(win)</div>
-      <div class="stat__note clamp-2" title="{{ d.win_calibrated.why or d.win_calibrated.label }}">{{ d.win_calibrated.why or d.win_calibrated.label }}</div>
+    <span class="badge-pill">Internal, not in the Word file</span>
+  </div>
+
+  {# Step-by-Step Analysis Progress Strip #}
+  <div class="panel" style="padding:12px 16px">
+    <div class="row-between" style="gap:8px;flex-wrap:wrap">
+      {% set step_done_extract = d.title.value is not none or ready_for_outline %}
+      {% set step_done_score = ready_for_outline %}
+      {% set step_done_team = (d.matched_team_result is defined and d.matched_team_result and d.matched_team_result.roles) or (d.team_requirements is defined and d.team_requirements and d.team_requirements|length > 0) %}
+      {% for num, lbl, done in [
+        ("1", "Fetch TOR", step_done_extract),
+        ("2", "Extract brief", step_done_extract),
+        ("3", "Check client history", step_done_score),
+        ("4", "Score fit", step_done_score),
+        ("5", "Match team", step_done_team or step_done_score),
+        ("6", "Build win strategy", step_done_score)
+      ] %}
+      <span class="pill {% if done %}pill--ok{% elif active_job %}pill--live{% endif %}">
+        {{ num }}. {{ lbl }} {% if done %}✓{% endif %}
+      </span>
+      {% endfor %}
     </div>
   </div>
-  <div class="score-band__rail">
-    {{ m.railbar(d.rail, "lg", d.ui_state, human_done=human_done, has_draft=d.has_draft) }}
-    <div class="row" style="margin-top: var(--sp4)">
-      {{ m.state_chip(d.ui_state, live=(active_job and active_job.status == "running")) }}
-      {% if d.has_draft %}
-        <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
-      {% endif %}
-      {% if active_job %}
-        <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ active_job.id }}">Job {{ active_job.id[:8] }}: {{ active_job.status }}</a>
-        <form method="post" action="{{ url_trigger_cancel }}" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="hidden" name="trigger_id" value="{{ active_job.id }}">
-          <button class="btn btn--sm btn--ghost">{% if active_job.cancel_requested_at %}Cancel requested…{% else %}Cancel{% endif %}</button>
-        </form>
-      {% elif triggering_enabled %}
-        {% if d.ui_state == "dead_letter" %}
-        <form method="post" action="{{ url_trigger_retry }}" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="hidden" name="source_url" value="{{ d.source_url }}">
-          <button class="btn btn--sm">Retry from checkpoint</button>
-        </form>
-        {% elif d.ui_state not in ("failed", "spend_cap", "cancelled") %}
+
+  {# ── The instrument: 120px Fit Gauge Ring, Win Probability, and Rail ───── #}
+  <div class="panel panel--hero">
+    <div class="score-band">
+      {# 120px SVG Conic Fit Score Gauge Ring #}
+      {% set fit_val = d.fit.value if d.fit.value is not none else 0 %}
+      {% set rec_val = (d.recommendation.value or "not scored") %}
+      {% set ring_color = "#2D5C47" if fit_val >= 70 else ("#C08A2E" if fit_val >= 50 else "#B84A3A") %}
+      <div class="gauge-wrap">
+        <div class="gauge-ring"
+             role="img"
+             aria-label="Fit score {{ d.fit.value if d.fit.value is not none else 'not scored' }} out of 100, recommendation {{ rec_val }}">
+          <svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">
+            <circle cx="60" cy="60" r="50" fill="none" stroke="#DDE7E1" stroke-width="14"></circle>
+            {% if d.fit.value is not none %}
+            <circle cx="60" cy="60" r="50" fill="none"
+                    stroke="{{ ring_color }}"
+                    stroke-width="14"
+                    stroke-linecap="round"
+                    stroke-dasharray="{{ (fit_val * 3.14159) | round(1) }} 314.16"></circle>
+            {% endif %}
+          </svg>
+          <div class="gauge-ring__center">
+            <span class="gauge-ring__num" title="{{ d.fit.source }}">{{ d.fit.value if d.fit.value is not none else "—" }}</span>
+            <span class="gauge-ring__den">/ 100</span>
+          </div>
+        </div>
+        <div>
+          <div style="margin-bottom:6px">{{ m.rec_chip(d.recommendation, "lg") }}</div>
+          <div class="stat__label">FIT
+            {% if d.fit.value is not none %}{% if d.fit_dim.status %}{{ m.ev_label(d.fit_dim.status) }}{% endif %}{% if d.fit_dim.coverage is not none %} <span class="v-prov">coverage {{ d.fit_dim.coverage }}</span>{% endif %}
+            {% else %}<span class="v-why">{{ d.fit.why }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="hero">
+        {% if d.win_heuristic.value is not none %}
+          <div class="hero__value" title="{{ d.win_heuristic.source }}">{{ d.win_heuristic.value }}</div>
+          <div class="hero__label">WIN PROBABILITY <span class="v-prov">{{ d.win_heuristic.label }}</span></div>
         {% else %}
-        <form method="post" action="{{ url_trigger_existing }}" class="inline">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="hidden" name="source_url" value="{{ d.source_url }}">
-          <button class="btn btn--sm{% if d.ui_state not in ('failed', 'spend_cap', 'cancelled') %} btn--quiet{% endif %}">
-            {% if d.ui_state in ("failed", "spend_cap", "cancelled") %}Resume run
-            {%- elif d.has_draft %}Re-draft
-            {%- else %}Score this ToR{% endif %}
-          </button>
-        </form>
+          <div class="hero__value is-missing" title="{{ d.win_heuristic.source }}">—</div>
+          <div class="hero__label">WIN PROBABILITY <span class="v-prov">{{ d.win_heuristic.why }}</span></div>
         {% endif %}
-        {% if d.has_ledger and (d.has_draft or d.accepted_outline) and d.stage.value in ("scored", "drafted", "reviewed", "outcome") %}
-        <form method="post" action="{{ url_trigger_rerun }}" class="inline rerun">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <input type="hidden" name="source_url" value="{{ d.source_url }}">
-          <label class="small muted" for="from_stage">Re-run from</label>
-          <select name="from_stage" id="from_stage" class="select">
-            <option value="scored">scored — re-draft only (keeps analysis)</option>
-            <option value="extracted">extracted — re-score, then re-draft (keeps text)</option>
-          </select>
-          <button class="btn btn--sm btn--quiet">Go</button>
-        </form>
+      </div>
+
+      <div class="stat">
+        <div class="stat__value">{{ m.rec_chip(d.recommendation, "lg") }}</div>
+        <div class="stat__label">Recommendation</div>
+        {% if d.why and d.why.value %}
+        <div class="stat__note clamp-2">{{ d.why.value }}</div>
         {% endif %}
+      </div>
+
+      <div class="stat">
+        <div class="stat__value{% if d.win_calibrated.value is none %} is-missing{% endif %}" title="{{ d.win_calibrated.source }}">{{ d.win_calibrated.value if d.win_calibrated.value is not none else "—" }}</div>
+        <div class="stat__label">Calibrated P(win)</div>
+        <div class="stat__note clamp-2" title="{{ d.win_calibrated.why or d.win_calibrated.label }}">{{ d.win_calibrated.why or d.win_calibrated.label }}</div>
+      </div>
+    </div>
+
+    <div class="score-band__rail">
+      {{ m.railbar(d.rail, "lg", d.ui_state, human_done=human_done, has_draft=d.has_draft) }}
+      <div class="row" style="margin-top: var(--sp4)">
+        {{ m.state_chip(d.ui_state, live=(active_job and active_job.status == "running")) }}
+        {% if d.has_draft %}
+          <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+        {% endif %}
+        {% if active_job %}
+          <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ active_job.id }}">Job {{ active_job.id[:8] }}: {{ active_job.status }}</a>
+          <form method="post" action="{{ url_trigger_cancel }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="trigger_id" value="{{ active_job.id }}">
+            <button class="btn btn--sm btn--ghost">{% if active_job.cancel_requested_at %}Cancel requested…{% else %}Cancel{% endif %}</button>
+          </form>
+        {% elif triggering_enabled %}
+          {% if d.ui_state == "dead_letter" %}
+          <form method="post" action="{{ url_trigger_retry }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="source_url" value="{{ d.source_url }}">
+            <button class="btn btn--sm">Retry from checkpoint</button>
+          </form>
+          {% elif d.ui_state not in ("failed", "spend_cap", "cancelled") %}
+          {% else %}
+          <form method="post" action="{{ url_trigger_existing }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="source_url" value="{{ d.source_url }}">
+            <button class="btn btn--sm{% if d.ui_state not in ('failed', 'spend_cap', 'cancelled') %} btn--quiet{% endif %}">
+              {% if d.ui_state in ("failed", "spend_cap", "cancelled") %}Resume run
+              {%- elif d.has_draft %}Re-draft
+              {%- else %}Score this ToR{% endif %}
+            </button>
+          </form>
+          {% endif %}
+          {% if d.has_ledger and (d.has_draft or d.accepted_outline) and d.stage.value in ("scored", "drafted", "reviewed", "outcome") %}
+          <form method="post" action="{{ url_trigger_rerun }}" class="inline rerun">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="source_url" value="{{ d.source_url }}">
+            <label class="small muted" for="from_stage">Re-run from</label>
+            <select name="from_stage" id="from_stage" class="select">
+              <option value="scored">scored — re-draft only (keeps analysis)</option>
+              <option value="extracted">extracted — re-score, then re-draft (keeps text)</option>
+            </select>
+            <button class="btn btn--sm btn--quiet">Go</button>
+          </form>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% if active_job %}
+        <p class="rail-caption">
+          {% if active_job.spend_usd is not none %}<strong>{{ "%.4f"|format(active_job.spend_usd) }} USD</strong> of {{ "%.2f"|format(active_job.spend_limit_usd or 0) }} per-run cap so far, {{ active_job.provider_calls or 0 }} model call(s).{% else %}No heartbeat from the worker yet.{% endif %}
+          The rail above is the ledger's stage; sub-steps are not shown because the pipeline does not persist them. This page refreshes every {{ (poll_ms / 1000) | int }}s.
+        </p>
+        <p class="rail-caption">{{ cancel_copy }}</p>
       {% endif %}
     </div>
-    {% if active_job %}
-      <p class="rail-caption">
-        {% if active_job.spend_usd is not none %}<strong>{{ "%.4f"|format(active_job.spend_usd) }} USD</strong> of {{ "%.2f"|format(active_job.spend_limit_usd or 0) }} per-run cap so far, {{ active_job.provider_calls or 0 }} model call(s).{% else %}No heartbeat from the worker yet.{% endif %}
-        The rail above is the ledger's stage; sub-steps are not shown because the pipeline does not persist them. This page refreshes every {{ (poll_ms / 1000) | int }}s.
-      </p>
-      <p class="rail-caption">{{ cancel_copy }}</p>
+  </div>
+
+  {# ── Machine-stopped states, stated calmly ─────────────────────────────── #}
+  {% if d.ui_state == "dead_letter" %}
+  <section class="section section--tight">
+    <div class="band band--critical notice--stop">
+      <div class="band__title">Dead-lettered: drafting failed {{ d.draft_fail_count }} times and will not retry on its own.</div>
+      A BID/WATCH item whose draft comes back empty or unusable is retried and then dead-lettered (ADR 011 §5). It is never silently skipped and a hollow draft is never emailed. The pipeline recorded:
+      <p class="doc">{{ m.value(d.last_error) }}</p>
+      <p><em>Retry from checkpoint</em> re-claims this row without resetting it: drafting resumes from <code>{{ d.stage.value }}</code> with a fresh three-failure budget, and extraction and analysis are not paid for again. Read the reason first — if nothing upstream has changed, the same failure is likely.</p>
+    </div>
+  </section>
+  {% elif d.ui_state == "spend_cap" %}
+  <section class="section section--tight">
+    <div class="band band--warn notice--cap">
+      <div class="band__title">The per-run spend cap stopped this run.</div>
+      <code>MAX_RUN_COST_USD</code> was reached, so the pipeline refused further model calls (ADR 012). This is retryable and is <em>not</em> a drafting failure: the stage stays at <code>{{ d.stage.value }}</code>, the checkpoint is intact, and the draft-failure count was not incremented. A dashboard-triggered run gets no exemption from the cap — it halts exactly as a cron run would.
+      <p class="doc">{{ m.value(d.last_error) }}</p>
+    </div>
+  </section>
+  {% elif d.ui_state == "cancelled" %}
+  <section class="section section--tight">
+    <div class="band band--warn notice--cap">
+      <div class="band__title">A person stopped this run.</div>
+      The pipeline halted before its next model call. The last persisted stage (<code>{{ d.stage.value }}</code>) and checkpoint are intact and <em>Resume run</em> continues from there. Whatever was spent before the halt was incurred and is recorded on the job.
+      <p class="doc">{{ m.value(d.last_error) }}</p>
+    </div>
+  </section>
+  {% elif d.ui_state == "failed" %}
+  <section class="section section--tight">
+    <div class="band band--serious notice--stop">
+      <div class="band__title">Retryable failure.</div>
+      The lease was released. The last persisted stage (<code>{{ d.stage.value or "unknown" }}</code>) and checkpoint are preserved, so the next claim resumes from there rather than re-running extraction and analysis.
+      <p class="doc">{{ m.value(d.last_error) }}</p>
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Extraction Card ("Internal, not in the Word file") ──────────────── #}
+  <section class="panel" aria-labelledby="h-tor-intel">
+    <div class="panel__head">
+      <div>
+        <span class="label">Stage 3 · TOR Extraction Brief</span>
+        <h3 class="h2" id="h-tor-intel">What the Terms of Reference ask for</h3>
+      </div>
+      <span class="badge-pill">Internal, not in the Word file</span>
+    </div>
+
+    {# Dashed-border Document Chip #}
+    <div style="margin-bottom:14px">
+      <div class="doc-chip">
+        <span class="doc-chip__icon">{% if is_drive %}DRV{% else %}TOR{% endif %}</span>
+        <div>
+          <div class="doc-chip__name">{{ d.title.value or "Terms of Reference Document" }}</div>
+          <div class="doc-chip__meta">
+            {{ m.host(d.source_url) }} ·
+            <a href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">
+              {% if is_drive %}Open TOR in Google Drive ↗{% else %}Open original source URL ↗{% endif %}
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if d.get("purpose") and d.purpose.value %}
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--hover);border-radius:var(--radius-sm);border-left:3px solid var(--accent-soft)">
+      <span class="label" style="display:block;margin-bottom:4px">Assignment Purpose &amp; Scope Summary</span>
+      <p class="doc" style="margin:0">{{ d.purpose.value }}</p>
+    </div>
     {% endif %}
-  </div>
-</div>
 
-{# ── Machine-stopped states, stated calmly ─────────────────────────────── #}
-{% if d.ui_state == "dead_letter" %}
-<section class="section section--tight">
-  <div class="band band--critical notice--stop">
-    <div class="band__title">Dead-lettered: drafting failed {{ d.draft_fail_count }} times and will not retry on its own.</div>
-    A BID/WATCH item whose draft comes back empty or unusable is retried and then dead-lettered (ADR 011 §5). It is never silently skipped and a hollow draft is never emailed. The pipeline recorded:
-    <p class="doc">{{ m.value(d.last_error) }}</p>
-    <p><em>Retry from checkpoint</em> re-claims this row without resetting it: drafting resumes from <code>{{ d.stage.value }}</code> with a fresh three-failure budget, and extraction and analysis are not paid for again. Read the reason first — if nothing upstream has changed, the same failure is likely.</p>
-  </div>
-</section>
-{% elif d.ui_state == "spend_cap" %}
-<section class="section section--tight">
-  <div class="band band--warn notice--cap">
-    <div class="band__title">The per-run spend cap stopped this run.</div>
-    <code>MAX_RUN_COST_USD</code> was reached, so the pipeline refused further model calls (ADR 012). This is retryable and is <em>not</em> a drafting failure: the stage stays at <code>{{ d.stage.value }}</code>, the checkpoint is intact, and the draft-failure count was not incremented. A dashboard-triggered run gets no exemption from the cap — it halts exactly as a cron run would.
-    <p class="doc">{{ m.value(d.last_error) }}</p>
-  </div>
-</section>
-{% elif d.ui_state == "cancelled" %}
-<section class="section section--tight">
-  <div class="band band--warn notice--cap">
-    <div class="band__title">A person stopped this run.</div>
-    The pipeline halted before its next model call. The last persisted stage (<code>{{ d.stage.value }}</code>) and checkpoint are intact and <em>Resume run</em> continues from there. Whatever was spent before the halt was incurred and is recorded on the job.
-    <p class="doc">{{ m.value(d.last_error) }}</p>
-  </div>
-</section>
-{% elif d.ui_state == "failed" %}
-<section class="section section--tight">
-  <div class="band band--serious notice--stop">
-    <div class="band__title">Retryable failure.</div>
-    The lease was released. The last persisted stage (<code>{{ d.stage.value or "unknown" }}</code>) and checkpoint are preserved, so the next claim resumes from there rather than re-running extraction and analysis.
-    <p class="doc">{{ m.value(d.last_error) }}</p>
-  </div>
-</section>
-{% endif %}
+    <div class="two-col">
+      <div>
+        <dl class="kv kv--2col">
+          <dt>Buyer / Client</dt><dd>{{ m.value(d.client) }}</dd>
+          <dt>Donor</dt><dd>{{ m.value(d.donor) }}</dd>
+          <dt>Deadline</dt><dd>{{ m.value(d.deadline) }}</dd>
+          <dt>Budget (extracted)</dt>
+          <dd>{% if d.budget_usd.value is not none %}<span class="v">{{ "{:,.0f}".format(d.budget_usd.value) }}</span> <span class="v-prov">USD, from the ToR</span>{% else %}{{ m.value(d.budget_usd) }}{% endif %}</dd>
+          <dt>Reference</dt><dd>{{ m.value(d.reference_number) }}</dd>
+          <dt>Locations</dt><dd>{{ m.value(d.locations | join(", ") if d.locations else None) }}</dd>
+          <dt>Thematic areas</dt><dd>{{ m.value(d.thematic_areas | join(", ") if d.thematic_areas else None) }}</dd>
+          {% if d.get("target_groups") and d.target_groups.value %}
+          <dt>Target groups</dt><dd>{{ d.target_groups.value | join(", ") }}</dd>
+          {% endif %}
+          {% if d.get("languages") and d.languages.value %}
+          <dt>Languages</dt><dd>{{ d.languages.value | join(", ") }}</dd>
+          {% endif %}
+          {% if d.get("duration_months") and d.duration_months.value %}
+          <dt>Duration</dt><dd class="mono">{{ d.duration_months.value }} months</dd>
+          {% endif %}
+        </dl>
+      </div>
 
+      <div class="stack" style="gap:12px">
+        <div>
+          <p class="label" style="margin-bottom: var(--sp2)">Evaluation Criteria &amp; Weights ({{ (d.evaluation_criteria or []) | length }})</p>
+          {% if d.evaluation_criteria %}
+          <ul class="tor-list">
+            {% for c in d.evaluation_criteria %}
+            <li>
+              <div class="row-between">
+                <strong>{{ c.get("criterion") or c.get("name") }}</strong>
+                {% if c.get("weight_percent") is not none %}<span class="mono badge-pill">{{ c.get("weight_percent") }}%</span>{% endif %}
+              </div>
+              {% if c.get("description") %}<div class="small muted">{{ c.get("description") }}</div>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="small muted">No explicit evaluation weights listed in the ToR.</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <p class="label" style="margin-bottom: var(--sp2)">Scope &amp; Deliverables ({{ (d.deliverables or []) | length }})</p>
+          {% if d.deliverables %}
+          <ul class="tor-list">
+            {% for item in d.deliverables %}
+            <li>
+              <strong>{{ item.name if item is mapping else item }}</strong>
+              {% if item is mapping and item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="small muted">Deliverables are embedded in the narrative scope of work.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ── Three-Column Analysis Grid: Strengths & Gaps | Client History | Team Match ── #}
+  <div class="three-col">
+    {# Card 1: Fit Strengths, Gaps & Risks #}
+    <section class="panel" aria-labelledby="h-gaps">
+      <div class="panel__head">
+        <div>
+          <span class="label">Fit Assessment</span>
+          <h3 class="h2" id="h-gaps">Strengths, gaps &amp; risks</h3>
+        </div>
+      </div>
+      {% if d.why and d.why.value %}<p class="doc" style="margin-top:0">{{ d.why.value }}</p>{% endif %}
+
+      <div class="stack" style="gap:10px">
+        {% if d.strengths %}
+        <div>
+          <p class="label" style="margin-bottom:4px">Cortech Fit Strengths ({{ d.strengths | length }})</p>
+          <ul class="tor-list">
+            {% for s in d.strengths %}<li>{{ s }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if d.gaps %}
+        <div>
+          <p class="label" style="margin-bottom:4px">Gaps ({{ d.gaps | length }})</p>
+          <ul class="doc" style="padding-left:1.2em;margin:0">{% for g in d.gaps %}<li>{{ g }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if d.risks %}
+        <div>
+          <p class="label" style="margin-bottom:4px">Risks ({{ d.risks | length }})</p>
+          <ul class="doc" style="padding-left:1.2em;margin:0">{% for r in d.risks %}<li>{{ r }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if not d.strengths and not d.gaps and not d.risks %}
+        <p class="small muted">Strengths, gaps, and delivery risks populate here once scoring completes.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    {# Card 2: Client History Card ("Counted from stored records") #}
+    <section class="panel" aria-labelledby="h-client">
+      <div class="panel__head">
+        <div>
+          <span class="label">Client Track Record</span>
+          <h3 class="h2" id="h-client">Past work with buyer</h3>
+        </div>
+        <span class="badge-pill">Counted from stored records</span>
+      </div>
+      <p class="small muted" style="margin-top:0">Cited roll-up over stored observations (ADR 006). Missing outcomes stay UNKNOWN — they are not counted as losses.</p>
+
+      {% set ci = d.client_intelligence.get("client") if d.client_intelligence else None %}
+      {% if ci %}
+        <p class="doc">{{ ci.headline }}</p>
+        {% if ci.outcome_note %}<p class="doc">{{ ci.outcome_note }}</p>{% endif %}
+        {% if ci.citations %}
+          <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Past record</th><th>Role</th><th>Outcome</th><th>Source</th></tr></thead>
+            <tbody>
+            {% for c in ci.citations %}
+              {% if c is mapping %}
+              <tr>
+                <td class="doc">{{ c.title or "—" }}</td>
+                <td>{{ c.role or "—" }}</td>
+                <td>{{ c.outcome or "UNKNOWN" }} {% if c.outcome_status %}{{ m.ev_label(c.outcome_status) }}{% endif %}</td>
+                <td class="mono">{{ c.source_kind }}{% if c.source_id %}:{{ c.source_id }}{% endif %}</td>
+              </tr>
+              {% else %}
+              <tr><td class="doc" colspan="4">{{ c }}</td></tr>
+              {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% else %}
+          <p class="small muted">No citations stored for this client.</p>
+        {% endif %}
+      {% elif org and org.available %}
+        {% if org.match %}
+          <p class="small muted">Matched <strong>{{ org.match.canonical_name or "—" }}</strong> via {{ org.match.method }} {{ m.ev_label(org.match.status) }}{% if org.match.confidence is not none %} (confidence {{ org.match.confidence }}){% endif %}.</p>
+        {% endif %}
+        {% if org.records %}
+          <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Record</th><th>Role</th><th>Outcome</th><th>Source</th></tr></thead>
+            <tbody>
+            {% for r in org.records %}
+              <tr>
+                <td class="doc">{{ r.title }}</td><td>{{ r.role }}</td>
+                <td>{{ r.outcome }} {{ m.ev_label(r.outcome_status) }}</td>
+                <td class="mono">{{ r.source_kind }}:{{ r.source_id }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% else %}
+          <p class="small muted">{{ org.note }}</p>
+        {% endif %}
+      {% elif org %}
+        <p class="small muted">{{ org.note }}</p>
+      {% endif %}
+    </section>
+
+    {# Card 3: Team Match Card with 8px Match Bars & Expandable CV Details #}
+    <section class="panel" aria-labelledby="h-team-match">
+      <div class="panel__head">
+        <div>
+          <span class="label">Consultant Roster Match</span>
+          <h3 class="h2" id="h-team-match">Team match &amp; CVs</h3>
+        </div>
+        {% set mtr = d.get("matched_team_result") or {} %}
+        {% if mtr and mtr.get("team_strength_score") is not none %}
+        <span class="badge-pill badge-pill--good">Roster {{ mtr.get("team_strength_score") }}/100</span>
+        {% endif %}
+      </div>
+
+      {% if mtr and mtr.get("roles") %}
+      <div class="stack" style="gap:10px">
+        {% for r in mtr.get("roles", []) %}
+        {% set best = r.get("recommended") or (r.get("candidates")[0] if r.get("candidates") else none) %}
+        {% set score_pct = (best.get("match_score") if best and best.get("match_score") is not none else 0) | int %}
+        {% set avail_raw = (best.get("availability") if best and best.get("availability") else "Unknown") %}
+        <details class="panel" style="padding:10px 12px;box-shadow:none;background:var(--hover)">
+          <summary style="cursor:pointer;list-style:none">
+            <div class="row-between" style="margin-bottom:6px">
+              <strong style="font-size:13px">{{ r.get("role_title") or "Required Role" }}</strong>
+              {% if r.get("gap_flagged") or not best %}
+                <span class="badge-pill badge-pill--danger">Gap · Recruit</span>
+              {% elif "avail" in (avail_raw | lower) %}
+                <span class="badge-pill badge-pill--good">{{ avail_raw }}</span>
+              {% else %}
+                <span class="badge-pill badge-pill--warn">{{ avail_raw }}</span>
+              {% endif %}
+            </div>
+            <div class="row-between small muted" style="margin-bottom:4px">
+              <span>{{ best.get("name") if best else "No roster match above threshold" }}</span>
+              <span class="mono">{{ score_pct }}% match</span>
+            </div>
+            <div class="match-bar" aria-label="Role match {{ score_pct }} percent">
+              <div class="match-bar__fill {% if score_pct < 55 %}match-bar__fill--warn{% endif %}"
+                   style="width:{{ [100, [0, score_pct]|max]|min }}%"></div>
+            </div>
+          </summary>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--hairline)" class="small">
+            {% if best %}
+              <div><strong>Matched CV:</strong> {{ best.get("name") }} ({{ best.get("title") or best.get("level") or "Consultant" }})</div>
+              {% if best.get("sectors") %}<div><strong>Sectors:</strong> {{ best.get("sectors") | join(", ") }}</div>{% endif %}
+              {% if best.get("countries") %}<div><strong>Countries:</strong> {{ best.get("countries") | join(", ") }}</div>{% endif %}
+              {% if best.get("languages") %}<div><strong>Languages:</strong> {{ best.get("languages") | join(", ") }}</div>{% endif %}
+              {% if best.get("justification") %}<div style="margin-top:4px" class="muted">{{ best.get("justification") }}</div>{% endif %}
+            {% else %}
+              <div class="muted">Flagged as a roster gap ({{ r.get("gap_reason") or "external recruitment required" }}).</div>
+            {% endif %}
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+      {% elif d.team_requirements %}
+      <ul class="tor-list">
+        {% for t in d.team_requirements %}
+        <li>
+          <strong>{{ t.get("role") }}</strong>
+          {% if t.get("min_experience_years") %}<span class="small muted"> · {{ t.get("min_experience_years") }}+ yrs</span>{% endif %}
+          {% if t.get("qualifications") %}<div class="small muted">{{ t.get("qualifications") }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="small muted" style="margin:0">Team requirements and roster matches appear here once Stage 3 scoring completes.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  {# ── Scores in detail & Win Strategy ───────────────────────────────────── #}
+  <section class="section" aria-labelledby="h-scores">
+    <div class="section__head"><h2 id="h-scores">Scores &amp; Win Strategy</h2><span class="section__count">bid_scorer {{ d.score_version.value or "—" }}</span></div>
+    <p class="section__sub">These are the official scores. The model's own numbers sit in the disclosure below.</p>
+    <div class="panel"><div class="panel__in stack">
+      <dl class="kv kv--2col">
+        <dt>Risk</dt>
+        <dd>{{ m.value(d.risk_dim.score) }} <span class="v-prov">{{ d.risk_dim.unit or "0-100 higher=riskier" }}</span> {{ m.ev_label(d.risk_dim.status) }}</dd>
+        <dt>Strategic value</dt><dd>{{ m.value(d.strategic_dim.score) }} {{ m.ev_label(d.strategic_dim.status) }}</dd>
+        <dt>Commercial value</dt>
+        <dd>{{ m.value(d.commercial_dim.score) }}{% if d.commercial_dim.score.value is not none and d.commercial_dim.unit %} <span class="v-prov">{{ d.commercial_dim.unit }}</span>{% endif %} {{ m.ev_label(d.commercial_dim.status) }}
+          {% if d.commercial_dim.evidence.value %}<div class="small muted">{{ d.commercial_dim.evidence.value }}</div>{% endif %}</dd>
+        <dt>Expected value</dt><dd>{{ m.value(d.expected_value) }}</dd>
+        <dt>Win probability</dt><dd>{{ m.score_with_provenance(d.win_heuristic) }}</dd>
+        <dt>Calibrated P(win)</dt><dd>{{ m.score_with_provenance(d.win_calibrated) }}</dd>
+        {% if d.confidence %}
+        <dt>Confidence</dt>
+        <dd>{{ d.confidence.score }} {{ m.ev_label(d.confidence.status or "UNKNOWN") }}
+          <span class="v-prov">{{ d.confidence.verified_factors }} verified, {{ d.confidence.inferred_factors }} inferred, {{ d.confidence.unknown_factors }} unknown</span></dd>
+        {% endif %}
+      </dl>
+      {% if d.why.value %}<p class="doc">{{ d.why.value }}</p>{% endif %}
+    </div></div>
+
+    {% if d.factors %}
+    {% set nv = d.factors | selectattr("status", "equalto", "VERIFIED") | list | length %}
+    {% set ni = d.factors | selectattr("status", "equalto", "INFERRED") | list | length %}
+    {% set nu = d.factors | selectattr("status", "equalto", "UNKNOWN") | list | length %}
+    <details class="disclosure" style="margin-top: var(--sp4)">
+      <summary>Factor breakdown <span class="muted">{{ d.factors | length }} factors: {{ nv }} verified, {{ ni }} inferred, {{ nu }} unknown</span></summary>
+      <div class="disclosure__body">
+        <p class="small muted">Deterministic factors and the evidence each one matched. UNKNOWN means the field was not extracted — it is not a zero.</p>
+        <div class="table-wrap">
+        <table class="table factors">
+          <thead><tr><th>Factor</th><th class="num">Value</th><th>Status</th><th>Evidence</th></tr></thead>
+          <tbody>
+          {% for f in d.factors %}
+            <tr>
+              <td>{{ f.name }}</td>
+              <td class="num">{{ m.value_terse(f.value) }}</td>
+              <td>{{ m.ev_label(f.status) }}</td>
+              <td class="evidence">{{ m.value_terse(f.evidence) }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        {% if d.weights %}
+        <div class="table-wrap">
+        <table class="table">
+          <caption class="sr-only">Weights v{{ d.score_version.value or "?" }}</caption>
+          <thead><tr><th>Dimension</th><th>Factor weights v{{ d.score_version.value or "?" }}</th></tr></thead>
+          <tbody>
+          {% for dim, w in d.weights.items() %}
+            <tr><td>{{ dim }}</td>
+                <td>{% if w is mapping %}{% for k, v in w.items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}{{ w }}{% endif %}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+        <p class="small muted">From <code>intelligence/scoring_model.json</code>, stored with the result so a later weights change does not rewrite this score.</p>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+
+    {% if d.llm_audit %}
+    <details class="disclosure">
+      <summary>Model audit values <span class="muted">not the decision</span></summary>
+      <div class="disclosure__body">
+        <dl class="kv kv--compact">
+          <dt>LLM fit</dt><dd>{{ m.value(d.llm_audit.get("cortech_fit_score")) }}</dd>
+          <dt>LLM win</dt><dd>{{ m.value(d.llm_audit.get("win_probability")) }}</dd>
+          <dt>LLM recommendation</dt><dd>{{ m.value(d.llm_audit.get("bid_recommendation")) }}</dd>
+        </dl>
+        <p class="small muted">{{ d.llm_audit.get("note", "") }}</p>
+      </div>
+    </details>
+    {% endif %}
+  </section>
+</section>
+
+{# ══════════════════════════════════════════════════════════════════════════
+   STAGE 5 OF 5 — INTERNAL REVIEW PACK, COMPLIANCE, BUDGET & DRAFT
+   ══════════════════════════════════════════════════════════════════════════ #}
 {% if d.has_draft %}
-<section class="section section--tight">
+<section class="stack" id="stage-5-review" aria-labelledby="h-stage-5">
+  <div class="row-between">
+    <div>
+      <span class="label">Stage 5 of 5 · Internal Review Pack &amp; Human Gate</span>
+      <h2 class="h2" id="h-stage-5">Review pack, compliance matrix, internal budget &amp; draft</h2>
+    </div>
+    <span class="badge-pill badge-pill--good">Ready for Human Review</span>
+  </div>
+
+  {# Human Decision Banner #}
   <div class="band band--human band--wide">
     <div class="band__title">Step 3 of 3 · Read this draft, then mark it.</div>
     Nothing here is sent to the client. Mark it reviewed, won, or lost after you have read it. Claims that could not be matched stay tagged [NOT VERIFIED].
     <p>{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}.</p>
     <div class="row" style="margin-top: var(--sp3)">
       <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      {% if is_drive %}
+      <a class="btn btn--sm btn--quiet" href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">Open TOR in Drive ↗</a>
+      {% endif %}
       <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}" class="inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="source_url" value="{{ d.source_url }}">
@@ -232,266 +675,221 @@
       </form>
     </div>
   </div>
-</section>
-{% if d.requirement_alignment and d.requirement_alignment.headline %}
-<section class="section" aria-labelledby="h-align">
-  <div class="section__head">
-    <h2 id="h-align">Requirement alignment</h2>
-    <span class="section__count">{% if d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}% aligned · bar {{ d.requirement_alignment.criteria_bar_percent or 80 }}%{% else %}{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }} criteria addressed{% endif %}</span>
-  </div>
-  <p class="doc">{{ d.requirement_alignment.headline }}</p>
-  <p class="small muted" style="margin-bottom: var(--sp3)">A requirement is addressed only when the cited sentence is in that section. Anything that cannot be traced is not treated as satisfied.</p>
-  {% if d.requirement_alignment.rows %}
-  <div class="table-wrap">
-  <table class="table">
-    <thead><tr><th>Requirement</th><th>Status</th><th>Section</th><th>Evidence</th></tr></thead>
-    <tbody>
-    {% for row in d.requirement_alignment.rows %}
-      <tr>
-        <td><strong>{{ row.label }}</strong></td>
-        <td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
-        <td class="mono">{{ row.section or "—" }}</td>
-        <td class="evidence">{{ row.quote or row.evidence }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% endif %}
-</section>
-{% endif %}
-{% endif %}
 
-{# ── Extracted ToR / RFP Intelligence Summary ──────────────────────────── #}
-{% if d.evaluation_criteria or d.deliverables or d.team_requirements or d.strengths %}
-<section class="section" aria-labelledby="h-tor-intel">
-  <div class="section__head">
-    <h2 id="h-tor-intel">ToR / RFP Intelligence Summary</h2>
-    <span class="section__count">extracted from tender documents</span>
-  </div>
-  <div class="panel">
-    <div class="panel__in two-col">
-      <div>
-        <p class="label" style="margin-bottom: var(--sp2)">Evaluation Criteria &amp; Weights</p>
-        {% if d.evaluation_criteria %}
-        <ul class="tor-list">
-          {% for c in d.evaluation_criteria %}
-          <li>
-            <div class="row-between">
-              <strong>{{ c.get("criterion") or c.get("name") }}</strong>
-              {% if c.get("weight_percent") is not none %}<span class="mono badge-pill">{{ c.get("weight_percent") }}%</span>{% endif %}
-            </div>
-            {% if c.get("description") %}<div class="small muted">{{ c.get("description") }}</div>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="small muted">No explicit evaluation weights listed in the ToR.</p>
-        {% endif %}
-
-        {% if d.team_requirements %}
-        <p class="label" style="margin: var(--sp4) 0 var(--sp2)">Required Team Roles</p>
-        <ul class="tor-list">
-          {% for t in d.team_requirements %}
-          <li>
-            <strong>{{ t.get("role") }}</strong>
-            {% if t.get("min_experience_years") %}<span class="small muted"> · {{ t.get("min_experience_years") }}+ yrs</span>{% endif %}
-            {% if t.get("qualifications") %}<div class="small muted">{{ t.get("qualifications") }}</div>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% endif %}
+  {# Dark Headline Tiles (Fit /100, Recommendation, Alignment /100, Self-Score /100) #}
+  {% set qs = d.get("quality_score") or {} %}
+  <div class="headline-grid">
+    <div class="tile--dark">
+      <span class="label">Fit Score</span>
+      <div class="stat">{{ d.fit.value if d.fit.value is not none else "—" }} <span style="font-size:16px;opacity:.75">/ 100</span></div>
+      <div class="sub">Cortech TOR alignment</div>
+    </div>
+    <div class="tile--dark">
+      <span class="label">Recommendation</span>
+      <div class="stat">{{ (d.recommendation.value or "REVIEW") | upper }}</div>
+      <div class="sub">Calibrated P(win): {{ d.win_calibrated.why or d.win_calibrated.label or "INSUFFICIENT DATA" }}</div>
+    </div>
+    <div class="tile--dark">
+      <span class="label">Requirement Alignment</span>
+      <div class="stat">
+        {% if d.requirement_alignment and d.requirement_alignment.criteria_score_percent is not none %}
+          {{ d.requirement_alignment.criteria_score_percent }} <span style="font-size:16px;opacity:.75">/ 100</span>
+        {% else %}—{% endif %}
       </div>
-      <div>
-        <p class="label" style="margin-bottom: var(--sp2)">Scope &amp; Deliverables</p>
-        {% if d.deliverables %}
-        <ul class="tor-list">
-          {% for item in d.deliverables %}
-          <li>
-            <strong>{{ item.name }}</strong>
-            {% if item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="small muted">Deliverables are embedded in the narrative scope of work.</p>
-        {% endif %}
-
-        {% if d.strengths %}
-        <p class="label" style="margin: var(--sp4) 0 var(--sp2)">Cortech Fit Strengths</p>
-        <ul class="tor-list">
-          {% for s in d.strengths %}
-          <li>{{ s }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %}
+      <div class="sub">{{ (d.requirement_alignment.rows | length) if (d.requirement_alignment and d.requirement_alignment.rows) else 0 }} TOR requirements checked</div>
+    </div>
+    <div class="tile--dark">
+      <span class="label">Draft Self-Score</span>
+      <div class="stat">
+        {% if qs and qs.get("overall_score") is not none %}
+          {{ qs.get("overall_score") }} <span style="font-size:16px;opacity:.75">/ 100</span>
+        {% else %}—{% endif %}
+      </div>
+      <div class="sub">
+        {% if qs and qs.get("weakest_section") %}Weakest: {{ qs.get("weakest_section") | truncate(34, True) }}{% else %}Automated quality audit{% endif %}
       </div>
     </div>
   </div>
-</section>
-{% endif %}
 
-{# ── Scores in detail ───────────────────────────────────────────────────── #}
-<section class="section" aria-labelledby="h-scores">
-  <div class="section__head"><h2 id="h-scores">Scores</h2><span class="section__count">bid_scorer {{ d.score_version.value or "—" }}</span></div>
-  <p class="section__sub">These are the official scores. The model's own numbers sit in the disclosure below.</p>
-  <div class="panel"><div class="panel__in stack">
-    <dl class="kv kv--2col">
-      <dt>Risk</dt>
-      <dd>{{ m.value(d.risk_dim.score) }} <span class="v-prov">{{ d.risk_dim.unit or "0-100 higher=riskier" }}</span> {{ m.ev_label(d.risk_dim.status) }}</dd>
-      <dt>Strategic value</dt><dd>{{ m.value(d.strategic_dim.score) }} {{ m.ev_label(d.strategic_dim.status) }}</dd>
-      <dt>Commercial value</dt>
-      <dd>{{ m.value(d.commercial_dim.score) }}{% if d.commercial_dim.score.value is not none and d.commercial_dim.unit %} <span class="v-prov">{{ d.commercial_dim.unit }}</span>{% endif %} {{ m.ev_label(d.commercial_dim.status) }}
-        {% if d.commercial_dim.evidence.value %}<div class="small muted">{{ d.commercial_dim.evidence.value }}</div>{% endif %}</dd>
-      <dt>Expected value</dt><dd>{{ m.value(d.expected_value) }}</dd>
-      <dt>Win probability</dt><dd>{{ m.score_with_provenance(d.win_heuristic) }}</dd>
-      <dt>Calibrated P(win)</dt><dd>{{ m.score_with_provenance(d.win_calibrated) }}</dd>
-      {% if d.confidence %}
-      <dt>Confidence</dt>
-      <dd>{{ d.confidence.score }} {{ m.ev_label(d.confidence.status or "UNKNOWN") }}
-        <span class="v-prov">{{ d.confidence.verified_factors }} verified, {{ d.confidence.inferred_factors }} inferred, {{ d.confidence.unknown_factors }} unknown</span></dd>
-      {% endif %}
-    </dl>
-    {% if d.why.value %}<p class="doc">{{ d.why.value }}</p>{% endif %}
-  </div></div>
-
-  {% if d.factors %}
-  {% set nv = d.factors | selectattr("status", "equalto", "VERIFIED") | list | length %}
-  {% set ni = d.factors | selectattr("status", "equalto", "INFERRED") | list | length %}
-  {% set nu = d.factors | selectattr("status", "equalto", "UNKNOWN") | list | length %}
-  <details class="disclosure" style="margin-top: var(--sp4)">
-    <summary>Factor breakdown <span class="muted">{{ d.factors | length }} factors: {{ nv }} verified, {{ ni }} inferred, {{ nu }} unknown</span></summary>
-    <div class="disclosure__body">
-      <p class="small muted">Deterministic factors and the evidence each one matched. UNKNOWN means the field was not extracted — it is not a zero.</p>
-      <div class="table-wrap">
-      <table class="table factors">
-        <thead><tr><th>Factor</th><th class="num">Value</th><th>Status</th><th>Evidence</th></tr></thead>
-        <tbody>
-        {% for f in d.factors %}
-          <tr>
-            <td>{{ f.name }}</td>
-            <td class="num">{{ m.value_terse(f.value) }}</td>
-            <td>{{ m.ev_label(f.status) }}</td>
-            <td class="evidence">{{ m.value_terse(f.evidence) }}</td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      </div>
-      {% if d.weights %}
-      <div class="table-wrap">
-      <table class="table">
-        <caption class="sr-only">Weights v{{ d.score_version.value or "?" }}</caption>
-        <thead><tr><th>Dimension</th><th>Factor weights v{{ d.score_version.value or "?" }}</th></tr></thead>
-        <tbody>
-        {% for dim, w in d.weights.items() %}
-          <tr><td>{{ dim }}</td>
-              <td>{% if w is mapping %}{% for k, v in w.items() %}{{ k }} {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}{{ w }}{% endif %}</td></tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      </div>
-      <p class="small muted">From <code>intelligence/scoring_model.json</code>, stored with the result so a later weights change does not rewrite this score.</p>
-      {% endif %}
+  {# Requirement Alignment Checklist #}
+  {% if d.requirement_alignment and d.requirement_alignment.headline %}
+  <section class="panel" aria-labelledby="h-align">
+    <div class="section__head">
+      <h3 class="h2" id="h-align">Requirement alignment</h3>
+      <span class="section__count">{% if d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}% aligned · bar {{ d.requirement_alignment.criteria_bar_percent or 80 }}%{% else %}{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }} criteria addressed{% endif %}</span>
     </div>
-  </details>
-  {% endif %}
-
-  {% if d.llm_audit %}
-  <details class="disclosure">
-    <summary>Model audit values <span class="muted">not the decision</span></summary>
-    <div class="disclosure__body">
-      <dl class="kv kv--compact">
-        <dt>LLM fit</dt><dd>{{ m.value(d.llm_audit.get("cortech_fit_score")) }}</dd>
-        <dt>LLM win</dt><dd>{{ m.value(d.llm_audit.get("win_probability")) }}</dd>
-        <dt>LLM recommendation</dt><dd>{{ m.value(d.llm_audit.get("bid_recommendation")) }}</dd>
-      </dl>
-      <p class="small muted">{{ d.llm_audit.get("note", "") }}</p>
+    <p class="doc">{{ d.requirement_alignment.headline }}</p>
+    <p class="small muted" style="margin-bottom: var(--sp3)">A requirement is addressed only when the cited sentence is in that section. Anything that cannot be traced is not treated as satisfied.</p>
+    {% if d.requirement_alignment.rows %}
+    <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Requirement</th><th>Status</th><th>Section</th><th>Evidence</th></tr></thead>
+      <tbody>
+      {% for row in d.requirement_alignment.rows %}
+        <tr>
+          <td><strong>{{ row.label }}</strong></td>
+          <td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
+          <td class="mono">{{ row.section or "—" }}</td>
+          <td class="evidence">{{ row.quote or row.evidence }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
     </div>
-  </details>
-  {% endif %}
-</section>
-
-{% if d.gaps or d.risks %}
-<section class="section" aria-labelledby="h-gaps">
-  <div class="section__head"><h2 id="h-gaps">Gaps and risks</h2><span class="section__count">{{ (d.gaps | length) + (d.risks | length) }}</span></div>
-  <div class="panel"><div class="panel__in two-col">
-    {% if d.gaps %}<div><p class="small muted" style="margin-bottom: var(--sp2)">Gaps</p><ul class="doc" style="padding-left: 1.2em">{% for g in d.gaps %}<li>{{ g }}</li>{% endfor %}</ul></div>{% endif %}
-    {% if d.risks %}<div><p class="small muted" style="margin-bottom: var(--sp2)">Risks</p><ul class="doc" style="padding-left: 1.2em">{% for r in d.risks %}<li>{{ r }}</li>{% endfor %}</ul></div>{% endif %}
-  </div></div>
-</section>
-{% endif %}
-
-{# ── Client / organisation history ─────────────────────────────────────── #}
-<section class="section" aria-labelledby="h-client">
-  <div class="section__head"><h2 id="h-client">Client</h2></div>
-  <p class="section__sub">Cited roll-up over stored observations (ADR 006). Missing outcomes stay UNKNOWN — they are not counted as losses.</p>
-  <div class="panel"><div class="panel__in stack">
-    <dl class="kv kv--2col">
-      <dt>Client</dt><dd>{{ m.value(d.client) }}</dd>
-      <dt>Donor</dt><dd>{{ m.value(d.donor) }}</dd>
-      <dt>Deadline</dt><dd>{{ m.value(d.deadline) }}</dd>
-      <dt>Budget (extracted)</dt>
-      <dd>{% if d.budget_usd.value is not none %}<span class="v">{{ "{:,.0f}".format(d.budget_usd.value) }}</span> <span class="v-prov">USD, from the ToR</span>{% else %}{{ m.value(d.budget_usd) }}{% endif %}</dd>
-      <dt>Reference</dt><dd>{{ m.value(d.reference_number) }}</dd>
-      <dt>Locations</dt><dd>{{ m.value(d.locations | join(", ") if d.locations else None) }}</dd>
-      <dt>Thematic areas</dt><dd>{{ m.value(d.thematic_areas | join(", ") if d.thematic_areas else None) }}</dd>
-    </dl>
-
-    {% set ci = d.client_intelligence.get("client") if d.client_intelligence else None %}
-    {% if ci %}
-      <p class="doc">{{ ci.headline }}</p>
-      {% if ci.outcome_note %}<p class="doc">{{ ci.outcome_note }}</p>{% endif %}
-      {% if ci.citations %}
-        <div class="table-wrap">
-        <table class="table">
-          <thead><tr><th>Past record</th><th>Role</th><th>Outcome</th><th>Source</th></tr></thead>
-          <tbody>
-          {% for c in ci.citations %}
-            {% if c is mapping %}
-            <tr>
-              <td class="doc">{{ c.title or "—" }}</td>
-              <td>{{ c.role or "—" }}</td>
-              <td>{{ c.outcome or "UNKNOWN" }} {% if c.outcome_status %}{{ m.ev_label(c.outcome_status) }}{% endif %}</td>
-              <td class="mono">{{ c.source_kind }}{% if c.source_id %}:{{ c.source_id }}{% endif %}</td>
-            </tr>
-            {% else %}
-            <tr><td class="doc" colspan="4">{{ c }}</td></tr>
-            {% endif %}
-          {% endfor %}
-          </tbody>
-        </table>
-        </div>
-      {% else %}
-        <p class="small muted">No citations stored for this client.</p>
-      {% endif %}
-    {% elif org.available %}
-      {% if org.match %}
-        <p class="small muted">Matched <strong>{{ org.match.canonical_name or "—" }}</strong> via {{ org.match.method }} {{ m.ev_label(org.match.status) }}{% if org.match.confidence is not none %} (confidence {{ org.match.confidence }}){% endif %}.</p>
-      {% endif %}
-      {% if org.records %}
-        <div class="table-wrap">
-        <table class="table">
-          <thead><tr><th>Record</th><th>Role</th><th>Outcome</th><th>Source</th></tr></thead>
-          <tbody>
-          {% for r in org.records %}
-            <tr>
-              <td class="doc">{{ r.title }}</td><td>{{ r.role }}</td>
-              <td>{{ r.outcome }} {{ m.ev_label(r.outcome_status) }}</td>
-              <td class="mono">{{ r.source_kind }}:{{ r.source_id }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-        </div>
-      {% else %}
-        <p class="small muted">{{ org.note }}</p>
-      {% endif %}
-    {% else %}
-      <p class="small muted">{{ org.note }}</p>
     {% endif %}
-  </div></div>
+  </section>
+  {% endif %}
+
+  {# Claim Grounding Checks + Internal Budget Working ("Internal only") #}
+  {% set cg = d.get("claim_grounding") or {} %}
+  {% set bgt = d.get("budget") or {} %}
+  <div class="two-col">
+    <section class="panel" aria-labelledby="h-claims">
+      <div class="panel__head">
+        <div>
+          <span class="label">Factual Verification</span>
+          <h3 class="h2" id="h-claims">Claim grounding checks</h3>
+        </div>
+        <span class="badge-pill">Checked against stored records</span>
+      </div>
+      {% if cg and (cg.get("claims") or cg.get("unverified_claims") or cg.get("summary")) %}
+        {% if cg.get("summary") %}<p style="margin-top:0">{{ cg.get("summary") }}</p>{% endif %}
+        {% set claim_rows = cg.get("claims") or cg.get("unverified_claims") or [] %}
+        {% if claim_rows %}
+        <ul style="margin:6px 0 0;padding-left:18px">
+          {% for c in claim_rows[:8] %}
+          <li>
+            {% if c is mapping %}
+              <strong>{{ c.get("status") or "Checked" }}:</strong> {{ c.get("claim") or c.get("text") or "" }}
+            {% else %}
+              {{ c }}
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      {% else %}
+        <p class="muted" style="margin:0">
+          Every past project, consultant credential, and metric in the draft is grounded against stored Supabase records; unverified claims stay tagged <code>[NOT VERIFIED]</code>.
+        </p>
+      {% endif %}
+    </section>
+
+    <section class="panel" aria-labelledby="h-budget">
+      <div class="panel__head">
+        <div>
+          <span class="label">Rate Card × Days of Effort</span>
+          <h3 class="h2" id="h-budget">Internal budget working</h3>
+        </div>
+        <span class="badge-pill badge-pill--warn">Internal only · Never in Word file</span>
+      </div>
+      {% if bgt and bgt.get("lines") %}
+        <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr><th>Role / Line</th><th class="num">Days</th><th class="num">Rate (USD)</th><th class="num">Subtotal</th></tr>
+          </thead>
+          <tbody>
+          {% for ln in bgt.get("lines", []) %}
+            <tr>
+              <td>{{ ln.get("role") or ln.get("item") or "Consultant" }}</td>
+              <td class="num mono">{{ ln.get("days") if ln.get("days") is not none else "—" }}</td>
+              <td class="num mono">
+                {% if ln.get("daily_rate_usd") is not none %}${{ ln.get("daily_rate_usd") }}{% else %}<span class="na na--data">Insufficient data</span>{% endif %}
+              </td>
+              <td class="num mono">
+                {% if ln.get("subtotal_usd") is not none %}${{ ln.get("subtotal_usd") }}{% else %}<span class="na na--data">Insufficient data</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        </div>
+      {% else %}
+        <p class="muted" style="margin:0">
+          <span class="na na--data">Insufficient data</span> — Internal fee estimate requires verified daily rate cards for each role and country. No fees or prices are ever inserted into the client Word file.
+        </p>
+      {% endif %}
+    </section>
+  </div>
+
+  {# Email Preview Card with Subject & Interactive Tabs #}
+  <section class="email-preview" aria-labelledby="h-email-pack">
+    <div class="email-preview__head">
+      <span class="label" id="h-email-pack">Internal Notification Email Preview · Review Pack Summary</span>
+      <div class="email-preview__subj">
+        DRAFT PROPOSAL: {{ d.title.value or "Untitled Tender" }} | Deadline: {{ d.deadline.value or "TBD" }} | Score: {{ d.fit.value if d.fit.value is not none else "—" }}/100 | REVIEW REQUIRED
+      </div>
+    </div>
+    <div class="email-tabs" role="tablist" aria-label="Review pack sections">
+      {% for tab_id, tab_lbl in [
+        ("decision", "Decision"),
+        ("client", "Client"),
+        ("budget", "Budget"),
+        ("format", "Format"),
+        ("team", "Team"),
+        ("strategy", "Strategy"),
+        ("draft", "Draft")
+      ] %}
+      <button type="button"
+              role="tab"
+              aria-selected="{{ 'true' if loop.first else 'false' }}"
+              class="email-tab {% if loop.first %}is-active{% endif %}"
+              data-email-tab="{{ tab_id }}">
+        {{ tab_lbl }}
+      </button>
+      {% endfor %}
+    </div>
+    <div class="email-pane" id="email-pane-decision">
+      <strong>Recommendation:</strong> {{ (d.recommendation.value or "REVIEW") | upper }} (Fit {{ d.fit.value if d.fit.value is not none else "—" }}/100 · Calibrated P(win): {{ d.win_calibrated.why or d.win_calibrated.label or "INSUFFICIENT DATA" }}).
+      <div class="small muted" style="margin-top:4px">{{ d.why.value if (d.why and d.why.value) else "" }}</div>
+    </div>
+    <div class="email-pane" id="email-pane-client" style="display:none">
+      <strong>Buyer:</strong> {{ d.client.value or "Unknown" }}{% if d.donor.value %} · <strong>Donor:</strong> {{ d.donor.value }}{% endif %}.
+      <span class="small muted">Past work counted strictly from stored records; missing outcomes remain Unknown.</span>
+    </div>
+    <div class="email-pane" id="email-pane-budget" style="display:none">
+      <strong>Internal Budget Working (Internal only):</strong>
+      {% if d.budget_usd.value is not none %}Published TOR ceiling: USD {{ "{:,.0f}".format(d.budget_usd.value) }}.{% else %}No ceiling published in TOR.{% endif %}
+      Missing rate cards are flagged as Insufficient data. No fees or prices appear in the client Word file.
+    </div>
+    <div class="email-pane" id="email-pane-format" style="display:none">
+      <strong>Document Type:</strong> {{ (d.submission_type.value if d.submission_type and d.submission_type.value else "FULL_PROPOSAL") }} ·
+      <strong>Chapters:</strong> {{ d.section_keys | length }}.
+    </div>
+    <div class="email-pane" id="email-pane-team" style="display:none">
+      <strong>Matched Team:</strong>
+      {% if d.get("matched_team_result") and d.matched_team_result.get("roles") %}
+        {{ d.matched_team_result.get("roles") | length }} roles evaluated against Cortech consultant roster.
+      {% else %}
+        {{ (d.get("team_requirements") or []) | length }} roles extracted from TOR.
+      {% endif %}
+    </div>
+    <div class="email-pane" id="email-pane-strategy" style="display:none">
+      <strong>Win Strategy &amp; Compliance:</strong>
+      {{ (d.requirement_alignment.rows | length) if (d.requirement_alignment and d.requirement_alignment.rows) else 0 }} TOR requirements verified against draft chapters.
+    </div>
+    <div class="email-pane" id="email-pane-draft" style="display:none">
+      {% if d.get("client_draft_sections") %}
+        <div class="small">
+          <strong>Draft structure ({{ d.client_draft_sections | length }} sections):</strong>
+          {% for sec in d.client_draft_sections %}
+            <span class="badge-pill">{{ sec.heading }} ({{ sec.words }}w · ~{{ sec.est_pages }}p)</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <span class="small">{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}. Download .md above.</span>
+      {% endif %}
+    </div>
+  </section>
+
+  {# Hard Stop Callout at the bottom of the Review Pack #}
+  <section class="notice notice--warn" role="note" aria-label="Human submission boundary">
+    <strong>Hard stop — Nothing here is sent to the client.</strong>
+    This system stops at a draft. Your team reviews, finalises, signs annexes and handles client delivery outside this workspace.
+  </section>
 </section>
+{% endif %}
 
 {% if jobs %}
 <section class="section" aria-labelledby="h-jobs">
@@ -539,4 +937,25 @@
   </details>
 </section>
 
+<script>
+/* Client-side tab switcher for the Stage 5 Email Preview Card */
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll(".email-tab[data-email-tab]"));
+  if (!tabs.length) return;
+  tabs.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var target = btn.getAttribute("data-email-tab");
+      tabs.forEach(function (t) {
+        var active = t === btn;
+        t.classList.toggle("is-active", active);
+        t.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      ["decision", "client", "budget", "format", "team", "strategy", "draft"].forEach(function (id) {
+        var pane = document.getElementById("email-pane-" + id);
+        if (pane) pane.style.display = id === target ? "" : "none";
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}

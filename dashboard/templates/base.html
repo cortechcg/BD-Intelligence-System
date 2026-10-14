@@ -4,61 +4,81 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>{% block title %}Cortech BD{% endblock %}</title>
+<title>{% block title %}{{ product_name or "Cortech BD" }}{% endblock %}</title>
 <link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
 </head>
 <body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
-<div class="atmosphere" aria-hidden="true">
-  <span class="orb orb--a"></span>
-  <span class="orb orb--b"></span>
-  <span class="orb orb--c"></span>
-</div>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 
-<div class="shell">
-<aside class="sidenav">
-  <a class="brand" href="{{ url_queue }}" aria-label="Cortech BD, queue">
-    <span class="brand__mark" aria-hidden="true"></span>
-    <span class="brand__text">
-      <span class="brand__name">Cortech <span>BD</span></span>
-      <span class="brand__sub">Tender Intelligence Suite</span>
-    </span>
-  </a>
-  <nav class="nav" aria-label="views">
-    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
-      <span class="nav__dot" aria-hidden="true"></span>
-      <span>Pipeline Queue</span>
-    </a>
-    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
-      <span class="nav__dot" aria-hidden="true"></span>
-      <span>Portfolio &amp; Analytics</span>
-    </a>
-  </nav>
-  <div class="sidenav__foot">
-    <div class="sidenav__workflow">
-      <div class="label">3-Step Lifecycle</div>
-      <ol class="sidenav__steps">
-        <li><span>1</span> Paste link &amp; score ToR</li>
-        <li><span>2</span> Recommend / customize template</li>
-        <li><span>3</span> Draft aligned proposal or EOI</li>
-      </ol>
-    </div>
-    <div class="sidenav__guard">
-      <span class="badge-pill badge-pill--good">Human-Gated</span>
-      <span class="small muted">Zero automatic client submissions</span>
-    </div>
-  </div>
-</aside>
+{# Determine current stage (1..5) for the top bar stepper and 5-segment progress bar #}
+{% set has_d = (d is defined and d is not none) %}
+{% set d_scored = has_d and (d.stage.value in ("scored", "drafted", "reviewed", "outcome") or d.recommended_outline or d.accepted_outline) %}
+{% set d_drafted = has_d and d.has_draft %}
+{% set active_stage = 5 if d_drafted else (4 if d_scored else (3 if (has_d or (job is defined and job)) else 2)) %}
 
-<div class="shell__main">
+{# ── Top Bar in Deep Green (#2D5C47), full width, 56px tall ────────────── #}
 <header class="masthead">
   <div class="masthead__in">
-    <div class="masthead__crumb">
-      <span class="badge-pill badge-pill--accent">Cortech Consulting Group</span>
-      <span class="masthead__sep">/</span>
-      <span class="masthead__view">{% if view == 'portfolio' %}Portfolio &amp; Bid Telemetry{% else %}BD Intelligence Workspace{% endif %}</span>
-    </div>
+    <a class="masthead__brand" href="{{ url_queue }}" aria-label="{{ product_name or 'Cortech BD' }}, bid desk">
+      <span class="masthead__product">{{ product_name or "Cortech BD" }}</span>
+      <span class="masthead__kicker">BID DESK</span>
+    </a>
+
+    <nav class="stepper" role="tablist" aria-label="Bid desk workflow stages">
+      <a role="tab"
+         aria-selected="{{ 'true' if active_stage == 1 else 'false' }}"
+         class="stepper__pill {% if active_stage == 1 %}is-active{% endif %}"
+         href="{{ url_queue }}#stage-1-sources">
+        <span class="stepper__num">1</span>
+        <span>Source</span>
+      </a>
+      <a role="tab"
+         aria-selected="{{ 'true' if active_stage == 2 else 'false' }}"
+         class="stepper__pill {% if active_stage == 2 %}is-active{% endif %}"
+         href="{{ url_queue }}#stage-2-opportunities">
+        <span class="stepper__num">2</span>
+        <span>Opportunities</span>
+      </a>
+      {% if has_d and d.source_url %}
+      <a role="tab"
+         aria-selected="{{ 'true' if active_stage == 3 else 'false' }}"
+         class="stepper__pill {% if active_stage == 3 %}is-active{% endif %}"
+         href="{{ url_detail }}?url={{ d.source_url | urlencode }}#stage-3-analysis">
+        <span class="stepper__num">3</span>
+        <span>Analysis</span>
+      </a>
+      <a role="tab"
+         aria-selected="{{ 'true' if active_stage == 4 else 'false' }}"
+         class="stepper__pill {% if active_stage == 4 %}is-active{% elif not d_scored %}is-locked{% endif %}"
+         href="{{ url_detail }}?url={{ d.source_url | urlencode }}#outline-studio">
+        <span class="stepper__num">4</span>
+        <span>Draft</span>
+      </a>
+      <a role="tab"
+         aria-selected="{{ 'true' if active_stage == 5 else 'false' }}"
+         class="stepper__pill {% if active_stage == 5 %}is-active{% elif not d_drafted %}is-locked{% endif %}"
+         href="{{ url_detail }}?url={{ d.source_url | urlencode }}#stage-5-review">
+        <span class="stepper__num">5</span>
+        <span>Review pack</span>
+      </a>
+      {% else %}
+      <span role="tab" aria-selected="false" aria-disabled="true" class="stepper__pill is-locked" title="Select an opportunity to open Stage 3 Analysis">
+        <span class="stepper__num">3</span>
+        <span>Analysis</span>
+      </span>
+      <span role="tab" aria-selected="false" aria-disabled="true" class="stepper__pill is-locked" title="Complete Stage 3 Analysis to unlock Drafting">
+        <span class="stepper__num">4</span>
+        <span>Draft</span>
+      </span>
+      <span role="tab" aria-selected="false" aria-disabled="true" class="stepper__pill is-locked" title="Generate a draft to unlock the Review Pack">
+        <span class="stepper__num">5</span>
+        <span>Review pack</span>
+      </span>
+      {% endif %}
+    </nav>
+
     <div class="masthead__right">
-      <span class="badge-pill small" title="{{ claude_model }}">Claude Haiku 5.5 · ToR-Locked</span>
+      <span class="masthead__pill" title="Internal workspace — nothing is sent to clients">Internal review only</span>
       {% if viewer %}
       <div class="who">
         <span class="email">{{ viewer }}</span>
@@ -69,7 +89,70 @@
   </div>
 </header>
 
-<main class="page{% if view == 'portfolio' %} page--portfolio{% endif %}">
+{# ── Two-Column Shell: 260px White Left Sidebar + Scrolling Main Area ──── #}
+<div class="shell">
+<aside class="sidenav" aria-label="Workspace navigation and active tenders">
+  <nav class="nav" aria-label="views">
+    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
+      <span class="nav__dot" aria-hidden="true"></span>
+      <span>Pipeline &amp; Sources</span>
+    </a>
+    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
+      <span class="nav__dot" aria-hidden="true"></span>
+      <span>History &amp; Portfolio</span>
+    </a>
+  </nav>
+
+  {% set side_opps = sidebar_opps if (sidebar_opps is defined and sidebar_opps) else [] %}
+  {% if side_opps %}
+  <div class="sidenav__section">
+    <div class="row-between">
+      <span class="label">Opportunities</span>
+      <span class="mono small muted">{{ side_opps | length }}</span>
+    </div>
+    <ul class="sidenav__opps">
+      {% for item in side_opps[:8] %}
+      {% set is_sel = has_d and d.source_url == item.source_url %}
+      <li>
+        <a class="opp-card {% if is_sel %}is-selected{% endif %}"
+           href="{{ url_detail }}?url={{ item.source_url | urlencode }}"
+           title="{{ item.source_url }}">
+          <div class="opp-card__title clamp-2">
+            {% if item.title and item.title.value %}{{ item.title.value }}{% else %}Untitled tender{% endif %}
+          </div>
+          <div class="opp-card__meta">
+            <span class="clamp-1">{{ (item.client.value if item.client and item.client.value else item.source_url.split('//')[-1].split('/')[0]) }}</span>
+            {% if item.fit and item.fit.value is not none %}
+            <span class="mono">FIT {{ item.fit.value }}</span>
+            {% elif item.stage and item.stage.value %}
+            <span class="mono">{{ item.stage.value }}</span>
+            {% endif %}
+          </div>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="sidenav__foot">
+    <div class="sidenav__guard">
+      <span class="label">Hard Stop Rule</span>
+      <span class="small muted">This tool stops at a draft. Your team reviews, finalises, signs annexes and submits.</span>
+    </div>
+  </div>
+</aside>
+
+<div class="shell__main">
+<main id="main-content" class="page{% if view == 'portfolio' %} page--portfolio{% endif %}">
+  {# 5-Segment Progress Bar under the header #}
+  <ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
+    {% for s_num in range(1, 6) %}
+    <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
+        title="Stage {{ s_num }} of 5"></li>
+    {% endfor %}
+  </ol>
+
   {% block content %}{% endblock %}
 
   <p class="foot">
@@ -77,6 +160,25 @@
     {% if generated_at %}Rendered {{ generated_at }}.{% endif %}
   </p>
 </main>
+
+<footer class="stage-footer" aria-label="Stage navigation">
+  <span class="stage-footer__note">
+    <strong>Stage {{ active_stage }} of 5</strong> · This system stops at a draft. People review, finalise, sign annexes and submit.
+  </span>
+  <div class="row">
+    {% if has_d and d.source_url %}
+      <a class="btn btn--sm btn--quiet" href="{{ url_queue }}#stage-2-opportunities">← Opportunities</a>
+      {% if d_scored and not d_drafted %}
+        <a class="btn btn--sm" href="#outline-studio">Stage 4: Customize Draft →</a>
+      {% elif d_drafted %}
+        <a class="btn btn--sm" href="#stage-5-review">Stage 5: Review Pack →</a>
+      {% endif %}
+    {% else %}
+      <a class="btn btn--sm btn--quiet" href="{{ url_queue }}#stage-1-sources">Stage 1: Sources</a>
+      <a class="btn btn--sm" href="{{ url_queue }}#stage-2-opportunities">Stage 2: Opportunities →</a>
+    {% endif %}
+  </div>
+</footer>
 </div>
 </div>
 
@@ -88,54 +190,84 @@
 (function () {
   var id = {{ job.id | tojson }};
   var last = {{ job.status | tojson }};
-  if (!("Notification" in window)) return;
-  if (Notification.permission === "default") { Notification.requestPermission(); }
-  function tick() {
-    fetch("/api/job/" + id, {credentials: "same-origin"}).then(function (r) {
-      if (!r.ok) return null; return r.json();
-    }).then(function (data) {
-      if (!data) return;
-      var st = data.job.status;
-      if (st !== last && st !== "queued" && st !== "running") {
-        last = st;
-        if (Notification.permission === "granted") {
-          new Notification("Cortech BD: job " + st, {
-            body: (data.job.error_message || ("stage: " + (data.pipeline_stage || "—"))).slice(0, 180)
-          });
-        }
-      }
-    }).catch(function () {});
+  if ("Notification" in window && Notification.permission === "default") {
+    try { Notification.requestPermission(); } catch (_e) {}
   }
-  setInterval(tick, 5000);
+  function check() {
+    fetch("/api/job/" + encodeURIComponent(id), {credentials: "same-origin"})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.job) return;
+        var st = data.job.status;
+        if ((last === "queued" || last === "running") && st !== "queued" && st !== "running") {
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("Cortech BD: job " + st, {
+              body: (data.job.source_url || "") + (data.job.error_message ? " — " + data.job.error_message : "")
+            });
+          }
+          if (st === "succeeded" && data.job.source_url) {
+            var dest = "/opportunity?url=" + encodeURIComponent(data.job.source_url);
+            if (data.pipeline_stage === "scored") {
+              dest += "#outline-studio";
+            }
+            window.location.assign(dest);
+            return;
+          }
+        }
+        last = st;
+      })
+      .catch(function () {});
+  }
+  setInterval(check, 5000);
 })();
 </script>
 {% endif %}
 
-{% if poll_ms %}
 <script>
-/* Status polling. Fetch the same URL and swap main only when the response is
-   usable HTML AND the user is not actively editing a form or customizing a
-   template. If a job page reaches a terminal scored/drafted state that sets
-   data-auto-redirect-url, transition smoothly to the Opportunity Workspace. */
+/* Keyboard arrow navigation for the top-bar 5-stage stepper (WCAG 2.2 AA). */
 (function () {
-  var ms = parseInt(document.body.dataset.pollMs, 10);
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.stepper a[role="tab"]'));
+  if (!tabs.length) return;
+  tabs.forEach(function (tab, idx) {
+    tab.addEventListener("keydown", function (ev) {
+      if (ev.key === "ArrowRight" || ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        var nextIdx = ev.key === "ArrowRight" ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+        tabs[nextIdx].focus();
+      }
+    });
+  });
+})();
+
+/* Track whether the operator is actively editing any form field on the page.
+   Background polling must NEVER clobber <main class="page"> while the user is
+   typing or customizing a proposal template outline. */
+window.__cortechFormDirty = false;
+document.addEventListener("input", function (ev) {
+  if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
+    window.__cortechFormDirty = true;
+  }
+}, true);
+document.addEventListener("change", function (ev) {
+  if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
+    window.__cortechFormDirty = true;
+  }
+}, true);
+
+(function () {
+  var ms = parseInt(document.body.getAttribute("data-poll-ms") || "0", 10);
   if (!ms) return;
-  var hidden = false;
-  var refreshing = false;
-  window.__cortechFormDirty = false;
-
-  document.addEventListener("visibilitychange", function () { hidden = document.hidden; });
-  document.addEventListener("input", function (ev) {
-    if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
-      window.__cortechFormDirty = true;
+  var note = null;
+  function status(msg) {
+    if (!msg) { if (note) { note.remove(); note = null; } return; }
+    if (!note) {
+      note = document.createElement("div");
+      note.className = "band band--warn";
+      note.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:20;max-width:320px";
+      document.body.appendChild(note);
     }
-  });
-  document.addEventListener("change", function (ev) {
-    if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
-      window.__cortechFormDirty = true;
-    }
-  });
-
+    note.textContent = msg;
+  }
   function isUserEditing() {
     if (window.__cortechFormDirty) return true;
     var ae = document.activeElement;
@@ -148,91 +280,66 @@
     }
     return false;
   }
-
-  function notice(on) {
-    var el = document.getElementById("poll-notice");
-    if (!on) { if (el) el.remove(); return; }
-    if (el) return;
-    el = document.createElement("div");
-    el.id = "poll-notice";
-    el.className = "band band--warn band--wide";
-    el.setAttribute("role", "status");
-    el.style.margin = "0 0 var(--sp4)";
-    el.textContent = "Couldn't refresh, retrying…";
-    var main = document.querySelector("main.page");
-    if (main) main.insertBefore(el, main.firstChild);
-  }
-
   function tick() {
-    if (hidden || refreshing || isUserEditing()) return;
-    refreshing = true;
-    fetch(window.location.href, {
-      credentials: "same-origin",
-      cache: "no-store",
-      headers: {"Accept": "text/html"}
-    }).then(function (r) {
-      if (!r.ok) throw new Error(String(r.status));
-      var ctype = r.headers.get("content-type") || "";
-      if (ctype.indexOf("text/html") === -1) throw new Error("not html");
-      return r.text();
-    }).then(function (html) {
-      if (isUserEditing()) return;
-      var doc = new DOMParser().parseFromString(html, "text/html");
-      var next = doc.querySelector("main.page");
-      var cur = document.querySelector("main.page");
-      if (!next || !cur) throw new Error("no page");
-      var redirectNode = next.querySelector("[data-auto-redirect-url]");
-      if (redirectNode) {
-        var target = redirectNode.getAttribute("data-auto-redirect-url");
-        if (target) {
-          window.location.assign(target);
-          return;
-        }
-      }
-      cur.replaceWith(document.importNode(next, true));
-      var nextCss = doc.querySelector('link[rel="stylesheet"]');
-      var curCss = document.querySelector('link[rel="stylesheet"]');
-      if (nextCss && curCss && nextCss.getAttribute("href") !== curCss.getAttribute("href")) {
-        curCss.href = nextCss.href;
-      }
-      if (doc.body && doc.body.dataset.pollMs) {
-        document.body.dataset.pollMs = doc.body.dataset.pollMs;
-      }
-      notice(false);
-      document.dispatchEvent(new CustomEvent("cortech:page-swapped"));
-    }).catch(function () {
-      notice(true);
-    }).then(function () {
-      refreshing = false;
+    if (document.hidden) return;
+    if (isUserEditing()) return;
+    var checked = {};
+    document.querySelectorAll('input[type="checkbox"][name="source_url"]:checked').forEach(function (c) {
+      checked[c.value] = true;
     });
+    if (Object.keys(checked).length > 0) return;
+
+    fetch(window.location.href, {credentials: "same-origin", headers: {"Accept": "text/html"}})
+      .then(function (r) {
+        if (r.redirected && r.url.indexOf("/auth/") !== -1) { window.location.href = r.url; return null; }
+        return r.ok ? r.text() : Promise.reject(r.status);
+      })
+      .then(function (html) {
+        if (!html) return;
+        if (isUserEditing()) return;
+        var doc = new DOMParser().parseFromString(html, "text/html");
+        var next = doc.querySelector("main.page");
+        var cur = document.querySelector("main.page");
+        if (!next || !cur) return;
+        var y = window.scrollY;
+        cur.replaceWith(document.importNode(next, true));
+        document.querySelectorAll('input[type="checkbox"][name="source_url"]').forEach(function (c) {
+          if (checked[c.value]) c.checked = true;
+        });
+        window.scrollTo(0, y);
+        status(null);
+        document.dispatchEvent(new CustomEvent("cortech:page-swapped"));
+      })
+      .catch(function () { status("Couldn't refresh, retrying…"); });
   }
   setInterval(tick, ms);
 })();
-</script>
-{% endif %}
 
-<script>
-/* Bulk selection: the "Score selected" button reflects how many rows are
-   ticked and stays disabled at zero. */
+/* Select-all on the queue table + live count on the bulk button. */
 (function () {
-  function initBulk() {
-    var form = document.getElementById("bulk-form");
-    var btn = document.getElementById("bulk-submit");
-    if (!form || !btn) return;
-    var boxes = document.querySelectorAll('input[type="checkbox"][form="bulk-form"]');
+  function bindBulk() {
     var all = document.getElementById("bulk-all");
+    var btn = document.getElementById("bulk-submit");
+    if (!all || !btn) return;
+    function boxes() {
+      return document.querySelectorAll('input[type="checkbox"][name="source_url"]');
+    }
     function sync() {
       var n = 0;
-      boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-selected", b.checked); if (b.checked) n++; });
-      btn.disabled = n === 0;
-      btn.textContent = n ? "Score " + n + " selected" : "Score selected";
+      boxes().forEach(function (c) { if (c.checked) n++; });
+      btn.textContent = n ? "Score selected (" + n + ")" : "Score selected";
     }
-    boxes.forEach(function (b) { b.addEventListener("change", sync); });
-    if (all) all.addEventListener("change", function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
+    all.addEventListener("change", function () {
+      boxes().forEach(function (c) { c.checked = all.checked; });
+      sync();
+    });
+    document.addEventListener("change", function (e) {
+      if (e.target && e.target.name === "source_url") sync();
+    });
     sync();
   }
-  initBulk();
-  document.addEventListener("cortech:page-swapped", initBulk);
+  bindBulk();
+  document.addEventListener("cortech:page-swapped", bindBulk);
 })();
 </script>
 {% block scripts %}{% endblock %}

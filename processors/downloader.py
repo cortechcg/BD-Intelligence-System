@@ -341,7 +341,7 @@ def _gdrive_id_from_url(url: str) -> tuple[str, str]:
 
 
 def _extract_from_bytes(content: bytes, filename: str = "") -> tuple[str, str]:
-    """Detect PDF/DOCX/HTML from bytes or filename and extract text."""
+    """Detect PDF/DOCX/TXT/HTML from bytes or filename and extract text."""
     name = filename.lower()
     if content[:4] == b"%PDF" or name.endswith(".pdf"):
         return extract_text_from_pdf(content), "pdf"
@@ -351,6 +351,11 @@ def _extract_from_bytes(content: bytes, filename: str = "") -> tuple[str, str]:
         return "", "xlsx"
     if content[:2] == b"PK" or name.endswith(".docx"):
         return extract_text_from_docx(content), "docx"
+    if name.endswith((".txt", ".md")):
+        try:
+            return content.decode("utf-8", errors="ignore")[:MAX_EXTRACTED_TEXT_CHARS].strip(), "txt"
+        except Exception:
+            return "", "bin"
     try:
         return extract_text_from_html(content.decode("utf-8", errors="ignore")), "html"
     except Exception:
@@ -718,3 +723,82 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
             f"No text extracted for {url[:60]}... error_type={ErrorType.DOCUMENT_ERROR}"
         )
     return text
+
+
+def extract_uploaded_files(files: list[tuple[str, bytes]]) -> dict:
+    """Extract text from one or more uploaded ToR / RFP files (.pdf, .docx, .txt, .md).
+
+    Returns ``{"ok": bool, "text": str, "title": str, "source_url": str, "reason": str}``.
+    """
+    import hashlib
+
+    valid_files = [(name or "document", data) for name, data in (files or []) if data]
+    if not valid_files:
+        return {
+            "ok": False,
+            "text": "",
+            "title": "",
+            "source_url": "",
+            "reason": "No file content received.",
+        }
+
+    parts: list[str] = []
+    total_chars = 0
+    primary_name = valid_files[0][0]
+    for filename, content in valid_files[:MAX_GDRIVE_FILES]:
+        if len(content) > MAX_DOCUMENT_BYTES:
+            return {
+                "ok": False,
+                "text": "",
+                "title": "",
+                "source_url": "",
+                "reason": f"'{filename}' exceeds the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB document size limit.",
+            }
+        text, _file_type = _extract_from_bytes(content, filename)
+        text = (text or "").strip()
+        if not text:
+            continue
+        remaining = MAX_EXTRACTED_TEXT_CHARS - total_chars
+        if remaining <= 0:
+            break
+        if len(valid_files) > 1:
+            part = f"\n\n===== SOURCE FILE: {filename} =====\n\n{text}\n"
+        else:
+            part = text
+        parts.append(part[:remaining])
+        total_chars += len(parts[-1])
+
+    combined = "".join(parts).strip()
+    if not combined:
+        return {
+            "ok": False,
+            "text": "",
+            "title": "",
+            "source_url": "",
+            "reason": "Could not extract readable text from the uploaded file. Use a text-based PDF, Word (.docx), or .txt file.",
+        }
+
+    quality = assess_extraction(combined, source=primary_name)
+    if not quality["ok"]:
+        return {
+            "ok": False,
+            "text": "",
+            "title": "",
+            "source_url": "",
+            "reason": f"Uploaded file looks incomplete: {quality['reason']}.",
+        }
+
+    digest = hashlib.sha256(combined.encode("utf-8")).hexdigest()[:16]
+    slug = safe_filename(primary_name, default="tor-upload")
+    source_url = f"https://upload.cortechconsultinggroup.com/tor/{digest}/{slug}"
+    stem = re.sub(r"\.[A-Za-z0-9]{1,6}$", "", primary_name).replace("_", " ").replace("-", " ").strip()
+    title = re.sub(r"\s+", " ", stem) or "Uploaded ToR"
+
+    return {
+        "ok": True,
+        "text": combined,
+        "title": title,
+        "source_url": source_url,
+        "reason": "",
+    }
+

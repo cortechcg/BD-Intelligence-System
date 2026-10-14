@@ -179,3 +179,49 @@
     {{ caller() if caller }}
   </div>
 {%- endmacro %}
+
+{# Convenience helpers for Bid Desk templates #}
+{% macro cell(c, cls="", suffix="") -%}
+  {%- if c is mapping and (c.state is defined or c.value is defined) -%}
+    {%- if c.value is not none and c.value != "" -%}
+      <span class="v{% if cls %} {{ cls }}{% endif %}" title="{{ c.source or '' }}">{{ c.value }}{{ suffix }}</span>
+      {%- if c.label %}<span class="v-prov">{{ c.label }}</span>{% endif -%}
+    {%- else -%}
+      <span class="v-missing" title="{{ c.source or '' }}">—</span>
+      {%- if c.why %}<span class="v-why">{{ c.why }}</span>{% elif c.reason %}<span class="v-why">{{ c.reason }}</span>{% endif -%}
+    {%- endif -%}
+  {%- elif c is not none and c != "" -%}
+    <span class="v{% if cls %} {{ cls }}{% endif %}">{{ c }}{{ suffix }}</span>
+  {%- else -%}
+    <span class="v-missing">—</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro deadline_cell(c, days_left=none) -%}
+  {%- if c is mapping and c.value is not none -%}
+    <span class="mono">{{ c.value }}</span>
+    {%- if days_left is not none %} <span class="muted small">({{ days_left }}d)</span>{% endif -%}
+  {%- else -%}
+    {{ cell(c, "mono") }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro usd(c) -%}
+  {%- if c is mapping and c.value is not none -%}
+    <span class="mono">${{ "{:,.0f}".format(c.value | float) }}</span>
+  {%- else -%}
+    {{ cell(c, "mono") }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro stage_pill(c) -%}
+  {%- set st = c.value if (c is mapping and c.value is defined) else c -%}
+  <span class="pill">{{ st or "discovered" }}</span>
+{%- endmacro %}
+
+{% macro state_badge(run_state) -%}
+  {%- set st = run_state.state if (run_state is mapping and run_state.state is defined) else (run_state or "idle") -%}
+  {%- set live = st in ("in_flight", "queued", "processing") -%}
+  {{ state_chip(st, live) }}
+{%- endmacro %}
+

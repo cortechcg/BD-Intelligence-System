@@ -563,6 +563,29 @@ def opportunity_detail(source_url: str) -> dict | None:
         if isinstance(t, dict) and t.get("role")
     ]
     strengths = [s for s in (bid_analysis.get("key_strengths") or []) if isinstance(s, str) and s.strip()]
+    matched_team_res = cp.get("matched_team_result") if isinstance(cp.get("matched_team_result"), dict) else {}
+    budget_data = cp.get("budget") if isinstance(cp.get("budget"), dict) else {}
+    quality_score = sections.get("quality_score") if isinstance(sections.get("quality_score"), dict) else {}
+    claim_grounding = sections.get("claim_grounding") if isinstance(sections.get("claim_grounding"), dict) else {}
+    win_strategy_raw = sections.get("win_strategy") or bid_analysis.get("win_themes") or ""
+
+    _skip_meta = {
+        "lightweight", "lightweight_reason", "submission_type", "quality_score",
+        "claim_grounding", "tender_brief", "win_strategy", "document_lock",
+        "section_order", "omitted_financial", "submission_outline", "requirement_alignment",
+    }
+    client_draft_list = []
+    for k, v in sections.items():
+        if k in _skip_meta or not isinstance(v, str) or not v.strip():
+            continue
+        wc = len(v.split())
+        client_draft_list.append({
+            "key": k,
+            "heading": k.replace("_", " ").title(),
+            "words": wc,
+            "pages": round(wc / 400.0, 1) if wc else 0.0,
+            "excerpt": v.strip()[:420],
+        })
 
     rec_outline = _outline_or_none(cp.get("recommended_outline"))
     if rec_outline is None and analysis:
@@ -581,6 +604,24 @@ def opportunity_detail(source_url: str) -> dict | None:
         "submission_requirements": sub_reqs,
         "team_requirements": team_reqs,
         "strengths": strengths,
+        "purpose": cell(
+            (opp.get("purpose") or opp.get("summary") or opp.get("description") or "").strip() or None,
+            why="not extracted",
+            source="checkpoint->analysis->opportunity->summary",
+        ),
+        "duration_months": cell(
+            _num(opp.get("duration_months")),
+            why="not specified in ToR",
+            source="checkpoint->analysis->opportunity->duration_months",
+        ),
+        "languages": [x for x in (reqs.get("language_requirements") or []) if isinstance(x, str) and x.strip()],
+        "target_groups": [x for x in (opp.get("target_groups") or reqs.get("target_groups") or []) if isinstance(x, str) and x.strip()],
+        "matched_team_result": matched_team_res,
+        "budget": budget_data,
+        "quality_score": quality_score,
+        "claim_grounding": claim_grounding,
+        "win_strategy": win_strategy_raw,
+        "client_draft_sections": client_draft_list,
         "score_version": cell(
             bid.get("score_version"),
             why=why_unscored,
