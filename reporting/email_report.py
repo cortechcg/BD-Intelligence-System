@@ -1666,7 +1666,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
                           color:#8A7A5A;font-weight:600;margin-bottom:4px">{label}</div>
               <h3 style="color:#1F3864;font-size:16px;margin:0 0 12px;font-weight:700">
                 {_html(heading)}
-              </h3>
+            </h3>
               {body}
             </td>
           </tr>
@@ -1674,7 +1674,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     proposal_html = ""
     if is_lightweight:
-        proposal_html = (
+    proposal_html = (
             section_block("Cover Letter", proposal.get("cover_letter", ""), anchor="c-cover")
             + section_block(
                 "Executive Summary", proposal.get("executive_summary", ""), anchor="c-exec"
@@ -2008,8 +2008,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
                   font-family:Arial,Helvetica,sans-serif">
           {_html(header_subtitle)}
         </p>
-      </td>
-    </tr>
+                </td>
+            </tr>
     <tr><td>{_jump_nav_html(nav_items)}</td></tr>
 
     <tr>
@@ -2074,8 +2074,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
             <strong style="color:#1F3864">TOR / Source:</strong> {source_line}
           </p>
         </div>
-      </td>
-    </tr>
+                </td>
+            </tr>
 
     <tr><td style="padding:12px 32px 0">{action_banner}</td></tr>
 
@@ -2117,8 +2117,8 @@ def send_proposal_email(opportunity_result: dict) -> None:
                              line-height:1.5">{gaps_html}</ul>
                 </td></tr>
               </table>
-            </td>
-          </tr>
+                </td>
+            </tr>
         </table>
 
         {_named_anchor("c-team")}
@@ -2156,7 +2156,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
               <div style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;
                           color:#C4A35A;font-weight:700;margin-bottom:6px">
                 Client-facing file · no fees, rates, or budgets
-              </div>
+    </div>
               <h2 style="color:#1F3864;margin:0 0 12px;font-size:20px;font-weight:700;
                          font-family:Georgia,'Times New Roman',serif">{draft_heading}</h2>
               {toc}
