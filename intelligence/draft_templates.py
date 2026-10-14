@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 
+from intelligence.draft_compiler import build_claim_sheet
 from intelligence.tender_reader import plan_draft_outline
 
 FROM_TOR_ID = "from_tor"
@@ -155,6 +156,46 @@ def catalog() -> list[dict]:
     return [house_technical(), house_eoi()]
 
 
+def _enrich_sections_with_tor_claims(
+    sections: list[dict],
+    analysis: dict,
+    submission_type: str,
+) -> list[dict]:
+    """Attach extracted ToR criteria, deliverables, and roles to their owning chapters."""
+    if not isinstance(analysis, dict) or not sections:
+        return sections
+    has_tor_signals = bool(
+        analysis.get("evaluation_criteria")
+        or analysis.get("deliverables")
+        or analysis.get("team_requirements")
+    )
+    if not has_tor_signals:
+        return sections
+    sheet = build_claim_sheet(analysis, {"sections": sections}, submission_type)
+    claims = sheet.get("claims") or []
+    by_owner: dict[str, list[str]] = {}
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        if claim.get("topic") not in {"criterion", "deliverable", "team"}:
+            continue
+        owner = str(claim.get("owner") or "")
+        text = " ".join(str(claim.get("text") or "").split()).strip()
+        if owner and text:
+            by_owner.setdefault(owner, []).append(text[:180])
+    for item in sections:
+        if not isinstance(item, dict):
+            continue
+        existing = list(item.get("must_include") or [])
+        if existing:
+            continue
+        key = str(item.get("key") or "")
+        owned = by_owner.get(key) or []
+        if owned:
+            item["must_include"] = owned[:3]
+    return sections
+
+
 def recommend_outline(analysis: dict | None) -> dict:
     """The outline to offer after scoring. Built from the analysis, no extra model call."""
     analysis = analysis if isinstance(analysis, dict) else {}
@@ -163,6 +204,7 @@ def recommend_outline(analysis: dict | None) -> dict:
     planned = plan_draft_outline({}, analysis, submission_type)
     sections = planned.get("sections") or []
     if planned.get("prescribed") and sections:
+        _enrich_sections_with_tor_claims(sections, analysis, submission_type)
         headings = [str(item.get("heading") or "") for item in sections if item.get("heading")]
         listed = "; ".join(headings)
         return _wrap(
@@ -176,6 +218,7 @@ def recommend_outline(analysis: dict | None) -> dict:
     house = house_eoi() if submission_type == "EOI" else house_technical()
     recommended = copy.deepcopy(house)
     recommended["id"] = FROM_TOR_ID
+    _enrich_sections_with_tor_claims(recommended.get("sections") or [], analysis, submission_type)
     kind = "an EOI" if submission_type == "EOI" else "a technical proposal"
     recommended["summary"] = (
         "This ToR does not list required chapters. "
@@ -199,7 +242,7 @@ def customize_outline(
         heading = " ".join(str(item.get("heading") or "").split()).strip()
         if not heading:
             continue
-        must = item.get("must_include") or []
+        must = item.get("must_include") or item.get("must_cover") or []
         if isinstance(must, str):
             must = [must]
         if not isinstance(must, list):

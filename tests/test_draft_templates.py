@@ -138,3 +138,29 @@ def test_accepted_outline_replaces_the_house_structure(monkeypatch):
         "Suitability statement",
         "Work plan",
     ]
+
+
+def test_recommendation_enriches_chapters_with_tor_criteria_and_deliverables():
+    analysis = _analysis(sections=["Methodology", "Scope of deliverables"])
+    analysis["evaluation_criteria"] = [
+        {"criterion": "Mixed-methods survey design", "description": "Household sampling in Gedo"},
+    ]
+    analysis["deliverables"] = [
+        {"name": "Inception Report", "description": "Tools and sampling frame within 14 days"},
+    ]
+    outline = recommend_outline(analysis)
+    by_route = {item["route"]: item for item in outline["sections"]}
+    assert any("Mixed-methods survey design" in line for line in by_route["methodology"]["must_include"])
+    assert any("Inception Report" in line for line in by_route["deliverables"]["must_include"])
+
+
+def test_house_writer_receives_must_include_rules_from_customized_outline():
+    rules = proposal_writer._draft_rules_for({
+        "heading": "Methodology",
+        "page_limit": "5 pages",
+        "must_include": ["Stratified household sampling in Beletweyne", "KoboToolbox CAPI forms"],
+    })
+    assert "BINDING CHAPTER SCOPE" in rules
+    assert "Stratified household sampling in Beletweyne" in rules
+    assert "KoboToolbox CAPI forms" in rules
+

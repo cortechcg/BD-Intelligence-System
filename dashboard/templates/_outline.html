@@ -1,42 +1,81 @@
 {% macro chapter_rows(sections) %}
   {% for section in sections %}
-  <div class="outline-row">
-    <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200">
-    <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="pages" maxlength="40" inputmode="numeric">
-    <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="optional" maxlength="400">
+  <div class="outline-row" data-chapter-row>
+    <span class="outline-row__idx mono" data-chapter-idx>{{ "%02d"|format(loop.index) }}</span>
+    <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200" placeholder="Chapter title">
+    <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">
+    <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="ToR criteria, deliverables, or specific instructions (optional)" maxlength="400">
+    <div class="outline-row__tools">
+      <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
+      <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
+      <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>
+    </div>
   </div>
   {% endfor %}
-  <div class="outline-row">
-    <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a chapter">
-    <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40" inputmode="numeric">
-    <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="optional" maxlength="400">
+  <div class="outline-row outline-row--extra" data-chapter-row>
+    <span class="outline-row__idx mono" data-chapter-idx>+</span>
+    <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a custom chapter heading…">
+    <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40">
+    <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="ToR criteria or instructions for this chapter (optional)" maxlength="400">
+    <div class="outline-row__tools">
+      <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
+      <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
+      <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Clear chapter" aria-label="Clear chapter">×</button>
+    </div>
   </div>
 {% endmacro %}
 
-{% macro outline_form(outline, source_url, csrf_token, url_outline) %}
-<form method="post" action="{{ url_outline }}" class="stack">
+{% macro outline_form(outline, source_url, csrf_token, url_outline, is_primary=True) %}
+<form method="post" action="{{ url_outline }}" class="stack outline-studio-form" {% if is_primary %}id="primary-outline-form"{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="source_url" value="{{ source_url }}">
-  <input type="hidden" name="template_id" value="{{ outline.id }}">
-  <input type="hidden" name="submission_type" value="{{ outline.submission_type }}">
-  <input type="hidden" name="outline_name" value="{{ outline.name }}">
+  <input type="hidden" name="template_id" value="{{ outline.id }}" data-field="template_id">
+  <input type="hidden" name="outline_name" value="{{ outline.name }}" data-field="outline_name">
+
   <div class="outline-head">
-    <span class="label">{{ outline.name }}</span>
-    <span class="small muted">{% if outline.submission_type == "EOI" %}Expression of interest{% else %}Technical proposal{% endif %}</span>
+    <div class="row">
+      <span class="badge-pill badge-pill--accent" data-field="outline_badge">{{ outline.name }}</span>
+      {% if outline.source == "tor" %}
+        <span class="badge-pill badge-pill--good">Prescribed by ToR</span>
+      {% elif outline.source == "custom" %}
+        <span class="badge-pill">Customized</span>
+      {% else %}
+        <span class="badge-pill">Cortech House Standard</span>
+      {% endif %}
+    </div>
+    <div class="row">
+      <label class="small muted" for="submission_type_{{ outline.id }}">Document type</label>
+      <select name="submission_type" id="submission_type_{{ outline.id }}" class="select" data-field="submission_type">
+        <option value="FULL_PROPOSAL" {% if outline.submission_type != "EOI" %}selected{% endif %}>Full Technical Proposal</option>
+        <option value="EOI" {% if outline.submission_type == "EOI" %}selected{% endif %}>Expression of Interest (EOI)</option>
+      </select>
+    </div>
   </div>
-  {% if outline.summary %}<p class="field__hint">{{ outline.summary }}</p>{% endif %}
-  <div class="outline-list">
+
+  {% if outline.summary %}
+  <p class="field__hint" data-field="outline_summary">{{ outline.summary }}</p>
+  {% endif %}
+
+  <div class="outline-list" data-chapter-list>
     <div class="outline-row outline-row--head">
-      <span class="label">Chapter</span>
-      <span class="label">Pages</span>
-      <span class="label">Must cover</span>
+      <span class="label">#</span>
+      <span class="label">Chapter Heading</span>
+      <span class="label">Page / Word Limit</span>
+      <span class="label">Must Cover (ToR Requirements &amp; Guidance)</span>
+      <span class="label">Order</span>
     </div>
     {{ chapter_rows(outline.sections or []) }}
   </div>
-  <p class="field__hint">Clear a heading to drop that chapter. The blank row adds one.</p>
-  <div class="row">
-    <button class="btn" type="submit" name="intent" value="draft">Write the draft</button>
-    <button class="btn btn--quiet" type="submit" name="intent" value="save">Save outline</button>
+
+  <div class="row-between outline-actions">
+    <div class="row">
+      <button type="button" class="btn btn--sm btn--quiet" data-add-chapter>+ Add chapter</button>
+      <span class="field__hint">Reorder, edit, or add chapters. Every chapter will be drafted strictly against the ToR/RFP.</span>
+    </div>
+    <div class="row">
+      <button class="btn btn--quiet" type="submit" name="intent" value="save">Save outline</button>
+      <button class="btn" type="submit" name="intent" value="draft">Write the draft</button>
+    </div>
   </div>
 </form>
 {% endmacro %}
@@ -47,17 +86,173 @@
 {% set primary = accepted or recommended %}
 {% set templates = d.draft_templates or [] %}
 {% set opener = primary if primary and primary.sections else (templates[0] if templates else none) %}
-<section class="section section--first" aria-labelledby="h-outline">
-  <div class="panel panel--hero">
+{% set eval_criteria = d.evaluation_criteria or [] %}
+{% set deliverables = d.deliverables or [] %}
+{% set sub_reqs = d.submission_requirements or {} %}
+
+<section class="section section--first" id="outline-studio" aria-labelledby="h-outline">
+  <div class="panel panel--hero panel--studio">
     <div class="panel__in stack">
-      <p class="label">Next</p>
-      <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
-      <p class="doc">{% if d.has_draft %}This draft stays until you write again. Edit the chapters, or open another outline below. Nothing is sent to the client.{% else %}The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.{% endif %}</p>
+      <div class="studio-header">
+        <div>
+          <span class="eyebrow">Step 2 of 3 · Template Recommendation &amp; Customization</span>
+          <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
+          <p class="doc studio-lead">
+            {% if d.has_draft %}
+              This draft stays until you write again. Edit the chapters, or open another outline below. Nothing is sent to the client.
+            {% else %}
+              The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.
+            {% endif %}
+          </p>
+        </div>
+        {% if recommended %}
+        <div class="rec-callout">
+          <div class="rec-callout__label">Agent Recommendation</div>
+          <div class="rec-callout__title">
+            {% if recommended.source == "tor" %}
+              ToR-Prescribed Structure ({{ recommended.sections | length }} chapters)
+            {% elif recommended.submission_type == "EOI" %}
+              Cortech EOI Template ({{ recommended.sections | length }} chapters)
+            {% else %}
+              Cortech Technical Proposal ({{ recommended.sections | length }} chapters)
+            {% endif %}
+          </div>
+          <div class="rec-callout__sub">{{ recommended.summary }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      {# ── Template Preset Switcher Cards ────────────────────────────────── #}
       {% if opener %}
-        {{ outline_form(opener, d.source_url, csrf_token, url_outline) }}
-      {% else %}
-        <p class="field__hint">No outline is available for this opportunity yet.</p>
+      <div class="template-cards" role="tablist" aria-label="Proposal and EOI templates">
+        {% if recommended and recommended.sections %}
+        <button type="button"
+                class="template-card {% if opener.id == recommended.id and opener.name == recommended.name %}is-selected{% endif %}"
+                data-template-preset='{{ recommended | tojson }}'>
+          <div class="template-card__top">
+            <span class="template-card__name">{{ recommended.name }}</span>
+            <span class="badge-pill badge-pill--good">Recommended</span>
+          </div>
+          <div class="template-card__meta">
+            {{ recommended.sections | length }} chapters · {% if recommended.submission_type == "EOI" %}EOI{% else %}Technical Proposal{% endif %}
+          </div>
+          <div class="template-card__desc">{{ recommended.summary }}</div>
+        </button>
+        {% endif %}
+
+        {% for template in templates %}
+        <button type="button"
+                class="template-card {% if opener.id == template.id and opener.name == template.name %}is-selected{% endif %}"
+                data-template-preset='{{ template | tojson }}'>
+          <div class="template-card__top">
+            <span class="template-card__name">{{ template.name }}</span>
+            <span class="badge-pill">{% if template.submission_type == "EOI" %}EOI{% else %}Full Proposal{% endif %}</span>
+          </div>
+          <div class="template-card__meta">{{ template.sections | length }} chapters · House Standard</div>
+          <div class="template-card__desc">{{ template.summary }}</div>
+        </button>
+        {% endfor %}
+
+        {% if accepted and accepted.source == "custom" %}
+        <button type="button"
+                class="template-card {% if opener.id == accepted.id %}is-selected{% endif %}"
+                data-template-preset='{{ accepted | tojson }}'>
+          <div class="template-card__top">
+            <span class="template-card__name">{{ accepted.name }}</span>
+            <span class="badge-pill badge-pill--accent">Saved Custom</span>
+          </div>
+          <div class="template-card__meta">{{ accepted.sections | length }} chapters · Custom</div>
+          <div class="template-card__desc">Your customized chapter structure for this opportunity.</div>
+        </button>
+        {% endif %}
+      </div>
       {% endif %}
+
+      {# ── Two-Column Studio: Chapter Customizer + Extracted ToR Checklist ── #}
+      <div class="studio-grid">
+        <div class="studio-grid__main">
+          {% if opener %}
+            {{ outline_form(opener, d.source_url, csrf_token, url_outline, is_primary=True) }}
+          {% else %}
+            <p class="field__hint">No outline is available for this opportunity yet.</p>
+          {% endif %}
+        </div>
+
+        <aside class="studio-grid__side" aria-label="Extracted ToR requirements">
+          <div class="tor-brief-card">
+            <div class="tor-brief-card__head">
+              <span class="label">ToR / RFP Alignment Checklist</span>
+              <p class="small muted">Extracted directly from the tender document. The writer locks to these requirements and enforces ≥80% evaluation criteria alignment.</p>
+            </div>
+
+            {% if sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("cvs_required") or sub_reqs.get("financial_proposal_required") %}
+            <div class="tor-brief-card__group">
+              <div class="tor-brief-card__title">Format &amp; Submission Rules</div>
+              <ul class="tor-list">
+                {% if sub_reqs.get("technical_proposal_page_limit") %}
+                <li><strong>Page limit:</strong> {{ sub_reqs.get("technical_proposal_page_limit") }} pages</li>
+                {% endif %}
+                {% if sub_reqs.get("cvs_required") %}
+                <li><strong>Team CVs:</strong> Required for key experts</li>
+                {% endif %}
+                {% if sub_reqs.get("financial_proposal_required") %}
+                <li><strong>Financial proposal:</strong> Separate envelope (no fees in technical draft)</li>
+                {% endif %}
+              </ul>
+            </div>
+            {% endif %}
+
+            <div class="tor-brief-card__group">
+              <div class="tor-brief-card__title">Scored Evaluation Criteria ({{ eval_criteria | length }})</div>
+              {% if eval_criteria %}
+              <ul class="tor-list">
+                {% for c in eval_criteria %}
+                <li>
+                  <div class="row-between">
+                    <strong>{{ c.get("criterion") or c.get("name") }}</strong>
+                    {% if c.get("weight_percent") is not none %}
+                    <span class="mono badge-pill">{{ c.get("weight_percent") }}%</span>
+                    {% endif %}
+                  </div>
+                  {% if c.get("description") %}
+                  <div class="small muted">{{ c.get("description") }}</div>
+                  {% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="small muted">No explicit evaluation weights extracted; chapters will align to the scope of work and deliverables.</p>
+              {% endif %}
+            </div>
+
+            {% if deliverables %}
+            <div class="tor-brief-card__group">
+              <div class="tor-brief-card__title">Required Deliverables ({{ deliverables | length }})</div>
+              <ul class="tor-list">
+                {% for item in deliverables[:8] %}
+                <li>
+                  <strong>{{ item.name }}</strong>
+                  {% if item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+
+            {% if sub_reqs.get("required_annexes") %}
+            <div class="tor-brief-card__group">
+              <div class="tor-brief-card__title">Required Annexes / Forms</div>
+              <ul class="tor-list">
+                {% for annex in sub_reqs.get("required_annexes")[:6] %}
+                <li>{{ annex }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+        </aside>
+      </div>
+
       {% if templates %}
       <div class="choices">
         {% for template in templates %}
@@ -68,7 +263,7 @@
               <span class="choice__sum">{{ template.summary }}</span>
             </summary>
             <div class="choice__body">
-              {{ outline_form(template, d.source_url, csrf_token, url_outline) }}
+              {{ outline_form(template, d.source_url, csrf_token, url_outline, is_primary=False) }}
             </div>
           </details>
           {% endif %}
@@ -78,4 +273,131 @@
     </div>
   </div>
 </section>
+
+<script>
+(function () {
+  var studio = document.getElementById("outline-studio");
+  var form = document.getElementById("primary-outline-form");
+  if (!studio || !form) return;
+
+  var list = form.querySelector("[data-chapter-list]");
+  var cards = studio.querySelectorAll("[data-template-preset]");
+
+  function renumber() {
+    if (!list) return;
+    var rows = list.querySelectorAll("[data-chapter-row]");
+    rows.forEach(function (row, idx) {
+      var badge = row.querySelector("[data-chapter-idx]");
+      var headingInput = row.querySelector('input[name="heading"]');
+      var isExtra = row.classList.contains("outline-row--extra") && (!headingInput || !headingInput.value.trim());
+      if (badge) {
+        badge.textContent = isExtra ? "+" : (idx + 1 < 10 ? "0" + (idx + 1) : String(idx + 1));
+      }
+    });
+  }
+
+  function makeRow(section, isExtra) {
+    var div = document.createElement("div");
+    div.className = "outline-row" + (isExtra ? " outline-row--extra" : "");
+    div.setAttribute("data-chapter-row", "");
+    var mustText = "";
+    if (section && Array.isArray(section.must_include)) {
+      mustText = section.must_include.join("; ");
+    } else if (section && typeof section.must_include === "string") {
+      mustText = section.must_include;
+    }
+    div.innerHTML =
+      '<span class="outline-row__idx mono" data-chapter-idx>+</span>' +
+      '<input type="text" name="heading" aria-label="Chapter heading" maxlength="200" placeholder="Chapter title">' +
+      '<input type="text" name="page_limit" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">' +
+      '<input type="text" name="must_include" aria-label="What this chapter must cover" placeholder="ToR criteria, deliverables, or specific instructions (optional)" maxlength="400">' +
+      '<div class="outline-row__tools">' +
+      '<button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>' +
+      '<button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>' +
+      '<button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>' +
+      '</div>';
+    var inputs = div.querySelectorAll("input");
+    inputs[0].value = (section && section.heading) ? section.heading : "";
+    inputs[1].value = (section && section.page_limit) ? section.page_limit : "";
+    inputs[2].value = mustText;
+    return div;
+  }
+
+  studio.addEventListener("click", function (ev) {
+    var addBtn = ev.target.closest("[data-add-chapter]");
+    if (addBtn && list) {
+      ev.preventDefault();
+      var newRow = makeRow({heading: "", page_limit: "", must_include: []}, false);
+      list.appendChild(newRow);
+      renumber();
+      var input = newRow.querySelector('input[name="heading"]');
+      if (input) input.focus();
+      return;
+    }
+
+    var removeBtn = ev.target.closest("[data-remove-row]");
+    if (removeBtn && list) {
+      ev.preventDefault();
+      var row = removeBtn.closest("[data-chapter-row]");
+      var allRows = list.querySelectorAll("[data-chapter-row]");
+      if (row && allRows.length > 1) {
+        row.remove();
+      } else if (row) {
+        row.querySelectorAll("input").forEach(function (inp) { inp.value = ""; });
+      }
+      renumber();
+      return;
+    }
+
+    var moveBtn = ev.target.closest("[data-move]");
+    if (moveBtn && list) {
+      ev.preventDefault();
+      var dir = parseInt(moveBtn.getAttribute("data-move"), 10);
+      var currentRow = moveBtn.closest("[data-chapter-row]");
+      if (!currentRow) return;
+      if (dir < 0 && currentRow.previousElementSibling && currentRow.previousElementSibling.hasAttribute("data-chapter-row")) {
+        list.insertBefore(currentRow, currentRow.previousElementSibling);
+      } else if (dir > 0 && currentRow.nextElementSibling && currentRow.nextElementSibling.hasAttribute("data-chapter-row")) {
+        list.insertBefore(currentRow.nextElementSibling, currentRow);
+      }
+      renumber();
+      return;
+    }
+
+    var presetBtn = ev.target.closest("[data-template-preset]");
+    if (presetBtn && list) {
+      ev.preventDefault();
+      var raw = presetBtn.getAttribute("data-template-preset");
+      if (!raw) return;
+      try {
+        var preset = JSON.parse(raw);
+        cards.forEach(function (c) { c.classList.toggle("is-selected", c === presetBtn); });
+        var tplId = form.querySelector('[data-field="template_id"]');
+        var tplName = form.querySelector('[data-field="outline_name"]');
+        var tplBadge = form.querySelector('[data-field="outline_badge"]');
+        var tplType = form.querySelector('[data-field="submission_type"]');
+        var tplSum = form.querySelector('[data-field="outline_summary"]');
+        if (tplId) tplId.value = preset.id || "custom";
+        if (tplName) tplName.value = preset.name || "Custom outline";
+        if (tplBadge) tplBadge.textContent = preset.name || "Custom outline";
+        if (tplType && preset.submission_type) tplType.value = preset.submission_type;
+        if (tplSum && preset.summary) tplSum.textContent = preset.summary;
+
+        list.querySelectorAll("[data-chapter-row]").forEach(function (r) { r.remove(); });
+        (preset.sections || []).forEach(function (sec) {
+          list.appendChild(makeRow(sec, false));
+        });
+        list.appendChild(makeRow({heading: "", page_limit: "", must_include: []}, true));
+        renumber();
+      } catch (_e) {}
+    }
+  });
+
+  studio.addEventListener("input", function (ev) {
+    if (ev.target && ev.target.name === "heading") {
+      renumber();
+    }
+  });
+})();
+</script>
 {% endmacro %}

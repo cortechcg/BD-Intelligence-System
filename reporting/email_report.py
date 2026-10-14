@@ -1674,7 +1674,7 @@ def send_proposal_email(opportunity_result: dict) -> None:
 
     proposal_html = ""
     if is_lightweight:
-    proposal_html = (
+        proposal_html = (
             section_block("Cover Letter", proposal.get("cover_letter", ""), anchor="c-cover")
             + section_block(
                 "Executive Summary", proposal.get("executive_summary", ""), anchor="c-exec"

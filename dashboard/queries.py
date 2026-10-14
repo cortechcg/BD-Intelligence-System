@@ -543,10 +543,44 @@ def opportunity_detail(source_url: str) -> dict | None:
 
     ev = bid.get("expected_value") if isinstance(bid.get("expected_value"), dict) else {}
 
+    bid_analysis = analysis.get("bid_analysis") if isinstance(analysis.get("bid_analysis"), dict) else {}
+    sub_reqs = analysis.get("submission_requirements") if isinstance(analysis.get("submission_requirements"), dict) else {}
+    eval_criteria = [
+        c for c in (analysis.get("evaluation_criteria") or [])
+        if isinstance(c, dict) and (c.get("criterion") or c.get("name"))
+    ]
+    deliverables = []
+    for d_item in (analysis.get("deliverables") or []):
+        if isinstance(d_item, dict) and (d_item.get("name") or d_item.get("title")):
+            deliverables.append({
+                "name": str(d_item.get("name") or d_item.get("title") or "").strip(),
+                "description": str(d_item.get("description") or "").strip(),
+            })
+        elif isinstance(d_item, str) and d_item.strip():
+            deliverables.append({"name": d_item.strip(), "description": ""})
+    team_reqs = [
+        t for t in (analysis.get("team_requirements") or [])
+        if isinstance(t, dict) and t.get("role")
+    ]
+    strengths = [s for s in (bid_analysis.get("key_strengths") or []) if isinstance(s, str) and s.strip()]
+
+    rec_outline = _outline_or_none(cp.get("recommended_outline"))
+    if rec_outline is None and analysis:
+        try:
+            from intelligence.draft_templates import recommend_outline
+            rec_outline = _outline_or_none(recommend_outline(analysis))
+        except Exception:
+            rec_outline = None
+
     detail = dict(item)
     detail.update({
         "scored": scored,
         "has_draft": bool(sections),
+        "evaluation_criteria": eval_criteria,
+        "deliverables": deliverables,
+        "submission_requirements": sub_reqs,
+        "team_requirements": team_reqs,
+        "strengths": strengths,
         "score_version": cell(
             bid.get("score_version"),
             why=why_unscored,
@@ -608,7 +642,7 @@ def opportunity_detail(source_url: str) -> dict | None:
             k for k, v in sections.items() if isinstance(v, str) and v.strip()
         ),
         "requirement_alignment": _requirement_alignment(analysis, sections),
-        "recommended_outline": _outline_or_none(cp.get("recommended_outline")),
+        "recommended_outline": rec_outline,
         "accepted_outline": _outline_or_none(cp.get("accepted_outline")),
         "draft_templates": _draft_template_catalog(),
         "awaiting_outline": _awaiting_outline(item, cp, sections),
