@@ -18,9 +18,12 @@
     </div>
     <h1 class="doc">{{ m.doc_value(d.title, "untitled — title not extracted") }}</h1>
     <div class="view-head__meta">
-      <span class="row" style="gap: var(--sp2)"><a class="iconbtn" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span>{{ m.host(d.source_url) }}</span></span>
-      <span>client {{ m.value_terse(d.client) }}</span>
-      <span>deadline {{ m.value_terse(d.deadline) }}</span>
+      <span class="badge-pill"><a class="iconbtn iconbtn--sm" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span class="mono">{{ m.host(d.source_url) }}</span></span>
+      <span class="badge-pill">client {{ m.value_terse(d.client) }}</span>
+      <span class="badge-pill">deadline {{ m.value_terse(d.deadline) }}</span>
+      {% if d.budget_usd and d.budget_usd.value is not none %}
+      <span class="badge-pill mono">USD {{ "{:,.0f}".format(d.budget_usd.value) }}</span>
+      {% endif %}
     </div>
   </div>
   <div class="row">
@@ -204,7 +207,7 @@
 
 {% if d.has_draft %}
 <section class="section section--tight">
-  <div class="band band--human">
+  <div class="band band--human band--wide">
     <div class="band__title">Step 3 of 3 · Read this draft, then mark it.</div>
     Nothing here is sent to the client. Mark it reviewed, won, or lost after you have read it. Claims that could not be matched stay tagged [NOT VERIFIED].
     <p>{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}.</p>
@@ -237,7 +240,7 @@
     <span class="section__count">{% if d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}% aligned · bar {{ d.requirement_alignment.criteria_bar_percent or 80 }}%{% else %}{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }} criteria addressed{% endif %}</span>
   </div>
   <p class="doc">{{ d.requirement_alignment.headline }}</p>
-  <p class="small muted">A requirement is addressed only when the cited sentence is in that section. Anything that cannot be traced is not treated as satisfied.</p>
+  <p class="small muted" style="margin-bottom: var(--sp3)">A requirement is addressed only when the cited sentence is in that section. Anything that cannot be traced is not treated as satisfied.</p>
   {% if d.requirement_alignment.rows %}
   <div class="table-wrap">
   <table class="table">
@@ -245,7 +248,7 @@
     <tbody>
     {% for row in d.requirement_alignment.rows %}
       <tr>
-        <td>{{ row.label }}</td>
+        <td><strong>{{ row.label }}</strong></td>
         <td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
         <td class="mono">{{ row.section or "—" }}</td>
         <td class="evidence">{{ row.quote or row.evidence }}</td>

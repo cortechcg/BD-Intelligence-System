@@ -1,32 +1,42 @@
 {% macro chapter_rows(sections) %}
   {% for section in sections %}
   <div class="outline-row" data-chapter-row>
-    <span class="outline-row__idx mono" data-chapter-idx>{{ "%02d"|format(loop.index) }}</span>
-    <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200" placeholder="Chapter title">
-    <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">
-    <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="ToR criteria, deliverables, or specific instructions (optional)" maxlength="400">
-    <div class="outline-row__tools">
-      <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
-      <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
-      <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>
+    <div class="outline-row__top">
+      <span class="outline-row__idx mono" data-chapter-idx>{{ "%02d"|format(loop.index) }}</span>
+      <input type="text" class="outline-input outline-input--heading" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200" placeholder="Chapter title (e.g. Methodology &amp; Technical Approach)">
+      <input type="text" class="outline-input outline-input--limit mono" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">
+      <div class="outline-row__tools">
+        <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
+        <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
+        <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>
+      </div>
+    </div>
+    <div class="outline-row__scope">
+      <span class="outline-row__scope-tag mono">Must Cover</span>
+      <input type="text" class="outline-input outline-input--scope" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="ToR evaluation criteria, deliverables, or specific instructions for this chapter (optional)" maxlength="400">
     </div>
   </div>
   {% endfor %}
   <div class="outline-row outline-row--extra" data-chapter-row>
-    <span class="outline-row__idx mono" data-chapter-idx>+</span>
-    <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a custom chapter heading…">
-    <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40">
-    <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="ToR criteria or instructions for this chapter (optional)" maxlength="400">
-    <div class="outline-row__tools">
-      <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
-      <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
-      <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Clear chapter" aria-label="Clear chapter">×</button>
+    <div class="outline-row__top">
+      <span class="outline-row__idx mono" data-chapter-idx>+</span>
+      <input type="text" class="outline-input outline-input--heading" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Type a new chapter heading to add…">
+      <input type="text" class="outline-input outline-input--limit mono" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="Page limit" maxlength="40">
+      <div class="outline-row__tools">
+        <button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>
+        <button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>
+        <button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Clear chapter" aria-label="Clear chapter">×</button>
+      </div>
+    </div>
+    <div class="outline-row__scope">
+      <span class="outline-row__scope-tag mono">Must Cover</span>
+      <input type="text" class="outline-input outline-input--scope" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="ToR criteria, deliverables, or instructions for this new chapter (optional)" maxlength="400">
     </div>
   </div>
 {% endmacro %}
 
 {% macro outline_form(outline, source_url, csrf_token, url_outline, is_primary=True) %}
-<form method="post" action="{{ url_outline }}" class="stack outline-studio-form" {% if is_primary %}id="primary-outline-form"{% endif %}>
+<form method="post" action="{{ url_outline }}" class="stack outline-studio-form" {% if is_primary %}id="primary-outline-form" data-source-url="{{ source_url }}"{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="source_url" value="{{ source_url }}">
   <input type="hidden" name="template_id" value="{{ outline.id }}" data-field="template_id">
@@ -36,16 +46,23 @@
     <div class="row">
       <span class="badge-pill badge-pill--accent" data-field="outline_badge">{{ outline.name }}</span>
       {% if outline.source == "tor" %}
-        <span class="badge-pill badge-pill--good">Prescribed by ToR</span>
+        <span class="badge-pill badge-pill--good" data-field="outline_origin">Prescribed by ToR</span>
       {% elif outline.source == "custom" %}
-        <span class="badge-pill">Customized</span>
+        <span class="badge-pill" data-field="outline_origin">Customized</span>
       {% else %}
-        <span class="badge-pill">Cortech House Standard</span>
+        <span class="badge-pill" data-field="outline_origin">Cortech House Standard</span>
+      {% endif %}
+      {% if is_primary %}
+        <span class="badge-pill mono" id="studio-chapter-stats">{{ (outline.sections or []) | length }} chapters</span>
+        <span class="small muted" id="studio-save-state" role="status">Synced</span>
       {% endif %}
     </div>
     <div class="row">
-      <label class="small muted" for="submission_type_{{ outline.id }}">Document type</label>
-      <select name="submission_type" id="submission_type_{{ outline.id }}" class="select" data-field="submission_type">
+      {% if is_primary %}
+      <button type="button" class="btn btn--sm btn--ghost" data-reset-preset title="Restore the default chapters for the selected template">Reset chapters</button>
+      {% endif %}
+      <label class="small muted" for="submission_type_{{ outline.id }}_{{ 'p' if is_primary else 's' }}">Document type</label>
+      <select name="submission_type" id="submission_type_{{ outline.id }}_{{ 'p' if is_primary else 's' }}" class="select" data-field="submission_type">
         <option value="FULL_PROPOSAL" {% if outline.submission_type != "EOI" %}selected{% endif %}>Full Technical Proposal</option>
         <option value="EOI" {% if outline.submission_type == "EOI" %}selected{% endif %}>Expression of Interest (EOI)</option>
       </select>
@@ -57,12 +74,9 @@
   {% endif %}
 
   <div class="outline-list" data-chapter-list>
-    <div class="outline-row outline-row--head">
-      <span class="label">#</span>
-      <span class="label">Chapter Heading</span>
-      <span class="label">Page / Word Limit</span>
-      <span class="label">Must Cover (ToR Requirements &amp; Guidance)</span>
-      <span class="label">Order</span>
+    <div class="outline-row--head">
+      <span class="label">Chapter # &amp; Title</span>
+      <span class="label">Page Limit &amp; Order</span>
     </div>
     {{ chapter_rows(outline.sections or []) }}
   </div>
@@ -70,10 +84,10 @@
   <div class="row-between outline-actions">
     <div class="row">
       <button type="button" class="btn btn--sm btn--quiet" data-add-chapter>+ Add chapter</button>
-      <span class="field__hint">Reorder, edit, or add chapters. Every chapter will be drafted strictly against the ToR/RFP.</span>
+      <span class="field__hint">Edits are preserved automatically while you customize. Every chapter is drafted strictly against the ToR.</span>
     </div>
     <div class="row">
-      <button class="btn btn--quiet" type="submit" name="intent" value="save">Save outline</button>
+      <button class="btn btn--quiet" type="submit" name="intent" value="save" data-save-outline-btn>Save outline</button>
       <button class="btn" type="submit" name="intent" value="draft">Write the draft</button>
     </div>
   </div>
@@ -95,7 +109,7 @@
     <div class="panel__in stack">
       <div class="studio-header">
         <div>
-          <span class="eyebrow">Step 2 of 3 · Template Recommendation &amp; Customization</span>
+          <span class="eyebrow">Step 2 of 3 · Template Recommendation &amp; Customization Studio</span>
           <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
           <p class="doc studio-lead">
             {% if d.has_draft %}
@@ -107,7 +121,10 @@
         </div>
         {% if recommended %}
         <div class="rec-callout">
-          <div class="rec-callout__label">Agent Recommendation</div>
+          <div class="row-between">
+            <div class="rec-callout__label">Agent Recommendation</div>
+            <span class="badge-pill badge-pill--good">ToR-Aligned</span>
+          </div>
           <div class="rec-callout__title">
             {% if recommended.source == "tor" %}
               ToR-Prescribed Structure ({{ recommended.sections | length }} chapters)
@@ -128,6 +145,7 @@
         {% if recommended and recommended.sections %}
         <button type="button"
                 class="template-card {% if opener.id == recommended.id and opener.name == recommended.name %}is-selected{% endif %}"
+                data-template-key="recommended_{{ recommended.id }}"
                 data-template-preset='{{ recommended | tojson }}'>
           <div class="template-card__top">
             <span class="template-card__name">{{ recommended.name }}</span>
@@ -143,6 +161,7 @@
         {% for template in templates %}
         <button type="button"
                 class="template-card {% if opener.id == template.id and opener.name == template.name %}is-selected{% endif %}"
+                data-template-key="catalog_{{ template.id }}"
                 data-template-preset='{{ template | tojson }}'>
           <div class="template-card__top">
             <span class="template-card__name">{{ template.name }}</span>
@@ -156,13 +175,14 @@
         {% if accepted and accepted.source == "custom" %}
         <button type="button"
                 class="template-card {% if opener.id == accepted.id %}is-selected{% endif %}"
+                data-template-key="accepted_custom"
                 data-template-preset='{{ accepted | tojson }}'>
           <div class="template-card__top">
             <span class="template-card__name">{{ accepted.name }}</span>
             <span class="badge-pill badge-pill--accent">Saved Custom</span>
           </div>
           <div class="template-card__meta">{{ accepted.sections | length }} chapters · Custom</div>
-          <div class="template-card__desc">Your customized chapter structure for this opportunity.</div>
+          <div class="template-card__desc">Your customized chapter structure saved for this opportunity.</div>
         </button>
         {% endif %}
       </div>
@@ -181,13 +201,16 @@
         <aside class="studio-grid__side" aria-label="Extracted ToR requirements">
           <div class="tor-brief-card">
             <div class="tor-brief-card__head">
-              <span class="label">ToR / RFP Alignment Checklist</span>
-              <p class="small muted">Extracted directly from the tender document. The writer locks to these requirements and enforces ≥80% evaluation criteria alignment.</p>
+              <div class="row-between">
+                <span class="label">ToR / RFP Alignment Checklist</span>
+                <span class="badge-pill mono">≥80% Gate</span>
+              </div>
+              <p class="small muted">Extracted from the tender document. Click <strong>+ Assign</strong> on any item to insert it into the active chapter's <em>Must Cover</em> scope.</p>
             </div>
 
             {% if sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("cvs_required") or sub_reqs.get("financial_proposal_required") %}
             <div class="tor-brief-card__group">
-              <div class="tor-brief-card__title">Format &amp; Submission Rules</div>
+              <div class="tor-brief-card__title">Submission Format &amp; Rules</div>
               <ul class="tor-list">
                 {% if sub_reqs.get("technical_proposal_page_limit") %}
                 <li><strong>Page limit:</strong> {{ sub_reqs.get("technical_proposal_page_limit") }} pages</li>
@@ -207,15 +230,23 @@
               {% if eval_criteria %}
               <ul class="tor-list">
                 {% for c in eval_criteria %}
+                {% set cname = c.get("criterion") or c.get("name") or "" %}
+                {% set cdesc = c.get("description") or "" %}
+                {% set cweight = c.get("weight_percent") %}
                 <li>
                   <div class="row-between">
-                    <strong>{{ c.get("criterion") or c.get("name") }}</strong>
-                    {% if c.get("weight_percent") is not none %}
-                    <span class="mono badge-pill">{{ c.get("weight_percent") }}%</span>
-                    {% endif %}
+                    <strong>{{ cname }}</strong>
+                    <div class="row" style="gap: var(--sp1)">
+                      {% if cweight is not none %}
+                      <span class="mono badge-pill">{{ cweight }}%</span>
+                      {% endif %}
+                      {% if cname %}
+                      <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="{{ cname }}{% if cweight is not none %} ({{ cweight }}%){% endif %}{% if cdesc %}: {{ cdesc[:120] }}{% endif %}" title="Add this criterion to the focused chapter">+ Assign</button>
+                      {% endif %}
+                    </div>
                   </div>
-                  {% if c.get("description") %}
-                  <div class="small muted">{{ c.get("description") }}</div>
+                  {% if cdesc %}
+                  <div class="small muted">{{ cdesc }}</div>
                   {% endif %}
                 </li>
                 {% endfor %}
@@ -231,7 +262,12 @@
               <ul class="tor-list">
                 {% for item in deliverables[:8] %}
                 <li>
-                  <strong>{{ item.name }}</strong>
+                  <div class="row-between">
+                    <strong>{{ item.name }}</strong>
+                    {% if item.name %}
+                    <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="Deliverable: {{ item.name }}{% if item.description %} — {{ item.description[:100] }}{% endif %}" title="Add this deliverable to the focused chapter">+ Assign</button>
+                    {% endif %}
+                  </div>
                   {% if item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
                 </li>
                 {% endfor %}
@@ -282,18 +318,102 @@
 
   var list = form.querySelector("[data-chapter-list]");
   var cards = studio.querySelectorAll("[data-template-preset]");
+  var statsEl = document.getElementById("studio-chapter-stats");
+  var saveStateEl = document.getElementById("studio-save-state");
+  var sourceUrl = form.getAttribute("data-source-url") || "";
+  var storageKey = "cortech_outline_draft:" + sourceUrl;
+  var draftsByTemplate = {};
+  var lastFocusedRow = null;
 
-  function renumber() {
-    if (!list) return;
-    var rows = list.querySelectorAll("[data-chapter-row]");
-    rows.forEach(function (row, idx) {
-      var badge = row.querySelector("[data-chapter-idx]");
-      var headingInput = row.querySelector('input[name="heading"]');
-      var isExtra = row.classList.contains("outline-row--extra") && (!headingInput || !headingInput.value.trim());
-      if (badge) {
-        badge.textContent = isExtra ? "+" : (idx + 1 < 10 ? "0" + (idx + 1) : String(idx + 1));
+  function setSaveState(text) {
+    if (saveStateEl) saveStateEl.textContent = text;
+  }
+
+  function activeTemplateKey() {
+    var sel = studio.querySelector(".template-card.is-selected");
+    return (sel && sel.getAttribute("data-template-key")) || "default";
+  }
+
+  function serializeRows() {
+    if (!list) return [];
+    var out = [];
+    list.querySelectorAll("[data-chapter-row]").forEach(function (row) {
+      var h = row.querySelector('input[name="heading"]');
+      var p = row.querySelector('input[name="page_limit"]');
+      var m = row.querySelector('input[name="must_include"]');
+      var isExtra = row.classList.contains("outline-row--extra");
+      var headingVal = h ? h.value : "";
+      var pageVal = p ? p.value : "";
+      var mustVal = m ? m.value : "";
+      if (!isExtra || headingVal.trim() || pageVal.trim() || mustVal.trim()) {
+        out.push({
+          heading: headingVal,
+          page_limit: pageVal,
+          must_include: mustVal,
+          isExtra: isExtra && !headingVal.trim()
+        });
       }
     });
+    return out;
+  }
+
+  function persistLocalDraft() {
+    window.__cortechFormDirty = true;
+    var key = activeTemplateKey();
+    var rows = serializeRows();
+    draftsByTemplate[key] = rows;
+    try {
+      var tplId = form.querySelector('[data-field="template_id"]');
+      var tplName = form.querySelector('[data-field="outline_name"]');
+      var tplType = form.querySelector('[data-field="submission_type"]');
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        templateKey: key,
+        templateId: tplId ? tplId.value : "",
+        outlineName: tplName ? tplName.value : "",
+        submissionType: tplType ? tplType.value : "",
+        rows: rows,
+        ts: Date.now()
+      }));
+    } catch (_e) {}
+    setSaveState("Unsaved edits · preserved locally");
+  }
+
+  function renumberAndCount() {
+    if (!list) return;
+    var rows = list.querySelectorAll("[data-chapter-row]");
+    var activeCount = 0;
+    var totalPages = 0;
+    rows.forEach(function (row) {
+      var badge = row.querySelector("[data-chapter-idx]");
+      var headingInput = row.querySelector('input[name="heading"]');
+      var limitInput = row.querySelector('input[name="page_limit"]');
+      var hasHeading = headingInput && headingInput.value.trim().length > 0;
+      if (hasHeading) {
+        row.classList.remove("outline-row--extra");
+        activeCount++;
+        if (badge) {
+          badge.textContent = activeCount < 10 ? "0" + activeCount : String(activeCount);
+        }
+        if (limitInput && limitInput.value) {
+          var m = limitInput.value.match(/(\d+(?:\.\d+)?)/);
+          if (m) totalPages += parseFloat(m[1]);
+        }
+      } else if (row.classList.contains("outline-row--extra")) {
+        if (badge) badge.textContent = "+";
+      } else {
+        activeCount++;
+        if (badge) {
+          badge.textContent = activeCount < 10 ? "0" + activeCount : String(activeCount);
+        }
+      }
+    });
+    if (statsEl) {
+      var label = activeCount + " chapter" + (activeCount === 1 ? "" : "s");
+      if (totalPages > 0) {
+        label += " · " + (Math.round(totalPages * 10) / 10) + " pages";
+      }
+      statsEl.textContent = label;
+    }
   }
 
   function makeRow(section, isExtra) {
@@ -307,29 +427,95 @@
       mustText = section.must_include;
     }
     div.innerHTML =
-      '<span class="outline-row__idx mono" data-chapter-idx>+</span>' +
-      '<input type="text" name="heading" aria-label="Chapter heading" maxlength="200" placeholder="Chapter title">' +
-      '<input type="text" name="page_limit" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">' +
-      '<input type="text" name="must_include" aria-label="What this chapter must cover" placeholder="ToR criteria, deliverables, or specific instructions (optional)" maxlength="400">' +
-      '<div class="outline-row__tools">' +
-      '<button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>' +
-      '<button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>' +
-      '<button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>' +
+      '<div class="outline-row__top">' +
+        '<span class="outline-row__idx mono" data-chapter-idx>+</span>' +
+        '<input type="text" class="outline-input outline-input--heading" name="heading" aria-label="Chapter heading" maxlength="200" placeholder="' + (isExtra ? "Type a new chapter heading to add…" : "Chapter title") + '">' +
+        '<input type="text" class="outline-input outline-input--limit mono" name="page_limit" aria-label="Page limit" placeholder="e.g. 4 pages" maxlength="40">' +
+        '<div class="outline-row__tools">' +
+          '<button type="button" class="iconbtn iconbtn--sm" data-move="-1" title="Move chapter up" aria-label="Move chapter up">↑</button>' +
+          '<button type="button" class="iconbtn iconbtn--sm" data-move="1" title="Move chapter down" aria-label="Move chapter down">↓</button>' +
+          '<button type="button" class="iconbtn iconbtn--sm iconbtn--danger" data-remove-row title="Remove chapter" aria-label="Remove chapter">×</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="outline-row__scope">' +
+        '<span class="outline-row__scope-tag mono">Must Cover</span>' +
+        '<input type="text" class="outline-input outline-input--scope" name="must_include" aria-label="What this chapter must cover" placeholder="ToR evaluation criteria, deliverables, or specific instructions for this chapter (optional)" maxlength="400">' +
       '</div>';
-    var inputs = div.querySelectorAll("input");
-    inputs[0].value = (section && section.heading) ? section.heading : "";
-    inputs[1].value = (section && section.page_limit) ? section.page_limit : "";
-    inputs[2].value = mustText;
+    var h = div.querySelector('input[name="heading"]');
+    var p = div.querySelector('input[name="page_limit"]');
+    var m = div.querySelector('input[name="must_include"]');
+    if (h) h.value = (section && section.heading) ? section.heading : "";
+    if (p) p.value = (section && section.page_limit) ? section.page_limit : "";
+    if (m) m.value = mustText;
     return div;
   }
+
+  function renderRowsFromList(rows) {
+    if (!list) return;
+    list.querySelectorAll("[data-chapter-row]").forEach(function (r) { r.remove(); });
+    (rows || []).forEach(function (sec) {
+      list.appendChild(makeRow(sec, Boolean(sec.isExtra)));
+    });
+    var hasExtra = list.querySelector(".outline-row--extra");
+    if (!hasExtra) {
+      list.appendChild(makeRow({heading: "", page_limit: "", must_include: ""}, true));
+    }
+    renumberAndCount();
+  }
+
+  /* Restore any unsaved draft from sessionStorage if the user refreshed mid-edit */
+  try {
+    var savedRaw = sessionStorage.getItem(storageKey);
+    if (savedRaw) {
+      var saved = JSON.parse(savedRaw);
+      if (saved && Array.isArray(saved.rows) && saved.rows.length > 0) {
+        var tplId = form.querySelector('[data-field="template_id"]');
+        var tplName = form.querySelector('[data-field="outline_name"]');
+        var tplBadge = form.querySelector('[data-field="outline_badge"]');
+        var tplType = form.querySelector('[data-field="submission_type"]');
+        if (tplId && saved.templateId) tplId.value = saved.templateId;
+        if (tplName && saved.outlineName) tplName.value = saved.outlineName;
+        if (tplBadge && saved.outlineName) tplBadge.textContent = saved.outlineName;
+        if (tplType && saved.submissionType) tplType.value = saved.submissionType;
+        if (saved.templateKey) {
+          cards.forEach(function (c) {
+            c.classList.toggle("is-selected", c.getAttribute("data-template-key") === saved.templateKey);
+          });
+          draftsByTemplate[saved.templateKey] = saved.rows;
+        }
+        renderRowsFromList(saved.rows);
+        window.__cortechFormDirty = true;
+        setSaveState("Restored unsaved edits");
+      }
+    }
+  } catch (_e) {}
+
+  renumberAndCount();
+
+  studio.addEventListener("focusin", function (ev) {
+    var row = ev.target && ev.target.closest ? ev.target.closest("[data-chapter-row]") : null;
+    if (row) {
+      lastFocusedRow = row;
+      list.querySelectorAll("[data-chapter-row]").forEach(function (r) {
+        r.classList.toggle("is-focused", r === row);
+      });
+    }
+  });
 
   studio.addEventListener("click", function (ev) {
     var addBtn = ev.target.closest("[data-add-chapter]");
     if (addBtn && list) {
       ev.preventDefault();
+      var extraRow = list.querySelector(".outline-row--extra");
       var newRow = makeRow({heading: "", page_limit: "", must_include: []}, false);
-      list.appendChild(newRow);
-      renumber();
+      if (extraRow) {
+        list.insertBefore(newRow, extraRow);
+      } else {
+        list.appendChild(newRow);
+      }
+      lastFocusedRow = newRow;
+      renumberAndCount();
+      persistLocalDraft();
       var input = newRow.querySelector('input[name="heading"]');
       if (input) input.focus();
       return;
@@ -340,12 +526,13 @@
       ev.preventDefault();
       var row = removeBtn.closest("[data-chapter-row]");
       var allRows = list.querySelectorAll("[data-chapter-row]");
-      if (row && allRows.length > 1) {
+      if (row && allRows.length > 1 && !row.classList.contains("outline-row--extra")) {
         row.remove();
       } else if (row) {
         row.querySelectorAll("input").forEach(function (inp) { inp.value = ""; });
       }
-      renumber();
+      renumberAndCount();
+      persistLocalDraft();
       return;
     }
 
@@ -360,18 +547,69 @@
       } else if (dir > 0 && currentRow.nextElementSibling && currentRow.nextElementSibling.hasAttribute("data-chapter-row")) {
         list.insertBefore(currentRow.nextElementSibling, currentRow);
       }
-      renumber();
+      renumberAndCount();
+      persistLocalDraft();
+      return;
+    }
+
+    var resetBtn = ev.target.closest("[data-reset-preset]");
+    if (resetBtn && list) {
+      ev.preventDefault();
+      var activeCard = studio.querySelector(".template-card.is-selected") || cards[0];
+      if (!activeCard) return;
+      var rawPreset = activeCard.getAttribute("data-template-preset");
+      if (!rawPreset) return;
+      try {
+        var parsed = JSON.parse(rawPreset);
+        var key = activeCard.getAttribute("data-template-key") || "default";
+        delete draftsByTemplate[key];
+        sessionStorage.removeItem(storageKey);
+        renderRowsFromList(parsed.sections || []);
+        setSaveState("Reset to template defaults");
+      } catch (_e) {}
+      return;
+    }
+
+    var assignBtn = ev.target.closest("[data-insert-tor]");
+    if (assignBtn && list) {
+      ev.preventDefault();
+      var text = (assignBtn.getAttribute("data-insert-tor") || "").trim();
+      if (!text) return;
+      var targetRow = lastFocusedRow;
+      if (!targetRow || !list.contains(targetRow)) {
+        targetRow = list.querySelector("[data-chapter-row]:not(.outline-row--extra)") || list.querySelector("[data-chapter-row]");
+      }
+      if (!targetRow) return;
+      var mustInput = targetRow.querySelector('input[name="must_include"]');
+      if (mustInput) {
+        var cur = mustInput.value.trim();
+        if (cur.indexOf(text) === -1) {
+          mustInput.value = cur ? (cur.replace(/;\s*$/, "") + "; " + text) : text;
+        }
+        mustInput.focus();
+        persistLocalDraft();
+        assignBtn.textContent = "✓ Added";
+        setTimeout(function () { assignBtn.textContent = "+ Assign"; }, 1400);
+      }
       return;
     }
 
     var presetBtn = ev.target.closest("[data-template-preset]");
     if (presetBtn && list) {
       ev.preventDefault();
+      /* Do not wipe user edits if clicking the already-active template card */
+      if (presetBtn.classList.contains("is-selected")) {
+        return;
+      }
+      var prevKey = activeTemplateKey();
+      draftsByTemplate[prevKey] = serializeRows();
+
       var raw = presetBtn.getAttribute("data-template-preset");
       if (!raw) return;
       try {
         var preset = JSON.parse(raw);
         cards.forEach(function (c) { c.classList.toggle("is-selected", c === presetBtn); });
+        var newKey = presetBtn.getAttribute("data-template-key") || "default";
         var tplId = form.querySelector('[data-field="template_id"]');
         var tplName = form.querySelector('[data-field="outline_name"]');
         var tplBadge = form.querySelector('[data-field="outline_badge"]');
@@ -383,20 +621,37 @@
         if (tplType && preset.submission_type) tplType.value = preset.submission_type;
         if (tplSum && preset.summary) tplSum.textContent = preset.summary;
 
-        list.querySelectorAll("[data-chapter-row]").forEach(function (r) { r.remove(); });
-        (preset.sections || []).forEach(function (sec) {
-          list.appendChild(makeRow(sec, false));
-        });
-        list.appendChild(makeRow({heading: "", page_limit: "", must_include: []}, true));
-        renumber();
+        var cachedRows = draftsByTemplate[newKey];
+        if (cachedRows && cachedRows.length > 0) {
+          renderRowsFromList(cachedRows);
+        } else {
+          renderRowsFromList(preset.sections || []);
+        }
+        persistLocalDraft();
       } catch (_e) {}
     }
   });
 
   studio.addEventListener("input", function (ev) {
-    if (ev.target && ev.target.name === "heading") {
-      renumber();
+    if (!ev.target || !form.contains(ev.target)) return;
+    if (ev.target.name === "heading") {
+      var row = ev.target.closest("[data-chapter-row]");
+      if (row && row.classList.contains("outline-row--extra") && ev.target.value.trim().length > 0) {
+        row.classList.remove("outline-row--extra");
+        if (!list.querySelector(".outline-row--extra")) {
+          list.appendChild(makeRow({heading: "", page_limit: "", must_include: ""}, true));
+        }
+      }
     }
+    renumberAndCount();
+    persistLocalDraft();
+  });
+
+  form.addEventListener("submit", function () {
+    window.__cortechFormDirty = false;
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch (_e) {}
   });
 })();
 </script>

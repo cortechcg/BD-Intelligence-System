@@ -101,13 +101,14 @@
 
 <div class="view-head">
   <div>
+    <div class="eyebrow">Autonomous Bid Intelligence &amp; Proposal Studio</div>
     <h1>Opportunity Pipeline {% if c.halted %}<span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
     <p class="view-head__lead">Paste a ToR or RFP link below to immediately extract requirements, score Cortech fit, and customize the proposal or EOI template before drafting.</p>
   </div>
   <div class="view-head__meta">
-    <span>{{ c.ledger_rows }} tracked</span>
-    <span>{{ c.cache_rows }} discovered</span>
-    <span>auto-refresh {{ (poll_ms / 1000) | int }}s</span>
+    <span class="badge-pill mono">{{ c.ledger_rows }} tracked</span>
+    <span class="badge-pill mono">{{ c.cache_rows }} discovered</span>
+    <span class="badge-pill mono">refresh {{ (poll_ms / 1000) | int }}s</span>
   </div>
 </div>
 
@@ -154,14 +155,17 @@
       <input type="hidden" name="intent" value="score">
       <label class="sr-only" for="url">Tender or ToR URL</label>
       <div class="submit-row">
-        <input type="url" id="url" name="url" required placeholder="Paste a tender, ToR, REOI, or Google Drive link (https://…) to start scoring immediately" autocomplete="off" spellcheck="false">
+        <input type="url" id="url" name="url" required placeholder="Paste a tender, ToR, REOI, or Google Drive link (https://…) — analysis starts on paste" autocomplete="off" spellcheck="false">
         <button class="btn" type="submit" id="intake-submit-btn">Score &amp; Analyze ToR</button>
       </div>
       <div class="intake-form__foot">
-        <label class="toggle-inline">
-          <input type="checkbox" id="auto-score-paste" checked>
-          <span>Start scoring &amp; analysis immediately when link is pasted</span>
-        </label>
+        <div class="row">
+          <label class="toggle-inline">
+            <input type="checkbox" id="auto-score-paste" checked>
+            <span>Start scoring &amp; analysis immediately when link is pasted</span>
+          </label>
+          <span class="badge-pill mono" id="url-status-pill">⌘V / Ctrl+V Ready</span>
+        </div>
         <span class="field__hint">After scoring, the agent recommends a ToR-aligned template (or lets you customize chapters) before drafting. Nothing is sent to a client.</span>
       </div>
     </form>
@@ -170,6 +174,30 @@
     {% endif %}
   </div>
 </section>
+
+{# ── Quick-Jump Filter Bar ─────────────────────────────────────────────── #}
+<nav class="quick-nav" aria-label="Jump to pipeline bucket">
+  <a class="quick-nav__pill" href="#outline">
+    <span>Choose Outline</span>
+    <span class="badge-pill badge-pill--accent mono">{{ c.choose_outline }}</span>
+  </a>
+  <a class="quick-nav__pill" href="#in-flight">
+    <span>In Flight</span>
+    <span class="badge-pill mono">{{ c.in_flight }}</span>
+  </a>
+  <a class="quick-nav__pill" href="#drafted">
+    <span>Drafted &amp; Review</span>
+    <span class="badge-pill mono">{{ c.drafted }}</span>
+  </a>
+  <a class="quick-nav__pill" href="#attention">
+    <span>Needs Attention</span>
+    <span class="badge-pill {% if c.halted %}badge-pill--warn{% endif %} mono">{{ c.halted }}</span>
+  </a>
+  <a class="quick-nav__pill" href="#unclaimed">
+    <span>Discovered Portals</span>
+    <span class="badge-pill mono">{{ c.cache_without_ledger_shown }}</span>
+  </a>
+</nav>
 
 {# ── KPI Overview Strip & Spend Telemetry ──────────────────────────────── #}
 <div class="panel panel--hero strip">
@@ -347,14 +375,27 @@
   var input = document.getElementById("url");
   var autoToggle = document.getElementById("auto-score-paste");
   var btn = document.getElementById("intake-submit-btn");
+  var statusPill = document.getElementById("url-status-pill");
   if (!form || !input) return;
 
   var submitted = false;
   form.addEventListener("submit", function () {
     if (submitted) return;
     submitted = true;
-    if (btn) {
-      btn.textContent = "Starting ToR analysis…";
+    window.__cortechFormDirty = false;
+    if (btn) btn.textContent = "Starting ToR analysis…";
+    if (statusPill) statusPill.textContent = "Launching analyzer…";
+  });
+
+  input.addEventListener("input", function () {
+    var val = (input.value || "").trim();
+    if (!statusPill) return;
+    if (/^https?:\/\/\S+/i.test(val)) {
+      statusPill.textContent = "Valid URL ready";
+    } else if (val.length > 0) {
+      statusPill.textContent = "Enter https:// URL";
+    } else {
+      statusPill.textContent = "⌘V / Ctrl+V Ready";
     }
   });
 
@@ -363,6 +404,7 @@
     setTimeout(function () {
       var val = (input.value || "").trim();
       if (/^https?:\/\/\S+/i.test(val) && !submitted) {
+        if (statusPill) statusPill.textContent = "Auto-scoring link…";
         if (typeof form.requestSubmit === "function") {
           form.requestSubmit();
         } else {

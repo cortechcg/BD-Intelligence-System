@@ -562,3 +562,26 @@ def test_classify_failure_recognises_a_spend_cap_halt():
     assert queries.classify_failure("completed", None) == "completed"
     assert queries.classify_failure(None, None) == "pending"
     assert queries.classify_failure("nonsense", None) == "pending"
+
+
+def test_outline_customizer_guards_against_disappearing_text_and_persists_drafts(env):
+    from intelligence.draft_templates import catalog, recommend_outline
+
+    detail = _detail("pending", "")
+    detail["recommended_outline"] = recommend_outline({
+        "bid_analysis": {"submission_type": "FULL_PROPOSAL"},
+        "submission_requirements": {"prescribed_proposal_sections": [
+            {"heading": "Methodology", "page_limit": "8"},
+        ]},
+    })
+    detail["evaluation_criteria"] = [{"criterion": "Technical approach", "weight_percent": 50}]
+    detail["deliverables"] = [{"name": "Inception Report", "description": "Within 2 weeks"}]
+    detail["draft_templates"] = catalog()
+    detail["accepted_outline"] = None
+    html = _render_detail(env, detail)
+    assert "cortech_outline_draft:" in html
+    assert "isUserEditing()" in html
+    assert "outline-input--heading" in html
+    assert "outline-input--scope" in html
+    assert "data-insert-tor" in html
+
