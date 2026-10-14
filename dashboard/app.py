@@ -31,8 +31,13 @@ from loguru import logger
 
 from config import CLAUDE_MODEL
 from dashboard import auth, queries, settings, triggers
-from database.supabase_client import save_accepted_outline, seed_direct_draft
+from database.supabase_client import (
+    save_accepted_outline,
+    seed_auto_pipeline,
+    seed_direct_draft,
+)
 from intelligence.draft_templates import catalog, resolve_outline
+from processors.downloader import extract_uploaded_files
 from utils.urls import canonicalize_url
 
 HERE = Path(__file__).resolve().parent
@@ -179,6 +184,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_outline": "/opportunity/outline",
         "cancel_copy": CANCEL_COPY,
         "claude_model": CLAUDE_MODEL,
+        "product_name": settings.PRODUCT_NAME,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "flash": request.query_params.get("msg", ""),
         "flash_kind": request.query_params.get("kind", ""),
@@ -289,12 +295,31 @@ def _spend_context() -> dict:
     return {"spend": window, "cap_blocked": blocked, "cap_reason": reason}
 
 
+def _sidebar_opps(queue_data: dict | None = None, limit: int = 12) -> list[dict]:
+    """Return active opportunity cards for the 260px left rail. Fail-open."""
+    try:
+        if isinstance(queue_data, dict):
+            combined = (
+                list(queue_data.get("choose_outline") or [])
+                + list(queue_data.get("in_flight") or [])
+                + list(queue_data.get("drafted") or [])
+                + list(queue_data.get("halted") or [])
+                + list(queue_data.get("cache_only") or [])
+            )
+            return combined[:limit]
+        return queries.list_ledger_items(limit=limit)
+    except Exception:
+        return []
+
+
 @app.get("/", response_class=HTMLResponse)
 def queue_page(request: Request):
     enabled, reason = _triggering_state()
     ctx = _base_context(request, "queue")
+    q = queries.queue_view(limit=40)
     ctx.update({
-        "queue": queries.queue_view(limit=40),
+        "queue": q,
+        "sidebar_opps": _sidebar_opps(q),
         "draft_templates": catalog(),
         "triggers": triggers.recent(12),
         "in_flight": triggers.in_flight_by_url(),
@@ -321,6 +346,7 @@ def opportunity_page(request: Request, url: str = ""):
     ctx = _base_context(request, "queue")
     ctx.update({
         "d": detail,
+        "sidebar_opps": _sidebar_opps(),
         "org": queries.organization_history(client_name),
         "jobs": jobs,
         "active_job": active,
@@ -566,28 +592,82 @@ def _outline_from_form(form) -> tuple[dict | None, str]:
 
 @app.post("/trigger/url")
 async def trigger_url(request: Request, session: dict = Depends(require_session)):
-    """Score a pasted link, or draft it from the chapters on this form.
+    """Score or draft a pasted link or uploaded ToR/RFP file.
 
-    ``intent=draft`` stores the outline first and queues a resume, so the
-    worker does not wipe the chapters with a full reprocess.
+    - ``intent=draft``: stores the chosen outline and queues a direct draft.
+    - ``intent=auto`` (or uploaded file with ``auto_draft``): seeds the pipeline
+      with ``auto_accept_outline=True`` (plus any uploaded file text) so the
+      worker runs Analyze -> Score -> Draft in one uninterrupted pass.
+    - default (``intent=score`` or empty with URL): queues ``submit_url`` so
+      scoring finishes and waits for outline confirmation.
     """
     form = await request.form()
     _check_csrf(session, str(form.get("csrf_token") or ""))
     url = str(form.get("url") or "").strip()
-    if str(form.get("intent") or "") != "draft":
-        return _enqueue_one(url, triggers.SUBMIT_URL, session)
-    canonical = canonicalize_url(url) or ""
-    if not canonical:
-        return _flash("/", "That is not a usable URL.", "stop")
-    if triggers.in_flight_by_url().get(canonical):
-        return _flash("/", "Already queued or running — nothing was started twice.", "stop")
-    outline, error = _outline_from_form(form)
-    if error or outline is None:
-        return _flash("/", error or "Choose the chapters first.", "stop")
-    ok, reason = seed_direct_draft(canonical, outline)
-    if not ok:
-        return _flash("/", reason, "stop")
-    return _enqueue_one(canonical, triggers.DRAFT_EXISTING, session)
+    intent = str(form.get("intent") or "").strip().lower()
+    auto_draft = str(form.get("auto_draft") or "").strip().lower() in ("1", "true", "on", "yes")
+
+    uploaded_pairs: list[tuple[str, bytes]] = []
+    for item in form.getlist("tor_file"):
+        filename = getattr(item, "filename", None)
+        read_fn = getattr(item, "read", None)
+        if filename and callable(read_fn):
+            data = await read_fn()
+            if data:
+                uploaded_pairs.append((str(filename), bytes(data)))
+
+    extracted_title = ""
+    extracted_text = ""
+    if uploaded_pairs:
+        extracted = extract_uploaded_files(uploaded_pairs)
+        if not extracted.get("ok"):
+            return _flash("/", str(extracted.get("reason") or "Could not read uploaded file."), "stop")
+        extracted_text = str(extracted.get("text") or "")
+        extracted_title = str(extracted.get("title") or "")
+        if not url:
+            url = str(extracted.get("source_url") or "")
+
+    if intent == "draft":
+        canonical = canonicalize_url(url) or ""
+        if not canonical:
+            return _flash("/", "Paste a tender link or upload a ToR/RFP file first.", "stop")
+        if triggers.in_flight_by_url().get(canonical):
+            return _flash("/", "Already queued or running — nothing was started twice.", "stop")
+        outline, error = _outline_from_form(form)
+        if error or outline is None:
+            return _flash("/", error or "Choose the chapters first.", "stop")
+        if extracted_text:
+            ok, reason = seed_auto_pipeline(
+                canonical,
+                title=extracted_title,
+                full_text=extracted_text,
+                auto_accept_outline=True,
+                accepted_outline=outline,
+            )
+        else:
+            ok, reason = seed_direct_draft(canonical, outline)
+        if not ok:
+            return _flash("/", reason, "stop")
+        return _enqueue_one(canonical, triggers.DRAFT_EXISTING, session)
+
+    if uploaded_pairs or intent == "auto" or auto_draft:
+        canonical = canonicalize_url(url) or ""
+        if not canonical:
+            return _flash("/", "Paste a tender link or upload a ToR/RFP file first.", "stop")
+        if triggers.in_flight_by_url().get(canonical):
+            return _flash("/", "Already queued or running — nothing was started twice.", "stop")
+        should_auto_draft = True if (intent == "auto" or auto_draft) else False
+        ok, reason = seed_auto_pipeline(
+            canonical,
+            title=extracted_title,
+            full_text=extracted_text,
+            auto_accept_outline=should_auto_draft,
+        )
+        if not ok:
+            return _flash("/", reason, "stop")
+        return _enqueue_one(canonical, triggers.DRAFT_EXISTING, session)
+
+    return _enqueue_one(url, triggers.SUBMIT_URL, session)
 
 
 @app.post("/trigger/existing")

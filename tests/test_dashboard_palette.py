@@ -1,9 +1,10 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Enterprise Slate & Cobalt: a deep slate-obsidian field (#0b0f17), cool-white
-type (#f8fafc), precision cobalt for agent progress & primary actions (#60a5fa),
-and warm amber (#fbbf24) where a person must act. Every text colour must clear
-WCAG AA (4.5:1) on the page, and every mark must clear 3:1.
+Editorial Forest Green (BD_UI_Design_Prompt.pdf): a calm sage-parchment canvas
+(#eef3ef), crisp white cards (#ffffff), deep forest green (#2d5c47) for the
+masthead and primary actions, mid green (#4b896d) for progress and labels, and
+amber (#8a5a17) where a person must act. Every text colour must clear WCAG AA
+(4.5:1) on the page, and every mark must clear 3:1.
 """
 from __future__ import annotations
 
@@ -69,7 +70,7 @@ def test_ramp_light_end_clears_the_ordinal_floor(fg, bg):
 
 
 def test_sage_is_display_figures_only():
-    """Slate deep clears 3:1 (large missing figures) but not 4.5 (body)."""
+    """Missing display figures clear 3:1 (large missing figures) but not 4.5 (body)."""
     assert 3.0 <= contrast(token("ink-3"), token("ground")) < 4.5
     for selector, rule in rules():
         if re.search(r"(?<![-\w])color:\s*var\(--ink-3\)", rule):
@@ -78,10 +79,11 @@ def test_sage_is_display_figures_only():
 
 
 def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
-    """Deep slate field, lifted slate card, slate well. One primary button gradient."""
-    assert token("ground") == "#0b0f17"
-    assert token("surface") == "#111827"
-    assert token("track") == "#1e293b"
+    """Editorial green desk: #eef3ef field, #ffffff card, #e7f0eb track, #2d5c47 primary."""
+    assert token("ground") == "#eef3ef"
+    assert token("surface") == "#ffffff"
+    assert token("track") == "#e7f0eb"
+    assert token("fill") == "#2d5c47"
     assert token("surface") != token("ground")
     shadow_ok = (
         "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
@@ -98,17 +100,21 @@ def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
 
 
 def test_two_fills_only():
-    """Cobalt fills the primary button, the BID chip, step badges, and marks."""
+    """Deep green fills the masthead, primary button, BID chip, step badges, and marks."""
     for selector, rule in rules():
         sel = selector.strip()
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
             tok = m.group(2)
-            if tok in ("ground", "surface", "track", "hover", "selected", "glass", "line"):
+            if tok in (
+                "ground", "surface", "track", "hover", "selected", "glass", "line",
+                "stepper-well", "color-upcoming", "color-ok-bg", "color-warn-bg", "color-err-bg",
+            ):
                 continue
             assert any(k in sel for k in (
                 ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",
                 "bar__fill", "mix__seg", "legend__swatch", ".orb", ".brand__mark",
-                ".nav__dot", ".steps__num",
+                ".nav__dot", ".steps__num", ".masthead", "stage-progress__seg",
+                ".doc-chip__icon", ".match-bar__fill", ".tile--dark",
             )), f"fill {tok} on {sel[:70]}"
 
 
@@ -116,7 +122,9 @@ def test_brass_means_a_person_must_act_and_nothing_else():
     for selector, rule in rules():
         sel = selector.strip()
         if re.search(r"background(-color)?:\s*var\(--(accent|human|halt|st-halt|color-brass)\)", rule):
-            assert any(k in sel for k in ("rail__seg", "meter__fill", "state--", "::before", ".orb")), f"brass fill outside marks: {sel[:70]}"
+            assert any(k in sel for k in (
+                "rail__seg", "meter__fill", "state--", "::before", ".orb", ".match-bar__fill--gap",
+            )), f"brass fill outside marks: {sel[:70]}"
         for m in re.finditer(r"(?<![-\w])color:\s*var\(--([\w-]+)\)", rule):
             if m.group(1) in ("accent", "human", "halt", "color-brass", "st-halt"):
                 assert "attention" in sel, f"brass used as text outside an attention signal: {sel[:70]}"
@@ -134,14 +142,14 @@ def test_rail_is_thin_and_human_segment_is_distinct():
     assert contrast(token("stage-done"), token("stage-current")) >= 1.8, "current vs done must differ in lightness"
 
 
-def test_ramps_are_one_cobalt_hue_and_monotone():
+def test_ramps_are_one_green_hue_and_monotone():
     toks = [token(f"ramp-{i}") for i in range(1, 5)]
     lums = [_lum(t) for t in toks]
     assert lums == sorted(lums, reverse=True), "light→dark along the pipeline"
     assert all(a - b >= 0.04 for a, b in zip(lums, lums[1:]))
     for t in toks:
         r, g, b = int(t[1:3], 16), int(t[3:5], 16), int(t[5:7], 16)
-        assert b >= g and b >= r, f"{t} is not cobalt"
+        assert g >= r and g >= b, f"{t} is not forest green"
 
 
 def test_recommendation_uses_weight_and_shape_not_hue():

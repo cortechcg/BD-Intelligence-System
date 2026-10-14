@@ -141,6 +141,7 @@ class OpportunityContext:
     recommended_outline: dict = field(default_factory=dict)
     accepted_outline: dict = field(default_factory=dict)
     skip_to_draft: bool = False
+    auto_accept_outline: bool = False
 
     def to_checkpoint(self) -> dict:
         return {
@@ -164,6 +165,7 @@ class OpportunityContext:
             "recommended_outline": self.recommended_outline,
             "accepted_outline": self.accepted_outline,
             "skip_to_draft": self.skip_to_draft,
+            "auto_accept_outline": self.auto_accept_outline,
         }
 
     def apply_checkpoint(self, checkpoint: dict | None) -> None:
@@ -204,6 +206,7 @@ class OpportunityContext:
         if isinstance(data.get("accepted_outline"), dict):
             self.accepted_outline = data["accepted_outline"]
         self.skip_to_draft = bool(data.get("skip_to_draft"))
+        self.auto_accept_outline = bool(data.get("auto_accept_outline"))
 
     def _refresh_from_analysis(self) -> None:
         analysis = self.analysis if isinstance(self.analysis, dict) else {}
@@ -323,8 +326,8 @@ def run_extract_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCo
     """Fetch + quality gate + content-hash identity. Resume starts here from discovered."""
     logger.info("  Step 1: Fetching document...")
     fallback_text = ctx.raw.get("fallback_text", "")
-    full_text = ""
-    if ctx.source_url:
+    full_text = ctx.full_text or ""
+    if not full_text and ctx.source_url:
         full_text = deps.fetch_and_extract(ctx.source_url, opportunity_id=ctx.opp_id) or ""
 
     if len(full_text) >= MIN_FETCHED_CHARS and fallback_text:
@@ -370,7 +373,7 @@ def run_extract_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCo
 
     digest = content_hash(full_text)
     finder = deps.find_opportunity_by_content_hash
-    if not ctx.force and digest and finder:
+    if not (ctx.force or ctx.auto_accept_outline) and digest and finder:
         existing_body = finder(digest)
         existing_url = ""
         if isinstance(existing_body, dict):
@@ -419,9 +422,10 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
         score_version=ctx.intelligence.get("score_version", ""),
     )
 
+    effective_force = ctx.force or ctx.auto_accept_outline
     # Default True when missing — fail open, never miss a real consultancy.
     is_consultancy = ctx.bid_analysis.get("is_consultancy_contract", True)
-    if not is_consultancy and not ctx.force:
+    if not is_consultancy and not effective_force:
         rationale = ctx.bid_analysis.get(
             "rationale",
             "Staff vacancy — not a firm-level consultancy contract",
@@ -431,7 +435,7 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
             f"  [dim]{str(rationale)[:100]}[/dim]"
         )
         raise TerminalSkip("not_consultancy")
-    elif not is_consultancy and ctx.force:
+    elif not is_consultancy and effective_force:
         logger.warning(
             f"  Not flagged as a consultancy contract, but force=True — "
             f"proceeding anyway: {ctx.title[:60]}"
@@ -443,7 +447,7 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
 
     ctx.client_intelligence = _safe_client_intelligence(ctx, deps)
 
-    if ctx.recommendation == "NO-BID" and not ctx.force:
+    if ctx.recommendation == "NO-BID" and not effective_force:
         rationale = ctx.bid_analysis.get(
             "rationale",
             "Low fit — not recommended for bid",
@@ -476,7 +480,7 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
             decision_state="HUMAN_REVIEW_REQUIRED",
         )
         raise TerminalSkip("no_bid")
-    elif ctx.recommendation == "NO-BID" and ctx.force:
+    elif ctx.recommendation == "NO-BID" and effective_force:
         logger.warning(
             f"  NO-BID recommendation, but force=True — proceeding anyway: "
             f"{ctx.title[:60]}"
@@ -753,6 +757,12 @@ def run_opportunity_pipeline(
             if not ctx.analysis:
                 ctx = run_score_stage(ctx, deps)
             _ensure_recommended_outline(ctx)
+            if (
+                ctx.auto_accept_outline
+                and not outline_is_accepted(ctx.accepted_outline)
+                and outline_is_accepted(ctx.recommended_outline)
+            ):
+                ctx.accepted_outline = dict(ctx.recommended_outline)
             if not outline_is_accepted(ctx.accepted_outline):
                 _persist(deps, ctx.dedup_url, claim_token, "scored", ctx)
                 if claim_token:

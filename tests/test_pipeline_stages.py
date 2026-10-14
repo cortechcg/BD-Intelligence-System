@@ -301,3 +301,68 @@ def test_score_stage_names_an_unusable_analysis_reply(monkeypatch):
     assert "stop_reason=max_tokens" in exc.value.reason
     assert "content=thinking" in exc.value.reason
     assert "empty analysis payload" in exc.value.reason
+
+
+def test_auto_accept_outline_runs_extract_score_and_draft_end_to_end():
+    stages = []
+    drafts = []
+
+    def persist(url, token, stage, checkpoint):
+        stages.append((stage, dict(checkpoint)))
+        return True
+
+    def draft(*args, **kwargs):
+        drafts.append(kwargs.get("accepted_outline"))
+        return {"cover_letter": "A complete client-facing cover letter for review."}
+
+    outcome = run_opportunity_pipeline(
+        {"title": "Eval", "source_url": "https://example.test/eval"},
+        claim_token="tok",
+        deps=_deps(persist_stage=persist, draft_bid_or_watch_proposal=draft),
+        snapshot=ProcessingSnapshot(
+            pipeline_stage="discovered",
+            resume_available=True,
+            checkpoint={"auto_accept_outline": True},
+        ),
+    )
+    assert outcome.disposition == "success"
+    assert outcome.result["awaiting_outline"] is False
+    assert [stage for stage, _ in stages] == ["extracted", "scored", "drafted"]
+    assert len(drafts) == 1
+    assert drafts[0]["sections"]
+    assert outcome.result["proposal_sections"]["cover_letter"].startswith("A complete")
+
+
+def test_uploaded_full_text_in_checkpoint_skips_network_fetch_and_drafts():
+    fetches = []
+    drafts = []
+
+    def fetch(*args, **kwargs):
+        fetches.append(args)
+        raise AssertionError("network fetch should not run when full_text is already uploaded")
+
+    def draft(*args, **kwargs):
+        drafts.append(kwargs)
+        return {"cover_letter": "Drafted from uploaded ToR document."}
+
+    uploaded_text = "Terms of Reference for Somalia Third-Party Monitoring and Evaluation. " * 25
+    outcome = run_opportunity_pipeline(
+        {"title": "", "source_url": "https://upload.cortechconsultinggroup.com/tor/abc123/tor.pdf"},
+        claim_token="tok",
+        deps=_deps(fetch_and_extract=fetch, draft_bid_or_watch_proposal=draft),
+        snapshot=ProcessingSnapshot(
+            pipeline_stage="discovered",
+            resume_available=True,
+            checkpoint={
+                "title": "Somalia TPM Evaluation",
+                "full_text": uploaded_text,
+                "auto_accept_outline": True,
+            },
+        ),
+    )
+    assert fetches == []
+    assert outcome.disposition == "success"
+    assert len(drafts) == 1
+    assert drafts[0]["tor_text"] == uploaded_text
+    assert outcome.result["proposal_sections"]["cover_letter"] == "Drafted from uploaded ToR document."
+

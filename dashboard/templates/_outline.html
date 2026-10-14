@@ -13,7 +13,7 @@
     </div>
     <div class="outline-row__scope">
       <span class="outline-row__scope-tag mono">Must Cover</span>
-      <input type="text" class="outline-input outline-input--scope" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="ToR evaluation criteria, deliverables, or specific instructions for this chapter (optional)" maxlength="400">
+      <input type="text" class="outline-input outline-input--scope" name="must_include" value="{{ (section.must_include or []) | join('; ') if section.must_include is iterable and section.must_include is not string else (section.must_include or section.scope or '') }}" aria-label="What this chapter must cover" placeholder="ToR evaluation criteria, deliverables, or specific instructions for this chapter (optional)" maxlength="400">
     </div>
   </div>
   {% endfor %}
@@ -46,16 +46,17 @@
     <div class="row">
       <span class="badge-pill badge-pill--accent" data-field="outline_badge">{{ outline.name }}</span>
       {% if outline.source == "tor" %}
-        <span class="badge-pill badge-pill--good" data-field="outline_origin">Prescribed by ToR</span>
+        <span class="badge-pill badge-pill--good" data-field="outline_origin">Follow the TOR format</span>
       {% elif outline.source == "custom" %}
         <span class="badge-pill" data-field="outline_origin">Customized</span>
       {% else %}
-        <span class="badge-pill" data-field="outline_origin">Cortech House Standard</span>
+        <span class="badge-pill" data-field="outline_origin">House format</span>
       {% endif %}
       {% if is_primary %}
         <span class="badge-pill mono" id="studio-chapter-stats">{{ (outline.sections or []) | length }} chapters</span>
-        <span class="small muted" id="studio-save-state" role="status">Synced</span>
+        <span class="small muted" id="studio-save-state" role="status">Saved</span>
       {% endif %}
+      <span class="badge-pill" title="Rule: No fees or prices go into the Word file">No fees or prices go into the Word file</span>
     </div>
     <div class="row">
       {% if is_primary %}
@@ -84,7 +85,7 @@
   <div class="row-between outline-actions">
     <div class="row">
       <button type="button" class="btn btn--sm btn--quiet" data-add-chapter>+ Add chapter</button>
-      <span class="field__hint">Edits are preserved automatically while you customize. Every chapter is drafted strictly against the ToR.</span>
+      <span class="field__hint">Edits are preserved automatically while you customize. No fees or prices go into the Word file.</span>
     </div>
     <div class="row">
       <button class="btn btn--quiet" type="submit" name="intent" value="save" data-save-outline-btn>Save outline</button>
@@ -103,13 +104,14 @@
 {% set eval_criteria = d.evaluation_criteria or [] %}
 {% set deliverables = d.deliverables or [] %}
 {% set sub_reqs = d.submission_requirements or {} %}
+{% set active_sub_type = (opener.submission_type if opener and opener.submission_type else "FULL_PROPOSAL") %}
 
 <section class="section section--first" id="outline-studio" aria-labelledby="h-outline">
   <div class="panel panel--hero panel--studio">
     <div class="panel__in stack">
       <div class="studio-header">
         <div>
-          <span class="eyebrow">Step 2 of 3 · Template Recommendation &amp; Customization Studio</span>
+          <span class="eyebrow">Stage 4 of 5 · Document Type, Template Gallery &amp; Chapter Customizer</span>
           <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
           <p class="doc studio-lead">
             {% if d.has_draft %}
@@ -127,11 +129,11 @@
           </div>
           <div class="rec-callout__title">
             {% if recommended.source == "tor" %}
-              ToR-Prescribed Structure ({{ recommended.sections | length }} chapters)
+              Follow the TOR format ({{ recommended.sections | length }} chapters)
             {% elif recommended.submission_type == "EOI" %}
-              Cortech EOI Template ({{ recommended.sections | length }} chapters)
+              House format — EOI ({{ recommended.sections | length }} chapters)
             {% else %}
-              Cortech Technical Proposal ({{ recommended.sections | length }} chapters)
+              House format — Technical Proposal ({{ recommended.sections | length }} chapters)
             {% endif %}
           </div>
           <div class="rec-callout__sub">{{ recommended.summary }}</div>
@@ -139,56 +141,82 @@
         {% endif %}
       </div>
 
-      {# ── Template Preset Switcher Cards ────────────────────────────────── #}
+      {# ── Part 1: Document Type Choice Cards (Proposal vs EOI) ──────────── #}
+      <div>
+        <span class="label" style="display:block;margin-bottom:6px">Part 1 · Document Type</span>
+        <div class="choice-grid" role="radiogroup" aria-label="Select document type">
+          <button type="button"
+                  class="choice-card {% if active_sub_type != 'EOI' %}is-selected{% endif %}"
+                  data-doc-type="FULL_PROPOSAL">
+            <span class="choice-card__kicker">Full Technical Bid</span>
+            <span class="choice-card__title">Technical Proposal</span>
+            <span class="choice-card__desc">Full methodology, workplan, team composition, management &amp; QA aligned to scored ToR criteria.</span>
+          </button>
+          <button type="button"
+                  class="choice-card {% if active_sub_type == 'EOI' %}is-selected{% endif %}"
+                  data-doc-type="EOI">
+            <span class="choice-card__kicker">Shortlist / REOI Stage</span>
+            <span class="choice-card__title">Expression of Interest (EOI)</span>
+            <span class="choice-card__desc">Firm profile, relevant assignment track record, country presence, and core team summary.</span>
+          </button>
+        </div>
+      </div>
+
+      {# ── Part 2: Template Gallery Cards (Follow TOR vs House Format) ────── #}
       {% if opener %}
-      <div class="template-cards" role="tablist" aria-label="Proposal and EOI templates">
-        {% if recommended and recommended.sections %}
-        <button type="button"
-                class="template-card {% if opener.id == recommended.id and opener.name == recommended.name %}is-selected{% endif %}"
-                data-template-key="recommended_{{ recommended.id }}"
-                data-template-preset='{{ recommended | tojson }}'>
-          <div class="template-card__top">
-            <span class="template-card__name">{{ recommended.name }}</span>
-            <span class="badge-pill badge-pill--good">Recommended</span>
-          </div>
-          <div class="template-card__meta">
-            {{ recommended.sections | length }} chapters · {% if recommended.submission_type == "EOI" %}EOI{% else %}Technical Proposal{% endif %}
-          </div>
-          <div class="template-card__desc">{{ recommended.summary }}</div>
-        </button>
-        {% endif %}
+      <div>
+        <span class="label" style="display:block;margin-bottom:6px">Part 2 · Template Gallery</span>
+        <div class="template-cards" role="tablist" aria-label="Proposal and EOI templates">
+          {% if recommended and recommended.sections %}
+          <button type="button"
+                  class="template-card {% if opener.id == recommended.id and opener.name == recommended.name %}is-selected{% endif %}"
+                  data-template-key="recommended_{{ recommended.id }}"
+                  data-template-preset='{{ recommended | tojson }}'>
+            <div class="template-card__top">
+              <span class="template-card__name">
+                {% if recommended.source == "tor" %}Follow the TOR format{% else %}{{ recommended.name }}{% endif %}
+              </span>
+              <span class="badge-pill badge-pill--good">Recommended</span>
+            </div>
+            <div class="template-card__meta">
+              {{ recommended.sections | length }} chapters · {% if recommended.submission_type == "EOI" %}EOI{% else %}Technical Proposal{% endif %}
+            </div>
+            <div class="template-card__desc">{{ recommended.summary }}</div>
+          </button>
+          {% endif %}
 
-        {% for template in templates %}
-        <button type="button"
-                class="template-card {% if opener.id == template.id and opener.name == template.name %}is-selected{% endif %}"
-                data-template-key="catalog_{{ template.id }}"
-                data-template-preset='{{ template | tojson }}'>
-          <div class="template-card__top">
-            <span class="template-card__name">{{ template.name }}</span>
-            <span class="badge-pill">{% if template.submission_type == "EOI" %}EOI{% else %}Full Proposal{% endif %}</span>
-          </div>
-          <div class="template-card__meta">{{ template.sections | length }} chapters · House Standard</div>
-          <div class="template-card__desc">{{ template.summary }}</div>
-        </button>
-        {% endfor %}
+          {% for template in templates %}
+          <button type="button"
+                  class="template-card {% if opener.id == template.id and opener.name == template.name %}is-selected{% endif %}"
+                  data-template-key="catalog_{{ template.id }}"
+                  data-template-preset='{{ template | tojson }}'>
+            <div class="template-card__top">
+              <span class="template-card__name">House format · {{ template.name }}</span>
+              <span class="badge-pill">{% if template.submission_type == "EOI" %}EOI{% else %}Full Proposal{% endif %}</span>
+            </div>
+            <div class="template-card__meta">{{ template.sections | length }} chapters · House Standard</div>
+            <div class="template-card__desc">{{ template.summary }}</div>
+          </button>
+          {% endfor %}
 
-        {% if accepted and accepted.source == "custom" %}
-        <button type="button"
-                class="template-card {% if opener.id == accepted.id %}is-selected{% endif %}"
-                data-template-key="accepted_custom"
-                data-template-preset='{{ accepted | tojson }}'>
-          <div class="template-card__top">
-            <span class="template-card__name">{{ accepted.name }}</span>
-            <span class="badge-pill badge-pill--accent">Saved Custom</span>
-          </div>
-          <div class="template-card__meta">{{ accepted.sections | length }} chapters · Custom</div>
-          <div class="template-card__desc">Your customized chapter structure saved for this opportunity.</div>
-        </button>
-        {% endif %}
+          {% if accepted and accepted.source == "custom" %}
+          <button type="button"
+                  class="template-card {% if opener.id == accepted.id %}is-selected{% endif %}"
+                  data-template-key="accepted_custom"
+                  data-template-preset='{{ accepted | tojson }}'>
+            <div class="template-card__top">
+              <span class="template-card__name">{{ accepted.name }}</span>
+              <span class="badge-pill badge-pill--accent">Saved Custom</span>
+            </div>
+            <div class="template-card__meta">{{ accepted.sections | length }} chapters · Custom</div>
+            <div class="template-card__desc">Your customized chapter structure saved for this opportunity.</div>
+          </button>
+          {% endif %}
+        </div>
       </div>
       {% endif %}
 
-      {# ── Two-Column Studio: Chapter Customizer + Extracted ToR Checklist ── #}
+      {# ── Part 3: Two-Column Studio (Chapter Customizer + ToR Checklist) ── #}
       <div class="studio-grid">
         <div class="studio-grid__main">
           {% if opener %}
@@ -208,12 +236,12 @@
               <p class="small muted">Extracted from the tender document. Click <strong>+ Assign</strong> on any item to insert it into the active chapter's <em>Must Cover</em> scope.</p>
             </div>
 
-            {% if sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("cvs_required") or sub_reqs.get("financial_proposal_required") %}
+            {% if sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("page_limit") or sub_reqs.get("cvs_required") or sub_reqs.get("financial_proposal_required") %}
             <div class="tor-brief-card__group">
               <div class="tor-brief-card__title">Submission Format &amp; Rules</div>
               <ul class="tor-list">
-                {% if sub_reqs.get("technical_proposal_page_limit") %}
-                <li><strong>Page limit:</strong> {{ sub_reqs.get("technical_proposal_page_limit") }} pages</li>
+                {% if sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("page_limit") %}
+                <li><strong>Page limit:</strong> {{ sub_reqs.get("technical_proposal_page_limit") or sub_reqs.get("page_limit") }}</li>
                 {% endif %}
                 {% if sub_reqs.get("cvs_required") %}
                 <li><strong>Team CVs:</strong> Required for key experts</li>
@@ -232,16 +260,16 @@
                 {% for c in eval_criteria %}
                 {% set cname = c.get("criterion") or c.get("name") or "" %}
                 {% set cdesc = c.get("description") or "" %}
-                {% set cweight = c.get("weight_percent") %}
+                {% set cweight = c.get("weight_percent") if c.get("weight_percent") is not none else c.get("weight") %}
                 <li>
                   <div class="row-between">
                     <strong>{{ cname }}</strong>
                     <div class="row" style="gap: var(--sp1)">
-                      {% if cweight is not none %}
-                      <span class="mono badge-pill">{{ cweight }}%</span>
+                      {% if cweight is not none and cweight != "" %}
+                      <span class="mono badge-pill">{{ cweight }}{% if c.get("weight_percent") is not none %}%{% endif %}</span>
                       {% endif %}
                       {% if cname %}
-                      <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="{{ cname }}{% if cweight is not none %} ({{ cweight }}%){% endif %}{% if cdesc %}: {{ cdesc[:120] }}{% endif %}" title="Add this criterion to the focused chapter">+ Assign</button>
+                      <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="{{ cname }}{% if cweight is not none and cweight != '' %} ({{ cweight }}){% endif %}{% if cdesc %}: {{ cdesc[:120] }}{% endif %}" title="Add this criterion to the focused chapter">+ Assign</button>
                       {% endif %}
                     </div>
                   </div>
@@ -261,14 +289,16 @@
               <div class="tor-brief-card__title">Required Deliverables ({{ deliverables | length }})</div>
               <ul class="tor-list">
                 {% for item in deliverables[:8] %}
+                {% set d_name = item.name if item is mapping else item %}
+                {% set d_desc = item.description if item is mapping else "" %}
                 <li>
                   <div class="row-between">
-                    <strong>{{ item.name }}</strong>
-                    {% if item.name %}
-                    <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="Deliverable: {{ item.name }}{% if item.description %} — {{ item.description[:100] }}{% endif %}" title="Add this deliverable to the focused chapter">+ Assign</button>
+                    <strong>{{ d_name }}</strong>
+                    {% if d_name %}
+                    <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="Deliverable: {{ d_name }}{% if d_desc %} — {{ d_desc[:100] }}{% endif %}" title="Add this deliverable to the focused chapter">+ Assign</button>
                     {% endif %}
                   </div>
-                  {% if item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
+                  {% if d_desc %}<div class="small muted">{{ d_desc }}</div>{% endif %}
                 </li>
                 {% endfor %}
               </ul>
@@ -318,6 +348,7 @@
 
   var list = form.querySelector("[data-chapter-list]");
   var cards = studio.querySelectorAll("[data-template-preset]");
+  var docTypeCards = studio.querySelectorAll(".choice-card[data-doc-type]");
   var statsEl = document.getElementById("studio-chapter-stats");
   var saveStateEl = document.getElementById("studio-save-state");
   var sourceUrl = form.getAttribute("data-source-url") || "";
@@ -327,6 +358,14 @@
 
   function setSaveState(text) {
     if (saveStateEl) saveStateEl.textContent = text;
+  }
+
+  function syncDocTypeCards() {
+    var tplType = form.querySelector('[data-field="submission_type"]');
+    var val = tplType ? tplType.value : "FULL_PROPOSAL";
+    docTypeCards.forEach(function (btn) {
+      btn.classList.toggle("is-selected", btn.getAttribute("data-doc-type") === val);
+    });
   }
 
   function activeTemplateKey() {
@@ -425,6 +464,8 @@
       mustText = section.must_include.join("; ");
     } else if (section && typeof section.must_include === "string") {
       mustText = section.must_include;
+    } else if (section && typeof section.scope === "string") {
+      mustText = section.scope;
     }
     div.innerHTML =
       '<div class="outline-row__top">' +
@@ -484,6 +525,7 @@
           draftsByTemplate[saved.templateKey] = saved.rows;
         }
         renderRowsFromList(saved.rows);
+        syncDocTypeCards();
         window.__cortechFormDirty = true;
         setSaveState("Restored unsaved edits");
       }
@@ -491,6 +533,17 @@
   } catch (_e) {}
 
   renumberAndCount();
+  syncDocTypeCards();
+
+  docTypeCards.forEach(function (card) {
+    card.addEventListener("click", function () {
+      var docType = card.getAttribute("data-doc-type") || "FULL_PROPOSAL";
+      var tplType = form.querySelector('[data-field="submission_type"]');
+      if (tplType) tplType.value = docType;
+      syncDocTypeCards();
+      persistLocalDraft();
+    });
+  });
 
   studio.addEventListener("focusin", function (ev) {
     var row = ev.target && ev.target.closest ? ev.target.closest("[data-chapter-row]") : null;
@@ -597,7 +650,6 @@
     var presetBtn = ev.target.closest("[data-template-preset]");
     if (presetBtn && list) {
       ev.preventDefault();
-      /* Do not wipe user edits if clicking the already-active template card */
       if (presetBtn.classList.contains("is-selected")) {
         return;
       }
@@ -620,6 +672,7 @@
         if (tplBadge) tplBadge.textContent = preset.name || "Custom outline";
         if (tplType && preset.submission_type) tplType.value = preset.submission_type;
         if (tplSum && preset.summary) tplSum.textContent = preset.summary;
+        syncDocTypeCards();
 
         var cachedRows = draftsByTemplate[newKey];
         if (cachedRows && cachedRows.length > 0) {
@@ -643,6 +696,7 @@
         }
       }
     }
+    syncDocTypeCards();
     renumberAndCount();
     persistLocalDraft();
   });

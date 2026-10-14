@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m %}
-{% block title %}Queue · Cortech BD{% endblock %}
+{% block title %}Bid Desk · {{ product_name or "Cortech BD" }}{% endblock %}
 
 {% macro row_actions(item) %}
   {% set job = in_flight.get(item.canonical_url) or in_flight.get(item.source_url) %}
@@ -15,6 +15,8 @@
     </form>
     {% elif item.stage.value == "scored" %}
     <a class="btn btn--sm" href="{{ url_detail }}?url={{ item.source_url | urlencode }}#outline-studio">Choose outline</a>
+    {% elif item.stage.value == "drafted" %}
+    <a class="btn btn--sm" href="{{ url_detail }}?url={{ item.source_url | urlencode }}#stage-5-review">Review pack</a>
     {% else %}
     <form method="post" action="{{ url_trigger_existing }}" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -29,7 +31,7 @@
   {% endif %}
 {% endmacro %}
 
-{% macro opp_table(items, show_scores=True, selectable=False) %}
+{% macro opp_table(items, bucket_name="all", show_scores=True, selectable=False) %}
 <div class="table-wrap">
 <table class="table table--queue">
   <colgroup>
@@ -42,17 +44,17 @@
     <tr>
       {% if selectable %}<th class="c-sel-cell"><input type="checkbox" id="bulk-all" aria-label="select all shown"></th>{% endif %}
       <th>Opportunity</th>
-      <th>Client</th>
+      <th>Buyer / Client</th>
       <th>Stage</th>
       <th>State</th>
-      {% if show_scores %}<th class="num">FIT</th><th class="num">WIN</th><th>Rec.</th>{% endif %}
+      {% if show_scores %}<th class="num">FIT</th><th class="num">WIN</th><th>Call</th>{% endif %}
       <th>Deadline</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
   {% for item in items %}
-    <tr>
+    <tr class="opp-row" data-bucket-row="{{ bucket_name }}" data-url="{{ (item.source_url or '') | lower }}">
       {% if selectable %}
       <td class="c-sel-cell">
         {% if triggering_enabled and not (in_flight.get(item.canonical_url) or in_flight.get(item.source_url)) %}
@@ -70,7 +72,13 @@
             {%- endif -%}
           </a>
         </div>
-        <div class="t-sub mono">{{ m.host(item.source_url) }}</div>
+        <div class="t-sub mono">
+          {{ m.host(item.source_url) }}
+          ·
+          <a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">
+            {% if "drive.google.com" in (item.source_url or "") or "docs.google.com" in (item.source_url or "") %}Open TOR in Drive ↗{% else %}Source ↗{% endif %}
+          </a>
+        </div>
       </td>
       <td>{{ m.value_terse(item.client) }}</td>
       <td>
@@ -99,105 +107,242 @@
 {% block content %}
 {% set c = queue.counts %}
 
-<div class="view-head">
-  <div>
-    <div class="eyebrow">Autonomous Bid Intelligence &amp; Proposal Studio</div>
-    <h1>Opportunity Pipeline {% if c.halted %}<span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
-    <p class="view-head__lead">Paste a ToR or RFP link below to immediately extract requirements, score Cortech fit, and customize the proposal or EOI template before drafting.</p>
-  </div>
-  <div class="view-head__meta">
-    <span class="badge-pill mono">{{ c.ledger_rows }} tracked</span>
-    <span class="badge-pill mono">{{ c.cache_rows }} discovered</span>
-    <span class="badge-pill mono">refresh {{ (poll_ms / 1000) | int }}s</span>
-  </div>
-</div>
-
-{% if flash %}
-<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
-{% endif %}
-
-{# ── Primary Tender Intake & Auto-Scoring Command Bar ───────────────────── #}
-<section class="section section--intake" aria-labelledby="h-submit">
-  <div class="intake-card">
-    <div class="intake-card__head">
-      <div>
-        <span class="eyebrow">Step 1 of 3 · Instant ToR / RFP Analysis</span>
-        <h2 id="h-submit">Analyze &amp; Score a Tender Link</h2>
-      </div>
-      <ol class="steps" aria-label="Proposal workflow">
-        <li class="steps__item is-active">
-          <span class="steps__num">1</span>
-          <div class="steps__text">
-            <strong>Score &amp; Read ToR</strong>
-            <span>Extract criteria, scope &amp; fit</span>
-          </div>
-        </li>
-        <li class="steps__item">
-          <span class="steps__num">2</span>
-          <div class="steps__text">
-            <strong>Recommend or Customize Template</strong>
-            <span>ToR structure, Technical Proposal, or EOI</span>
-          </div>
-        </li>
-        <li class="steps__item">
-          <span class="steps__num">3</span>
-          <div class="steps__text">
-            <strong>Draft Aligned Proposal / EOI</strong>
-            <span>Verified against ToR evaluation criteria</span>
-          </div>
-        </li>
-      </ol>
+{# ── Stage 1: Procurement Source Selector & Direct TOR / RFP Intake ────── #}
+<section class="stack" id="stage-1-sources" aria-labelledby="h-stage-1">
+  <div class="view-head">
+    <div>
+      <div class="eyebrow">Stage 1 of 5 · Procurement Sources &amp; Direct ToR / RFP Intake</div>
+      <h1 id="h-stage-1">Opportunity Pipeline {% if c.halted %}<span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
+      <p class="view-head__lead">Have a ToR or RFP on hand? Upload the file or paste the link below to analyze, score, and draft it right away — or browse discovered tenders by source.</p>
     </div>
+    <div class="view-head__meta">
+      <span class="badge-pill mono">{{ c.ledger_rows }} tracked</span>
+      <span class="badge-pill mono">{{ c.cache_rows }} discovered</span>
+      <span class="badge-pill mono">refresh {{ (poll_ms / 1000) | int }}s</span>
+    </div>
+  </div>
 
-    {% if triggering_enabled %}
-    <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="intent" value="score">
-      <label class="sr-only" for="url">Tender or ToR URL</label>
-      <div class="submit-row">
-        <input type="url" id="url" name="url" required placeholder="Paste a tender, ToR, REOI, or Google Drive link (https://…) — analysis starts on paste" autocomplete="off" spellcheck="false">
-        <button class="btn" type="submit" id="intake-submit-btn">Score &amp; Analyze ToR</button>
-      </div>
-      <div class="intake-form__foot">
-        <div class="row">
-          <label class="toggle-inline">
-            <input type="checkbox" id="auto-score-paste" checked>
-            <span>Start scoring &amp; analysis immediately when link is pasted</span>
-          </label>
-          <span class="badge-pill mono" id="url-status-pill">⌘V / Ctrl+V Ready</span>
+  {% if flash %}
+  <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
+  {% endif %}
+
+  {# Primary Tender Intake: Upload a ToR/RFP file OR Paste a Link -> Analyze, Score & Draft #}
+  <section class="section section--intake" aria-labelledby="h-submit">
+    <div class="intake-card">
+      <div class="intake-card__head">
+        <div>
+          <span class="eyebrow">Have a ToR or RFP? · Upload Document or Paste Link</span>
+          <h2 id="h-submit">Upload a ToR / RFP or Paste a Link</h2>
         </div>
-        <span class="field__hint">After scoring, the agent recommends a ToR-aligned template (or lets you customize chapters) before drafting. Nothing is sent to a client.</span>
+        <ol class="steps" aria-label="Proposal workflow">
+          <li class="steps__item is-active">
+            <span class="steps__num">1</span>
+            <div class="steps__text">
+              <strong>Read &amp; Analyze ToR</strong>
+              <span>Extract scope, criteria, deadlines &amp; deliverables</span>
+            </div>
+          </li>
+          <li class="steps__item is-active">
+            <span class="steps__num">2</span>
+            <div class="steps__text">
+              <strong>Score Fit &amp; Match Team</strong>
+              <span>Cortech fit score, client history &amp; consultant CVs</span>
+            </div>
+          </li>
+          <li class="steps__item is-active">
+            <span class="steps__num">3</span>
+            <div class="steps__text">
+              <strong>Write Proposal / EOI Draft</strong>
+              <span>Full draft, compliance matrix &amp; internal budget</span>
+            </div>
+          </li>
+        </ol>
       </div>
-    </form>
-    {% else %}
-    <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
-    {% endif %}
+
+      {% if triggering_enabled %}
+      <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="intent" id="intake-intent" value="auto">
+
+        <div class="intake-split">
+          {# Left / Primary column: Paste a link #}
+          <div class="intake-col">
+            <label class="field__label" for="url">Option A · Paste a ToR, RFP, or Google Drive link</label>
+            <div class="submit-row">
+              <input type="url" id="url" name="url" placeholder="https://drive.google.com/… or tender portal link" autocomplete="off" spellcheck="false">
+              <button class="btn" type="submit" id="intake-submit-btn">Analyze, Score &amp; Draft</button>
+            </div>
+          </div>
+
+          <div class="intake-divider" aria-hidden="true"><span>or</span></div>
+
+          {# Right column: Upload a ToR / RFP file directly #}
+          <div class="intake-col">
+            <label class="field__label" for="tor-file">Option B · Upload ToR / RFP file (.pdf, .docx, .txt)</label>
+            <label class="upload-dropzone" id="upload-dropzone" for="tor-file">
+              <input type="file" id="tor-file" name="tor_file" accept=".pdf,.docx,.doc,.txt,.md" multiple class="sr-only">
+              <span class="upload-dropzone__title" id="upload-dropzone-title">Drop ToR / RFP file here or click to browse</span>
+              <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word (.docx), or text — starts analyzing, scoring &amp; drafting immediately</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="intake-form__foot">
+          <div class="row">
+            <label class="toggle-inline">
+              <input type="checkbox" id="auto-draft-toggle" name="auto_draft" value="1" checked>
+              <span>Run end-to-end: analyze, score, and write the full draft immediately (uncheck to pause after scoring so you can edit chapters first)</span>
+            </label>
+            <label class="toggle-inline">
+              <input type="checkbox" id="auto-score-paste" checked>
+              <span>Start automatically on paste or file select</span>
+            </label>
+            <span class="badge-pill mono" id="url-status-pill">Ready for link or file</span>
+          </div>
+          <span class="field__hint">You can always revise chapters and re-generate the draft in the workspace afterward. Nothing is ever sent to a client.</span>
+        </div>
+      </form>
+      {% else %}
+      <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
+      {% endif %}
+    </div>
+  </section>
+
+  {# Selectable Procurement Source Grid #}
+  <div class="source-grid" role="list" aria-label="Configured procurement sources">
+    <button type="button" class="source-card is-active" data-source-filter="all">
+      <div class="source-card__top">
+        <span class="source-card__type">All Channels</span>
+        <span class="source-card__status">Live · {{ c.ledger_rows + c.cache_without_ledger_shown }} shown</span>
+      </div>
+      <div class="source-card__name">All Procurement Feeds</div>
+      <div class="source-card__desc">Unified bid desk view across UN, bilateral donors, NGOs, and manual Google Drive TORs.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="drive">
+      <div class="source-card__top">
+        <span class="source-card__type">Google Drive</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">Shared Drive TOR Folder</div>
+      <div class="source-card__desc">Direct PDF, DOCX, and Google Doc TOR packages uploaded by the BD team.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="un">
+      <div class="source-card__top">
+        <span class="source-card__type">UN &amp; Multilateral</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">UNGM &amp; ReliefWeb</div>
+      <div class="source-card__desc">UNICEF, UNDP, UNHCR, WFP, WHO, UNFPA, and ReliefWeb humanitarian tenders.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="donor">
+      <div class="source-card__top">
+        <span class="source-card__type">Development Banks &amp; Donors</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">World Bank, EU, GIZ &amp; DANIDA</div>
+      <div class="source-card__desc">Bilateral and multilateral development consultancy procurement notices.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="ngo">
+      <div class="source-card__top">
+        <span class="source-card__type">NGOs &amp; Foundations</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">DRC, NRC, Save the Children &amp; CARE</div>
+      <div class="source-card__desc">International NGO evaluations, baselines, TPM, and MEAL tenders across East &amp; Horn of Africa.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="gov">
+      <div class="source-card__top">
+        <span class="source-card__type">Government &amp; Regional</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">East Africa &amp; IGAD Portals</div>
+      <div class="source-card__desc">National ministry, county, and regional intergovernmental consultancy calls.</div>
+    </button>
+
+    <button type="button" class="source-card" data-source-filter="email">
+      <div class="source-card__top">
+        <span class="source-card__type">Email Digest</span>
+        <span class="source-card__status">Configurable</span>
+      </div>
+      <div class="source-card__name">Assortis / ICA Daily Newsletter</div>
+      <div class="source-card__desc">Automated IMAP parsing of daily shortlisted procurement email alerts.</div>
+    </button>
+
+    <button type="button" class="source-card" data-focus-intake="1">
+      <div class="source-card__top">
+        <span class="source-card__type">Direct Upload or Link</span>
+        <span class="source-card__status">Immediate Run</span>
+      </div>
+      <div class="source-card__name">Upload ToR / RFP or Paste Link</div>
+      <div class="source-card__desc">Upload a PDF/Word ToR or paste a link above to analyze, score, and draft right away.</div>
+    </button>
   </div>
 </section>
 
-{# ── Quick-Jump Filter Bar ─────────────────────────────────────────────── #}
-<nav class="quick-nav" aria-label="Jump to pipeline bucket">
-  <a class="quick-nav__pill" href="#outline">
-    <span>Choose Outline</span>
-    <span class="badge-pill badge-pill--accent mono">{{ c.choose_outline }}</span>
-  </a>
-  <a class="quick-nav__pill" href="#in-flight">
-    <span>In Flight</span>
-    <span class="badge-pill mono">{{ c.in_flight }}</span>
-  </a>
-  <a class="quick-nav__pill" href="#drafted">
-    <span>Drafted &amp; Review</span>
-    <span class="badge-pill mono">{{ c.drafted }}</span>
-  </a>
-  <a class="quick-nav__pill" href="#attention">
-    <span>Needs Attention</span>
-    <span class="badge-pill {% if c.halted %}badge-pill--warn{% endif %} mono">{{ c.halted }}</span>
-  </a>
-  <a class="quick-nav__pill" href="#unclaimed">
-    <span>Discovered Portals</span>
-    <span class="badge-pill mono">{{ c.cache_without_ledger_shown }}</span>
-  </a>
-</nav>
+{# ── Stage 2: Opportunity List & Filter Bar ────────────────────────────── #}
+<section class="stack" id="stage-2-opportunities" aria-labelledby="h-stage-2">
+  <div class="row-between">
+    <div>
+      <span class="label">Stage 2 of 5 · Opportunity List</span>
+      <h2 class="h2" id="h-stage-2">Filterable tender queue</h2>
+    </div>
+    {# Quick-Jump Filter Bar #}
+    <nav class="quick-nav" aria-label="Jump to pipeline bucket">
+      <a class="quick-nav__pill" href="#outline">
+        <span>Choose Outline</span>
+        <span class="badge-pill badge-pill--accent mono">{{ c.choose_outline }}</span>
+      </a>
+      <a class="quick-nav__pill" href="#in-flight">
+        <span>In Flight</span>
+        <span class="badge-pill mono">{{ c.in_flight }}</span>
+      </a>
+      <a class="quick-nav__pill" href="#drafted">
+        <span>Drafted &amp; Review</span>
+        <span class="badge-pill mono">{{ c.drafted }}</span>
+      </a>
+      <a class="quick-nav__pill" href="#attention">
+        <span>Needs Attention</span>
+        <span class="badge-pill {% if c.halted %}badge-pill--warn{% endif %} mono">{{ c.halted }}</span>
+      </a>
+      <a class="quick-nav__pill" href="#unclaimed">
+        <span>Discovered Portals</span>
+        <span class="badge-pill mono">{{ c.cache_without_ledger_shown }}</span>
+      </a>
+    </nav>
+  </div>
+
+  {# Filter & Search Bar #}
+  <div class="filter-bar" role="search" aria-label="Filter opportunities">
+    <input type="search" id="opp-filter-q" class="filter-bar__search"
+           placeholder="Search title, buyer/client, country, or host…"
+           aria-label="Search opportunities by keyword">
+    <select id="opp-filter-source" class="filter-bar__select" aria-label="Filter by source">
+      <option value="all">All sources</option>
+      <option value="drive">Google Drive TORs</option>
+      <option value="un">UNGM &amp; ReliefWeb</option>
+      <option value="donor">Development Banks &amp; Donors</option>
+      <option value="ngo">NGO &amp; Foundation Portals</option>
+      <option value="gov">Government &amp; Regional</option>
+      <option value="email">Assortis / Email Alerts</option>
+    </select>
+    <select id="opp-filter-stage" class="filter-bar__select" aria-label="Filter by stage">
+      <option value="all">All pipeline buckets</option>
+      <option value="outline">Choose Outline ({{ c.choose_outline }})</option>
+      <option value="drafted">Drafted &amp; Review ({{ c.drafted }})</option>
+      <option value="in-flight">In Flight ({{ c.in_flight }})</option>
+      <option value="attention">Needs Attention ({{ c.halted }})</option>
+      <option value="unclaimed">Discovered Portals ({{ c.cache_without_ledger_shown }})</option>
+      <option value="skips">Stopped by design ({{ c.terminal_skip }})</option>
+    </select>
+    <button type="button" class="btn btn--quiet btn--sm" id="opp-filter-clear">Clear all</button>
+    <span class="mono small muted" id="opp-filter-count">{{ c.ledger_rows + c.cache_without_ledger_shown }} shown</span>
+  </div>
+</section>
 
 {# ── KPI Overview Strip & Spend Telemetry ──────────────────────────────── #}
 <div class="panel panel--hero strip">
@@ -254,11 +399,11 @@
 <section class="section" id="outline" aria-labelledby="h-outline">
   <div class="section__head">
     <h2 id="h-outline">Ready for Template Selection ({{ c.choose_outline }})</h2>
-    <span class="section__count">Step 2 · Choose or customize chapters</span>
+    <span class="section__count">Stage 4 Ready · Choose or customize chapters</span>
   </div>
   <p class="section__sub">Scored opportunities waiting for template confirmation. Open an opportunity to review the ToR analysis, inspect the recommended template, customize chapters if needed, and launch drafting.</p>
   {% if queue.choose_outline %}
-    {{ opp_table(queue.choose_outline) }}
+    {{ opp_table(queue.choose_outline, bucket_name="outline") }}
   {% else %}
     {{ m.empty("No scored opportunity is waiting on a template", "Paste a tender link above to score a ToR and get a tailored template recommendation.") }}
   {% endif %}
@@ -270,7 +415,7 @@
     <span class="section__count">{{ c.in_flight }} active</span>
   </div>
   {% if queue.in_flight %}
-    {{ opp_table(queue.in_flight) }}
+    {{ opp_table(queue.in_flight, bucket_name="in-flight") }}
   {% else %}
     {{ m.empty("No active runs in flight", "Paste a ToR URL above or score a discovered opportunity below.") }}
   {% endif %}
@@ -279,11 +424,11 @@
 <section class="section" id="drafted" aria-labelledby="h-drafted">
   <div class="section__head">
     <h2 id="h-drafted">Drafted Proposals &amp; EOIs ({{ c.drafted }})</h2>
-    <span class="section__count">Step 3 · Ready for human review</span>
+    <span class="section__count">Stage 5 Ready · Human review pack</span>
   </div>
   <p class="section__sub">Completed Technical Proposals and EOIs verified against extracted ToR requirements. Nothing is sent automatically.</p>
   {% if queue.drafted %}
-    {{ opp_table(queue.drafted) }}
+    {{ opp_table(queue.drafted, bucket_name="drafted") }}
   {% else %}
     {{ m.empty("No completed drafts yet", "Drafts appear here once an outline is confirmed and the writer finishes.") }}
   {% endif %}
@@ -296,7 +441,7 @@
   </div>
   <p class="section__sub">Halted runs. Resume keeps the stage and the checkpoint. A dead letter has failed to draft three times.</p>
   {% if queue.halted %}
-    {{ opp_table(queue.halted) }}
+    {{ opp_table(queue.halted, bucket_name="attention") }}
   {% else %}
     {{ m.empty("Nothing needs attention", "No run is halted, capped or dead-lettered.") }}
   {% endif %}
@@ -316,7 +461,7 @@
       <span class="small muted">Max {{ bulk_max }} per click.</span>
     </form>
     {% endif %}
-    {{ opp_table(queue.cache_only, show_scores=False, selectable=True) }}
+    {{ opp_table(queue.cache_only, bucket_name="unclaimed", show_scores=False, selectable=True) }}
   {% else %}
     {{ m.empty("Every discovered row has been run", "Discovery adds rows on its own schedule; new ones appear here.") }}
   {% endif %}
@@ -359,7 +504,7 @@
   </div>
   <p class="section__sub">Stopped before a draft: not a consultancy, or a NO-BID.</p>
   {% if queue.terminal_skip %}
-    {{ opp_table(queue.terminal_skip) }}
+    {{ opp_table(queue.terminal_skip, bucket_name="skips") }}
   {% else %}
     {{ m.empty("No terminal skips", "Runs that stop before drafting on purpose will be listed here.") }}
   {% endif %}
@@ -369,49 +514,204 @@
 
 {% block scripts %}
 <script>
-/* Auto-start scoring immediately when a valid URL is pasted into the intake bar. */
+/* Auto-start analyzing, scoring, and drafting immediately when a user pastes a link
+   or uploads/drops a ToR/RFP file, plus live filtering for Stage 1 & Stage 2. */
 (function () {
   var form = document.getElementById("intake-form");
   var input = document.getElementById("url");
+  var fileInput = document.getElementById("tor-file");
+  var dropzone = document.getElementById("upload-dropzone");
+  var dzTitle = document.getElementById("upload-dropzone-title");
+  var dzSub = document.getElementById("upload-dropzone-sub");
+  var autoDraftToggle = document.getElementById("auto-draft-toggle");
+  var intentInput = document.getElementById("intake-intent");
   var autoToggle = document.getElementById("auto-score-paste");
   var btn = document.getElementById("intake-submit-btn");
   var statusPill = document.getElementById("url-status-pill");
-  if (!form || !input) return;
 
-  var submitted = false;
-  form.addEventListener("submit", function () {
-    if (submitted) return;
-    submitted = true;
-    window.__cortechFormDirty = false;
-    if (btn) btn.textContent = "Starting ToR analysis…";
-    if (statusPill) statusPill.textContent = "Launching analyzer…";
-  });
+  function syncModeLabels() {
+    var fullRun = !autoDraftToggle || autoDraftToggle.checked;
+    if (intentInput) intentInput.value = fullRun ? "auto" : "score";
+    if (btn) btn.textContent = fullRun ? "Analyze, Score & Draft" : "Analyze & Score ToR";
+  }
 
-  input.addEventListener("input", function () {
-    var val = (input.value || "").trim();
-    if (!statusPill) return;
-    if (/^https?:\/\/\S+/i.test(val)) {
-      statusPill.textContent = "Valid URL ready";
-    } else if (val.length > 0) {
-      statusPill.textContent = "Enter https:// URL";
-    } else {
-      statusPill.textContent = "⌘V / Ctrl+V Ready";
-    }
-  });
+  if (autoDraftToggle) {
+    autoDraftToggle.addEventListener("change", syncModeLabels);
+    syncModeLabels();
+  }
 
-  input.addEventListener("paste", function () {
-    if (!autoToggle || !autoToggle.checked) return;
-    setTimeout(function () {
-      var val = (input.value || "").trim();
-      if (/^https?:\/\/\S+/i.test(val) && !submitted) {
-        if (statusPill) statusPill.textContent = "Auto-scoring link…";
-        if (typeof form.requestSubmit === "function") {
-          form.requestSubmit();
-        } else {
-          form.submit();
-        }
+  if (form) {
+    var submitted = false;
+    function triggerSubmit(labelMsg) {
+      if (submitted) return;
+      var hasUrl = input && /^https?:\/\/\S+/i.test((input.value || "").trim());
+      var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+      if (!hasUrl && !hasFile) return;
+      submitted = true;
+      window.__cortechFormDirty = false;
+      if (btn) btn.textContent = "Starting…";
+      if (statusPill) statusPill.textContent = labelMsg || "Starting pipeline…";
+      if (typeof form.requestSubmit === "function") {
+        form.requestSubmit();
+      } else {
+        form.submit();
       }
-    }, 60);
+    }
+
+    form.addEventListener("submit", function (ev) {
+      var hasUrl = input && /^https?:\/\/\S+/i.test((input.value || "").trim());
+      var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+      if (!hasUrl && !hasFile) {
+        ev.preventDefault();
+        if (statusPill) statusPill.textContent = "Paste a link or choose a file first";
+        return;
+      }
+      submitted = true;
+      window.__cortechFormDirty = false;
+      if (btn) btn.textContent = "Starting…";
+      if (statusPill) statusPill.textContent = "Running pipeline…";
+    });
+
+    if (input) {
+      input.addEventListener("input", function () {
+        var val = (input.value || "").trim();
+        if (!statusPill) return;
+        if (/^https?:\/\/\S+/i.test(val)) {
+          statusPill.textContent = "Link ready";
+        } else if (val.length > 0) {
+          statusPill.textContent = "Enter https:// URL";
+        } else {
+          statusPill.textContent = "Ready for link or file";
+        }
+      });
+
+      input.addEventListener("paste", function () {
+        if (!autoToggle || !autoToggle.checked) return;
+        setTimeout(function () {
+          var val = (input.value || "").trim();
+          if (/^https?:\/\/\S+/i.test(val) && !submitted) {
+            triggerSubmit("Analyzing, scoring & drafting link…");
+          }
+        }, 60);
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener("change", function () {
+        if (!fileInput.files || !fileInput.files.length) return;
+        var names = [];
+        for (var i = 0; i < fileInput.files.length; i++) {
+          names.push(fileInput.files[i].name);
+        }
+        if (dzTitle) dzTitle.textContent = names.join(", ");
+        if (dzSub) dzSub.textContent = "Uploading — extracting text, scoring fit & drafting proposal…";
+        if (statusPill) statusPill.textContent = "File selected";
+        if (!autoToggle || autoToggle.checked) {
+          setTimeout(function () {
+            triggerSubmit("Analyzing, scoring & drafting file…");
+          }, 80);
+        }
+      });
+    }
+
+    if (dropzone && fileInput) {
+      ["dragenter", "dragover"].forEach(function (evName) {
+        dropzone.addEventListener(evName, function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          dropzone.classList.add("is-dragover");
+        });
+      });
+      ["dragleave", "drop"].forEach(function (evName) {
+        dropzone.addEventListener(evName, function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          dropzone.classList.remove("is-dragover");
+        });
+      });
+      dropzone.addEventListener("drop", function (ev) {
+        var dt = ev.dataTransfer;
+        if (dt && dt.files && dt.files.length > 0) {
+          try {
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event("change", {bubbles: true}));
+          } catch (_e) {}
+        }
+      });
+    }
+  }
+
+  /* Stage 1 Source Selector & Stage 2 Filter Bar */
+  var qInput = document.getElementById("opp-filter-q");
+  var srcSelect = document.getElementById("opp-filter-source");
+  var stgSelect = document.getElementById("opp-filter-stage");
+  var clearBtn = document.getElementById("opp-filter-clear");
+  var countEl = document.getElementById("opp-filter-count");
+  var srcCards = Array.prototype.slice.call(document.querySelectorAll(".source-card[data-source-filter]"));
+  var focusIntakeBtn = document.querySelector(".source-card[data-focus-intake]");
+
+  if (focusIntakeBtn && input) {
+    focusIntakeBtn.addEventListener("click", function () {
+      input.focus();
+      input.scrollIntoView({behavior: "smooth", block: "center"});
+    });
+  }
+
+  function matchSourceCategory(urlAndText, srcFilter) {
+    if (!srcFilter || srcFilter === "all") return true;
+    if (srcFilter === "drive") return urlAndText.indexOf("drive.google.com") !== -1 || urlAndText.indexOf("docs.google.com") !== -1;
+    if (srcFilter === "un") return /ungm\.org|reliefweb\.int|unicef|undp|unhcr|wfp|who\.int|unfpa/i.test(urlAndText);
+    if (srcFilter === "donor") return /worldbank|europa\.eu|giz\.de|danida|afdb|usaid|fcdo/i.test(urlAndText);
+    if (srcFilter === "ngo") return /drc\.ngo|nrc\.no|savethechildren|care\.org|oxfam|mercycorps|irc/i.test(urlAndText);
+    if (srcFilter === "gov") return /\.go\.ke|\.gov|igad|au\.int|ministry/i.test(urlAndText);
+    if (srcFilter === "email") return /assortis|ica|newsletter|digest/i.test(urlAndText);
+    return true;
+  }
+
+  function applyFilters() {
+    var q = ((qInput && qInput.value) || "").trim().toLowerCase();
+    var src = (srcSelect && srcSelect.value) || "all";
+    var stg = (stgSelect && stgSelect.value) || "all";
+    var rows = Array.prototype.slice.call(document.querySelectorAll("tr.opp-row"));
+    var shown = 0;
+
+    rows.forEach(function (tr) {
+      var text = (tr.textContent || "").toLowerCase();
+      var url = tr.getAttribute("data-url") || "";
+      var bucket = tr.getAttribute("data-bucket-row") || "";
+      var okQ = !q || text.indexOf(q) !== -1 || url.indexOf(q) !== -1;
+      var okSrc = matchSourceCategory(url + " " + text, src);
+      var okStg = stg === "all" || bucket === stg;
+      var visible = okQ && okSrc && okStg;
+      tr.style.display = visible ? "" : "none";
+      if (visible) shown++;
+    });
+
+    if (countEl) {
+      countEl.textContent = shown + " shown";
+    }
+    srcCards.forEach(function (card) {
+      card.classList.toggle("is-active", card.getAttribute("data-source-filter") === src);
+    });
+  }
+
+  if (qInput) qInput.addEventListener("input", applyFilters);
+  if (srcSelect) srcSelect.addEventListener("change", applyFilters);
+  if (stgSelect) stgSelect.addEventListener("change", applyFilters);
+  if (clearBtn) {
+    clearBtn.addEventListener("click", function () {
+      if (qInput) qInput.value = "";
+      if (srcSelect) srcSelect.value = "all";
+      if (stgSelect) stgSelect.value = "all";
+      applyFilters();
+    });
+  }
+  srcCards.forEach(function (card) {
+    card.addEventListener("click", function () {
+      var filterVal = card.getAttribute("data-source-filter") || "all";
+      if (srcSelect) srcSelect.value = filterVal;
+      applyFilters();
+    });
   });
 })();
 </script>
