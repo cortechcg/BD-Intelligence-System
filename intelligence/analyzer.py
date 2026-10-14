@@ -6,6 +6,8 @@ One public function:
 """
 
 import json
+from contextvars import ContextVar
+
 from loguru import logger
 
 import anthropic
@@ -19,13 +21,40 @@ from config import (
     get_anthropic_api_key,
 )
 from database.airtable_client import log_agent_action
-from utils.llm import complete, usage_totals
+from utils.llm import complete, finish_reason, usage_totals
 from utils.claude_helpers import get_text
 from utils.errors import ErrorType, SpendCapError
 from utils.untrusted import INJECTION_GUARD, wrap_untrusted
 from intelligence.analysis_schema import AnalysisSchemaError, validate_analysis_object
 from intelligence.extraction_provenance import attach_extraction_provenance
 from intelligence.tender_reader import MAX_TENDER_CHARS, pack_tender_text
+
+
+# Why the last analyze_rfp() in this task returned {}. The score stage reads
+# it so a job says what the model actually did, not a blank "analysis returned empty".
+_REFUSAL: ContextVar[str] = ContextVar("analysis_refusal", default="")
+
+
+def last_analysis_refusal() -> str:
+    return _REFUSAL.get()
+
+
+def clear_analysis_refusal() -> None:
+    _REFUSAL.set("")
+
+
+def _remember_refusal(reason: str) -> None:
+    _REFUSAL.set((reason or "analysis returned empty")[:500])
+
+
+class _NeedRepair(Exception):
+    """The model reply is not an analysis object yet. One repair call is allowed."""
+
+    def __init__(self, kind: str, reason: str, text: str):
+        self.kind = kind
+        self.reason = reason
+        self.text = text
+        super().__init__(reason)
 
 
 def _normalize_opportunity(analysis: dict, fallback_title: str) -> None:
@@ -320,6 +349,27 @@ def _analysis_request_parts(tor_text: str) -> tuple[str, str]:
     return system, user
 
 
+def _reply_problem(response, text: str, detail: str) -> str:
+    """Short reason for the job row. No document text and no API key."""
+    bits = [(detail or "response was not a JSON object").strip()]
+    stop = finish_reason(response) if response is not None else ""
+    if stop:
+        bits.append(f"stop_reason={stop}")
+    kinds = []
+    for block in getattr(response, "content", None) or []:
+        if isinstance(block, dict):
+            kind = block.get("type")
+        else:
+            kind = getattr(block, "type", None)
+        if kind:
+            kinds.append(str(kind))
+    if kinds and "text" not in kinds:
+        bits.append("content=" + ",".join(kinds[:6]))
+    elif not (text or "").strip():
+        bits.append("no text in the reply")
+    return "; ".join(bits)[:500]
+
+
 def analyze_rfp(
     tor_text: str,
     opportunity_id: str = None,
@@ -331,14 +381,15 @@ def analyze_rfp(
     Returns a dict matching ANALYSIS_SCHEMA, or empty dict on failure.
     The is_consultancy_contract field in bid_analysis is the critical
     gate read by main.py before any further pipeline work begins.
-    Schema-invalid JSON is retried once, then refused — never returned as
-    a silently-wrong structured record.
+    A reply that is empty, not JSON, not an object, or schema-invalid is
+    retried once, then refused — never returned as a silently-wrong record.
     """
     title = title if isinstance(title, str) and title.strip() else "Unknown"
     logger.info(f"  Analyzing: {title[:60]}...")
 
     if not isinstance(tor_text, str) or not tor_text.strip():
         logger.error(f"  Empty document — refusing analysis for '{title[:60]}'")
+        _remember_refusal("empty document — refusing analysis")
         return {}
 
     tor_text = pack_tender_text(tor_text, max_chars=MAX_TENDER_CHARS)
@@ -348,18 +399,77 @@ def analyze_rfp(
 
     tokens_used = 0
 
-    def _parse(response_text: str) -> dict:
-        analysis = parse_analysis_payload(
-            response_text,
-            title,
-            source_text=tor_text,
-        )
-        if not analysis:
-            logger.error(
-                f"  Analysis JSON was not an object — refusing '{title[:60]}'"
+    def _read(response) -> dict:
+        text = get_text(response).strip()
+        try:
+            analysis = parse_analysis_payload(
+                text,
+                title,
+                source_text=tor_text,
             )
-            return {}
+        except AnalysisSchemaError as exc:
+            raise _NeedRepair("schema", str(exc), text) from exc
+        except json.JSONDecodeError as exc:
+            raise _NeedRepair(
+                "json",
+                _reply_problem(
+                    response,
+                    text,
+                    f"response was not a JSON object: {exc}",
+                ),
+                text,
+            ) from exc
+        if not analysis:
+            raise _NeedRepair(
+                "json",
+                _reply_problem(response, text, "response was not a JSON object"),
+                text,
+            )
         return analysis
+
+    def _repair_call(kind: str, reason: str, assistant_text: str):
+        if kind == "schema":
+            repair = (
+                "Your last response didn't match the schema because "
+                f"{reason}. Fix and resend. Return only a JSON object "
+                "matching the requested extraction schema. Do not invent "
+                "clients, countries, budgets, page numbers, or credentials "
+                "that are not in the untrusted document."
+            )
+            stage = "analyze_rfp_schema_retry"
+        else:
+            repair = (
+                "Your last response was not a JSON object because "
+                f"{reason}. Return only a JSON object matching the "
+                "requested extraction schema. Do not invent clients, "
+                "countries, budgets, page numbers, or credentials that "
+                "are not in the untrusted document."
+            )
+            stage = "analyze_rfp_json_retry"
+        return complete(
+            model=CLAUDE_MODEL,
+            max_tokens=CLAUDE_MAX_TOKENS,
+            stage=stage,
+            system=system,
+            messages=[
+                {"role": "user", "content": document_message},
+                {"role": "assistant", "content": assistant_text or "(no text)"},
+                {"role": "user", "content": repair},
+            ],
+        )
+
+    def _log_refusal(description: str, error_message: str) -> None:
+        try:
+            log_agent_action(
+                action_type="Error",
+                description=description,
+                opportunity_id=opportunity_id,
+                tokens_used=tokens_used,
+                status="Error",
+                error_message=(error_message or "")[:500],
+            )
+        except Exception:
+            pass
 
     try:
         response = complete(
@@ -372,58 +482,37 @@ def analyze_rfp(
 
         inp, out = usage_totals(response)
         tokens_used = inp + out
-        response_text = get_text(response).strip()
         try:
-            analysis = _parse(response_text)
-        except AnalysisSchemaError as schema_error:
+            analysis = _read(response)
+        except _NeedRepair as first:
             logger.warning(
-                f"  Schema validation failed for '{title[:60]}' — retrying once: "
-                f"{schema_error}"
+                f"  Analysis reply was not usable for '{title[:60]}' "
+                f"— retrying once ({first.kind}): {first.reason}"
             )
-            repair = (
-                "Your last response didn't match the schema because "
-                f"{schema_error}. Fix and resend. Return only a JSON object "
-                "matching the requested extraction schema. Do not invent "
-                "clients, countries, budgets, page numbers, or credentials "
-                "that are not in the untrusted document."
-            )
-            retry_messages = [
-                {"role": "user", "content": document_message},
-                {"role": "assistant", "content": response_text},
-                {"role": "user", "content": repair},
-            ]
-            retry = complete(
-                model=CLAUDE_MODEL,
-                max_tokens=CLAUDE_MAX_TOKENS,
-                stage="analyze_rfp_schema_retry",
-                system=system,
-                messages=retry_messages,
-            )
+            retry = _repair_call(first.kind, first.reason, first.text)
             inp2, out2 = usage_totals(retry)
             tokens_used += inp2 + out2
-            retry_text = get_text(retry).strip()
             try:
-                analysis = _parse(retry_text)
-            except AnalysisSchemaError as retry_error:
-                logger.error(
-                    f"  Schema validation failed after retry for '{title[:60]}' "
-                    f"— refusing. error_type={ErrorType.VALIDATION_ERROR}. "
-                    f"{retry_error}"
+                analysis = _read(retry)
+            except _NeedRepair as second:
+                label = (
+                    ErrorType.VALIDATION_ERROR
+                    if second.kind == "schema"
+                    else ErrorType.ANALYSIS_ERROR
                 )
-                try:
-                    log_agent_action(
-                        action_type="Error",
-                        description=f"Schema validation failed after retry: {title[:60]}",
-                        opportunity_id=opportunity_id,
-                        tokens_used=tokens_used,
-                        status="Error",
-                        error_message=str(retry_error)[:500],
-                    )
-                except Exception:
-                    pass
+                reason = second.reason
+                if second.kind == "schema":
+                    reason = f"schema validation failed: {second.reason}"
+                logger.error(
+                    f"  Analysis still unusable after retry for '{title[:60]}' "
+                    f"— refusing. error_type={label}. {reason}"
+                )
+                _remember_refusal(reason)
+                _log_refusal(
+                    f"Analysis retry failed: {title[:60]}",
+                    reason,
+                )
                 return {}
-        if not analysis:
-            return {}
 
         bid_analysis = analysis["bid_analysis"]
         score = bid_analysis.get("cortech_fit_score", 0)
@@ -446,23 +535,15 @@ def analyze_rfp(
         except Exception:
             pass  # Logging must never crash the pipeline
 
+        _REFUSAL.set("")
         return analysis
 
     except SpendCapError:
         raise
     except json.JSONDecodeError as e:
         logger.error(f"  JSON parse failed for '{title[:60]}': {e}")
-        try:
-            log_agent_action(
-                action_type="Error",
-                description=f"JSON parse failed: {title[:60]}",
-                opportunity_id=opportunity_id,
-                tokens_used=tokens_used,
-                status="Error",
-                error_message=str(e),
-            )
-        except Exception:
-            pass
+        _remember_refusal(f"response was not a JSON object: {e}")
+        _log_refusal(f"JSON parse failed: {title[:60]}", str(e))
         return {}
 
     except anthropic.APITimeoutError:
@@ -473,6 +554,9 @@ def analyze_rfp(
             f"skipping. error_type={ErrorType.TIMEOUT_ERROR}. "
             "Raise ANTHROPIC_TIMEOUT_SECONDS in .env if this recurs on large documents."
         )
+        _remember_refusal(
+            f"analysis timed out after {ANTHROPIC_TIMEOUT_SECONDS:.0f}s"
+        )
         return {}
 
     except anthropic.RateLimitError:
@@ -482,6 +566,7 @@ def analyze_rfp(
         )
         import time
         time.sleep(60)
+        _remember_refusal("Anthropic rate limit hit")
         return {}
 
     except anthropic.AuthenticationError:
@@ -499,19 +584,11 @@ def analyze_rfp(
             "ANTHROPIC_API_KEY=... with no quotes, save, and rerun. "
             f"error_type={ErrorType.AUTH_ERROR}"
         )
+        _remember_refusal("Claude rejected the API key (401 invalid)")
         return {}
 
     except Exception as e:
         logger.error(f"  Analysis failed for '{title[:60]}': {e}")
-        try:
-            log_agent_action(
-                action_type="Error",
-                description=f"Analysis exception: {title[:60]}",
-                opportunity_id=opportunity_id,
-                tokens_used=tokens_used,
-                status="Error",
-                error_message=str(e),
-            )
-        except Exception:
-            pass
+        _remember_refusal(f"analysis failed: {e}")
+        _log_refusal(f"Analysis exception: {title[:60]}", str(e))
         return {}

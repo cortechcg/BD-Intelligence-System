@@ -30,7 +30,7 @@ from intelligence.organizations import (
 from intelligence.proposal_writer import DraftingError, assert_usable_client_draft, draft_bid_or_watch_proposal
 from processors.document_quality import assess_extraction
 from processors.downloader import fetch_and_extract
-from intelligence.analyzer import analyze_rfp
+from intelligence.analyzer import analyze_rfp, clear_analysis_refusal, last_analysis_refusal
 from utils.errors import ErrorType, SpendCapError
 from utils.hashing import content_hash
 from utils.observability import (
@@ -393,11 +393,13 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
     does not duplicate CRM rows.
     """
     logger.info("  Step 2: Analyzing...")
+    clear_analysis_refusal()
     analysis = deps.analyze_rfp(ctx.full_text, opportunity_id=ctx.opp_id, title=ctx.title)
     if not analysis:
-        logger.error("  Analysis returned empty — skipping")
+        detail = last_analysis_refusal() or "analysis returned empty"
+        logger.error(f"  Analysis returned empty — skipping ({detail})")
         deps.log_stage("analyze", "error", error_type=ErrorType.ANALYSIS_ERROR)
-        raise RetryableStageError("analysis returned empty", error_type=ErrorType.ANALYSIS_ERROR)
+        raise RetryableStageError(detail, error_type=ErrorType.ANALYSIS_ERROR)
 
     analysis = deps.apply_bid_intelligence(analysis)
     ctx.analysis = analysis
