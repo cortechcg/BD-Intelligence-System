@@ -152,7 +152,7 @@ services:
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
-        sync: false               # Claude chat: Haiku analysis, Sonnet 5.5 drafts
+        sync: false               # Claude chat: Haiku 5.5 analysis and drafts
       - key: OPENAI_API_KEY
         sync: false               # embeddings (text-embedding-3-small)
 
