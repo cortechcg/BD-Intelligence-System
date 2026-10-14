@@ -20,7 +20,7 @@
     <span class="brand__mark" aria-hidden="true"></span>
     <span class="brand__text">
       <span class="brand__name">Cortech <span>BD</span></span>
-      <span class="brand__sub">Tender Intelligence</span>
+      <span class="brand__sub">Tender Intelligence Suite</span>
     </span>
   </a>
   <nav class="nav" aria-label="views">
@@ -35,12 +35,16 @@
   </nav>
   <div class="sidenav__foot">
     <div class="sidenav__workflow">
-      <div class="label">Workflow</div>
+      <div class="label">3-Step Lifecycle</div>
       <ol class="sidenav__steps">
         <li><span>1</span> Paste link &amp; score ToR</li>
         <li><span>2</span> Recommend / customize template</li>
         <li><span>3</span> Draft aligned proposal or EOI</li>
       </ol>
+    </div>
+    <div class="sidenav__guard">
+      <span class="badge-pill badge-pill--good">Human-Gated</span>
+      <span class="small muted">Zero automatic client submissions</span>
     </div>
   </div>
 </aside>
@@ -49,16 +53,19 @@
 <header class="masthead">
   <div class="masthead__in">
     <div class="masthead__crumb">
-      <span class="badge-pill">Cortech Consulting Group</span>
+      <span class="badge-pill badge-pill--accent">Cortech Consulting Group</span>
       <span class="masthead__sep">/</span>
-      <span class="masthead__view">{% if view == 'portfolio' %}Portfolio Analytics{% else %}BD Intelligence Workspace{% endif %}</span>
+      <span class="masthead__view">{% if view == 'portfolio' %}Portfolio &amp; Bid Telemetry{% else %}BD Intelligence Workspace{% endif %}</span>
     </div>
-    {% if viewer %}
-    <div class="who">
-      <span class="email">{{ viewer }}</span>
-      {% if url_logout %}<a href="{{ url_logout }}">Sign out</a>{% endif %}
+    <div class="masthead__right">
+      <span class="badge-pill small">Claude Haiku 4.5 · ToR-Locked</span>
+      {% if viewer %}
+      <div class="who">
+        <span class="email">{{ viewer }}</span>
+        {% if url_logout %}<a href="{{ url_logout }}">Sign out</a>{% endif %}
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 </header>
 
@@ -107,14 +114,41 @@
 {% if poll_ms %}
 <script>
 /* Status polling. Fetch the same URL and swap main only when the response is
-   usable HTML. If a job page reaches a terminal scored/drafted state that sets
+   usable HTML AND the user is not actively editing a form or customizing a
+   template. If a job page reaches a terminal scored/drafted state that sets
    data-auto-redirect-url, transition smoothly to the Opportunity Workspace. */
 (function () {
   var ms = parseInt(document.body.dataset.pollMs, 10);
   if (!ms) return;
   var hidden = false;
   var refreshing = false;
+  window.__cortechFormDirty = false;
+
   document.addEventListener("visibilitychange", function () { hidden = document.hidden; });
+  document.addEventListener("input", function (ev) {
+    if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
+      window.__cortechFormDirty = true;
+    }
+  });
+  document.addEventListener("change", function (ev) {
+    if (ev.target && ev.target.closest && ev.target.closest("main.page")) {
+      window.__cortechFormDirty = true;
+    }
+  });
+
+  function isUserEditing() {
+    if (window.__cortechFormDirty) return true;
+    var ae = document.activeElement;
+    if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.tagName === "SELECT" || ae.isContentEditable)) {
+      return true;
+    }
+    var studio = document.getElementById("outline-studio");
+    if (studio && !document.querySelector(".state.is-live")) {
+      return true;
+    }
+    return false;
+  }
+
   function notice(on) {
     var el = document.getElementById("poll-notice");
     if (!on) { if (el) el.remove(); return; }
@@ -128,8 +162,9 @@
     var main = document.querySelector("main.page");
     if (main) main.insertBefore(el, main.firstChild);
   }
+
   function tick() {
-    if (hidden || refreshing) return;
+    if (hidden || refreshing || isUserEditing()) return;
     refreshing = true;
     fetch(window.location.href, {
       credentials: "same-origin",
@@ -141,6 +176,7 @@
       if (ctype.indexOf("text/html") === -1) throw new Error("not html");
       return r.text();
     }).then(function (html) {
+      if (isUserEditing()) return;
       var doc = new DOMParser().parseFromString(html, "text/html");
       var next = doc.querySelector("main.page");
       var cur = document.querySelector("main.page");
@@ -163,6 +199,7 @@
         document.body.dataset.pollMs = doc.body.dataset.pollMs;
       }
       notice(false);
+      document.dispatchEvent(new CustomEvent("cortech:page-swapped"));
     }).catch(function () {
       notice(true);
     }).then(function () {
@@ -178,20 +215,24 @@
 /* Bulk selection: the "Score selected" button reflects how many rows are
    ticked and stays disabled at zero. */
 (function () {
-  var form = document.getElementById("bulk-form");
-  var btn = document.getElementById("bulk-submit");
-  if (!form || !btn) return;
-  var boxes = document.querySelectorAll('input[type="checkbox"][form="bulk-form"]');
-  var all = document.getElementById("bulk-all");
-  function sync() {
-    var n = 0;
-    boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-selected", b.checked); if (b.checked) n++; });
-    btn.disabled = n === 0;
-    btn.textContent = n ? "Score " + n + " selected" : "Score selected";
+  function initBulk() {
+    var form = document.getElementById("bulk-form");
+    var btn = document.getElementById("bulk-submit");
+    if (!form || !btn) return;
+    var boxes = document.querySelectorAll('input[type="checkbox"][form="bulk-form"]');
+    var all = document.getElementById("bulk-all");
+    function sync() {
+      var n = 0;
+      boxes.forEach(function (b) { b.closest("tr").classList.toggle("is-selected", b.checked); if (b.checked) n++; });
+      btn.disabled = n === 0;
+      btn.textContent = n ? "Score " + n + " selected" : "Score selected";
+    }
+    boxes.forEach(function (b) { b.addEventListener("change", sync); });
+    if (all) all.addEventListener("change", function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
+    sync();
   }
-  boxes.forEach(function (b) { b.addEventListener("change", sync); });
-  if (all) all.addEventListener("change", function () { boxes.forEach(function (b) { b.checked = all.checked; }); sync(); });
-  sync();
+  initBulk();
+  document.addEventListener("cortech:page-swapped", initBulk);
 })();
 </script>
 {% block scripts %}{% endblock %}

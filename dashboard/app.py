@@ -322,8 +322,9 @@ def opportunity_page(request: Request, url: str = ""):
         "org": queries.organization_history(client_name),
         "jobs": jobs,
         "active_job": active,
-        # Poll faster while a job for this opportunity is in flight.
-        "poll_ms": 5000 if active else settings.POLL_MS,
+        # Only poll on the opportunity workspace while a job for this URL is in flight;
+        # never overwrite the DOM while a person is customizing the template outline.
+        "poll_ms": 5000 if active else 0,
         "triggering_enabled": enabled,
         "triggering_disabled_reason": reason,
         **_spend_context(),
