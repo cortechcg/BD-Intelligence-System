@@ -4,9 +4,26 @@
 
 {% block content %}
 {% set running = job.status in ("queued", "running") %}
+{% set opp_url = (d.source_url if d and d.source_url else job.source_url) or '' %}
+{% set awaiting_outline = (job.status == "succeeded") and ((job.result_summary and job.result_summary.get("awaiting_outline")) or (d and d.stage.value == "scored" and not d.has_draft)) %}
+{% set draft_ready = (job.status == "succeeded") and d and d.has_draft %}
 
 <div class="view-head">
-  <h1>Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span> <span class="hl">{{ job.ui_state | replace("_", " ") }}</span></h1>
+  <div>
+    <div class="eyebrow">Live Pipeline Execution · Job <span class="mono">{{ job.id[:8] }}</span></div>
+    <h1>
+      {% if awaiting_outline %}
+        ToR Analysis Complete — Select or Customize Template
+      {% elif draft_ready %}
+        Draft Complete — Ready for Review
+      {% elif running %}
+        Analyzing &amp; Processing Tender…
+      {% else %}
+        Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span>
+      {% endif %}
+      <span class="hl">{{ job.ui_state | replace("_", " ") }}</span>
+    </h1>
+  </div>
   <div class="view-head__meta">
     <span>{{ job.kind_label }}</span>
     <span>requested by {{ job.requested_by }}</span>
@@ -17,6 +34,60 @@
 {% if flash %}
 <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
+
+{% if awaiting_outline and opp_url %}
+<div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio" style="margin-bottom: var(--sp5)">
+  <div class="panel__in row-between">
+    <div>
+      <div class="eyebrow">Step 2 of 3 Ready · Template Recommendation Prepared</div>
+      <h2 style="margin-top: var(--sp1)">ToR Scored &amp; Analyzed — Opening Template Studio</h2>
+      <p class="section__sub" style="margin-top: var(--sp2)">The agent has extracted the ToR requirements, evaluation criteria, and fit score, and prepared a recommended outline. Redirecting you to review or customize the template before drafting…</p>
+    </div>
+    <div class="row">
+      <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Review ToR &amp; Customize Template</a>
+    </div>
+  </div>
+</div>
+{% elif draft_ready and opp_url %}
+<div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}" style="margin-bottom: var(--sp5)">
+  <div class="panel__in row-between">
+    <div>
+      <div class="eyebrow">Step 3 of 3 Complete · Aligned to ToR</div>
+      <h2 style="margin-top: var(--sp1)">Technical Proposal / EOI Draft Ready</h2>
+      <p class="section__sub" style="margin-top: var(--sp2)">Your draft has been compiled and verified against the ToR evaluation criteria. Redirecting to the Opportunity Workspace…</p>
+    </div>
+    <div class="row">
+      <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}">Open Opportunity Workspace</a>
+      <a class="btn btn--quiet" href="{{ url_draft }}?url={{ opp_url | urlencode }}">Download draft (.md)</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Workflow Progress Stepper ─────────────────────────────────────────── #}
+<ol class="steps" style="margin-bottom: var(--sp5)">
+  <li class="steps__item {% if awaiting_outline or draft_ready %}is-done{% elif running %}is-active{% endif %}">
+    <span class="steps__num">1</span>
+    <div class="steps__text">
+      <strong>Read &amp; Score ToR / RFP</strong>
+      <span>Extract evaluation criteria, deliverables &amp; Cortech fit</span>
+    </div>
+  </li>
+  <li class="steps__item {% if draft_ready %}is-done{% elif awaiting_outline %}is-active{% endif %}">
+    <span class="steps__num">2</span>
+    <div class="steps__text">
+      <strong>Recommend or Customize Template</strong>
+      <span>Confirm ToR-prescribed chapters, Technical Proposal, or EOI</span>
+    </div>
+  </li>
+  <li class="steps__item {% if draft_ready %}is-done{% endif %}">
+    <span class="steps__num">3</span>
+    <div class="steps__text">
+      <strong>Draft Aligned Technical Proposal / EOI</strong>
+      <span>Write chapters &amp; verify ≥80% criteria alignment</span>
+    </div>
+  </li>
+</ol>
 
 {# ── The instrument: this run's spend against its own cap ──────────────── #}
 <div class="panel panel--hero">
@@ -52,7 +123,7 @@
   <div class="score-band__rail">
     <div class="band band--info band--wide">
       <div class="band__title">Live: the worker reports every {{ (poll_ms / 1000) | int }}s and this page refreshes with it.</div>
-      Progress is shown at the granularity the pipeline actually records — stage boundaries, spend and call counts. There is no finer step to display, so none is shown.
+      As soon as scoring finishes, this page will automatically open the Opportunity Workspace so you can review the recommended template or customize chapters before drafting.
     </div>
   </div>
   {% endif %}
@@ -88,19 +159,24 @@
     <div class="row" style="margin-top: var(--sp4)">
       {{ m.state_chip(d.ui_state, live=(job.status == "running")) }}
       {% if d.last_error.value and running %}{% set recorded = d.last_error.value|string %}<span class="v-why">last recorded: {{ recorded[:120] }}</span>{% endif %}
+      {% if opp_url %}
+        <a class="btn btn--sm" href="{{ url_detail }}?url={{ opp_url | urlencode }}{% if d.stage.value == 'scored' and not d.has_draft %}#outline-studio{% endif %}">
+          {% if d.stage.value == "scored" and not d.has_draft %}Review ToR &amp; Choose Template{% else %}Open Opportunity Workspace{% endif %}
+        </a>
+      {% endif %}
       {% if d.has_draft %}
-        <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+        <a class="btn btn--sm btn--quiet" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
         <span class="small muted">needs human review before anything is sent</span>
       {% endif %}
     </div>
-    <p class="rail-caption">The pipeline persists stage boundaries, not sub-steps, so nothing finer is shown here — a "drafting section 3 of 8" would be invented.</p>
+    <p class="rail-caption">The pipeline pauses after scoring so you can confirm or customize the template chapters before full drafting begins.</p>
   </div></div>
 </section>
 {% endif %}
 
 <section class="section" aria-labelledby="h-req">
-  <details class="disclosure" open>
-    <summary id="h-req">Request <span class="muted">dashboard_triggers row</span></summary>
+  <details class="disclosure">
+    <summary id="h-req">Run Diagnostics <span class="muted">dashboard_triggers row</span></summary>
     <div class="disclosure__body">
       <dl class="kv kv--2col kv--compact">
         <dt>Job id</dt><dd class="mono">{{ job.id }}</dd>
@@ -119,4 +195,18 @@
   </details>
 </section>
 
+{% if (awaiting_outline or draft_ready) and opp_url %}
+<script>
+(function () {
+  var node = document.querySelector("[data-auto-redirect-url]");
+  if (!node) return;
+  var target = node.getAttribute("data-auto-redirect-url");
+  if (target) {
+    setTimeout(function () {
+      window.location.assign(target);
+    }, 600);
+  }
+})();
+</script>
+{% endif %}
 {% endblock %}

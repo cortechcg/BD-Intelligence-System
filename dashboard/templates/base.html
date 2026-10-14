@@ -13,24 +13,46 @@
   <span class="orb orb--b"></span>
   <span class="orb orb--c"></span>
 </div>
-<p class="drift" aria-hidden="true">Cortech</p>
-<p class="drift drift--two" aria-hidden="true">BD</p>
 
 <div class="shell">
 <aside class="sidenav">
   <a class="brand" href="{{ url_queue }}" aria-label="Cortech BD, queue">
     <span class="brand__mark" aria-hidden="true"></span>
-    <span class="brand__name">Cortech <span>BD</span></span>
+    <span class="brand__text">
+      <span class="brand__name">Cortech <span>BD</span></span>
+      <span class="brand__sub">Tender Intelligence</span>
+    </span>
   </a>
   <nav class="nav" aria-label="views">
-    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>Queue</a>
-    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>Portfolio</a>
+    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
+      <span class="nav__dot" aria-hidden="true"></span>
+      <span>Pipeline Queue</span>
+    </a>
+    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
+      <span class="nav__dot" aria-hidden="true"></span>
+      <span>Portfolio &amp; Analytics</span>
+    </a>
   </nav>
+  <div class="sidenav__foot">
+    <div class="sidenav__workflow">
+      <div class="label">Workflow</div>
+      <ol class="sidenav__steps">
+        <li><span>1</span> Paste link &amp; score ToR</li>
+        <li><span>2</span> Recommend / customize template</li>
+        <li><span>3</span> Draft aligned proposal or EOI</li>
+      </ol>
+    </div>
+  </div>
 </aside>
 
 <div class="shell__main">
 <header class="masthead">
   <div class="masthead__in">
+    <div class="masthead__crumb">
+      <span class="badge-pill">Cortech Consulting Group</span>
+      <span class="masthead__sep">/</span>
+      <span class="masthead__view">{% if view == 'portfolio' %}Portfolio Analytics{% else %}BD Intelligence Workspace{% endif %}</span>
+    </div>
     {% if viewer %}
     <div class="who">
       <span class="email">{{ viewer }}</span>
@@ -55,9 +77,7 @@
 <script>
 /* Browser notification for the person following this job. Polls the same
    /api/job endpoint the page is built from; fires once when the status leaves
-   queued/running. This is the only notification channel the dashboard adds —
-   the review email is the existing pipeline email, sent by the same code the
-   cron path uses, to EMAIL_RECIPIENTS. */
+   queued/running. */
 (function () {
   var id = {{ job.id | tojson }};
   var last = {{ job.status | tojson }};
@@ -86,15 +106,9 @@
 
 {% if poll_ms %}
 <script>
-/* Status polling. Supabase Realtime is not usable here: the `supabase_realtime`
-   publication on this project contains zero tables, so postgres_changes would
-   ack a subscription and then deliver nothing. Polling also keeps the
-   service-role key server-side. See docs/DASHBOARD.md.
-
-   A failed refresh must not navigate. Replacing the document with the
-   response body turns one HTTP 500 into a blank Internal Server Error page
-   and throws away the last good render. Fetch the same URL and swap main
-   only when the response is HTML we can use. */
+/* Status polling. Fetch the same URL and swap main only when the response is
+   usable HTML. If a job page reaches a terminal scored/drafted state that sets
+   data-auto-redirect-url, transition smoothly to the Opportunity Workspace. */
 (function () {
   var ms = parseInt(document.body.dataset.pollMs, 10);
   if (!ms) return;
@@ -131,6 +145,14 @@
       var next = doc.querySelector("main.page");
       var cur = document.querySelector("main.page");
       if (!next || !cur) throw new Error("no page");
+      var redirectNode = next.querySelector("[data-auto-redirect-url]");
+      if (redirectNode) {
+        var target = redirectNode.getAttribute("data-auto-redirect-url");
+        if (target) {
+          window.location.assign(target);
+          return;
+        }
+      }
       cur.replaceWith(document.importNode(next, true));
       var nextCss = doc.querySelector('link[rel="stylesheet"]');
       var curCss = document.querySelector('link[rel="stylesheet"]');
@@ -153,9 +175,8 @@
 {% endif %}
 
 <script>
-/* Bulk selection: the "Draft selected" button reflects how many rows are
-   ticked and stays disabled at zero. Purely presentational; the form posts
-   exactly the same fields with or without this script. */
+/* Bulk selection: the "Score selected" button reflects how many rows are
+   ticked and stays disabled at zero. */
 (function () {
   var form = document.getElementById("bulk-form");
   var btn = document.getElementById("bulk-submit");

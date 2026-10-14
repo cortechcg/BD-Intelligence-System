@@ -14,7 +14,7 @@
       <button class="btn btn--sm" title="resumes from the last good checkpoint">Retry</button>
     </form>
     {% elif item.stage.value == "scored" %}
-    <a class="btn btn--sm" href="{{ url_detail }}?url={{ item.source_url | urlencode }}">Choose outline</a>
+    <a class="btn btn--sm" href="{{ url_detail }}?url={{ item.source_url | urlencode }}#outline-studio">Choose outline</a>
     {% else %}
     <form method="post" action="{{ url_trigger_existing }}" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -100,11 +100,14 @@
 {% set c = queue.counts %}
 
 <div class="view-head">
-  <h1>Queue <span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span></h1>
+  <div>
+    <h1>Opportunity Pipeline {% if c.halted %}<span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
+    <p class="view-head__lead">Paste a ToR or RFP link below to immediately extract requirements, score Cortech fit, and customize the proposal or EOI template before drafting.</p>
+  </div>
   <div class="view-head__meta">
-    <span>{{ c.ledger_rows }} opportunities in the ledger</span>
-    <span>{{ c.cache_rows }} cached</span>
-    <span>refreshes every {{ (poll_ms / 1000) | int }}s</span>
+    <span>{{ c.ledger_rows }} tracked</span>
+    <span>{{ c.cache_rows }} discovered</span>
+    <span>auto-refresh {{ (poll_ms / 1000) | int }}s</span>
   </div>
 </div>
 
@@ -112,44 +115,94 @@
 <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
 
-<ol class="steps">
-  <li class="steps__item"><span class="label">1</span> Score the ToR</li>
-  <li class="steps__item"><span class="label">2</span> Choose the chapters</li>
-  <li class="steps__item"><span class="label">3</span> Write the draft</li>
-</ol>
+{# ── Primary Tender Intake & Auto-Scoring Command Bar ───────────────────── #}
+<section class="section section--intake" aria-labelledby="h-submit">
+  <div class="intake-card">
+    <div class="intake-card__head">
+      <div>
+        <span class="eyebrow">Step 1 of 3 · Instant ToR / RFP Analysis</span>
+        <h2 id="h-submit">Analyze &amp; Score a Tender Link</h2>
+      </div>
+      <ol class="steps" aria-label="Proposal workflow">
+        <li class="steps__item is-active">
+          <span class="steps__num">1</span>
+          <div class="steps__text">
+            <strong>Score &amp; Read ToR</strong>
+            <span>Extract criteria, scope &amp; fit</span>
+          </div>
+        </li>
+        <li class="steps__item">
+          <span class="steps__num">2</span>
+          <div class="steps__text">
+            <strong>Recommend or Customize Template</strong>
+            <span>ToR structure, Technical Proposal, or EOI</span>
+          </div>
+        </li>
+        <li class="steps__item">
+          <span class="steps__num">3</span>
+          <div class="steps__text">
+            <strong>Draft Aligned Proposal / EOI</strong>
+            <span>Verified against ToR evaluation criteria</span>
+          </div>
+        </li>
+      </ol>
+    </div>
 
-{# ── The instrument: where every run stands, and what the desk has spent ── #}
+    {% if triggering_enabled %}
+    <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="intent" value="score">
+      <label class="sr-only" for="url">Tender or ToR URL</label>
+      <div class="submit-row">
+        <input type="url" id="url" name="url" required placeholder="Paste a tender, ToR, REOI, or Google Drive link (https://…) to start scoring immediately" autocomplete="off" spellcheck="false">
+        <button class="btn" type="submit" id="intake-submit-btn">Score &amp; Analyze ToR</button>
+      </div>
+      <div class="intake-form__foot">
+        <label class="toggle-inline">
+          <input type="checkbox" id="auto-score-paste" checked>
+          <span>Start scoring &amp; analysis immediately when link is pasted</span>
+        </label>
+        <span class="field__hint">After scoring, the agent recommends a ToR-aligned template (or lets you customize chapters) before drafting. Nothing is sent to a client.</span>
+      </div>
+    </form>
+    {% else %}
+    <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
+    {% endif %}
+  </div>
+</section>
+
+{# ── KPI Overview Strip & Spend Telemetry ──────────────────────────────── #}
 <div class="panel panel--hero strip">
   <div class="strip__figures">
+    <a class="figure figure--outline" href="#outline">
+      <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
+      <div class="figure__label">Choose outline</div>
+      <div class="figure__sub">scored, ready for template</div>
+    </a>
+    <a class="figure figure--review" href="#drafted">
+      <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
+      <div class="figure__label">Awaiting review</div>
+      <div class="figure__sub">drafted proposals / EOIs</div>
+    </a>
+    <a class="figure figure--flight" href="#in-flight">
+      <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
+      <div class="figure__label">In flight</div>
+      <div class="figure__sub">scoring or drafting now</div>
+    </a>
     <a class="figure figure--attention" href="#attention">
       <div class="figure__value{% if not c.halted %} is-zero{% endif %}">{{ c.halted }}</div>
       <div class="figure__label">Needs attention</div>
       <div class="figure__sub">halted runs</div>
     </a>
-    <a class="figure figure--outline" href="#outline">
-      <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
-      <div class="figure__label">Choose outline</div>
-      <div class="figure__sub">scored, waiting on chapters</div>
-    </a>
-    <a class="figure figure--review" href="#drafted">
-      <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
-      <div class="figure__label">Awaiting review</div>
-      <div class="figure__sub">reached drafted</div>
-    </a>
-    <a class="figure figure--flight" href="#in-flight">
-      <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
-      <div class="figure__label">In flight</div>
-      <div class="figure__sub">reading or scoring</div>
+    <a class="figure figure--found" href="#unclaimed">
+      <div class="figure__value">{{ c.cache_rows }}</div>
+      <div class="figure__label">Discovered</div>
+      <div class="figure__sub">{{ c.cache_without_ledger_shown }} unclaimed shown</div>
     </a>
     <a class="figure figure--stopped" href="#skips">
       <div class="figure__value{% if not c.terminal_skip %} is-zero{% endif %}">{{ c.terminal_skip }}</div>
       <div class="figure__label">Stopped by design</div>
-      <div class="figure__sub">gate or NO-BID before drafting</div>
-    </a>
-    <a class="figure figure--found" href="#unclaimed">
-      <div class="figure__value">{{ c.cache_rows }}</div>
-      <div class="figure__label">Discovered</div>
-      <div class="figure__sub">{{ c.cache_without_ledger_shown }} newest unclaimed shown</div>
+      <div class="figure__sub">gate or NO-BID</div>
     </a>
   </div>
   <div class="strip__meter">
@@ -169,76 +222,85 @@
   </div>
 </div>
 
-{# ── Queue a tender ─────────────────────────────────────────────────────── #}
-<section class="section section--tight" aria-labelledby="h-submit">
-  <div class="section__head"><h2 id="h-submit">Queue a tender</h2></div>
-  {% if triggering_enabled %}
-  <form method="post" action="{{ url_trigger_url }}" class="field stack">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="sr-only" for="url">Tender URL</label>
-    <div class="submit-row">
-      <input type="url" id="url" name="url" required placeholder="https://… tender or ToR page" autocomplete="off" spellcheck="false">
-      <button class="btn" type="submit" name="intent" value="score">Score this ToR</button>
-    </div>
-    <p class="field__hint">Reads and scores the ToR, then waits for you to choose the chapters. Nothing is sent.</p>
-    {% if draft_templates %}
-    <div class="direct">
-      <p class="label">Or draft now</p>
-      <p class="field__hint">Skips the score and the requirements extract. The file is still read, then these chapters are written. Edit a heading before you start. Nothing is sent.</p>
-      <div class="choices">
-        {% for template in draft_templates %}
-        <label class="choice">
-          <input type="radio" name="template_pick" value="{{ template.id }}" {% if loop.first %}checked{% endif %}>
-          <span class="choice__name">{{ template.name }}</span>
-          <span class="choice__sum">{{ template.summary }}</span>
-        </label>
-        {% endfor %}
-      </div>
-      {% for template in draft_templates %}
-      <fieldset class="direct-set stack" data-template="{{ template.id }}" {% if not loop.first %}disabled hidden{% endif %}>
-        <input type="hidden" name="template_id" value="{{ template.id }}">
-        <input type="hidden" name="submission_type" value="{{ template.submission_type }}">
-        <input type="hidden" name="outline_name" value="{{ template.name }}">
-        <div class="outline-list">
-          <div class="outline-row outline-row--head">
-            <span class="label">Chapter</span>
-            <span class="label">Pages</span>
-            <span class="label">Must cover</span>
-          </div>
-          {% for section in template.sections %}
-          <div class="outline-row">
-            <input type="text" name="heading" value="{{ section.heading }}" aria-label="Chapter heading" maxlength="200">
-            <input type="text" name="page_limit" value="{{ section.page_limit or '' }}" aria-label="Page limit" placeholder="pages" maxlength="40">
-            <input type="text" name="must_include" value="{{ (section.must_include or []) | join('; ') }}" aria-label="What this chapter must cover" placeholder="optional" maxlength="400">
-          </div>
-          {% endfor %}
-          <div class="outline-row">
-            <input type="text" name="heading" value="" aria-label="Extra chapter heading" maxlength="200" placeholder="Add a chapter">
-            <input type="text" name="page_limit" value="" aria-label="Page limit for the extra chapter" placeholder="pages" maxlength="40">
-            <input type="text" name="must_include" value="" aria-label="What the extra chapter must cover" placeholder="optional" maxlength="400">
-          </div>
-        </div>
-      </fieldset>
-      {% endfor %}
-      <div class="row">
-        <button class="btn" type="submit" name="intent" value="draft">Draft now</button>
-      </div>
-    </div>
-    {% endif %}
-  </form>
+{# ── Buckets, ordered by priority in the user workflow ─────────────────── #}
+<section class="section" id="outline" aria-labelledby="h-outline">
+  <div class="section__head">
+    <h2 id="h-outline">Ready for Template Selection ({{ c.choose_outline }})</h2>
+    <span class="section__count">Step 2 · Choose or customize chapters</span>
+  </div>
+  <p class="section__sub">Scored opportunities waiting for template confirmation. Open an opportunity to review the ToR analysis, inspect the recommended template, customize chapters if needed, and launch drafting.</p>
+  {% if queue.choose_outline %}
+    {{ opp_table(queue.choose_outline) }}
   {% else %}
-  <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
+    {{ m.empty("No scored opportunity is waiting on a template", "Paste a tender link above to score a ToR and get a tailored template recommendation.") }}
   {% endif %}
 </section>
 
-{# ── Recent jobs ───────────────────────────────────────────────────────── #}
+<section class="section" id="in-flight" aria-labelledby="h-inflight">
+  <div class="section__head">
+    <h2 id="h-inflight">Active Analysis &amp; Drafting ({{ c.in_flight }})</h2>
+    <span class="section__count">{{ c.in_flight }} active</span>
+  </div>
+  {% if queue.in_flight %}
+    {{ opp_table(queue.in_flight) }}
+  {% else %}
+    {{ m.empty("No active runs in flight", "Paste a ToR URL above or score a discovered opportunity below.") }}
+  {% endif %}
+</section>
+
+<section class="section" id="drafted" aria-labelledby="h-drafted">
+  <div class="section__head">
+    <h2 id="h-drafted">Drafted Proposals &amp; EOIs ({{ c.drafted }})</h2>
+    <span class="section__count">Step 3 · Ready for human review</span>
+  </div>
+  <p class="section__sub">Completed Technical Proposals and EOIs verified against extracted ToR requirements. Nothing is sent automatically.</p>
+  {% if queue.drafted %}
+    {{ opp_table(queue.drafted) }}
+  {% else %}
+    {{ m.empty("No completed drafts yet", "Drafts appear here once an outline is confirmed and the writer finishes.") }}
+  {% endif %}
+</section>
+
+<section class="section" id="attention" aria-labelledby="h-attention">
+  <div class="section__head">
+    <h2 id="h-attention">Needs attention</h2>
+    <span class="section__count">{{ c.halted }}</span>
+  </div>
+  <p class="section__sub">Halted runs. Resume keeps the stage and the checkpoint. A dead letter has failed to draft three times.</p>
+  {% if queue.halted %}
+    {{ opp_table(queue.halted) }}
+  {% else %}
+    {{ m.empty("Nothing needs attention", "No run is halted, capped or dead-lettered.") }}
+  {% endif %}
+</section>
+
+<section class="section" id="unclaimed" aria-labelledby="h-unclaimed">
+  <div class="section__head">
+    <h2 id="h-unclaimed">Discovered from Portals</h2>
+    <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
+  </div>
+  <p class="section__sub">Auto-discovered tenders. Click Score on any row to extract its ToR, score fit, and recommend a template.</p>
+  {% if queue.cache_only %}
+    {% if triggering_enabled %}
+    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn btn--sm" type="submit" id="bulk-submit">Score selected</button>
+      <span class="small muted">Max {{ bulk_max }} per click.</span>
+    </form>
+    {% endif %}
+    {{ opp_table(queue.cache_only, show_scores=False, selectable=True) }}
+  {% else %}
+    {{ m.empty("Every discovered row has been run", "Discovery adds rows on its own schedule; new ones appear here.") }}
+  {% endif %}
+</section>
+
 {% if triggers %}
 <section class="section" aria-labelledby="h-jobs">
-  <div class="section__head"><h2 id="h-jobs">Recent jobs</h2><span class="section__count">{{ triggers | length }} most recent</span></div>
+  <div class="section__head"><h2 id="h-jobs">Recent Run Activity</h2><span class="section__count">{{ triggers | length }} most recent</span></div>
   <div class="table-wrap">
     <table class="table table--jobs">
       <colgroup><col class="c-id"><col class="c-when"><col class="c-kind"><col class="c-status"><col class="c-spend"><col></colgroup>
-      <thead><tr><th>Job</th><th>Requested</th><th>Kind</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
+      <thead><tr><th>Job</th><th>Requested</th><th>Action</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
       <tbody>
       {% for t in triggers %}
         <tr>
@@ -262,78 +324,6 @@
 </section>
 {% endif %}
 
-{# ── Buckets, in the order a person triages them ───────────────────────── #}
-<section class="section" id="attention" aria-labelledby="h-attention">
-  <div class="section__head">
-    <h2 id="h-attention">Needs attention</h2>
-    <span class="section__count">{{ c.halted }}</span>
-  </div>
-  <p class="section__sub">Halted runs. Resume keeps the stage and the checkpoint. A dead letter has failed to draft three times.</p>
-  {% if queue.halted %}
-    {{ opp_table(queue.halted) }}
-  {% else %}
-    {{ m.empty("Nothing needs attention", "No run is halted, capped or dead-lettered.") }}
-  {% endif %}
-</section>
-
-<section class="section" id="outline" aria-labelledby="h-outline">
-  <div class="section__head">
-    <h2 id="h-outline">Choose an outline</h2>
-    <span class="section__count">{{ c.choose_outline }}</span>
-  </div>
-  <p class="section__sub">Scored and waiting. Open one, keep the recommended chapters or pick another outline, then write the draft.</p>
-  {% if queue.choose_outline %}
-    {{ opp_table(queue.choose_outline) }}
-  {% else %}
-    {{ m.empty("No outline is waiting", "After a score, the tender waits here until you choose its chapters.") }}
-  {% endif %}
-</section>
-
-<section class="section" id="in-flight" aria-labelledby="h-inflight">
-  <div class="section__head">
-    <h2 id="h-inflight">In flight</h2>
-    <span class="section__count">{{ c.in_flight }}</span>
-  </div>
-  {% if queue.in_flight %}
-    {{ opp_table(queue.in_flight) }}
-  {% else %}
-    {{ m.empty("Nothing is being read", "Queue a ToR above, or score one of the discovered rows below.") }}
-  {% endif %}
-</section>
-
-<section class="section" id="drafted" aria-labelledby="h-drafted">
-  <div class="section__head">
-    <h2 id="h-drafted">Awaiting review</h2>
-    <span class="section__count">{{ c.drafted }}</span>
-  </div>
-  <p class="section__sub">Reached drafted. A person reviews before anything leaves.</p>
-  {% if queue.drafted %}
-    {{ opp_table(queue.drafted) }}
-  {% else %}
-    {{ m.empty("Nothing has reached drafted yet", "Drafts appear here when a run completes all four stages.") }}
-  {% endif %}
-</section>
-
-<section class="section" id="unclaimed" aria-labelledby="h-unclaimed">
-  <div class="section__head">
-    <h2 id="h-unclaimed">Discovered, not yet run</h2>
-    <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
-  </div>
-  <p class="section__sub">Title and link only. Score starts the reading. The draft waits until you choose the chapters.</p>
-  {% if queue.cache_only %}
-    {% if triggering_enabled %}
-    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="btn btn--sm" type="submit" id="bulk-submit">Score selected</button>
-      <span class="small muted">Max {{ bulk_max }} per click.</span>
-    </form>
-    {% endif %}
-    {{ opp_table(queue.cache_only, show_scores=False, selectable=True) }}
-  {% else %}
-    {{ m.empty("Every discovered row has been run", "Discovery adds rows on its own schedule; new ones appear here.") }}
-  {% endif %}
-</section>
-
 <section class="section" id="skips" aria-labelledby="h-skips">
   <div class="section__head">
     <h2 id="h-skips">Stopped by design</h2>
@@ -351,21 +341,36 @@
 
 {% block scripts %}
 <script>
+/* Auto-start scoring immediately when a valid URL is pasted into the intake bar. */
 (function () {
-  var sets = document.querySelectorAll(".direct-set");
-  var picks = document.querySelectorAll('input[name="template_pick"]');
-  if (!sets.length || !picks.length) return;
-  function apply() {
-    var chosen = picks[0].value;
-    picks.forEach(function (pick) { if (pick.checked) chosen = pick.value; });
-    sets.forEach(function (set) {
-      var on = set.getAttribute("data-template") === chosen;
-      set.disabled = !on;
-      set.hidden = !on;
-    });
-  }
-  picks.forEach(function (pick) { pick.addEventListener("change", apply); });
-  apply();
+  var form = document.getElementById("intake-form");
+  var input = document.getElementById("url");
+  var autoToggle = document.getElementById("auto-score-paste");
+  var btn = document.getElementById("intake-submit-btn");
+  if (!form || !input) return;
+
+  var submitted = false;
+  form.addEventListener("submit", function () {
+    if (submitted) return;
+    submitted = true;
+    if (btn) {
+      btn.textContent = "Starting ToR analysis…";
+    }
+  });
+
+  input.addEventListener("paste", function () {
+    if (!autoToggle || !autoToggle.checked) return;
+    setTimeout(function () {
+      var val = (input.value || "").trim();
+      if (/^https?:\/\/\S+/i.test(val) && !submitted) {
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      }
+    }, 60);
+  });
 })();
 </script>
 {% endblock %}

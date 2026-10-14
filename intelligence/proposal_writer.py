@@ -1286,15 +1286,19 @@ def build_system_blocks(
         tor_text, analysis, doc_block=doc_block, submission_type=submission_type
     )
     document_lock = format_document_lock(lock)
+    planned_lock_outline = plan_draft_outline(lock, analysis, submission_type)
     if outline_is_accepted(accepted_outline):
         submission_outline = as_submission_outline(accepted_outline)
+        for meta_key in ("omitted_financial", "required_attachments", "required_forms"):
+            if not submission_outline.get(meta_key) and planned_lock_outline.get(meta_key):
+                submission_outline[meta_key] = list(planned_lock_outline.get(meta_key) or [])
         names = ", ".join(
             str(item.get("heading") or "")
             for item in submission_outline.get("sections") or []
         )
         logger.info(f"  Drafting the outline the reviewer accepted: {names}")
     else:
-        submission_outline = plan_draft_outline(lock, analysis, submission_type)
+        submission_outline = planned_lock_outline
     if submission_outline.get("prescribed") and not outline_is_accepted(accepted_outline):
         names = ", ".join(
             str(item.get("heading") or "")
@@ -2113,6 +2117,20 @@ def _draft_rules_for(item: dict) -> str:
     if heading:
         parts.append(
             f"CLIENT HEADING: use this exact title, not a house rename: {heading}"
+        )
+    must_raw = item.get("must_include") or item.get("must_cover") or []
+    if isinstance(must_raw, str):
+        must_raw = [must_raw]
+    must_items = [
+        " ".join(str(entry or "").split()).strip()
+        for entry in (must_raw if isinstance(must_raw, list) else [])
+        if " ".join(str(entry or "").split()).strip()
+    ]
+    if must_items:
+        bullets = "\n".join(f"- {entry}" for entry in must_items)
+        parts.append(
+            "BINDING CHAPTER SCOPE (cover these specific ToR requirements and "
+            "reviewer instructions in this chapter):\n" + bullets
         )
     return "\n".join(parts)
 

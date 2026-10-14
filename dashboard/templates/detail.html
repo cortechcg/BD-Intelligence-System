@@ -5,29 +5,68 @@
 
 {% block content %}
 {% set human_done = d.stage.value in ("reviewed", "outcome") %}
+{% set rec_name = (d.recommendation.value or "") %}
+{% set ready_for_outline = (d.stage.value in ("scored", "drafted", "reviewed", "outcome") or d.recommended_outline or d.accepted_outline) and rec_name != "NO-BID" %}
 
 <div class="view-head">
-  <h1 class="doc">{{ m.doc_value(d.title, "untitled — title not extracted") }}</h1>
-  <div class="view-head__meta">
-    <span class="row" style="gap: var(--sp2)"><a class="iconbtn" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span>{{ m.host(d.source_url) }}</span></span>
-    <span>client {{ m.value_terse(d.client) }}</span>
-    <span>deadline {{ m.value_terse(d.deadline) }}</span>
+  <div>
+    <div class="eyebrow">
+      Opportunity Workspace
+      {% if d.submission_type and d.submission_type.value %}
+        · {{ d.submission_type.value | replace("_", " ") }}
+      {% endif %}
+    </div>
+    <h1 class="doc">{{ m.doc_value(d.title, "untitled — title not extracted") }}</h1>
+    <div class="view-head__meta">
+      <span class="row" style="gap: var(--sp2)"><a class="iconbtn" href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank" title="{{ d.source_url }}" aria-label="open the source page">↗</a><span>{{ m.host(d.source_url) }}</span></span>
+      <span>client {{ m.value_terse(d.client) }}</span>
+      <span>deadline {{ m.value_terse(d.deadline) }}</span>
+    </div>
+  </div>
+  <div class="row">
+    {{ m.rec_chip(d.recommendation, "lg") }}
+    {% if d.has_draft %}
+      <a class="btn" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+    {% endif %}
   </div>
 </div>
 
+{# ── 3-Step Workflow Progression Bar ───────────────────────────────────── #}
+<ol class="steps" style="margin-bottom: var(--sp5)" aria-label="Opportunity workflow">
+  <li class="steps__item {% if ready_for_outline or d.has_draft %}is-done{% else %}is-active{% endif %}">
+    <span class="steps__num">1</span>
+    <div class="steps__text">
+      <strong>Score &amp; Understand ToR / RFP</strong>
+      <span>Extract criteria, deliverables &amp; Cortech fit</span>
+    </div>
+  </li>
+  <li class="steps__item {% if d.has_draft %}is-done{% elif ready_for_outline %}is-active{% endif %}">
+    <span class="steps__num">2</span>
+    <div class="steps__text">
+      <strong>Recommend or Customize Template</strong>
+      <span>Confirm ToR-prescribed, Technical Proposal, or EOI chapters</span>
+    </div>
+  </li>
+  <li class="steps__item {% if d.has_draft %}is-active{% endif %}{% if human_done %} is-done{% endif %}">
+    <span class="steps__num">3</span>
+    <div class="steps__text">
+      <strong>Draft Aligned Technical Proposal / EOI</strong>
+      <span>Verified against ToR evaluation criteria &amp; human review</span>
+    </div>
+  </li>
+</ol>
+
 {% if flash %}
-<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
+<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
 {% endif %}
 
-{% set rec_name = (d.recommendation.value or "") %}
-{% set ready_for_outline = (d.stage.value in ("scored", "drafted", "reviewed", "outcome") or d.recommended_outline or d.accepted_outline) and rec_name != "NO-BID" %}
 {% if ready_for_outline %}
   {{ outline.studio(d, csrf_token, url_outline) }}
 {% else %}
 <section class="section section--first" aria-labelledby="h-next">
   <div class="panel panel--hero">
     <div class="panel__in stack">
-      <p class="label">Next</p>
+      <p class="label">Step 1 of 3 · Next Action</p>
       <h2 id="h-next">Score this ToR</h2>
       <p class="doc">The agent reads the document and scores it, then stops. You choose the chapters before it writes. Nothing is sent to the client.</p>
       {% if triggering_enabled and d.ui_state not in ("dead_letter", "failed", "spend_cap", "cancelled") %}
@@ -166,26 +205,29 @@
 {% if d.has_draft %}
 <section class="section section--tight">
   <div class="band band--human">
-    <div class="band__title">Read this draft, then mark it.</div>
+    <div class="band__title">Step 3 of 3 · Read this draft, then mark it.</div>
     Nothing here is sent to the client. Mark it reviewed, won, or lost after you have read it. Claims that could not be matched stay tagged [NOT VERIFIED].
     <p>{{ d.section_keys | length }} sections stored: {{ d.section_keys | join(", ") }}.</p>
-    <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}" class="inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="source_url" value="{{ d.source_url }}">
-      <button class="btn btn--sm">Mark reviewed</button>
-    </form>
-    <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="source_url" value="{{ d.source_url }}">
-      <input type="hidden" name="outcome" value="Won">
-      <button class="btn btn--sm btn--quiet">Mark won</button>
-    </form>
-    <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="source_url" value="{{ d.source_url }}">
-      <input type="hidden" name="outcome" value="Lost">
-      <button class="btn btn--sm btn--quiet">Mark lost</button>
-    </form>
+    <div class="row" style="margin-top: var(--sp3)">
+      <a class="btn btn--sm" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="source_url" value="{{ d.source_url }}">
+        <button class="btn btn--sm">Mark reviewed</button>
+      </form>
+      <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="source_url" value="{{ d.source_url }}">
+        <input type="hidden" name="outcome" value="Won">
+        <button class="btn btn--sm btn--quiet">Mark won</button>
+      </form>
+      <form method="post" action="{{ url_mark_outcome or '/opportunity/outcome' }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="source_url" value="{{ d.source_url }}">
+        <input type="hidden" name="outcome" value="Lost">
+        <button class="btn btn--sm btn--quiet">Mark lost</button>
+      </form>
+    </div>
   </div>
 </section>
 {% if d.requirement_alignment and d.requirement_alignment.headline %}
@@ -204,8 +246,8 @@
     {% for row in d.requirement_alignment.rows %}
       <tr>
         <td>{{ row.label }}</td>
-        <td>{{ row.status }}</td>
-        <td>{{ row.section or "—" }}</td>
+        <td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
+        <td class="mono">{{ row.section or "—" }}</td>
         <td class="evidence">{{ row.quote or row.evidence }}</td>
       </tr>
     {% endfor %}
@@ -215,6 +257,75 @@
   {% endif %}
 </section>
 {% endif %}
+{% endif %}
+
+{# ── Extracted ToR / RFP Intelligence Summary ──────────────────────────── #}
+{% if d.evaluation_criteria or d.deliverables or d.team_requirements or d.strengths %}
+<section class="section" aria-labelledby="h-tor-intel">
+  <div class="section__head">
+    <h2 id="h-tor-intel">ToR / RFP Intelligence Summary</h2>
+    <span class="section__count">extracted from tender documents</span>
+  </div>
+  <div class="panel">
+    <div class="panel__in two-col">
+      <div>
+        <p class="label" style="margin-bottom: var(--sp2)">Evaluation Criteria &amp; Weights</p>
+        {% if d.evaluation_criteria %}
+        <ul class="tor-list">
+          {% for c in d.evaluation_criteria %}
+          <li>
+            <div class="row-between">
+              <strong>{{ c.get("criterion") or c.get("name") }}</strong>
+              {% if c.get("weight_percent") is not none %}<span class="mono badge-pill">{{ c.get("weight_percent") }}%</span>{% endif %}
+            </div>
+            {% if c.get("description") %}<div class="small muted">{{ c.get("description") }}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="small muted">No explicit evaluation weights listed in the ToR.</p>
+        {% endif %}
+
+        {% if d.team_requirements %}
+        <p class="label" style="margin: var(--sp4) 0 var(--sp2)">Required Team Roles</p>
+        <ul class="tor-list">
+          {% for t in d.team_requirements %}
+          <li>
+            <strong>{{ t.get("role") }}</strong>
+            {% if t.get("min_experience_years") %}<span class="small muted"> · {{ t.get("min_experience_years") }}+ yrs</span>{% endif %}
+            {% if t.get("qualifications") %}<div class="small muted">{{ t.get("qualifications") }}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+      <div>
+        <p class="label" style="margin-bottom: var(--sp2)">Scope &amp; Deliverables</p>
+        {% if d.deliverables %}
+        <ul class="tor-list">
+          {% for item in d.deliverables %}
+          <li>
+            <strong>{{ item.name }}</strong>
+            {% if item.description %}<div class="small muted">{{ item.description }}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="small muted">Deliverables are embedded in the narrative scope of work.</p>
+        {% endif %}
+
+        {% if d.strengths %}
+        <p class="label" style="margin: var(--sp4) 0 var(--sp2)">Cortech Fit Strengths</p>
+        <ul class="tor-list">
+          {% for s in d.strengths %}
+          <li>{{ s }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
 {% endif %}
 
 {# ── Scores in detail ───────────────────────────────────────────────────── #}

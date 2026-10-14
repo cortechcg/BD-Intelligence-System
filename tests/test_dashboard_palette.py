@@ -1,8 +1,9 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Ink and champagne: a warm-black field, ivory type, champagne where a person
-must act. Every text colour must clear WCAG AA (4.5:1) on the page, and every
-mark must clear 3:1. The one gradient is the gold button.
+Enterprise Slate & Cobalt: a deep slate-obsidian field (#0b0f17), cool-white
+type (#f8fafc), precision cobalt for agent progress & primary actions (#60a5fa),
+and warm amber (#fbbf24) where a person must act. Every text colour must clear
+WCAG AA (4.5:1) on the page, and every mark must clear 3:1.
 """
 from __future__ import annotations
 
@@ -45,8 +46,6 @@ def rules():
 
 
 TEXT_PAIRS = [("ink", "ground"), ("ink-2", "ground"), ("accent", "ground"), ("on-fill", "fill")]
-# Status-chip dots take their colour from the chip's own text (currentColor),
-# so they inherit its verified contrast; only the marks drawn on cream are listed.
 MARK_PAIRS = [(fg, "ground") for fg in ("fill", "stage-done", "stage-current", "human", "halt",
                                         "st-processing", "ink-3")]
 RAMP_LIGHT_END = [("ramp-1", "ground"), ("rec-1", "ground")]
@@ -79,14 +78,15 @@ def test_sage_is_display_figures_only():
 
 
 def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
-    """Warm-black field, lifted card, warm well. One champagne button gradient."""
-    assert token("ground") == "#14120e"
-    assert token("surface") == "#1e1b16"
-    assert token("track") == "#2c2822"
+    """Deep slate field, lifted slate card, slate well. One primary button gradient."""
+    assert token("ground") == "#0b0f17"
+    assert token("surface") == "#111827"
+    assert token("track") == "#1e293b"
     assert token("surface") != token("ground")
     shadow_ok = (
         "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
         ".band", ".notice", ".empty", ".disclosure", ".sidenav", ".stageboard",
+        ".intake-card",
     )
     for selector, rule in rules():
         sel = selector.strip()
@@ -98,16 +98,17 @@ def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
 
 
 def test_two_fills_only():
-    """Forest fills the primary button, the BID chip, and marks — including the portfolio bars."""
+    """Cobalt fills the primary button, the BID chip, step badges, and marks."""
     for selector, rule in rules():
         sel = selector.strip()
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
             tok = m.group(2)
-            if tok in ("ground", "surface", "track", "hover", "selected", "glass"):
+            if tok in ("ground", "surface", "track", "hover", "selected", "glass", "line"):
                 continue
             assert any(k in sel for k in (
                 ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",
-                "bar__fill", "mix__seg", "legend__swatch", ".orb",
+                "bar__fill", "mix__seg", "legend__swatch", ".orb", ".brand__mark",
+                ".nav__dot", ".steps__num",
             )), f"fill {tok} on {sel[:70]}"
 
 
@@ -122,7 +123,6 @@ def test_brass_means_a_person_must_act_and_nothing_else():
         if "focus" in sel:
             assert "accent" not in rule and "brass" not in rule, "brass is never a focus ring"
     assert ".hl--attention { color: var(--accent); }" in BODY
-    # one urgency treatment, both buckets that carry the meaning
     assert ".figure--attention .figure__value:not(.is-zero),\n.figure--review .figure__value:not(.is-zero) { color: var(--accent);" in BODY
     assert "border-left: 2px dashed var(--human)" in BODY
 
@@ -130,21 +130,18 @@ def test_brass_means_a_person_must_act_and_nothing_else():
 def test_rail_is_thin_and_human_segment_is_distinct():
     assert re.search(r"\.rail__seg \{[^}]*height: 4px", BODY), "queue-row rail segments are a 4px line"
     assert "border-top: 2px dashed var(--human)" in BODY
-    for stage in ("stage-done", "stage-current"):
-        assert contrast(token("human"), token(stage)) >= 1.3 or True   # brass vs forest is close in lightness…
-    # …so the distinction is carried by shape: the human segment is a dashed rule, not a filled bar
     assert ".rail__seg--human { background: transparent; border-top: 2px dashed var(--human); height: 0;" in BODY
-    assert contrast(token("stage-current"), token("stage-done")) >= 1.8, "current vs done must differ in lightness"
+    assert contrast(token("stage-done"), token("stage-current")) >= 1.8, "current vs done must differ in lightness"
 
 
-def test_ramps_are_one_champagne_hue_and_monotone():
+def test_ramps_are_one_cobalt_hue_and_monotone():
     toks = [token(f"ramp-{i}") for i in range(1, 5)]
     lums = [_lum(t) for t in toks]
     assert lums == sorted(lums, reverse=True), "light→dark along the pipeline"
     assert all(a - b >= 0.04 for a, b in zip(lums, lums[1:]))
     for t in toks:
         r, g, b = int(t[1:3], 16), int(t[3:5], 16), int(t[5:7], 16)
-        assert r >= g and r >= b, f"{t} is not champagne"
+        assert b >= g and b >= r, f"{t} is not cobalt"
 
 
 def test_recommendation_uses_weight_and_shape_not_hue():
@@ -174,8 +171,6 @@ def test_type_is_two_weights_and_labels_are_the_only_uppercase():
 
 
 def test_hierarchy_is_size():
-    # The two "a person must act" figures are full display size; the three
-    # context counts are half that, so importance is not decided by digit count.
     assert re.search(r"\.figure__value \{[^}]*font-size: var\(--t32\)", BODY)
     assert ".figure--attention .figure__value, .figure--review .figure__value { font-size: var(--t56)" in BODY
     assert re.search(r"\.figure__value \{[^}]*min-height: var\(--t56\)", BODY), "values share one baseline"
