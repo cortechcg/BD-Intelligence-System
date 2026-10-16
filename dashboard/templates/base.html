@@ -78,7 +78,6 @@
     </nav>
 
     <div class="masthead__right">
-      <span class="masthead__pill" title="Internal workspace — nothing is sent to clients">Internal review only</span>
       {% if viewer %}
       <div class="who">
         <span class="email">{{ viewer }}</span>
@@ -95,20 +94,20 @@
   <nav class="nav" aria-label="views">
     <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
       <span class="nav__dot" aria-hidden="true"></span>
-      <span>Pipeline &amp; Sources</span>
+      <span>Pipeline</span>
     </a>
     <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
       <span class="nav__dot" aria-hidden="true"></span>
-      <span>History &amp; Portfolio</span>
+      <span>Portfolio</span>
     </a>
   </nav>
 
   {% set side_opps = sidebar_opps if (sidebar_opps is defined and sidebar_opps) else [] %}
   {% if side_opps %}
   <div class="sidenav__section">
-    <div class="row-between">
+    <div class="sidenav__head">
       <span class="label">Opportunities</span>
-      <span class="mono small muted">{{ side_opps | length }}</span>
+      <span class="sidenav__count">{{ side_opps | length }}</span>
     </div>
     <ul class="sidenav__opps">
       {% for item in side_opps[:8] %}
@@ -136,49 +135,22 @@
   {% endif %}
 
   <div class="sidenav__foot">
-    <div class="sidenav__guard">
-      <span class="label">Hard Stop Rule</span>
-      <span class="small muted">This tool stops at a draft. Your team reviews, finalises, signs annexes and submits.</span>
-    </div>
+    <p class="sidenav__guard"><strong>Stops at a draft.</strong> Your team reviews, finalises, signs annexes and submits. Nothing is sent to a client from here.</p>
   </div>
 </aside>
 
 <div class="shell__main">
+<ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
+  {% for s_num in range(1, 6) %}
+  <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
+      title="Stage {{ s_num }} of 5"></li>
+  {% endfor %}
+</ol>
 <main id="main-content" class="page{% if view == 'portfolio' %} page--portfolio{% endif %}">
-  {# 5-Segment Progress Bar under the header #}
-  <ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
-    {% for s_num in range(1, 6) %}
-    <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
-        title="Stage {{ s_num }} of 5"></li>
-    {% endfor %}
-  </ol>
-
   {% block content %}{% endblock %}
 
-  <p class="foot">
-    You choose the chapters before a draft is written. Nothing is sent to a client.
-    {% if generated_at %}Rendered {{ generated_at }}.{% endif %}
-  </p>
+  {% if generated_at %}<p class="foot">Updated {{ generated_at }}.</p>{% endif %}
 </main>
-
-<footer class="stage-footer" aria-label="Stage navigation">
-  <span class="stage-footer__note">
-    <strong>Stage {{ active_stage }} of 5</strong> · This system stops at a draft. People review, finalise, sign annexes and submit.
-  </span>
-  <div class="row">
-    {% if has_d and d.source_url %}
-      <a class="btn btn--sm btn--quiet" href="{{ url_queue }}#stage-2-opportunities">← Opportunities</a>
-      {% if d_scored and not d_drafted %}
-        <a class="btn btn--sm" href="#outline-studio">Stage 4: Customize Draft →</a>
-      {% elif d_drafted %}
-        <a class="btn btn--sm" href="#stage-5-review">Stage 5: Review Pack →</a>
-      {% endif %}
-    {% else %}
-      <a class="btn btn--sm btn--quiet" href="{{ url_queue }}#stage-1-sources">Stage 1: Sources</a>
-      <a class="btn btn--sm" href="{{ url_queue }}#stage-2-opportunities">Stage 2: Opportunities →</a>
-    {% endif %}
-  </div>
-</footer>
 </div>
 </div>
 
@@ -302,6 +274,9 @@ document.addEventListener("change", function (ev) {
         var cur = document.querySelector("main.page");
         if (!next || !cur) return;
         var y = window.scrollY;
+        var nextRail = doc.querySelector(".stage-progress");
+        var curRail = document.querySelector(".stage-progress");
+        if (nextRail && curRail) curRail.replaceWith(document.importNode(nextRail, true));
         cur.replaceWith(document.importNode(next, true));
         document.querySelectorAll('input[type="checkbox"][name="source_url"]').forEach(function (c) {
           if (checked[c.value]) c.checked = true;
