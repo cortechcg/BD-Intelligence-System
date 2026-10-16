@@ -43,31 +43,25 @@
   <input type="hidden" name="outline_name" value="{{ outline.name }}" data-field="outline_name">
 
   <div class="outline-head">
-    <div class="row">
-      <span class="badge-pill badge-pill--accent" data-field="outline_badge">{{ outline.name }}</span>
+    <div>
+      <strong data-field="outline_badge">{{ outline.name }}</strong>
       {% if outline.source == "tor" %}
-        <span class="badge-pill badge-pill--good" data-field="outline_origin">Follow the TOR format</span>
+        <span data-field="outline_origin">· Follow the TOR format</span>
       {% elif outline.source == "custom" %}
-        <span class="badge-pill" data-field="outline_origin">Customized</span>
+        <span data-field="outline_origin">· Customized</span>
       {% else %}
-        <span class="badge-pill" data-field="outline_origin">House format</span>
+        <span data-field="outline_origin">· House format</span>
       {% endif %}
       {% if is_primary %}
-        <span class="badge-pill mono" id="studio-chapter-stats">{{ (outline.sections or []) | length }} chapters</span>
-        <span class="small muted" id="studio-save-state" role="status">Saved</span>
+        <span id="studio-chapter-stats">· {{ (outline.sections or []) | length }} chapters</span>
+        <span id="studio-save-state" role="status">· Saved</span>
       {% endif %}
-      <span class="badge-pill" title="Rule: No fees or prices go into the Word file">No fees or prices go into the Word file</span>
     </div>
-    <div class="row">
-      {% if is_primary %}
-      <button type="button" class="btn btn--sm btn--ghost" data-reset-preset title="Restore the default chapters for the selected template">Reset chapters</button>
-      {% endif %}
-      <label class="small muted" for="submission_type_{{ outline.id }}_{{ 'p' if is_primary else 's' }}">Document type</label>
-      <select name="submission_type" id="submission_type_{{ outline.id }}_{{ 'p' if is_primary else 's' }}" class="select" data-field="submission_type">
-        <option value="FULL_PROPOSAL" {% if outline.submission_type != "EOI" %}selected{% endif %}>Full Technical Proposal</option>
-        <option value="EOI" {% if outline.submission_type == "EOI" %}selected{% endif %}>Expression of Interest (EOI)</option>
-      </select>
-    </div>
+    <span>No fees or prices go into the Word file</span>
+    <select name="submission_type" id="submission_type_{{ outline.id }}_{{ 'p' if is_primary else 's' }}" class="select sr-only" data-field="submission_type" aria-label="Document type">
+      <option value="FULL_PROPOSAL" {% if outline.submission_type != "EOI" %}selected{% endif %}>Full Technical Proposal</option>
+      <option value="EOI" {% if outline.submission_type == "EOI" %}selected{% endif %}>Expression of Interest (EOI)</option>
+    </select>
   </div>
 
   {% if outline.summary %}
@@ -76,16 +70,20 @@
 
   <div class="outline-list" data-chapter-list>
     <div class="outline-row--head">
-      <span class="label">Chapter # &amp; Title</span>
-      <span class="label">Page Limit &amp; Order</span>
+      <span></span>
+      <span>Chapter</span>
+      <span>Page limit</span>
     </div>
     {{ chapter_rows(outline.sections or []) }}
   </div>
 
-  <div class="row-between outline-actions">
-    <div class="row">
-      <button type="button" class="btn btn--sm btn--quiet" data-add-chapter>+ Add chapter</button>
-      <span class="field__hint">Edits are preserved automatically while you customize. No fees or prices go into the Word file.</span>
+  <div class="outline-actions">
+    <div class="outline-actions__meta">
+      <button type="button" class="btn btn--sm btn--quiet" data-add-chapter>Add a chapter</button>
+      {% if is_primary %}
+      <button type="button" class="btn btn--sm btn--ghost" data-reset-preset title="Restore the default chapters for the selected template">Reset chapters</button>
+      {% endif %}
+      <span>Edits stay on this page until you save. No fees or prices go into the Word file.</span>
     </div>
     <div class="row">
       <button class="btn btn--quiet" type="submit" name="intent" value="save" data-save-outline-btn>Save outline</button>
@@ -106,66 +104,49 @@
 {% set sub_reqs = d.submission_requirements or {} %}
 {% set active_sub_type = (opener.submission_type if opener and opener.submission_type else "FULL_PROPOSAL") %}
 
-<section class="section section--first" id="outline-studio" aria-labelledby="h-outline">
-  <div class="panel panel--hero panel--studio">
-    <div class="panel__in stack">
-      <div class="studio-header">
-        <div>
-          <span class="eyebrow">Stage 4 of 5 · Document Type, Template Gallery &amp; Chapter Customizer</span>
-          <h2 id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
-          <p class="doc studio-lead">
-            {% if d.has_draft %}
-              This draft stays until you write again. Edit the chapters, or open another outline below. Nothing is sent to the client.
-            {% else %}
-              The score is done. Pick the outline, edit the headings, then write the draft. Nothing is sent to the client.
-            {% endif %}
-          </p>
-        </div>
-        {% if recommended %}
-        <div class="rec-callout">
-          <div class="row-between">
-            <div class="rec-callout__label">Agent Recommendation</div>
-            <span class="badge-pill badge-pill--good">ToR-Aligned</span>
-          </div>
-          <div class="rec-callout__title">
-            {% if recommended.source == "tor" %}
-              Follow the TOR format ({{ recommended.sections | length }} chapters)
-            {% elif recommended.submission_type == "EOI" %}
-              House format — EOI ({{ recommended.sections | length }} chapters)
-            {% else %}
-              House format — Technical Proposal ({{ recommended.sections | length }} chapters)
-            {% endif %}
-          </div>
-          <div class="rec-callout__sub">{{ recommended.summary }}</div>
-        </div>
+<details class="panel panel--hero studio" id="outline-studio" {% if not d.has_draft %}open{% endif %}>
+  <summary class="studio__head">
+    <div>
+      <h2 class="studio__title" id="h-outline">{% if d.has_draft %}Change the chapters{% else %}Choose the chapters{% endif %}</h2>
+      <p class="studio__lead">
+        {% if d.has_draft %}
+          This draft stays until you write again. Edit the chapters below, then write it once more.
+        {% else %}
+          The score is done. Pick the outline, edit the headings, then write the draft.
         {% endif %}
-      </div>
-
-      {# ── Part 1: Document Type Choice Cards (Proposal vs EOI) ──────────── #}
-      <div>
-        <span class="label" style="display:block;margin-bottom:6px">Part 1 · Document Type</span>
+      </p>
+    </div>
+    <span class="studio__toggle"><span class="studio__toggle-open">Show</span><span class="studio__toggle-close">Hide</span></span>
+  </summary>
+  <div class="studio__body">
+    <ol class="studio-steps">
+      <li class="studio-step">
+        <div class="studio-step__head">
+          <h3 class="studio-step__title"><span class="steps__num">1</span> Document type</h3>
+        </div>
         <div class="choice-grid" role="radiogroup" aria-label="Select document type">
           <button type="button"
                   class="choice-card {% if active_sub_type != 'EOI' %}is-selected{% endif %}"
                   data-doc-type="FULL_PROPOSAL">
-            <span class="choice-card__kicker">Full Technical Bid</span>
             <span class="choice-card__title">Technical Proposal</span>
-            <span class="choice-card__desc">Full methodology, workplan, team composition, management &amp; QA aligned to scored ToR criteria.</span>
+            <span class="choice-card__desc">Methodology, workplan, team, and quality assurance, written against the scored criteria.</span>
           </button>
           <button type="button"
                   class="choice-card {% if active_sub_type == 'EOI' %}is-selected{% endif %}"
                   data-doc-type="EOI">
-            <span class="choice-card__kicker">Shortlist / REOI Stage</span>
             <span class="choice-card__title">Expression of Interest (EOI)</span>
-            <span class="choice-card__desc">Firm profile, relevant assignment track record, country presence, and core team summary.</span>
+            <span class="choice-card__desc">Firm profile, relevant assignments, country presence, and a short team summary.</span>
           </button>
         </div>
-      </div>
+      </li>
 
       {# ── Part 2: Template Gallery Cards (Follow TOR vs House Format) ────── #}
       {% if opener %}
-      <div>
-        <span class="label" style="display:block;margin-bottom:6px">Part 2 · Template Gallery</span>
+      <li class="studio-step">
+        <div class="studio-step__head">
+          <h3 class="studio-step__title"><span class="steps__num">2</span> Starting outline</h3>
+          <span class="studio-step__hint">The recommended one is already selected.</span>
+        </div>
         <div class="template-cards" role="tablist" aria-label="Proposal and EOI templates">
           {% if recommended and recommended.sections %}
           <button type="button"
@@ -213,10 +194,14 @@
           </button>
           {% endif %}
         </div>
-      </div>
+      </li>
       {% endif %}
 
-      {# ── Part 3: Two-Column Studio (Chapter Customizer + ToR Checklist) ── #}
+      <li class="studio-step">
+        <div class="studio-step__head">
+          <h3 class="studio-step__title"><span class="steps__num">3</span> Chapters</h3>
+          <span class="studio-step__hint">Assign a requirement and it lands in the chapter you last edited.</span>
+        </div>
       <div class="studio-grid">
         <div class="studio-grid__main">
           {% if opener %}
@@ -230,8 +215,8 @@
           <div class="tor-brief-card">
             <div class="tor-brief-card__head">
               <div class="row-between">
-                <span class="label">ToR / RFP Alignment Checklist</span>
-                <span class="badge-pill mono">≥80% Gate</span>
+                <span class="tor-brief-card__title">From the tender</span>
+                <span class="small muted">80% bar</span>
               </div>
               <p class="small muted">Extracted from the tender document. Click <strong>+ Assign</strong> on any item to insert it into the active chapter's <em>Must Cover</em> scope.</p>
             </div>
@@ -319,32 +304,17 @@
         </aside>
       </div>
 
-      {% if templates %}
-      <div class="choices">
-        {% for template in templates %}
-          {% if not opener or template.id != opener.id %}
-          <details class="choice">
-            <summary>
-              <span class="choice__name">{{ template.name }}</span>
-              <span class="choice__sum">{{ template.summary }}</span>
-            </summary>
-            <div class="choice__body">
-              {{ outline_form(template, d.source_url, csrf_token, url_outline, is_primary=False) }}
-            </div>
-          </details>
-          {% endif %}
-        {% endfor %}
-      </div>
-      {% endif %}
-    </div>
+      </li>
+    </ol>
   </div>
-</section>
+</details>
 
 <script>
 (function () {
   var studio = document.getElementById("outline-studio");
   var form = document.getElementById("primary-outline-form");
   if (!studio || !form) return;
+  if (location.hash === "#outline-studio") studio.open = true;
 
   var list = form.querySelector("[data-chapter-list]");
   var cards = studio.querySelectorAll("[data-template-preset]");

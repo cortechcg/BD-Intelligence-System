@@ -9,25 +9,25 @@
 {% set draft_ready = (job.status == "succeeded") and d and d.has_draft %}
 
 <div class="view-head">
-  <div>
-    <div class="eyebrow">Live Pipeline Execution · Job <span class="mono">{{ job.id[:8] }}</span></div>
+  <div class="view-head__main">
+    <a class="backlink" href="{{ url_queue }}">← Opportunities</a>
     <h1>
       {% if awaiting_outline %}
-        ToR Analysis Complete — Select or Customize Template
+        The tender is scored
       {% elif draft_ready %}
-        Draft Complete — Ready for Review
+        The draft is ready to read
       {% elif running %}
-        Analyzing &amp; Processing Tender…
+        Reading and scoring the tender…
       {% else %}
-        Job <span class="mono" style="font-size: inherit">{{ job.id[:8] }}</span>
+        This run <span class="mono">{{ (job.id|string)[:8] }}</span>
       {% endif %}
       <span class="hl">{{ job.ui_state | replace("_", " ") }}</span>
     </h1>
-  </div>
-  <div class="view-head__meta">
-    <span>{{ job.kind_label }}</span>
-    <span>requested by {{ job.requested_by }}</span>
-    <span class="mono">{{ ((job.requested_at or '')|string)[:19] | replace("T", " ") }}</span>
+    <ul class="view-head__meta">
+      <li>{{ job.kind_label }}</li>
+      <li>{{ job.requested_by }}</li>
+      <li class="mono">{{ ((job.requested_at or '')|string)[:19] | replace("T", " ") }}</li>
+    </ul>
   </div>
 </div>
 
@@ -39,12 +39,11 @@
 <div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio" style="margin-bottom: var(--sp5)">
   <div class="panel__in row-between">
     <div>
-      <div class="eyebrow">Step 2 of 3 Ready · Template Recommendation Prepared</div>
-      <h2 style="margin-top: var(--sp1)">ToR Scored &amp; Analyzed — Opening Template Studio</h2>
-      <p class="section__sub" style="margin-top: var(--sp2)">The agent has extracted the ToR requirements, evaluation criteria, and fit score, and prepared a recommended outline. Redirecting you to review or customize the template before drafting…</p>
+      <h2>Opening the chapter editor</h2>
+      <p class="section__sub">The tender is read and scored, and an outline is ready. Taking you there to confirm the chapters before anything is written.</p>
     </div>
     <div class="row">
-      <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Review ToR &amp; Customize Template</a>
+      <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Choose the chapters</a>
     </div>
   </div>
 </div>
@@ -52,12 +51,11 @@
 <div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}" style="margin-bottom: var(--sp5)">
   <div class="panel__in row-between">
     <div>
-      <div class="eyebrow">Step 3 of 3 Complete · Aligned to ToR</div>
-      <h2 style="margin-top: var(--sp1)">Technical Proposal / EOI Draft Ready</h2>
-      <p class="section__sub" style="margin-top: var(--sp2)">Your draft has been compiled and verified against the ToR evaluation criteria. Redirecting to the Opportunity Workspace…</p>
+      <h2>The draft is ready</h2>
+      <p class="section__sub">It has been checked against the tender. Taking you to the review pack.</p>
     </div>
     <div class="row">
-      <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}">Open Opportunity Workspace</a>
+      <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}">Open the review</a>
       <a class="btn btn--quiet" href="{{ url_draft }}?url={{ opp_url | urlencode }}">Download draft (.md)</a>
     </div>
   </div>
@@ -69,29 +67,29 @@
   <li class="steps__item {% if awaiting_outline or draft_ready %}is-done{% elif running %}is-active{% endif %}">
     <span class="steps__num">1</span>
     <div class="steps__text">
-      <strong>Read &amp; Score ToR / RFP</strong>
-      <span>Extract evaluation criteria, deliverables &amp; Cortech fit</span>
+      <strong>Read and score</strong>
+      <span>Requirements, deliverables, and Cortech’s fit</span>
     </div>
   </li>
   <li class="steps__item {% if draft_ready %}is-done{% elif awaiting_outline %}is-active{% endif %}">
     <span class="steps__num">2</span>
     <div class="steps__text">
-      <strong>Recommend or Customize Template</strong>
-      <span>Confirm ToR-prescribed chapters, Technical Proposal, or EOI</span>
+      <strong>Choose the chapters</strong>
+      <span>The tender’s own structure, a technical proposal, or an EOI</span>
     </div>
   </li>
   <li class="steps__item {% if draft_ready %}is-done{% endif %}">
     <span class="steps__num">3</span>
     <div class="steps__text">
-      <strong>Draft Aligned Technical Proposal / EOI</strong>
-      <span>Write chapters &amp; verify ≥80% criteria alignment</span>
+      <strong>Write the draft</strong>
+      <span>Chapters checked against the tender, at the 80% bar</span>
     </div>
   </li>
 </ol>
 
 {# ── The instrument: this run's spend against its own cap ──────────────── #}
 <div class="panel panel--hero">
-  <div class="score-band" style="grid-template-columns: minmax(0, 2fr) auto auto auto">
+  <div class="job-spend">
     <div class="hero">
       {% if job.spend_usd is not none %}
         {{ m.meter(job.spend_usd, job.spend_limit_usd or 0, "This run's model spend", size="lg", fmt="%.4f",
@@ -110,7 +108,7 @@
       <div class="stat__label">attempt{{ "s" if job.attempt_count != 1 }}</div>
     </div>
     <div class="stat">
-      <div class="stat__value" style="font-size: var(--t16); line-height: 1.4">{{ m.state_chip(job.ui_state, live=(job.status == "running")) }}</div>
+      <div class="stat__value">{{ m.state_chip(job.ui_state, live=(job.status == "running")) }}</div>
       <div class="stat__label">
         {% if job.status == "running" %}heartbeat {{ m.value(job.last_heartbeat_at) }}
         {% elif job.finished_at %}finished {{ (job.finished_at|string)[:19] | replace("T", " ") }}
@@ -121,10 +119,7 @@
   </div>
   {% if running %}
   <div class="score-band__rail">
-    <div class="band band--info band--wide">
-      <div class="band__title">Live: the worker reports every {{ (poll_ms / 1000) | int }}s and this page refreshes with it.</div>
-      As soon as scoring finishes, this page will automatically open the Opportunity Workspace so you can review the recommended template or customize chapters before drafting.
-    </div>
+    <p>Live. The worker reports every {{ (poll_ms / 1000) | int }} seconds and this page refreshes with it. When scoring finishes, it opens the tender so you can confirm the chapters before a draft is written.</p>
   </div>
   {% endif %}
 </div>
@@ -153,7 +148,7 @@
 
 {% if d %}
 <section class="section" aria-labelledby="h-pipe">
-  <div class="section__head"><h2 id="h-pipe">Pipeline</h2><span class="section__count">from the ledger</span></div>
+  <div class="section__head"><h2 id="h-pipe">Where this tender stands</h2></div>
   <div class="panel"><div class="panel__in">
     {{ m.railbar(d.rail, "lg", d.ui_state, human_done=d.stage.value in ("reviewed", "outcome"), has_draft=d.has_draft) }}
     <div class="row" style="margin-top: var(--sp4)">
@@ -161,7 +156,7 @@
       {% if d.last_error.value and running %}{% set recorded = d.last_error.value|string %}<span class="v-why">last recorded: {{ recorded[:120] }}</span>{% endif %}
       {% if opp_url %}
         <a class="btn btn--sm" href="{{ url_detail }}?url={{ opp_url | urlencode }}{% if d.stage.value == 'scored' and not d.has_draft %}#outline-studio{% endif %}">
-          {% if d.stage.value == "scored" and not d.has_draft %}Review ToR &amp; Choose Template{% else %}Open Opportunity Workspace{% endif %}
+          {% if d.stage.value == "scored" and not d.has_draft %}Choose the chapters{% else %}Open the tender{% endif %}
         </a>
       {% endif %}
       {% if d.has_draft %}
@@ -169,14 +164,14 @@
         <span class="small muted">needs human review before anything is sent</span>
       {% endif %}
     </div>
-    <p class="rail-caption">The pipeline pauses after scoring so you can confirm or customize the template chapters before full drafting begins.</p>
+    <p class="rail-caption">After scoring, the run waits so you can confirm the chapters before a draft is written.</p>
   </div></div>
 </section>
 {% endif %}
 
 <section class="section" aria-labelledby="h-req">
   <details class="disclosure">
-    <summary id="h-req">Run Diagnostics <span class="muted">dashboard_triggers row</span></summary>
+    <summary id="h-req">Run record <span class="muted">for this job</span></summary>
     <div class="disclosure__body">
       <dl class="kv kv--2col kv--compact">
         <dt>Job id</dt><dd class="mono">{{ job.id }}</dd>

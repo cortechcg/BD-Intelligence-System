@@ -164,18 +164,31 @@ def test_no_colour_literal_outside_the_token_block():
     assert not stray, f"colour literals outside :root: {stray}"
 
 
-def test_type_is_two_weights_and_labels_are_the_only_uppercase():
+def test_type_is_two_weights_and_captions_are_the_only_uppercase():
+    """Uppercase is kept for figure captions and the BID/WATCH chips; buttons and nav read as sentences."""
     for selector, rule in rules():
         for w in re.findall(r"font-weight:\s*([^;]+);", rule):
             assert w.strip() in ("var(--font-weight-regular)", "var(--font-weight-medium)"), f"{selector.strip()[:50]}: {w}"
     upper = [sel.strip() for sel, rule in rules() if "text-transform: uppercase" in rule]
-    assert len(upper) == 4, f"uppercase on labels, nav, chips, and the primary button: {upper}"
+    assert len(upper) == 2, f"uppercase on captions and chips only: {upper}"
     assert any(".label" in sel for sel in upper)
-    assert any(".nav a" in sel for sel in upper)
     assert any(".chip" in sel for sel in upper)
-    assert any(sel.startswith(".btn") for sel in upper)
+    assert not any(sel.startswith(".btn") or ".nav a" in sel for sel in upper)
     assert not re.search(r"h1, h2, h3 \{[^}]*uppercase", BODY)
-    assert re.search(r"\.btn \{[^}]*text-transform: uppercase", BODY)
+    assert not re.search(r"\.btn \{[^}]*text-transform: uppercase", BODY)
+
+
+def test_captions_controls_and_focus_are_legible():
+    """Small captions clear AA on cards, control borders and the focus ring clear 3:1 (WCAG 1.4.11)."""
+    assert contrast(token("ink-2"), token("surface")) >= 4.5
+    assert contrast(token("ink-2"), token("hover")) >= 4.5
+    assert contrast(token("line-input"), token("surface")) >= 3.0
+    assert contrast(token("line-input"), token("hover")) >= 3.0
+    assert contrast(token("focus-ring"), token("surface")) >= 3.0
+    assert contrast(token("focus-ring"), token("ground")) >= 3.0
+    caption = re.search(r"\.label, \.eyebrow[^{]*\{([^}]*)\}", BODY).group(1)
+    assert "color: var(--ink-2)" in caption, "captions use --ink-2, not mid green"
+    assert not re.search(r"font-size:\s*(?:[0-9]|1[01])px", CSS), "nothing renders under 12px"
 
 
 def test_hierarchy_is_size():

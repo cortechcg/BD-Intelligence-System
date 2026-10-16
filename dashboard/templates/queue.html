@@ -36,7 +36,7 @@
 <table class="table table--queue">
   <colgroup>
     {% if selectable %}<col class="c-sel">{% endif %}
-    <col class="c-opp"><col class="c-client"><col class="c-rail"><col class="c-state">
+    <col class="c-opp"><col class="c-client"><col class="c-progress">
     {% if show_scores %}<col class="c-num"><col class="c-num"><col class="c-rec">{% endif %}
     <col class="c-date"><col class="c-act">
   </colgroup>
@@ -44,9 +44,8 @@
     <tr>
       {% if selectable %}<th class="c-sel-cell"><input type="checkbox" id="bulk-all" aria-label="select all shown"></th>{% endif %}
       <th>Opportunity</th>
-      <th>Buyer / Client</th>
-      <th>Stage</th>
-      <th>Status</th>
+      <th>Buyer</th>
+      <th>Progress</th>
       {% if show_scores %}<th class="num">Fit</th><th class="num">Win</th><th>Call</th>{% endif %}
       <th>Deadline</th>
       <th></th>
@@ -80,22 +79,22 @@
           </a>
         </div>
       </td>
-      <td>{{ m.value_terse(item.client) }}</td>
-      <td>
-        {{ m.railbar(item.rail, "xs", item.ui_state, human_done=item.stage.value in ("reviewed", "outcome"), has_draft=item.stage.value == "drafted") }}
-        <div class="t-sub">{% if item.stage.value %}{{ item.stage.value }}{% else %}<span class="v-missing" title="{{ item.stage.why }}">not started</span>{% endif %}</div>
-      </td>
-      <td>
-        {{ m.state_chip(item.ui_state) }}
-        {% if item.draft_fail_count %}<div class="t-sub">draft failures {{ item.draft_fail_count }}/3</div>{% endif %}
-        {% if item.last_error.value %}<div class="t-sub clamp-2" title="{{ item.last_error.value }}">{{ item.last_error.value[:140] }}</div>{% endif %}
+      <td data-label="Buyer">{{ m.value_terse(item.client) }}</td>
+      <td data-label="Progress">
+        <div class="progress-cell">
+          {{ m.railbar(item.rail, "xs", item.ui_state, human_done=item.stage.value in ("reviewed", "outcome"), has_draft=item.stage.value == "drafted") }}
+          {{ m.state_chip(item.ui_state) }}
+          {% if item.stage.value %}<span class="progress-cell__stage">{{ item.stage.value }}</span>{% endif %}
+          {% if item.draft_fail_count %}<span class="t-sub">draft failures {{ item.draft_fail_count }}/3</span>{% endif %}
+          {% if item.last_error.value %}<span class="t-sub clamp-2" title="{{ item.last_error.value }}">{{ item.last_error.value[:140] }}</span>{% endif %}
+        </div>
       </td>
       {% if show_scores %}
-      <td class="num">{{ m.value_terse(item.fit) }}</td>
-      <td class="num">{{ m.value_terse(item.win_probability) }}</td>
-      <td>{{ m.rec_chip(item.recommendation) }}</td>
+      <td class="num" data-label="Fit">{{ m.value_terse(item.fit) }}</td>
+      <td class="num" data-label="Win">{{ m.value_terse(item.win_probability) }}</td>
+      <td data-label="Call">{{ m.rec_chip(item.recommendation) }}</td>
       {% endif %}
-      <td class="nowrap">{{ m.value_terse(item.deadline) }}</td>
+      <td class="nowrap" data-label="Deadline">{{ m.value_terse(item.deadline) }}</td>
       <td class="c-act">{{ row_actions(item) }}</td>
     </tr>
   {% endfor %}
@@ -107,18 +106,17 @@
 {% block content %}
 {% set c = queue.counts %}
 
-{# ── Page Header & Direct ToR / RFP Intake ─────────────────────────────── #}
-<section class="stack" id="stage-1-sources" aria-labelledby="h-stage-1">
+<section id="stage-1-sources" aria-labelledby="h-stage-1">
   <div class="view-head">
-    <div>
-      <div class="eyebrow">Cortech Consulting Group · Bid Desk</div>
-      <h1 id="h-stage-1">Opportunities &amp; Proposals {% if c.halted %}<span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
-      <p class="view-head__lead">Upload a Terms of Reference (ToR) or paste a tender link to analyze, score fit, and draft a proposal — or browse tenders discovered across portals below.</p>
-    </div>
-    <div class="view-head__meta">
-      <span class="badge-pill mono">{{ c.ledger_rows }} tracked</span>
-      <span class="badge-pill mono">{{ c.cache_rows }} discovered</span>
-      <span class="badge-pill mono">auto-refresh {{ (poll_ms / 1000) | int }}s</span>
+    <div class="view-head__main">
+      <div class="eyebrow">Cortech Consulting Group</div>
+      <h1 id="h-stage-1">Opportunities{% if c.halted %} <span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
+      <p class="view-head__lead">Paste a tender link or drop a Terms of Reference. The desk reads it, scores Cortech’s fit, and drafts a proposal for you to review.</p>
+      <ul class="view-head__meta">
+        <li>{{ c.ledger_rows }} tracked</li>
+        <li>{{ c.cache_rows }} discovered</li>
+        <li>Updated every {{ (poll_ms / 1000) | int }}s</li>
+      </ul>
     </div>
   </div>
 
@@ -126,405 +124,356 @@
   <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
   {% endif %}
 
-  {# Primary Tender Intake Card: Paste a Link OR Upload a File #}
-  <section class="section--intake" aria-labelledby="h-submit">
-    <div class="intake-card">
-      <div class="intake-card__head">
-        <div>
-          <span class="eyebrow">Start a New Bid</span>
-          <h2 id="h-submit">Analyze a ToR or RFP</h2>
-          <p class="intake-card__sub">Reads the tender document, extracts requirements, scores Cortech fit, matches consultant CVs, and writes the proposal draft.</p>
+  <section class="panel panel--hero intake-card" aria-labelledby="h-submit">
+    <div class="panel__head">
+      <div>
+        <h2 id="h-submit">Start a bid</h2>
+        <p class="panel__desc">A Google Drive link, a tender page, or a file from your computer. PDF, Word, or plain text.</p>
+      </div>
+      <span class="intake-status" id="url-status-pill">Ready</span>
+    </div>
+
+    {% if triggering_enabled %}
+    <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="intent" id="intake-intent" value="auto">
+
+      <div class="intake-split">
+        <div class="intake-col">
+          <div class="submit-row">
+            <input type="url" id="url" name="url" aria-label="Tender or Google Drive URL" placeholder="Paste a Drive or tender link" autocomplete="off" spellcheck="false">
+            <button class="btn" type="submit" id="intake-submit-btn">Analyze, score and draft</button>
+          </div>
         </div>
-        <span class="badge-pill" id="url-status-pill">Ready</span>
+        <div class="intake-divider" aria-hidden="true"><span>or</span></div>
+        <div class="intake-col">
+          <label class="upload-dropzone" id="upload-dropzone" for="tor-file">
+            <input type="file" id="tor-file" name="tor_file" accept=".pdf,.docx,.doc,.txt,.md" multiple class="sr-only">
+            <span class="upload-dropzone__title" id="upload-dropzone-title">Drop a ToR or RFP here</span>
+            <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word, or text. It starts as soon as you choose a file.</span>
+          </label>
+        </div>
       </div>
 
-      {% if triggering_enabled %}
-      <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="intent" id="intake-intent" value="auto">
-
-        <div class="intake-split">
-          {# Left column: Paste a link #}
-          <div class="intake-col">
-            <div>
-              <div class="intake-col__title">Paste a tender or Google Drive link</div>
-              <div class="intake-col__desc">Works with Google Drive folders/files, UNGM, ReliefWeb, or any tender page.</div>
-            </div>
-            <div class="submit-row">
-              <input type="url" id="url" name="url" aria-label="Tender or Google Drive URL" placeholder="https://drive.google.com/… or tender link" autocomplete="off" spellcheck="false">
-              <button class="btn" type="submit" id="intake-submit-btn">Analyze, Score &amp; Draft</button>
-            </div>
-          </div>
-
-          <div class="intake-divider" aria-hidden="true"><span>or</span></div>
-
-          {# Right column: Upload a ToR / RFP file directly #}
-          <div class="intake-col">
-            <div>
-              <div class="intake-col__title">Upload a ToR or RFP file</div>
-              <div class="intake-col__desc">Drop a PDF, Word (.docx), or text document from your computer.</div>
-            </div>
-            <label class="upload-dropzone" id="upload-dropzone" for="tor-file">
-              <input type="file" id="tor-file" name="tor_file" accept=".pdf,.docx,.doc,.txt,.md" multiple class="sr-only">
-              <span class="upload-dropzone__title" id="upload-dropzone-title">Choose a ToR / RFP file or drag it here</span>
-              <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word (.docx), or .txt — starts immediately</span>
-            </label>
-          </div>
+      <div class="intake-form__foot">
+        <div class="row">
+          <label class="toggle-inline">
+            <input type="checkbox" id="auto-draft-toggle" name="auto_draft" value="1" checked>
+            <span>Write the draft after scoring</span>
+          </label>
+          <label class="toggle-inline">
+            <input type="checkbox" id="auto-score-paste" checked>
+            <span>Start as soon as I paste or choose a file</span>
+          </label>
         </div>
-
-        <div class="intake-form__foot">
-          <div class="row">
-            <label class="toggle-inline">
-              <input type="checkbox" id="auto-draft-toggle" name="auto_draft" value="1" checked>
-              <span>Write full draft automatically after scoring (uncheck to review and edit chapters first)</span>
-            </label>
-            <label class="toggle-inline">
-              <input type="checkbox" id="auto-score-paste" checked>
-              <span>Start automatically on paste or file select</span>
-            </label>
-          </div>
-          <span class="field__hint">Nothing is ever sent to a client. You can edit chapters and re-generate at any time.</span>
-        </div>
-      </form>
-      {% else %}
+        <span class="field__hint">Uncheck the first box if you want to edit the chapters before anything is written.</span>
+      </div>
+    </form>
+    {% else %}
+    <div class="panel__in" style="padding-top: 0">
       <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
-      {% endif %}
     </div>
+    {% endif %}
   </section>
 
-  {# ── Overview Strip & 24h Spend Meter ────────────────────────────────── #}
-  <div class="panel panel--hero strip">
-    <div class="strip__figures">
+  <div class="glance">
+    <div class="panel glance__figures">
       <a class="figure figure--outline" href="#outline">
-        <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
         <div class="figure__label">Choose outline</div>
-        <div class="figure__sub">scored, ready for template</div>
+        <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
+        <div class="figure__sub">Scored, waiting on chapters</div>
       </a>
       <a class="figure figure--review" href="#drafted">
-        <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
         <div class="figure__label">Awaiting review</div>
-        <div class="figure__sub">drafted proposals / EOIs</div>
+        <div class="figure__value{% if not c.drafted %} is-zero{% endif %}">{{ c.drafted }}</div>
+        <div class="figure__sub">Drafts ready to read</div>
       </a>
       <a class="figure figure--flight" href="#in-flight">
-        <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
         <div class="figure__label">In flight</div>
-        <div class="figure__sub">scoring or drafting now</div>
+        <div class="figure__value{% if not c.in_flight %} is-zero{% endif %}">{{ c.in_flight }}</div>
+        <div class="figure__sub">Scoring or drafting now</div>
       </a>
       <a class="figure figure--attention" href="#attention">
-        <div class="figure__value{% if not c.halted %} is-zero{% endif %}">{{ c.halted }}</div>
         <div class="figure__label">Needs attention</div>
-        <div class="figure__sub">halted runs</div>
-      </a>
-      <a class="figure figure--found" href="#unclaimed">
-        <div class="figure__value">{{ c.cache_rows }}</div>
-        <div class="figure__label">Discovered</div>
-        <div class="figure__sub">{{ c.cache_without_ledger_shown }} unclaimed shown</div>
-      </a>
-      <a class="figure figure--stopped" href="#skips">
-        <div class="figure__value{% if not c.terminal_skip %} is-zero{% endif %}">{{ c.terminal_skip }}</div>
-        <div class="figure__label">Stopped by design</div>
-        <div class="figure__sub">gate or NO-BID</div>
+        <div class="figure__value{% if not c.halted %} is-zero{% endif %}">{{ c.halted }}</div>
+        <div class="figure__sub">Halted runs</div>
       </a>
     </div>
-    <div class="strip__meter">
+    <div class="panel glance__meter">
       {% if spend.available %}
-        {{ m.meter(spend.spent_usd, spend.cap_usd, "Dashboard spend, last " ~ spend.hours ~ "h",
-                   foot=spend.runs ~ " run(s), cancelled and failed included" ~ (" · " ~ spend.runs_unknown_cost ~ " with UNKNOWN cost, treated as over" if spend.runs_unknown_cost else ""),
+        {{ m.meter(spend.spent_usd, spend.cap_usd, "Spend, last " ~ spend.hours ~ "h",
+                   foot=spend.runs ~ " run(s), cancelled and failed included" ~ (" · " ~ spend.runs_unknown_cost ~ " with unknown cost, treated as over" if spend.runs_unknown_cost else ""),
                    blocked=cap_blocked) }}
         {% if cap_blocked %}
           <div class="band band--critical band--wide"><div class="band__title">New runs will be refused</div>{{ cap_reason }}</div>
         {% endif %}
       {% else %}
         <div class="band band--warn band--wide">
-          <div class="band__title">Aggregate spend could not be read</div>
-          The worker refuses to start runs in this state.
+          <div class="band__title">Spend could not be read</div>
+          The worker will not start runs until it can.
         </div>
       {% endif %}
     </div>
   </div>
 </section>
 
-{# ── Stage 2: Procurement Channels & Filter Bar ────────────────────────── #}
-<section class="section section--tight stack" id="stage-2-opportunities" aria-labelledby="h-stage-2">
-  <div class="row-between">
-    <div>
-      <span class="label">Procurement Channels &amp; Queue</span>
-      <h2 class="h2" id="h-stage-2">Browse by source or stage</h2>
+<section class="section section--tight" id="stage-2-opportunities" aria-labelledby="h-stage-2">
+  <div class="panel workq" id="work-queue">
+    <div class="workq__head">
+      <div>
+        <h2 id="h-stage-2">Work queue</h2>
+        <p class="panel__desc">One list. Pick a stage, then narrow it by source or a word in the title.</p>
+      </div>
+      <input type="search" id="opp-filter-q" class="workq__search" placeholder="Search title, buyer, or site" aria-label="Search opportunities">
     </div>
-    <nav class="quick-nav" aria-label="Jump to pipeline bucket">
-      <a class="quick-nav__pill" href="#outline">
-        <span>Choose Outline</span>
-        <span class="badge-pill badge-pill--accent mono">{{ c.choose_outline }}</span>
-      </a>
-      <a class="quick-nav__pill" href="#drafted">
-        <span>Drafted &amp; Review</span>
-        <span class="badge-pill mono">{{ c.drafted }}</span>
-      </a>
-      <a class="quick-nav__pill" href="#in-flight">
-        <span>In Flight</span>
-        <span class="badge-pill mono">{{ c.in_flight }}</span>
-      </a>
-      <a class="quick-nav__pill" href="#attention">
-        <span>Needs Attention</span>
-        <span class="badge-pill {% if c.halted %}badge-pill--warn{% endif %} mono">{{ c.halted }}</span>
-      </a>
-      <a class="quick-nav__pill" href="#unclaimed">
-        <span>Discovered</span>
-        <span class="badge-pill mono">{{ c.cache_without_ledger_shown }}</span>
-      </a>
-    </nav>
+
+    <div class="tabs" role="tablist" aria-label="Pipeline stage">
+      <a class="tab" role="tab" href="#outline" data-tab="outline">Choose outline <span class="tab__count">{{ c.choose_outline }}</span></a>
+      <a class="tab" role="tab" href="#drafted" data-tab="drafted">Drafted <span class="tab__count">{{ c.drafted }}</span></a>
+      <a class="tab" role="tab" href="#in-flight" data-tab="in-flight">In flight <span class="tab__count">{{ c.in_flight }}</span></a>
+      <a class="tab" role="tab" href="#attention" data-tab="attention">Needs attention <span class="tab__count {% if c.halted %}tab__count--warn{% endif %}">{{ c.halted }}</span></a>
+      <a class="tab" role="tab" href="#unclaimed" data-tab="unclaimed">Discovered <span class="tab__count">{{ c.cache_without_ledger_shown }}</span></a>
+      <a class="tab" role="tab" href="#skips" data-tab="skips">Stopped <span class="tab__count">{{ c.terminal_skip }}</span></a>
+    </div>
+
+    <div class="workq__filters">
+      <span class="workq__filters-label">Source</span>
+      <button type="button" class="filter-chip is-active" data-source-filter="all">All</button>
+      <button type="button" class="filter-chip" data-source-filter="drive">Drive</button>
+      <button type="button" class="filter-chip" data-source-filter="un">UN</button>
+      <button type="button" class="filter-chip" data-source-filter="donor">Donors</button>
+      <button type="button" class="filter-chip" data-source-filter="ngo">NGOs</button>
+      <button type="button" class="filter-chip" data-source-filter="gov">Government</button>
+      <button type="button" class="filter-chip" data-source-filter="email">Email</button>
+      <span class="workq__count" id="opp-filter-count"></span>
+    </div>
+
+    <div class="tabpanel" id="outline" data-tabpanel="outline" role="tabpanel">
+      <h3 class="tabpanel__title">Ready for a template ({{ c.choose_outline }})</h3>
+      <p class="tabpanel__note">Scored, and waiting for you to confirm the chapters.</p>
+      {% if queue.choose_outline %}
+        {{ opp_table(queue.choose_outline, bucket_name="outline") }}
+      {% else %}
+        {{ m.empty("Nothing is waiting on a template", "Paste a link or drop a file above.") }}
+      {% endif %}
+    </div>
+
+    <div class="tabpanel" id="drafted" data-tabpanel="drafted" role="tabpanel">
+      <h3 class="tabpanel__title">Drafted proposals and EOIs ({{ c.drafted }})</h3>
+      <p class="tabpanel__note">Written and checked against the tender. Nothing is sent on its own.</p>
+      {% if queue.drafted %}
+        {{ opp_table(queue.drafted, bucket_name="drafted") }}
+      {% else %}
+        {{ m.empty("No drafts yet", "Finished proposals appear here.") }}
+      {% endif %}
+    </div>
+
+    <div class="tabpanel" id="in-flight" data-tabpanel="in-flight" role="tabpanel">
+      <h3 class="tabpanel__title">Running now ({{ c.in_flight }})</h3>
+      {% if queue.in_flight %}
+        {{ opp_table(queue.in_flight, bucket_name="in-flight") }}
+      {% else %}
+        {{ m.empty("Nothing is running", "A live run shows its progress here.") }}
+      {% endif %}
+    </div>
+
+    <div class="tabpanel" id="attention" data-tabpanel="attention" role="tabpanel">
+      <h3 class="tabpanel__title">Needs attention ({{ c.halted }})</h3>
+      <p class="tabpanel__note">Halted runs. Resuming keeps the saved stage, so the reading already paid for is not repeated.</p>
+      {% if queue.halted %}
+        {{ opp_table(queue.halted, bucket_name="attention") }}
+      {% else %}
+        {{ m.empty("Nothing needs attention", "No run is halted, capped, or dead-lettered.") }}
+      {% endif %}
+    </div>
+
+    <div class="tabpanel" id="unclaimed" data-tabpanel="unclaimed" role="tabpanel">
+      <h3 class="tabpanel__title">Discovered, not yet scored</h3>
+      <p class="tabpanel__note">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} found across the portals.</p>
+      {% if queue.cache_only %}
+        {% if triggering_enabled %}
+        <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="tabpanel__tools">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="btn btn--sm" type="submit" id="bulk-submit">Score selected</button>
+          <span class="small muted">Up to {{ bulk_max }} at a time.</span>
+        </form>
+        {% endif %}
+        {{ opp_table(queue.cache_only, bucket_name="unclaimed", show_scores=False, selectable=True) }}
+      {% else %}
+        {{ m.empty("Everything discovered has been run", "New tenders appear here after the next discovery run.") }}
+      {% endif %}
+    </div>
+
+    <div class="tabpanel" id="skips" data-tabpanel="skips" role="tabpanel">
+      <h3 class="tabpanel__title">Stopped by design ({{ c.terminal_skip }})</h3>
+      <p class="tabpanel__note">Staff vacancies and NO-BID decisions. These never reach a draft.</p>
+      {% if queue.terminal_skip %}
+        {{ opp_table(queue.terminal_skip, bucket_name="skips") }}
+      {% else %}
+        {{ m.empty("No terminal skips", "Runs that stop before drafting are listed here.") }}
+      {% endif %}
+    </div>
   </div>
-
-  {# Selectable Procurement Source Grid #}
-  <div class="source-grid" role="list" aria-label="Configured procurement sources">
-    <button type="button" class="source-card is-active" data-source-filter="all">
-      <div class="source-card__top">
-        <span class="source-card__type">All Sources</span>
-        <span class="source-card__status">{{ c.ledger_rows + c.cache_without_ledger_shown }} items</span>
-      </div>
-      <div class="source-card__name">All Procurement Feeds</div>
-      <div class="source-card__desc">Every tracked and discovered opportunity across all portals.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="drive">
-      <div class="source-card__top">
-        <span class="source-card__type">Google Drive</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">Shared Drive TORs</div>
-      <div class="source-card__desc">PDF and Word ToRs shared in the team Google Drive folder.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="un">
-      <div class="source-card__top">
-        <span class="source-card__type">UN &amp; Multilateral</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">UNGM &amp; ReliefWeb</div>
-      <div class="source-card__desc">UNICEF, UNDP, UNHCR, WFP, WHO, UNFPA, and ReliefWeb notices.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="donor">
-      <div class="source-card__top">
-        <span class="source-card__type">Donors &amp; Banks</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">World Bank, EU &amp; GIZ</div>
-      <div class="source-card__desc">Development bank and bilateral donor consultancy notices.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="ngo">
-      <div class="source-card__top">
-        <span class="source-card__type">NGOs &amp; INGOs</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">DRC, NRC, Save the Children</div>
-      <div class="source-card__desc">Evaluations, baselines, TPM, and MEAL tenders in East Africa.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="gov">
-      <div class="source-card__top">
-        <span class="source-card__type">Government</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">National &amp; IGAD Portals</div>
-      <div class="source-card__desc">Ministry, county, and regional intergovernmental calls.</div>
-    </button>
-
-    <button type="button" class="source-card" data-source-filter="email">
-      <div class="source-card__top">
-        <span class="source-card__type">Email Alerts</span>
-        <span class="source-card__status">Active</span>
-      </div>
-      <div class="source-card__name">Assortis &amp; Daily Digests</div>
-      <div class="source-card__desc">Shortlisted tender alerts parsed from email newsletters.</div>
-    </button>
-
-    <button type="button" class="source-card" data-focus-intake="1">
-      <div class="source-card__top">
-        <span class="source-card__type">Manual Intake</span>
-        <span class="source-card__status">Upload / Link</span>
-      </div>
-      <div class="source-card__name">Upload a ToR / Paste Link</div>
-      <div class="source-card__desc">Jump to the intake box above to upload a file or paste a URL.</div>
-    </button>
-  </div>
-
-  {# Filter & Search Bar #}
-  <div class="filter-bar" role="search" aria-label="Filter opportunities">
-    <input type="search" id="opp-filter-q" class="filter-bar__search"
-           placeholder="Search by title, buyer/client, country, or website…"
-           aria-label="Search opportunities by keyword">
-    <select id="opp-filter-source" class="filter-bar__select" aria-label="Filter by source">
-      <option value="all">All sources</option>
-      <option value="drive">Google Drive TORs</option>
-      <option value="un">UNGM &amp; ReliefWeb</option>
-      <option value="donor">World Bank, EU &amp; Donors</option>
-      <option value="ngo">NGO &amp; Foundation Portals</option>
-      <option value="gov">Government &amp; Regional</option>
-      <option value="email">Email Alerts</option>
-    </select>
-    <select id="opp-filter-stage" class="filter-bar__select" aria-label="Filter by stage">
-      <option value="all">All stages</option>
-      <option value="outline">Choose Outline ({{ c.choose_outline }})</option>
-      <option value="drafted">Drafted &amp; Review ({{ c.drafted }})</option>
-      <option value="in-flight">In Flight ({{ c.in_flight }})</option>
-      <option value="attention">Needs Attention ({{ c.halted }})</option>
-      <option value="unclaimed">Discovered ({{ c.cache_without_ledger_shown }})</option>
-      <option value="skips">Stopped by design ({{ c.terminal_skip }})</option>
-    </select>
-    <button type="button" class="btn btn--quiet btn--sm" id="opp-filter-clear">Clear filters</button>
-    <span class="mono small muted" id="opp-filter-count">{{ c.ledger_rows + c.cache_without_ledger_shown }} shown</span>
-  </div>
-</section>
-
-{# ── Opportunity Tables, ordered by workflow priority ──────────────────── #}
-<section class="section section--tight" id="outline" aria-labelledby="h-outline">
-  <div class="section__head">
-    <h2 id="h-outline">Ready for Template Selection ({{ c.choose_outline }})</h2>
-    <span class="section__count">Scored · Choose or customize chapters</span>
-  </div>
-  <p class="section__sub">Scored opportunities waiting for chapter confirmation. Open any row to review the ToR analysis, customize the chapters, or start writing the draft.</p>
-  {% if queue.choose_outline %}
-    {{ opp_table(queue.choose_outline, bucket_name="outline") }}
-  {% else %}
-    {{ m.empty("No scored opportunity is waiting on a template", "Upload a ToR file or paste a tender link above to score and draft a proposal.") }}
-  {% endif %}
-</section>
-
-<section class="section section--tight" id="drafted" aria-labelledby="h-drafted">
-  <div class="section__head">
-    <h2 id="h-drafted">Drafted Proposals &amp; EOIs ({{ c.drafted }})</h2>
-    <span class="section__count">Ready for human review</span>
-  </div>
-  <p class="section__sub">Completed Technical Proposals and EOIs checked against extracted ToR criteria. Nothing is sent automatically.</p>
-  {% if queue.drafted %}
-    {{ opp_table(queue.drafted, bucket_name="drafted") }}
-  {% else %}
-    {{ m.empty("No completed drafts yet", "Completed proposals and EOIs appear here once drafting finishes.") }}
-  {% endif %}
-</section>
-
-<section class="section section--tight" id="in-flight" aria-labelledby="h-inflight">
-  <div class="section__head">
-    <h2 id="h-inflight">Active Analysis &amp; Drafting ({{ c.in_flight }})</h2>
-    <span class="section__count">{{ c.in_flight }} running</span>
-  </div>
-  {% if queue.in_flight %}
-    {{ opp_table(queue.in_flight, bucket_name="in-flight") }}
-  {% else %}
-    {{ m.empty("No active runs in flight", "When you upload a ToR or score a tender, live progress appears here.") }}
-  {% endif %}
-</section>
-
-<section class="section section--tight" id="attention" aria-labelledby="h-attention">
-  <div class="section__head">
-    <h2 id="h-attention">Needs attention</h2>
-    <span class="section__count">{{ c.halted }}</span>
-  </div>
-  <p class="section__sub">Halted runs. Resume keeps the saved stage and checkpoint so prior extraction and analysis are not repeated.</p>
-  {% if queue.halted %}
-    {{ opp_table(queue.halted, bucket_name="attention") }}
-  {% else %}
-    {{ m.empty("Nothing needs attention", "No run is halted, capped, or dead-lettered.") }}
-  {% endif %}
-</section>
-
-<section class="section section--tight" id="unclaimed" aria-labelledby="h-unclaimed">
-  <div class="section__head">
-    <h2 id="h-unclaimed">Discovered from Portals</h2>
-    <span class="section__count">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} cached</span>
-  </div>
-  <p class="section__sub">Tenders found across monitored portals. Click Score on any row to extract its ToR, score fit, and prepare a draft outline.</p>
-  {% if queue.cache_only %}
-    {% if triggering_enabled %}
-    <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="toolbar toolbar--stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <button class="btn btn--sm" type="submit" id="bulk-submit">Score selected</button>
-      <span class="small muted">Up to {{ bulk_max }} at a time.</span>
-    </form>
-    {% endif %}
-    {{ opp_table(queue.cache_only, bucket_name="unclaimed", show_scores=False, selectable=True) }}
-  {% else %}
-    {{ m.empty("Every discovered row has been run", "New tenders appear here automatically after scheduled discovery runs.") }}
-  {% endif %}
 </section>
 
 {% if triggers %}
-<section class="section section--tight" aria-labelledby="h-jobs">
-  <div class="section__head"><h2 id="h-jobs">Recent Run Activity</h2><span class="section__count">{{ triggers | length }} most recent</span></div>
-  <div class="table-wrap">
-    <table class="table table--jobs">
-      <colgroup><col class="c-id"><col class="c-when"><col class="c-kind"><col class="c-status"><col class="c-spend"><col></colgroup>
-      <thead><tr><th>Job</th><th>Requested</th><th>Action</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
-      <tbody>
-      {% for t in triggers %}
-        <tr>
-          <td class="mono"><a href="{{ url_job }}/{{ t.id }}">{{ t.id[:8] }}</a></td>
-          <td class="nowrap">
-            <div class="mono">{{ t.requested_at[:16] | replace("T", " ") }}</div>
-            <div class="t-sub clamp-1" title="{{ t.requested_by }}">{{ t.requested_by }}</div>
-          </td>
-          <td>{{ t.kind_label }}</td>
-          <td>{{ m.state_chip(t.ui_state, live=(t.status == "running")) }}</td>
-          <td class="num mono">{% if t.spend_usd is not none %}{{ "%.3f"|format(t.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
-          <td>
-            <a class="mono" href="{{ url_detail }}?url={{ t.source_url | urlencode }}" title="{{ t.source_url }}">{{ m.host(t.source_url) }}</a>
-            {% if t.error_message %}<div class="t-sub clamp-2" title="{{ t.error_message }}">{{ t.error_kind }}: {{ t.error_message[:160] }}</div>{% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+<details class="disclosure section section--tight">
+  <summary id="h-jobs">Recent runs <span class="muted">{{ triggers | length }} most recent</span></summary>
+  <div class="disclosure__body">
+    <div class="table-wrap table-wrap--flush">
+      <table class="table table--jobs">
+        <colgroup><col class="c-id"><col class="c-when"><col class="c-kind"><col class="c-status"><col class="c-spend"><col></colgroup>
+        <thead><tr><th>Job</th><th>Requested</th><th>Action</th><th>Status</th><th class="num">Spend (USD)</th><th>Opportunity</th></tr></thead>
+        <tbody>
+        {% for t in triggers %}
+          <tr>
+            <td class="mono"><a href="{{ url_job }}/{{ t.id }}">{{ t.id[:8] }}</a></td>
+            <td class="nowrap">
+              <div class="mono">{{ t.requested_at[:16] | replace("T", " ") }}</div>
+              <div class="t-sub clamp-1" title="{{ t.requested_by }}">{{ t.requested_by }}</div>
+            </td>
+            <td>{{ t.kind_label }}</td>
+            <td>{{ m.state_chip(t.ui_state, live=(t.status == "running")) }}</td>
+            <td class="num mono">{% if t.spend_usd is not none %}{{ "%.3f"|format(t.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
+            <td>
+              <a class="mono" href="{{ url_detail }}?url={{ t.source_url | urlencode }}" title="{{ t.source_url }}">{{ m.host(t.source_url) }}</a>
+              {% if t.error_message %}<div class="t-sub clamp-2" title="{{ t.error_message }}">{{ t.error_kind }}: {{ t.error_message[:160] }}</div>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-</section>
+</details>
 {% endif %}
-
-<section class="section section--tight" id="skips" aria-labelledby="h-skips">
-  <div class="section__head">
-    <h2 id="h-skips">Stopped by design</h2>
-    <span class="section__count">{{ c.terminal_skip }}</span>
-  </div>
-  <p class="section__sub">Filtered out before drafting: individual staff vacancies or NO-BID decisions.</p>
-  {% if queue.terminal_skip %}
-    {{ opp_table(queue.terminal_skip, bucket_name="skips") }}
-  {% else %}
-    {{ m.empty("No terminal skips", "Runs that stop before drafting by design will be listed here.") }}
-  {% endif %}
-</section>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-/* Auto-start analyzing, scoring, and drafting immediately when a user pastes a link
-   or uploads/drops a ToR/RFP file, plus live filtering for Stage 1 & Stage 2. */
 (function () {
-  var form = document.getElementById("intake-form");
-  var input = document.getElementById("url");
-  var fileInput = document.getElementById("tor-file");
-  var dropzone = document.getElementById("upload-dropzone");
-  var dzTitle = document.getElementById("upload-dropzone-title");
-  var dzSub = document.getElementById("upload-dropzone-sub");
-  var autoDraftToggle = document.getElementById("auto-draft-toggle");
-  var intentInput = document.getElementById("intake-intent");
-  var autoToggle = document.getElementById("auto-score-paste");
-  var btn = document.getElementById("intake-submit-btn");
-  var statusPill = document.getElementById("url-status-pill");
+  var ORDER = ["outline", "drafted", "in-flight", "attention", "unclaimed", "skips"];
+  var activeTab = null;
+  var activeSource = "all";
 
-  function syncModeLabels() {
-    var fullRun = !autoDraftToggle || autoDraftToggle.checked;
-    if (intentInput) intentInput.value = fullRun ? "auto" : "score";
-    if (btn) btn.textContent = fullRun ? "Analyze, Score & Draft" : "Analyze & Score ToR";
+  function queue() { return document.getElementById("work-queue"); }
+
+  function firstWithRows() {
+    for (var i = 0; i < ORDER.length; i++) {
+      var panel = document.getElementById(ORDER[i]);
+      if (panel && panel.querySelector("tr.opp-row")) return ORDER[i];
+    }
+    return "outline";
   }
 
-  if (autoDraftToggle) {
-    autoDraftToggle.addEventListener("change", syncModeLabels);
-    syncModeLabels();
+  function tabFromHash() {
+    var hash = (location.hash || "").replace("#", "");
+    if (ORDER.indexOf(hash) !== -1) return hash;
+    return null;
   }
 
-  if (form) {
+  function matchSource(urlAndText, src) {
+    if (!src || src === "all") return true;
+    if (src === "drive") return urlAndText.indexOf("drive.google.com") !== -1 || urlAndText.indexOf("docs.google.com") !== -1 || urlAndText.indexOf("upload.cortechconsultinggroup.com") !== -1;
+    if (src === "un") return /ungm\.org|reliefweb\.int|unicef|undp|unhcr|wfp|who\.int|unfpa/i.test(urlAndText);
+    if (src === "donor") return /worldbank|europa\.eu|giz\.de|danida|afdb|usaid|fcdo/i.test(urlAndText);
+    if (src === "ngo") return /drc\.ngo|nrc\.no|savethechildren|care\.org|oxfam|mercycorps|irc/i.test(urlAndText);
+    if (src === "gov") return /\.go\.ke|\.gov|igad|au\.int|ministry/i.test(urlAndText);
+    if (src === "email") return /assortis|ica|newsletter|digest/i.test(urlAndText);
+    return true;
+  }
+
+  function applyFilters() {
+    var qEl = document.getElementById("opp-filter-q");
+    var countEl = document.getElementById("opp-filter-count");
+    var q = ((qEl && qEl.value) || "").trim().toLowerCase();
+    var rows = document.querySelectorAll("tr.opp-row");
+    var shown = 0;
+    var panelShown = {};
+    rows.forEach(function (tr) {
+      var text = (tr.textContent || "").toLowerCase();
+      var url = tr.getAttribute("data-url") || "";
+      var visible = (!q || text.indexOf(q) !== -1 || url.indexOf(q) !== -1) && matchSource(url + " " + text, activeSource);
+      tr.style.display = visible ? "" : "none";
+      if (visible) {
+        shown++;
+        panelShown[tr.getAttribute("data-bucket-row")] = (panelShown[tr.getAttribute("data-bucket-row")] || 0) + 1;
+      }
+    });
+    if (countEl) countEl.textContent = shown + " shown";
+    document.querySelectorAll(".filter-chip").forEach(function (chip) {
+      chip.classList.toggle("is-active", chip.getAttribute("data-source-filter") === activeSource);
+    });
+    return panelShown;
+  }
+
+  function showTab(name, push) {
+    var root = queue();
+    if (!root || ORDER.indexOf(name) === -1) return;
+    activeTab = name;
+    root.classList.add("is-tabbed");
+    root.querySelectorAll("[data-tab]").forEach(function (tab) {
+      var on = tab.getAttribute("data-tab") === name;
+      tab.classList.toggle("is-active", on);
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    root.querySelectorAll("[data-tabpanel]").forEach(function (panel) {
+      panel.classList.toggle("is-active", panel.getAttribute("data-tabpanel") === name);
+    });
+    if (push && location.hash !== "#" + name) {
+      history.replaceState(null, "", "#" + name);
+    }
+  }
+
+  function bindQueue() {
+    var root = queue();
+    if (!root || root.getAttribute("data-bound") === "1") return;
+    root.setAttribute("data-bound", "1");
+    var wanted = tabFromHash() || activeTab || firstWithRows();
+    showTab(wanted, false);
+    applyFilters();
+    root.addEventListener("click", function (ev) {
+      var tab = ev.target.closest("[data-tab]");
+      if (tab && root.contains(tab)) {
+        ev.preventDefault();
+        showTab(tab.getAttribute("data-tab"), true);
+        return;
+      }
+      var chip = ev.target.closest("[data-source-filter]");
+      if (chip && root.contains(chip)) {
+        activeSource = chip.getAttribute("data-source-filter") || "all";
+        applyFilters();
+      }
+    });
+    var qEl = document.getElementById("opp-filter-q");
+    if (qEl) qEl.addEventListener("input", applyFilters);
+  }
+
+  function bindIntake() {
+    var form = document.getElementById("intake-form");
+    if (!form || form.getAttribute("data-bound") === "1") return;
+    form.setAttribute("data-bound", "1");
+    var input = document.getElementById("url");
+    var fileInput = document.getElementById("tor-file");
+    var dropzone = document.getElementById("upload-dropzone");
+    var dzTitle = document.getElementById("upload-dropzone-title");
+    var dzSub = document.getElementById("upload-dropzone-sub");
+    var autoDraftToggle = document.getElementById("auto-draft-toggle");
+    var intentInput = document.getElementById("intake-intent");
+    var autoToggle = document.getElementById("auto-score-paste");
+    var btn = document.getElementById("intake-submit-btn");
+    var statusPill = document.getElementById("url-status-pill");
     var submitted = false;
+
+    function syncModeLabels() {
+      var fullRun = !autoDraftToggle || autoDraftToggle.checked;
+      if (intentInput) intentInput.value = fullRun ? "auto" : "score";
+      if (btn) btn.textContent = fullRun ? "Analyze, score and draft" : "Analyze and score";
+    }
+    if (autoDraftToggle) {
+      autoDraftToggle.addEventListener("change", syncModeLabels);
+      syncModeLabels();
+    }
     function triggerSubmit(labelMsg) {
       if (submitted) return;
       var hasUrl = input && /^https?:\/\/\S+/i.test((input.value || "").trim());
@@ -533,88 +482,59 @@
       submitted = true;
       window.__cortechFormDirty = false;
       if (btn) btn.textContent = "Starting…";
-      if (statusPill) statusPill.textContent = labelMsg || "Starting pipeline…";
-      if (typeof form.requestSubmit === "function") {
-        form.requestSubmit();
-      } else {
-        form.submit();
-      }
+      if (statusPill) statusPill.textContent = labelMsg || "Starting…";
+      if (typeof form.requestSubmit === "function") form.requestSubmit();
+      else form.submit();
     }
-
     form.addEventListener("submit", function (ev) {
       var hasUrl = input && /^https?:\/\/\S+/i.test((input.value || "").trim());
       var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
       if (!hasUrl && !hasFile) {
         ev.preventDefault();
-        if (statusPill) statusPill.textContent = "Paste a link or choose a file first";
+        if (statusPill) statusPill.textContent = "Paste a link or choose a file";
         return;
       }
       submitted = true;
       window.__cortechFormDirty = false;
       if (btn) btn.textContent = "Starting…";
-      if (statusPill) statusPill.textContent = "Running pipeline…";
+      if (statusPill) statusPill.textContent = "Running…";
     });
-
     if (input) {
       input.addEventListener("input", function () {
-        var val = (input.value || "").trim();
         if (!statusPill) return;
-        if (/^https?:\/\/\S+/i.test(val)) {
-          statusPill.textContent = "Link ready";
-        } else if (val.length > 0) {
-          statusPill.textContent = "Enter https:// URL";
-        } else {
-          statusPill.textContent = "Ready";
-        }
+        var val = (input.value || "").trim();
+        if (/^https?:\/\/\S+/i.test(val)) statusPill.textContent = "Link ready";
+        else if (val.length) statusPill.textContent = "Needs an https:// link";
+        else statusPill.textContent = "Ready";
       });
-
       input.addEventListener("paste", function () {
         if (!autoToggle || !autoToggle.checked) return;
         setTimeout(function () {
-          var val = (input.value || "").trim();
-          if (/^https?:\/\/\S+/i.test(val) && !submitted) {
-            triggerSubmit("Starting analysis…");
-          }
+          if (/^https?:\/\/\S+/i.test((input.value || "").trim()) && !submitted) triggerSubmit("Starting…");
         }, 60);
       });
     }
-
     if (fileInput) {
       fileInput.addEventListener("change", function () {
         if (!fileInput.files || !fileInput.files.length) return;
         var names = [];
-        for (var i = 0; i < fileInput.files.length; i++) {
-          names.push(fileInput.files[i].name);
-        }
+        for (var i = 0; i < fileInput.files.length; i++) names.push(fileInput.files[i].name);
         if (dzTitle) dzTitle.textContent = names.join(", ");
-        if (dzSub) dzSub.textContent = "Uploading and starting analysis…";
+        if (dzSub) dzSub.textContent = "Uploading…";
         if (statusPill) statusPill.textContent = "File selected";
-        if (!autoToggle || autoToggle.checked) {
-          setTimeout(function () {
-            triggerSubmit("Uploading & analyzing…");
-          }, 80);
-        }
+        if (!autoToggle || autoToggle.checked) setTimeout(function () { triggerSubmit("Uploading…"); }, 80);
       });
     }
-
     if (dropzone && fileInput) {
-      ["dragenter", "dragover"].forEach(function (evName) {
-        dropzone.addEventListener(evName, function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dropzone.classList.add("is-dragover");
-        });
+      ["dragenter", "dragover"].forEach(function (name) {
+        dropzone.addEventListener(name, function (ev) { ev.preventDefault(); dropzone.classList.add("is-dragover"); });
       });
-      ["dragleave", "drop"].forEach(function (evName) {
-        dropzone.addEventListener(evName, function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          dropzone.classList.remove("is-dragover");
-        });
+      ["dragleave", "drop"].forEach(function (name) {
+        dropzone.addEventListener(name, function (ev) { ev.preventDefault(); dropzone.classList.remove("is-dragover"); });
       });
       dropzone.addEventListener("drop", function (ev) {
         var dt = ev.dataTransfer;
-        if (dt && dt.files && dt.files.length > 0) {
+        if (dt && dt.files && dt.files.length) {
           try {
             fileInput.files = dt.files;
             fileInput.dispatchEvent(new Event("change", {bubbles: true}));
@@ -624,77 +544,12 @@
     }
   }
 
-  /* Stage 1 Source Selector & Stage 2 Filter Bar */
-  var qInput = document.getElementById("opp-filter-q");
-  var srcSelect = document.getElementById("opp-filter-source");
-  var stgSelect = document.getElementById("opp-filter-stage");
-  var clearBtn = document.getElementById("opp-filter-clear");
-  var countEl = document.getElementById("opp-filter-count");
-  var srcCards = Array.prototype.slice.call(document.querySelectorAll(".source-card[data-source-filter]"));
-  var focusIntakeBtn = document.querySelector(".source-card[data-focus-intake]");
-
-  if (focusIntakeBtn && input) {
-    focusIntakeBtn.addEventListener("click", function () {
-      input.focus();
-      input.scrollIntoView({behavior: "smooth", block: "center"});
-    });
-  }
-
-  function matchSourceCategory(urlAndText, srcFilter) {
-    if (!srcFilter || srcFilter === "all") return true;
-    if (srcFilter === "drive") return urlAndText.indexOf("drive.google.com") !== -1 || urlAndText.indexOf("docs.google.com") !== -1 || urlAndText.indexOf("upload.cortechconsultinggroup.com") !== -1;
-    if (srcFilter === "un") return /ungm\.org|reliefweb\.int|unicef|undp|unhcr|wfp|who\.int|unfpa/i.test(urlAndText);
-    if (srcFilter === "donor") return /worldbank|europa\.eu|giz\.de|danida|afdb|usaid|fcdo/i.test(urlAndText);
-    if (srcFilter === "ngo") return /drc\.ngo|nrc\.no|savethechildren|care\.org|oxfam|mercycorps|irc/i.test(urlAndText);
-    if (srcFilter === "gov") return /\.go\.ke|\.gov|igad|au\.int|ministry/i.test(urlAndText);
-    if (srcFilter === "email") return /assortis|ica|newsletter|digest/i.test(urlAndText);
-    return true;
-  }
-
-  function applyFilters() {
-    var q = ((qInput && qInput.value) || "").trim().toLowerCase();
-    var src = (srcSelect && srcSelect.value) || "all";
-    var stg = (stgSelect && stgSelect.value) || "all";
-    var rows = Array.prototype.slice.call(document.querySelectorAll("tr.opp-row"));
-    var shown = 0;
-
-    rows.forEach(function (tr) {
-      var text = (tr.textContent || "").toLowerCase();
-      var url = tr.getAttribute("data-url") || "";
-      var bucket = tr.getAttribute("data-bucket-row") || "";
-      var okQ = !q || text.indexOf(q) !== -1 || url.indexOf(q) !== -1;
-      var okSrc = matchSourceCategory(url + " " + text, src);
-      var okStg = stg === "all" || bucket === stg;
-      var visible = okQ && okSrc && okStg;
-      tr.style.display = visible ? "" : "none";
-      if (visible) shown++;
-    });
-
-    if (countEl) {
-      countEl.textContent = shown + " shown";
-    }
-    srcCards.forEach(function (card) {
-      card.classList.toggle("is-active", card.getAttribute("data-source-filter") === src);
-    });
-  }
-
-  if (qInput) qInput.addEventListener("input", applyFilters);
-  if (srcSelect) srcSelect.addEventListener("change", applyFilters);
-  if (stgSelect) stgSelect.addEventListener("change", applyFilters);
-  if (clearBtn) {
-    clearBtn.addEventListener("click", function () {
-      if (qInput) qInput.value = "";
-      if (srcSelect) srcSelect.value = "all";
-      if (stgSelect) stgSelect.value = "all";
-      applyFilters();
-    });
-  }
-  srcCards.forEach(function (card) {
-    card.addEventListener("click", function () {
-      var filterVal = card.getAttribute("data-source-filter") || "all";
-      if (srcSelect) srcSelect.value = filterVal;
-      applyFilters();
-    });
+  function boot() { bindQueue(); bindIntake(); }
+  boot();
+  document.addEventListener("cortech:page-swapped", boot);
+  window.addEventListener("hashchange", function () {
+    var name = tabFromHash();
+    if (name) showTab(name, false);
   });
 })();
 </script>
