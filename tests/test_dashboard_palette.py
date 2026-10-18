@@ -3,8 +3,10 @@
 Parchment and moss: a warm parchment ground (#f4efe6), cream cards (#fffcf6),
 ink text (#22231f), moss (#3f4a2e) for primary actions and progress, ochre
 (#9a6b1f marks, #8c5f17 text) only where a person must act, and clay
-(#a4553c) for errors. Every text colour must clear WCAG AA (4.5:1) on the
-page, and every mark must clear 3:1.
+(#a4553c) for errors, with a slightly deeper desk (#efe9dd) behind the index
+column. Every text colour must clear WCAG AA (4.5:1) on the page, and every
+mark must clear 3:1. Type: Instrument Sans for the interface, Newsreader for
+headings and display figures.
 """
 from __future__ import annotations
 
@@ -111,7 +113,7 @@ def test_two_fills_only():
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
             tok = m.group(2)
             if tok in (
-                "ground", "surface", "track", "hover", "selected", "glass", "line",
+                "ground", "surface", "track", "hover", "selected", "glass", "line", "desk",
                 "stepper-well", "color-upcoming", "color-ok-bg", "color-warn-bg", "color-err-bg",
             ):
                 continue
@@ -234,5 +236,16 @@ def test_fonts_are_self_hosted_and_present():
         assert (Path("dashboard/static/fonts") / face).exists(), face
     assert "googleapis" not in CSS and "gstatic" not in CSS
     assert (Path("dashboard/static/fonts") / "LICENSE-Outfit-OFL.txt").exists()
-    for lic in ("LICENSE-Newsreader-OFL.txt", "LICENSE-IBMPlexSans-OFL.txt"):
+    for lic in ("LICENSE-Newsreader-OFL.txt", "LICENSE-InstrumentSans-OFL.txt"):
         assert "Open Font License" in (Path("dashboard/static/fonts") / lic).read_text(), lic
+
+
+def test_type_pairing_is_instrument_sans_and_newsreader():
+    """Instrument Sans sets the interface; Newsreader sets headings and display figures."""
+    assert re.search(r'--ui:\s*"Instrument Sans var"', ROOT)
+    assert re.search(r'--doc:\s*"Newsreader var"', ROOT)
+    assert re.search(r"--fig:\s*var\(--doc\)", ROOT)
+    assert 'url("fonts/instrument-sans-var-latin.woff2")' in CSS
+    assert "IBM Plex Sans" not in CSS, "the old interface face is fully retired"
+    assert contrast(token("ink-2"), token("desk")) >= 4.5, "captions stay AA on the desk column"
+    assert contrast(token("ink"), token("desk")) >= 4.5
