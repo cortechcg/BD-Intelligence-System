@@ -93,14 +93,14 @@
     <div class="hero">
       {% if job.spend_usd is not none %}
         {{ m.meter(job.spend_usd, job.spend_limit_usd or 0, "This run's model spend", size="lg", fmt="%.4f",
-                   foot=("cost of at least one call is UNKNOWN — the cap treats this run as over" if job.spend_known is false else "estimated from the run's own accounting, updated on each worker heartbeat")) }}
+                   foot=("cost of at least one call is UNKNOWN, so the cap treats this run as over" if job.spend_known is false else "estimated from the run's own accounting, updated on each worker heartbeat")) }}
       {% else %}
-        <div class="hero__value is-missing">—</div>
+        <div class="hero__value is-missing">n/a</div>
         <div class="hero__label">This run's model spend <span class="v-why">{% if job.status == 'queued' %}not started{% else %}no heartbeat received yet{% endif %}</span></div>
       {% endif %}
     </div>
     <div class="stat">
-      <div class="stat__value{% if job.provider_calls is none %} is-missing{% endif %}">{{ job.provider_calls if job.provider_calls is not none else "—" }}</div>
+      <div class="stat__value{% if job.provider_calls is none %} is-missing{% endif %}">{{ job.provider_calls if job.provider_calls is not none else "n/a" }}</div>
       <div class="stat__label">model calls</div>
     </div>
     <div class="stat">
@@ -139,7 +139,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <input type="hidden" name="trigger_id" value="{{ job.id }}">
     <button class="btn btn--quiet">
-      {% if job.cancel_requested_at %}Cancel requested — waiting for the worker{% else %}Cancel this run{% endif %}
+      {% if job.cancel_requested_at %}Cancel requested, waiting for the worker{% else %}Cancel this run{% endif %}
     </button>
   </form>
   <p class="section__sub" style="margin-top: var(--sp3)">{{ cancel_copy }}</p>

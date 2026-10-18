@@ -36,8 +36,8 @@ KINDS = (SUBMIT_URL, DRAFT_EXISTING, RETRY_DEAD_LETTER, RERUN_FROM_EXTRACTED, RE
 #: Human-readable, used in the UI and in the audit trail.
 KIND_LABELS = {
     SUBMIT_URL: "run from URL (full pipeline)",
-    DRAFT_EXISTING: "draft — resume from checkpoint",
-    RETRY_DEAD_LETTER: "retry dead-letter — resume from checkpoint",
+    DRAFT_EXISTING: "draft, resume from checkpoint",
+    RETRY_DEAD_LETTER: "retry dead-letter, resume from checkpoint",
     RERUN_FROM_EXTRACTED: "re-run from extracted (re-score + re-draft)",
     RERUN_FROM_SCORED: "re-run from scored (re-draft only)",
 }
@@ -71,7 +71,7 @@ def _rpc(name: str, params: dict) -> Any:
     except Exception as exc:
         if _is_missing_queue(exc):
             raise QueueUnavailable(
-                "dashboard_triggers is missing or out of date — apply "
+                "dashboard_triggers is missing or out of date: apply "
                 "supabase_migration_dashboard_triggers.sql and "
                 "supabase_migration_dashboard_controls.sql"
             ) from exc
@@ -278,7 +278,7 @@ def aggregate_cap_reached(window: dict | None = None) -> tuple[bool, str]:
     w = window or spend_window()
     cap = float(settings.AGGREGATE_CAP_USD)
     if not w.get("available", True):
-        return True, "aggregate spend could not be read — refusing to start a run blind"
+        return True, "aggregate spend could not be read, refusing to start a run blind"
     if w.get("runs_unknown_cost"):
         return True, (
             f"{w['runs_unknown_cost']} run(s) in the last {w['hours']}h had unknown cost; "

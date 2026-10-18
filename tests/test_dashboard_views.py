@@ -5,7 +5,7 @@ Three things are pinned here:
 * the app cannot take an outward action (no submit/send route, no import of
   the client-facing senders);
 * every route is behind the session gate;
-* a missing value renders as an em dash with its reason, and never as a
+* a missing value renders as a grey "n/a" with its reason, and never as a
   plausible-looking number.
 
 The fixtures below build view dicts in memory. That is a *test* fixture, not
@@ -302,13 +302,13 @@ def test_num_never_invents_a_zero():
     assert queries._num("75.5") == 75.5
 
 
-def test_value_macro_renders_an_em_dash_with_its_reason(env):
+def test_value_macro_renders_a_marked_absence_with_its_reason(env):
     t = env.from_string(
         '{% import "_macros.html" as m %}{{ m.value(c) }}'
     )
     out = t.render(c=queries.cell(None, why="not yet scored", source="tbl.col"))
-    assert "—" in out
-    assert "v-missing" in out
+    assert '<span class="v-missing" title="tbl.col">n/a</span>' in out
+    assert "—" not in out
     assert "not yet scored" in out
     # Nothing that could read as a value.
     assert ">0<" not in out and "N/A" not in out
@@ -326,7 +326,7 @@ def test_value_macro_escapes_untrusted_document_text(env):
 def test_terse_macro_keeps_the_reason_in_the_tooltip(env):
     t = env.from_string('{% import "_macros.html" as m %}{{ m.value_terse(c) }}')
     out = t.render(c=queries.cell(None, why="no ledger row", source="tbl.col"))
-    assert "—" in out
+    assert ">n/a<" in out and "—" not in out
     assert 'title="no ledger row' in out
 
 
@@ -614,7 +614,7 @@ def test_five_stage_bid_desk_components_render_across_stages(env):
     }
     html = _render_detail(env, detail)
     # Top bar 5-stage stepper & 5-segment progress bar
-    assert "BID DESK" in html
+    assert "Bid desk" in html
     assert "stage-progress" in html
     for label in ("Source", "Opportunities", "Analysis", "Draft", "Review pack"):
         assert label in html

@@ -100,10 +100,10 @@
           "pending": "row exists, not claimed",
           "processing": "a worker holds the lease",
           "completed": "agent work finished, or a terminal skip",
-          "failed": "retryable — stage and checkpoint preserved",
-          "spend_cap": "MAX_RUN_COST_USD halt (ADR 012) — retryable, not a draft failure",
+          "failed": "retryable, stage and checkpoint preserved",
+          "spend_cap": "MAX_RUN_COST_USD halt (ADR 012), retryable, not a draft failure",
           "dead_letter": "drafting exhausted 3 retries (ADR 011 §5)",
-          "cancelled": "stopped by a person via the dashboard — stage and checkpoint kept",
+          "cancelled": "stopped by a person via the dashboard, stage and checkpoint kept",
         } %}
         {% for s, n in p.by_state.items() %}{% if n %}
         <tr><td>{{ m.state_chip(s) }}</td><td class="num">{{ n }}</td><td class="muted">{{ meanings.get(s, "") }}</td></tr>
@@ -152,7 +152,7 @@
     </div>
     <div class="tile">
       <div class="tile__label">Calibrated P(win)</div>
-      <div class="tile__value is-missing">—</div>
+      <div class="tile__value is-missing">n/a</div>
       <div class="tile__sub">INSUFFICIENT DATA</div>
     </div>
   </div>
@@ -164,7 +164,7 @@
 
 <section class="section" aria-labelledby="h-runs">
   <div class="section__head"><h2 id="h-runs">Dashboard runs</h2>
-    {% if spend.available %}<span class="section__count">{{ "%.2f"|format(spend.spent_usd) }} of {{ "%.2f"|format(spend.cap_usd) }} USD in the last {{ spend.hours }}h{% if cap_blocked %} — cap reached{% endif %}</span>{% endif %}
+    {% if spend.available %}<span class="section__count">{{ "%.2f"|format(spend.spent_usd) }} of {{ "%.2f"|format(spend.cap_usd) }} USD in the last {{ spend.hours }}h{% if cap_blocked %}, cap reached{% endif %}</span>{% endif %}
   </div>
   <p class="section__sub">Spend recorded on each job. Cancelled and failed runs are listed with what they cost; cancelling does not hide money that was spent.</p>
   {% if dashboard_runs %}
@@ -183,7 +183,7 @@
               {% if done_w %}<div class="bar__fill bar__fill--agent" style="width: {{ '%.1f'|format(done_w) }}%"></div>{% endif %}
               {% if stop_w %}<div class="bar__fill bar__fill--stopped" style="width: {{ '%.1f'|format(stop_w) }}%"></div>{% endif %}
             </div>
-            <div class="bar__value">{% if day_total %}{{ "%.2f"|format(day_total) }}{% else %}<span class="v-missing" title="no spend recorded">—</span>{% endif %}{% if charts.spend.unknown[i] %} <span class="bar__share">{{ charts.spend.unknown[i] }} unrecorded</span>{% endif %}</div>
+            <div class="bar__value">{% if day_total %}{{ "%.2f"|format(day_total) }}{% else %}<span class="v-missing" title="no spend recorded">n/a</span>{% endif %}{% if charts.spend.unknown[i] %} <span class="bar__share">{{ charts.spend.unknown[i] }} unrecorded</span>{% endif %}</div>
           </div>
         {% endfor %}
       </div>
@@ -208,7 +208,7 @@
           </td>
           <td>{{ j.kind_label }}</td>
           <td>{{ m.state_chip(j.ui_state, live=(j.status == "running")) }}</td>
-          <td class="num mono">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing" title="no spend recorded">—</span>{% endif %}</td>
+          <td class="num mono">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing" title="no spend recorded">n/a</span>{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>
@@ -284,7 +284,7 @@
   <div style="margin-top: var(--sp4)">
     <p class="footnote"><strong>Cited award winners.</strong> {{ digest.cited_award_note }}</p>
     {% for n in digest.notes %}<p class="footnote">{{ n }}</p>{% endfor %}
-    <p class="footnote">Sources: {{ digest.sources | join(", ") or "—" }}.</p>
+    <p class="footnote">Sources: {{ digest.sources | join(", ") or "n/a" }}.</p>
   </div>
 </section>
 {% else %}

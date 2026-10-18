@@ -49,8 +49,8 @@
         <input type="hidden" name="source_url" value="{{ d.source_url }}">
         <label class="small muted" for="from_stage">Re-run from</label>
         <select name="from_stage" id="from_stage" class="select">
-          <option value="scored">scored — re-draft only (keeps analysis)</option>
-          <option value="extracted">extracted — re-score, then re-draft (keeps text)</option>
+          <option value="scored">scored: re-draft only (keeps analysis)</option>
+          <option value="extracted">extracted: re-score, then re-draft (keeps text)</option>
         </select>
         <button class="btn btn--sm btn--quiet">Go</button>
       </form>
@@ -89,7 +89,7 @@
             {% endif %}
           </svg>
           <div class="gauge-ring__center">
-            <span class="gauge-ring__num" title="{{ d.fit.source }}">{{ d.fit.value if d.fit.value is not none else "—" }}</span>
+            <span class="gauge-ring__num" title="{{ d.fit.source }}">{{ d.fit.value if d.fit.value is not none else "n/a" }}</span>
             <span class="gauge-ring__den">/ 100</span>
           </div>
         </div>
@@ -111,7 +111,7 @@
           <div class="hero__note"><span class="v-prov">{{ d.win_heuristic.label }}</span></div>
         {% else %}
           <div class="hero__label">WIN PROBABILITY</div>
-          <div class="hero__value is-missing" title="{{ d.win_heuristic.source }}">—</div>
+          <div class="hero__value is-missing" title="{{ d.win_heuristic.source }}">n/a</div>
           <div class="hero__note">{{ d.win_heuristic.why }}</div>
         {% endif %}
       </div>
@@ -124,7 +124,7 @@
 
       <div class="stat">
         <div class="stat__label">Calibrated P(win)</div>
-        <div class="stat__value{% if d.win_calibrated.value is none %} is-missing{% endif %}" title="{{ d.win_calibrated.source }}">{{ d.win_calibrated.value if d.win_calibrated.value is not none else "—" }}</div>
+        <div class="stat__value{% if d.win_calibrated.value is none %} is-missing{% endif %}" title="{{ d.win_calibrated.source }}">{{ d.win_calibrated.value if d.win_calibrated.value is not none else "n/a" }}</div>
         <div class="stat__note" title="{{ d.win_calibrated.why or d.win_calibrated.label }}">{{ d.win_calibrated.why or d.win_calibrated.label }}</div>
       </div>
     </div>
@@ -308,8 +308,8 @@
           {% for c in ci.citations %}
             {% if c is mapping %}
             <tr>
-              <td>{{ c.title or "—" }}</td>
-              <td>{{ c.role or "—" }}</td>
+              <td>{{ c.title or "n/a" }}</td>
+              <td>{{ c.role or "n/a" }}</td>
               <td>{{ c.outcome or "UNKNOWN" }} {% if c.outcome_status %}{{ m.ev_label(c.outcome_status) }}{% endif %}</td>
               <td class="mono">{{ c.source_kind }}{% if c.source_id %}:{{ c.source_id }}{% endif %}</td>
             </tr>
@@ -323,7 +323,7 @@
       {% else %}<p class="small muted">No citations are stored for this client.</p>{% endif %}
     {% elif org and org.available %}
       {% if org.match %}
-        <p class="small muted">Matched <strong>{{ org.match.canonical_name or "—" }}</strong> via {{ org.match.method }} {{ m.ev_label(org.match.status) }}{% if org.match.confidence is not none %} (confidence {{ org.match.confidence }}){% endif %}.</p>
+        <p class="small muted">Matched <strong>{{ org.match.canonical_name or "n/a" }}</strong> via {{ org.match.method }} {{ m.ev_label(org.match.status) }}{% if org.match.confidence is not none %} (confidence {{ org.match.confidence }}){% endif %}.</p>
       {% endif %}
       {% if org.records %}
       <div class="table-wrap table-wrap--flush" style="margin-top: var(--sp4)">
@@ -347,11 +347,11 @@
   </section>
 
   <details class="disclosure">
-    <summary>Scoring detail <span class="muted">bid_scorer {{ d.score_version.value or "—" }}</span></summary>
+    <summary>Scoring detail <span class="muted">bid_scorer {{ d.score_version.value or "n/a" }}</span></summary>
     <div class="disclosure__body">
       <dl class="kv kv--2col">
         <dt>Risk</dt>
-        <dd>{{ m.value(d.risk_dim.score) }} <span class="v-prov">{{ d.risk_dim.unit or "0–100, higher is riskier" }}</span> {{ m.ev_label(d.risk_dim.status) }}</dd>
+        <dd>{{ m.value(d.risk_dim.score) }} <span class="v-prov">{{ d.risk_dim.unit or "0 to 100, higher is riskier" }}</span> {{ m.ev_label(d.risk_dim.status) }}</dd>
         <dt>Strategic value</dt><dd>{{ m.value(d.strategic_dim.score) }} {{ m.ev_label(d.strategic_dim.status) }}</dd>
         <dt>Commercial value</dt>
         <dd>{{ m.value(d.commercial_dim.score) }}{% if d.commercial_dim.score.value is not none and d.commercial_dim.unit %} <span class="v-prov">{{ d.commercial_dim.unit }}</span>{% endif %} {{ m.ev_label(d.commercial_dim.status) }}
@@ -456,20 +456,20 @@
     </div>
     <div class="tile">
       <div class="tile__label">Fit score</div>
-      <div class="tile__value">{{ d.fit.value if d.fit.value is not none else "—" }}<span class="tile__unit">/ 100</span></div>
+      <div class="tile__value">{{ d.fit.value if d.fit.value is not none else "n/a" }}<span class="tile__unit">/ 100</span></div>
       <div class="tile__sub">How closely this matches Cortech</div>
     </div>
     <div class="tile">
       <div class="tile__label">Requirement alignment</div>
       <div class="tile__value">
-        {% if d.requirement_alignment and d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}<span class="tile__unit">/ 100</span>{% else %}—{% endif %}
+        {% if d.requirement_alignment and d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}<span class="tile__unit">/ 100</span>{% else %}n/a{% endif %}
       </div>
       <div class="tile__sub">{{ (d.requirement_alignment.rows | length) if (d.requirement_alignment and d.requirement_alignment.rows) else 0 }} requirements checked</div>
     </div>
     <div class="tile">
       <div class="tile__label">Draft self-score</div>
       <div class="tile__value">
-        {% if qs and qs.get("overall_score") is not none %}{{ qs.get("overall_score") }}<span class="tile__unit">/ 100</span>{% else %}—{% endif %}
+        {% if qs and qs.get("overall_score") is not none %}{{ qs.get("overall_score") }}<span class="tile__unit">/ 100</span>{% else %}n/a{% endif %}
       </div>
       <div class="tile__sub">{% if qs and qs.get("weakest_section") %}Weakest: {{ qs.get("weakest_section") | truncate(34, True) }}{% else %}From the quality check{% endif %}</div>
     </div>
@@ -493,7 +493,7 @@
           <tr>
             <td><strong>{{ row.label }}</strong></td>
             <td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
-            <td class="mono">{{ row.section or "—" }}</td>
+            <td class="mono">{{ row.section or "n/a" }}</td>
             <td class="evidence">{{ row.quote or row.evidence }}</td>
           </tr>
         {% endfor %}
@@ -545,7 +545,7 @@
           {% for ln in bgt.get("lines", []) %}
             <tr>
               <td>{{ ln.get("role") or ln.get("item") or "Consultant" }}</td>
-              <td class="num mono">{{ ln.get("days") if ln.get("days") is not none else "—" }}</td>
+              <td class="num mono">{{ ln.get("days") if ln.get("days") is not none else "n/a" }}</td>
               <td class="num mono">{% if ln.get("daily_rate_usd") is not none %}${{ ln.get("daily_rate_usd") }}{% else %}<span class="na na--data">Insufficient data</span>{% endif %}</td>
               <td class="num mono">{% if ln.get("subtotal_usd") is not none %}${{ ln.get("subtotal_usd") }}{% else %}<span class="na na--data">Insufficient data</span>{% endif %}</td>
             </tr>
@@ -554,7 +554,7 @@
         </table>
       </div>
       {% else %}
-        <p class="muted"><span class="na na--data">Insufficient data</span> — a fee estimate needs a verified daily rate for each role and country. No fees or prices go into the Word file.</p>
+        <p class="muted"><span class="na na--data">Insufficient data</span>. A fee estimate needs a verified daily rate for each role and country. No fees or prices go into the Word file.</p>
       {% endif %}
     </section>
   </div>
@@ -562,7 +562,7 @@
   <section class="panel email-preview" aria-labelledby="h-email-pack">
     <div class="email-preview__head">
       <div class="email-preview__row"><span class="email-preview__key" id="h-email-pack">Subject</span>
-        <div class="email-preview__subj">DRAFT PROPOSAL: {{ d.title.value or "Untitled tender" }} | Deadline: {{ d.deadline.value or "TBD" }} | Score: {{ d.fit.value if d.fit.value is not none else "—" }}/100 | REVIEW REQUIRED</div>
+        <div class="email-preview__subj">DRAFT PROPOSAL: {{ d.title.value or "Untitled tender" }} | Deadline: {{ d.deadline.value or "TBD" }} | Score: {{ d.fit.value if d.fit.value is not none else "n/a" }}/100 | REVIEW REQUIRED</div>
       </div>
       <div class="email-preview__row"><span class="email-preview__key">To</span><span>The review team, inside Cortech</span></div>
     </div>
@@ -572,7 +572,7 @@
       {% endfor %}
     </div>
     <div class="email-pane" id="email-pane-decision">
-      <strong>Recommendation:</strong> {{ (d.recommendation.value or "REVIEW") | upper }} (Fit {{ d.fit.value if d.fit.value is not none else "—" }}/100 · Calibrated P(win): {{ d.win_calibrated.why or d.win_calibrated.label or "INSUFFICIENT DATA" }}).
+      <strong>Recommendation:</strong> {{ (d.recommendation.value or "REVIEW") | upper }} (Fit {{ d.fit.value if d.fit.value is not none else "n/a" }}/100 · Calibrated P(win): {{ d.win_calibrated.why or d.win_calibrated.label or "INSUFFICIENT DATA" }}).
       {% if d.why and d.why.value %}<div class="small muted" style="margin-top: var(--sp2)">{{ d.why.value }}</div>{% endif %}
     </div>
     <div class="email-pane" id="email-pane-client" hidden>
@@ -639,12 +639,12 @@
     <div class="band__title">Dead-lettered: drafting failed {{ d.draft_fail_count }} times and will not retry on its own.</div>
     A BID/WATCH item whose draft comes back empty or unusable is retried and then dead-lettered (ADR 011 §5). It is never silently skipped and a hollow draft is never emailed. The pipeline recorded:
     <p class="doc">{{ m.value(d.last_error) }}</p>
-    <p><em>Retry from checkpoint</em> re-claims this row without resetting it: drafting resumes from <code>{{ d.stage.value }}</code> with a fresh three-failure budget, and extraction and analysis are not paid for again. Read the reason first — if nothing upstream has changed, the same failure is likely.</p>
+    <p><em>Retry from checkpoint</em> re-claims this row without resetting it: drafting resumes from <code>{{ d.stage.value }}</code> with a fresh three-failure budget, and extraction and analysis are not paid for again. Read the reason first: if nothing upstream has changed, the same failure is likely.</p>
   </div>
   {% elif d.ui_state == "spend_cap" %}
   <div class="band band--warn notice--cap">
     <div class="band__title">The per-run spend cap stopped this run.</div>
-    <code>MAX_RUN_COST_USD</code> was reached, so the pipeline refused further model calls (ADR 012). This is retryable and is <em>not</em> a drafting failure: the stage stays at <code>{{ d.stage.value }}</code>, the checkpoint is intact, and the draft-failure count was not incremented. A dashboard-triggered run gets no exemption from the cap — it halts exactly as a cron run would.
+    <code>MAX_RUN_COST_USD</code> was reached, so the pipeline refused further model calls (ADR 012). This is retryable and is <em>not</em> a drafting failure: the stage stays at <code>{{ d.stage.value }}</code>, the checkpoint is intact, and the draft-failure count was not incremented. A dashboard-triggered run gets no exemption from the cap. It halts exactly as a cron run would.
     <p class="doc">{{ m.value(d.last_error) }}</p>
   </div>
   {% elif d.ui_state == "cancelled" %}
@@ -705,7 +705,7 @@
           </td>
           <td>{{ j.kind_label }}</td>
           <td>{{ m.state_chip(j.ui_state, live=(j.status == "running")) }}{% if j.error_message %}<div class="t-sub clamp-2" title="{{ j.error_message }}">{{ j.error_message[:120] }}</div>{% endif %}</td>
-          <td class="num mono">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing">—</span>{% endif %}</td>
+          <td class="num mono">{% if j.spend_usd is not none %}{{ "%.3f"|format(j.spend_usd) }}{% else %}<span class="v-missing">n/a</span>{% endif %}</td>
         </tr>
       {% endfor %}
       </tbody>
