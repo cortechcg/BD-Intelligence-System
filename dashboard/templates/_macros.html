@@ -2,12 +2,12 @@
   Shared display primitives.
 
   `value()` is the only sanctioned way to render a field. It is the enforcement
-  point for constraint 1 of the brief: a missing value renders as a grey em dash
+  point for constraint 1 of the brief: a missing value renders as a grey "n/a"
   plus the literal reason it is missing, and there is no argument that makes it
   render as anything else. See docs/DASHBOARD_DESIGN.md §5.
 #}
 
-{% macro value(c, missing="—") -%}
+{% macro value(c, missing="n/a") -%}
   {%- if c is mapping -%}
     {%- if c.value is none -%}
       <span class="v-missing" title="{{ c.source }}">{{ missing }}</span>
@@ -26,12 +26,12 @@
 {%- endmacro %}
 
 {#
-  Table variant. Same rule, quieter voice: the em dash still carries the reason,
-  but as a tooltip rather than as inline text — with real rows, spelling out
+  Table variant. Same rule, quieter voice: the "n/a" still carries the reason,
+  but as a tooltip rather than as inline text, with real rows, spelling out
   "no ledger row" in four columns across forty rows makes the absences the
   loudest thing on the page (docs/DASHBOARD_DESIGN.md §4).
 #}
-{% macro value_terse(c, missing="—") -%}
+{% macro value_terse(c, missing="n/a") -%}
   {%- if c.value is none -%}
     <span class="v-missing" title="{{ c.why }}{% if c.source %} · {{ c.source }}{% endif %}">{{ missing }}</span>
   {%- else -%}
@@ -39,8 +39,8 @@
   {%- endif -%}
 {%- endmacro %}
 
-{# Document/model prose is always serif — the typographic untrusted boundary. #}
-{% macro doc_value(c, missing="—") -%}
+{# Document/model prose is always serif, the typographic untrusted boundary. #}
+{% macro doc_value(c, missing="n/a") -%}
   {%- if c.value is none -%}
     <span class="v-missing" title="{{ c.source }}">{{ missing }}</span>
     {%- if c.why %}<span class="v-why">{{ c.why }}</span>{% endif -%}
@@ -67,10 +67,10 @@
       "pending": "pending",
       "processing": "processing",
       "completed": "completed",
-      "failed": "failed — retryable",
-      "spend_cap": "spend cap — retryable",
+      "failed": "failed, retryable",
+      "spend_cap": "spend cap, retryable",
       "dead_letter": "dead_letter",
-      "cancelled": "cancelled — resumable",
+      "cancelled": "cancelled, resumable",
       "no_ledger": "not yet run",
   } -%}
   <span class="state state--{{ ui_state if ui_state != 'no_ledger' else 'pending' }}{% if live %} is-live{% endif %}">{{ words.get(ui_state, ui_state) }}</span>
@@ -83,7 +83,7 @@
   halt colour from the lease state. Nothing here is animated or estimated.
 
     size: "xs" (table rows) | "sm" | "lg" (labelled, detail/job headers)
-    ui_state: the item's ui_state — colours the current segment when halted
+    ui_state: the item's ui_state, colours the current segment when halted
     human_done: True when a human stage (reviewed/outcome) has been recorded
 #}
 {% macro railbar(stages, size="xs", ui_state="", human_done=False, has_draft=False) -%}
@@ -119,7 +119,7 @@
 {# A score and its provenance are emitted together, always. #}
 {% macro score_with_provenance(c, unit="") -%}
   {%- if c.value is none -%}
-    <span class="v-missing" title="{{ c.source }}">—</span><span class="v-why">{{ c.why }}</span>
+    <span class="v-missing" title="{{ c.source }}">n/a</span><span class="v-why">{{ c.why }}</span>
   {%- else -%}
     <span class="v" title="{{ c.source }}">{{ c.value }}{{ unit }}</span>
     {%- if c.label %}<span class="v-prov">{{ c.label }}</span>{% endif -%}
@@ -187,13 +187,13 @@
       <span class="v{% if cls %} {{ cls }}{% endif %}" title="{{ c.source or '' }}">{{ c.value }}{{ suffix }}</span>
       {%- if c.label %}<span class="v-prov">{{ c.label }}</span>{% endif -%}
     {%- else -%}
-      <span class="v-missing" title="{{ c.source or '' }}">—</span>
+      <span class="v-missing" title="{{ c.source or '' }}">n/a</span>
       {%- if c.why %}<span class="v-why">{{ c.why }}</span>{% elif c.reason %}<span class="v-why">{{ c.reason }}</span>{% endif -%}
     {%- endif -%}
   {%- elif c is not none and c != "" -%}
     <span class="v{% if cls %} {{ cls }}{% endif %}">{{ c }}{{ suffix }}</span>
   {%- else -%}
-    <span class="v-missing">—</span>
+    <span class="v-missing">n/a</span>
   {%- endif -%}
 {%- endmacro %}
 

@@ -216,7 +216,7 @@ def _cache_row_to_item(row: dict) -> dict:
     # That is an absence, not a title, and must not render as one.
     if title.lower() == "unknown":
         title = ""
-    no_ledger = "no ledger row — never claimed for processing"
+    no_ledger = "no ledger row, never claimed for processing"
     return {
         "source_url": url,
         "canonical_url": _canon(url),
@@ -440,7 +440,7 @@ def _factor_rows(bid: dict) -> list[dict]:
             "name": name,
             "value": cell(
                 _num(raw),
-                why="UNKNOWN — not extracted, not guessed",
+                why="UNKNOWN: not extracted, not guessed",
                 source="checkpoint->analysis->bid_intelligence->factor_values",
             ),
             "status": status,
@@ -526,7 +526,7 @@ def opportunity_detail(source_url: str) -> dict | None:
     client_intel = cp.get("client_intelligence") if isinstance(cp.get("client_intelligence"), dict) else {}
 
     scored = bool(bid)
-    why_unscored = "not yet scored" if item["has_ledger"] else "no ledger row — never claimed"
+    why_unscored = "not yet scored" if item["has_ledger"] else "no ledger row, never claimed"
 
     calibrated_raw = bid.get("calibrated_win_probability")
     calibrated_value = None
@@ -768,17 +768,17 @@ def organization_history(name: str | None) -> dict:
         from intelligence.organizations import match_organization
 
         if not organizations_available():
-            return {**blank, "note": "organizations tables unavailable — fail-open (ADR 006)"}
+            return {**blank, "note": "organizations tables unavailable, fail-open (ADR 006)"}
         entries, label = load_organization_index()
         if label == "missing":
-            return {**blank, "note": "organizations index missing — fail-open (ADR 006)"}
+            return {**blank, "note": "organizations index missing, fail-open (ADR 006)"}
         match = match_organization(name, entries)
         records = collect_matching_store_records(match, entries) or []
         return {
             "available": True,
             "note": "" if records else (
                 "No stored observations for this organization yet "
-                f"(organizations index: {len(entries)} entries). Not zero wins — no records."
+                f"(organizations index: {len(entries)} entries). Not zero wins: no records."
             ),
             "match": {
                 "canonical_name": getattr(match, "canonical_name", None),
@@ -870,7 +870,7 @@ def outcome_census() -> dict:
         sb.table("win_loss_memory").select("outcome").limit(1).execute()
     except Exception:
         note_parts.append(
-            "win_loss_memory table does not exist (PGRST205) — no VERIFIED LOST source"
+            "win_loss_memory table does not exist (PGRST205), so no VERIFIED LOST source"
         )
 
     return {

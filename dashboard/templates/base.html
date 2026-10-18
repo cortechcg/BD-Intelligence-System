@@ -16,12 +16,12 @@
 {% set d_drafted = has_d and d.has_draft %}
 {% set active_stage = 5 if d_drafted else (4 if d_scored else (3 if (has_d or (job is defined and job)) else 2)) %}
 
-{# ── Top Bar in Deep Green (#2D5C47), full width, 56px tall ────────────── #}
+{# Masthead: wordmark, workflow stepper, signed-in person. #}
 <header class="masthead">
   <div class="masthead__in">
     <a class="masthead__brand" href="{{ url_queue }}" aria-label="{{ product_name or 'Cortech BD' }}, bid desk">
       <span class="masthead__product">{{ product_name or "Cortech BD" }}</span>
-      <span class="masthead__kicker">BID DESK</span>
+      <span class="masthead__kicker">Bid desk</span>
     </a>
 
     <nav class="stepper" role="tablist" aria-label="Bid desk workflow stages">
@@ -88,7 +88,7 @@
   </div>
 </header>
 
-{# ── Two-Column Shell: 260px White Left Sidebar + Scrolling Main Area ──── #}
+{# Shell: index column on the left, main column of sheets on the right. #}
 <div class="shell">
 <aside class="sidenav" aria-label="Workspace navigation and active tenders">
   <nav class="nav" aria-label="views">
@@ -174,7 +174,7 @@
         if ((last === "queued" || last === "running") && st !== "queued" && st !== "running") {
           if ("Notification" in window && Notification.permission === "granted") {
             new Notification("Cortech BD: job " + st, {
-              body: (data.job.source_url || "") + (data.job.error_message ? " — " + data.job.error_message : "")
+              body: (data.job.source_url || "") + (data.job.error_message ? ": " + data.job.error_message : "")
             });
           }
           if (st === "succeeded" && data.job.source_url) {

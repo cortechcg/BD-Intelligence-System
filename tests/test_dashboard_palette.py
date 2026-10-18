@@ -1,10 +1,10 @@
 """The dashboard UI palette is checked, not eyeballed.
 
-Editorial Forest Green (BD_UI_Design_Prompt.pdf): a calm sage-parchment canvas
-(#eef3ef), crisp white cards (#ffffff), deep forest green (#2d5c47) for the
-masthead and primary actions, mid green (#4b896d) for progress and labels, and
-amber (#8a5a17) where a person must act. Every text colour must clear WCAG AA
-(4.5:1) on the page, and every mark must clear 3:1.
+Parchment and moss: a warm parchment ground (#f4efe6), cream cards (#fffcf6),
+ink text (#22231f), moss (#3f4a2e) for primary actions and progress, ochre
+(#9a6b1f marks, #8c5f17 text) only where a person must act, and clay
+(#a4553c) for errors. Every text colour must clear WCAG AA (4.5:1) on the
+page, and every mark must clear 3:1.
 """
 from __future__ import annotations
 
@@ -78,12 +78,16 @@ def test_sage_is_display_figures_only():
             assert any(k in sel for k in ("is-zero", "is-missing", "[disabled]", "aria-disabled")), f"sage as text: {sel[:70]}"
 
 
-def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
-    """Editorial green desk: #eef3ef field, #ffffff card, #e7f0eb track, #2d5c47 primary."""
-    assert token("ground") == "#eef3ef"
-    assert token("surface") == "#ffffff"
-    assert token("track") == "#e7f0eb"
-    assert token("fill") == "#2d5c47"
+def test_parchment_desk_and_no_gradients():
+    """Parchment desk: #f4efe6 field, #fffcf6 card, #ece5d8 track, #3f4a2e moss primary,
+    #22231f ink, ochre #9a6b1f for marks a person must act on, clay #a4553c for errors."""
+    assert token("ground") == "#f4efe6"
+    assert token("surface") == "#fffcf6"
+    assert token("track") == "#ece5d8"
+    assert token("fill") == "#3f4a2e"
+    assert token("ink") == "#22231f"
+    assert token("human") == "#9a6b1f"
+    assert token("color-err-strong") == "#a4553c"
     assert token("surface") != token("ground")
     shadow_ok = (
         "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
@@ -95,12 +99,13 @@ def test_ink_desk_is_dark_and_the_button_is_the_only_gradient():
         if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
             assert any(k in sel for k in shadow_ok), f"shadow: {sel[:70]}"
         assert "gradient(" not in rule, f"gradient in {sel[:70]}"
-    assert "background: var(--gradient-aurora)" in BODY
+    assert "gradient(" not in CSS, "flat colour only, no gradients anywhere"
+    assert re.search(r"\.btn \{[^}]*background: var\(--fill\)", BODY), "the primary button is flat moss"
     assert ".panel--hero { border-top: 0; }" in BODY
 
 
 def test_two_fills_only():
-    """Deep green fills the masthead, primary button, BID chip, step badges, and marks."""
+    """Moss fills the primary button, BID chip, step badges, and marks."""
     for selector, rule in rules():
         sel = selector.strip()
         for m in re.finditer(r"background(-color)?:\s*var\(--([\w-]+)\)", rule):
@@ -142,14 +147,22 @@ def test_rail_is_thin_and_human_segment_is_distinct():
     assert contrast(token("stage-done"), token("stage-current")) >= 1.8, "current vs done must differ in lightness"
 
 
-def test_ramps_are_one_green_hue_and_monotone():
+def _hue(h: str) -> float:
+    import colorsys
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    return colorsys.rgb_to_hls(r, g, b)[0] * 360
+
+
+def test_ramps_are_one_moss_hue_and_monotone():
     toks = [token(f"ramp-{i}") for i in range(1, 5)]
     lums = [_lum(t) for t in toks]
     assert lums == sorted(lums, reverse=True), "light→dark along the pipeline"
     assert all(a - b >= 0.04 for a, b in zip(lums, lums[1:]))
-    for t in toks:
-        r, g, b = int(t[1:3], 16), int(t[3:5], 16), int(t[5:7], 16)
-        assert g >= r and g >= b, f"{t} is not forest green"
+    assert toks[-1] == token("fill"), "the dark end of the ramp is the primary moss"
+    hues = [_hue(t) for t in toks]
+    for t, h in zip(toks, hues):
+        assert 65 <= h <= 90, f"{t} (hue {h:.0f}) is not moss"
+    assert max(hues) - min(hues) <= 15, f"ramp drifts across hues: {[round(h) for h in hues]}"
 
 
 def test_recommendation_uses_weight_and_shape_not_hue():
@@ -221,3 +234,5 @@ def test_fonts_are_self_hosted_and_present():
         assert (Path("dashboard/static/fonts") / face).exists(), face
     assert "googleapis" not in CSS and "gstatic" not in CSS
     assert (Path("dashboard/static/fonts") / "LICENSE-Outfit-OFL.txt").exists()
+    for lic in ("LICENSE-Newsreader-OFL.txt", "LICENSE-IBMPlexSans-OFL.txt"):
+        assert "Open Font License" in (Path("dashboard/static/fonts") / lic).read_text(), lic

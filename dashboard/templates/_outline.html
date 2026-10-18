@@ -280,7 +280,7 @@
                   <div class="row-between">
                     <strong>{{ d_name }}</strong>
                     {% if d_name %}
-                    <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="Deliverable: {{ d_name }}{% if d_desc %} — {{ d_desc[:100] }}{% endif %}" title="Add this deliverable to the focused chapter">+ Assign</button>
+                    <button type="button" class="btn btn--sm btn--quiet" data-insert-tor="Deliverable: {{ d_name }}{% if d_desc %}, {{ d_desc[:100] }}{% endif %}" title="Add this deliverable to the focused chapter">+ Assign</button>
                     {% endif %}
                   </div>
                   {% if d_desc %}<div class="small muted">{{ d_desc }}</div>{% endif %}

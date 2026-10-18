@@ -161,17 +161,17 @@ def complete_login(code: str, state: str, state_cookie: str | None) -> dict:
     if not ok:
         raise AuthError(f"Google sign-in is not configured: {reason}")
     if not state_cookie:
-        raise AuthError("login state cookie missing — start again from /auth/login")
+        raise AuthError("login state cookie missing: start again from /auth/login")
 
     try:
         packed = _serializer(_SALT_STATE).loads(state_cookie, max_age=600)
     except SignatureExpired as exc:
-        raise AuthError("login attempt expired — start again") from exc
+        raise AuthError("login attempt expired: start again") from exc
     except BadSignature as exc:
         raise AuthError("login state failed its signature check") from exc
 
     if not hmac.compare_digest(str(packed.get("state") or ""), state or ""):
-        raise AuthError("login state mismatch — possible cross-site request")
+        raise AuthError("login state mismatch: possible cross-site request")
 
     try:
         response = httpx.post(
@@ -207,7 +207,7 @@ def complete_login(code: str, state: str, state_cookie: str | None) -> dict:
     )
     if not allowed:
         logger.warning(f"dashboard login refused: {why}")
-        raise AuthError(f"Access denied — {why}.")
+        raise AuthError(f"Access denied: {why}.")
 
     logger.info(f"dashboard login accepted ({why}): {claims.get('email')}")
     return claims
