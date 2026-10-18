@@ -97,7 +97,7 @@ services:
 
       # ── Access policy ──
       - key: AUTH_ALLOWED_DOMAIN
-        value: cortechconsultinggroup.com
+        value: cortechcgl.com
       - key: AUTH_ALLOWED_EMAILS
         sync: false               # explicit off-domain exceptions, comma-separated full
                                   # addresses. Leave EMPTY unless a decision says otherwise
