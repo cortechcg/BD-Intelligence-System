@@ -72,7 +72,6 @@
   <div class="section__head">
     <div>
       <h2 id="h-stage-3">Assessment</h2>
-      <p class="section__sub">Fit, what the tender asks for, and who on the roster could do the work.</p>
     </div>
   </div>
 
@@ -131,6 +130,9 @@
     {{ run_controls() }}
   </div>
 
+  <details class="disclosure">
+    <summary>The tender and the roster</summary>
+    <div class="disclosure__body stack">
   <section class="panel" aria-labelledby="h-tor-intel">
     <div class="panel__head">
       <div>
@@ -345,6 +347,8 @@
       <p class="small muted">{{ org.note }}</p>
     {% endif %}
   </section>
+    </div>
+  </details>
 
   <details class="disclosure">
     <summary>Scoring detail <span class="muted">bid_scorer {{ d.score_version.value or "n/a" }}</span></summary>
@@ -416,6 +420,49 @@
 
 {% macro review_pack() %}
 <section class="section section--first stack" id="stage-5-review" aria-labelledby="h-stage-5">
+  {% set fg = d.get("final_grade") or {} %}
+  <section class="panel" aria-labelledby="h-final-grade">
+    <div class="panel__head">
+      <div>
+        <h2 class="panel__title" id="h-final-grade">Grade the final version</h2>
+        <p class="panel__desc">Upload the Word or PDF the team edited. It is graded against the stored evaluation criteria. Nothing here is sent to the client.</p>
+      </div>
+    </div>
+    {% if fg.get("rows") %}
+      {% if fg.get("below_bar") %}
+      <div class="band band--warn"><div class="band__title">{{ fg.headline }}</div></div>
+      {% else %}
+      <p>{{ fg.headline }}</p>
+      {% endif %}
+      <p class="small muted">{{ fg.filename }}{% if fg.uploaded_by %} · {{ fg.uploaded_by }}{% endif %}{% if fg.percent is not none %} · {{ fg.percent }}%{% endif %}</p>
+      <div class="table-wrap table-wrap--flush">
+        <table class="table table--grade">
+          <thead><tr><th>Criterion</th><th class="num">Weight</th><th class="num">Mark</th><th>Reason</th><th>Quote</th></tr></thead>
+          <tbody>
+          {% for row in fg.rows %}
+            <tr>
+              <td data-label="Criterion"><strong>{{ row.criterion }}</strong></td>
+              <td class="num mono" data-label="Weight">{{ row.weight }}</td>
+              <td class="num mono" data-label="Mark">{{ row.mark }}</td>
+              <td data-label="Reason">{{ row.reason }}</td>
+              <td class="evidence" data-label="Quote">{{ row.quote }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_final_grade or '/opportunity/final-grade' }}" enctype="multipart/form-data" class="stack" style="margin-top: var(--sp5)">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="source_url" value="{{ d.source_url }}">
+      <div class="row">
+        <input type="file" name="final_file" accept=".pdf,.docx,.txt,.md" required aria-label="Final version, PDF, Word, or text">
+        <button class="btn" type="submit">Grade this version</button>
+      </div>
+      <p class="field__hint">PDF, Word, or text. The agent draft is left as it is. Nothing is sent to the client.</p>
+    </form>
+  </section>
+
   <section class="panel decision">
     <div>
       <h2 class="decision__title" id="h-stage-5">Read this draft, then record the decision</h2>
@@ -447,6 +494,9 @@
     </div>
   </section>
 
+  <details class="disclosure">
+    <summary>The reading</summary>
+    <div class="disclosure__body stack">
   {% set qs = d.get("quality_score") or {} %}
   <div class="headline-grid">
     <div class="tile tile--dark">
@@ -604,6 +654,8 @@
       {% endif %}
     </div>
   </section>
+    </div>
+  </details>
 
   <p class="footnote"><strong>Nothing here is sent to the client.</strong> This desk stops at a draft. Your team reviews, finalises, signs the annexes, and handles delivery.</p>
 </section>

@@ -31,39 +31,35 @@
   </div>
 </div>
 
+<section class="panel panel--hero job-sheet">
 {% if flash %}
-<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status" style="margin-bottom: var(--sp5)">{{ flash }}</div>
+<div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
 {% endif %}
 
 {% if awaiting_outline and opp_url %}
-<div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio" style="margin-bottom: var(--sp5)">
-  <div class="panel__in row-between">
-    <div>
-      <h2>Opening the chapter editor</h2>
-      <p class="section__sub">The tender is read and scored, and an outline is ready. Taking you there to confirm the chapters before anything is written.</p>
-    </div>
-    <div class="row">
-      <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Choose the chapters</a>
-    </div>
+<div class="row-between" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">
+  <div>
+    <h2>Opening the chapter editor</h2>
+    <p class="section__sub">The tender is read and scored, and an outline is ready. Taking you there to confirm the chapters before anything is written.</p>
+  </div>
+  <div class="row">
+    <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Choose the chapters</a>
   </div>
 </div>
 {% elif draft_ready and opp_url %}
-<div class="panel panel--callout" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}" style="margin-bottom: var(--sp5)">
-  <div class="panel__in row-between">
-    <div>
-      <h2>The draft is ready</h2>
-      <p class="section__sub">It has been checked against the tender. Taking you to the review pack.</p>
-    </div>
-    <div class="row">
-      <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}">Open the review</a>
-      <a class="btn btn--quiet" href="{{ url_draft }}?url={{ opp_url | urlencode }}">Download draft (.md)</a>
-    </div>
+<div class="row-between" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}">
+  <div>
+    <h2>The draft is ready</h2>
+    <p class="section__sub">It has been checked against the tender. Taking you to the review pack.</p>
+  </div>
+  <div class="row">
+    <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}">Open the review</a>
+    <a class="btn btn--quiet" href="{{ url_draft }}?url={{ opp_url | urlencode }}">Download draft (.md)</a>
   </div>
 </div>
 {% endif %}
 
-{# ── Workflow Progress Stepper ─────────────────────────────────────────── #}
-<ol class="steps" style="margin-bottom: var(--sp5)">
+<ol class="steps">
   <li class="steps__item {% if awaiting_outline or draft_ready %}is-done{% elif running %}is-active{% endif %}">
     <span class="steps__num">1</span>
     <div class="steps__text">
@@ -87,8 +83,6 @@
   </li>
 </ol>
 
-{# ── The instrument: this run's spend against its own cap ──────────────── #}
-<div class="panel panel--hero">
   <div class="job-spend">
     <div class="hero">
       {% if job.spend_usd is not none %}
@@ -122,15 +116,13 @@
     <p>Live. The worker reports every {{ (poll_ms / 1000) | int }} seconds and this page refreshes with it. When scoring finishes, it opens the tender so you can confirm the chapters before a draft is written.</p>
   </div>
   {% endif %}
-</div>
+</section>
 
 {% if job.error_message %}
-<section class="section section--tight">
-  <div class="band {% if job.ui_state == 'cancelled' %}band--warn{% elif job.ui_state == 'dead_letter' %}band--critical{% else %}band--serious{% endif %} band--wide">
-    <div class="band__title">{{ job.error_kind }}</div>
-    {{ job.error_message }}
-  </div>
-</section>
+<div class="band {% if job.ui_state == 'cancelled' %}band--warn{% elif job.ui_state == 'dead_letter' %}band--critical{% else %}band--serious{% endif %} band--wide section section--tight">
+  <div class="band__title">{{ job.error_kind }}</div>
+  {{ job.error_message }}
+</div>
 {% endif %}
 
 {% if running %}
@@ -142,16 +134,16 @@
       {% if job.cancel_requested_at %}Cancel requested, waiting for the worker{% else %}Cancel this run{% endif %}
     </button>
   </form>
-  <p class="section__sub" style="margin-top: var(--sp3)">{{ cancel_copy }}</p>
+  <p class="section__sub">{{ cancel_copy }}</p>
 </section>
 {% endif %}
 
 {% if d %}
-<section class="section" aria-labelledby="h-pipe">
-  <div class="section__head"><h2 id="h-pipe">Where this tender stands</h2></div>
-  <div class="panel"><div class="panel__in">
+<details class="disclosure section" aria-labelledby="h-pipe">
+  <summary id="h-pipe">Where this tender stands</summary>
+  <div class="disclosure__body">
     {{ m.railbar(d.rail, "lg", d.ui_state, human_done=d.stage.value in ("reviewed", "outcome"), has_draft=d.has_draft) }}
-    <div class="row" style="margin-top: var(--sp4)">
+    <div class="row">
       {{ m.state_chip(d.ui_state, live=(job.status == "running")) }}
       {% if d.last_error.value and running %}{% set recorded = d.last_error.value|string %}<span class="v-why">last recorded: {{ recorded[:120] }}</span>{% endif %}
       {% if opp_url %}
@@ -165,8 +157,8 @@
       {% endif %}
     </div>
     <p class="rail-caption">After scoring, the run waits so you can confirm the chapters before a draft is written.</p>
-  </div></div>
-</section>
+  </div>
+</details>
 {% endif %}
 
 <section class="section" aria-labelledby="h-req">

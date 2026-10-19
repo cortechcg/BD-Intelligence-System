@@ -683,6 +683,7 @@ def opportunity_detail(source_url: str) -> dict | None:
             k for k, v in sections.items() if isinstance(v, str) and v.strip()
         ),
         "requirement_alignment": _requirement_alignment(analysis, sections),
+        "final_grade": cp.get("final_grade") if isinstance(cp.get("final_grade"), dict) else {},
         "recommended_outline": rec_outline,
         "accepted_outline": _outline_or_none(cp.get("accepted_outline")),
         "draft_templates": _draft_template_catalog(),
