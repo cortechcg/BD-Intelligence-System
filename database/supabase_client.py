@@ -978,8 +978,14 @@ def save_final_grade(source_url: str, record: dict, *, uploaded_by: str = "") ->
     checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
     checkpoint = dict(checkpoint)
     stored = dict(record)
+    request_id = str(stored.pop("request_id", "") or "")
     stored["uploaded_by"] = uploaded_by or stored.get("uploaded_by") or ""
     stored["uploaded_at"] = datetime.now(timezone.utc).isoformat()
+    current = checkpoint.get("final_grade_request") if isinstance(checkpoint.get("final_grade_request"), dict) else {}
+    if not request_id or current.get("request_id") == request_id:
+        checkpoint.pop("final_grade_request", None)
+        checkpoint.pop("final_grade_queued", None)
+        checkpoint.pop("final_grade_error", None)
     checkpoint["final_grade"] = stored
     try:
         updated = (
@@ -1017,6 +1023,211 @@ def save_final_grade(source_url: str, record: dict, *, uploaded_by: str = "") ->
     except Exception:
         pass
     return True, "saved"
+
+
+def queue_final_grade(
+    source_url: str,
+    *,
+    text: str,
+    filename: str,
+    uploaded_by: str,
+    criteria: list,
+) -> tuple[bool, str]:
+    """Park an extracted final for the worker to grade. Does not call a model.
+
+    The dashboard web process has no model key. The worker, which does, claims
+    this request. A later upload replaces an earlier one. The draft and the
+    pipeline stage stay as they are.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False, "missing url"
+    document = (text or "").strip()
+    if not document:
+        return False, "no text to grade"
+    if not criteria:
+        return False, "No evaluation criteria are stored, so this file was not graded."
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state, pipeline_stage, checkpoint")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load opportunity for final grade: {e}")
+        return False, "could not load the opportunity"
+    rows = loaded.data or []
+    if not rows:
+        return False, "no stored row for that opportunity"
+    row = rows[0]
+    if row.get("state") == "processing":
+        return False, "a run is in progress — wait until it finishes"
+    checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+    checkpoint = dict(checkpoint)
+    now = datetime.now(timezone.utc).isoformat()
+    checkpoint["final_grade_request"] = {
+        "request_id": str(uuid.uuid4()),
+        "filename": filename or "",
+        "uploaded_by": uploaded_by or "",
+        "uploaded_at": now,
+        "char_count": len(document),
+        "text": document,
+        "criteria": criteria,
+    }
+    checkpoint["final_grade_queued"] = "true"
+    checkpoint.pop("final_grade_error", None)
+    try:
+        updated = (
+            supabase.table("opportunity_processing")
+            .update({
+                "checkpoint": checkpoint,
+                "updated_at": now,
+            })
+            .eq("source_url", canonical)
+            .neq("state", "processing")
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not queue the final grade: {e}")
+        return False, "could not queue the grade"
+    if not updated.data:
+        return False, "could not queue the grade"
+    try:
+        from database.airtable_client import log_agent_action
+        log_agent_action(
+            "final_grade",
+            canonical,
+            f"Queued {filename or 'the final'} for grading. Nothing was sent.",
+            status="Success",
+        )
+    except Exception:
+        pass
+    return True, "queued"
+
+
+_GRADE_CLAIM_SECONDS = 15 * 60
+
+
+def _grade_claim_is_fresh(claimed_at: str) -> bool:
+    try:
+        stamp = datetime.fromisoformat(str(claimed_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - stamp).total_seconds()
+    return 0 <= age < _GRADE_CLAIM_SECONDS
+
+
+def claim_final_grade_request() -> dict | None:
+    """Take one queued final, or None when nothing is waiting.
+
+    A claim younger than 15 minutes is left alone so a grade already in
+    flight is not sent to the model twice.
+    """
+    try:
+        found = (
+            supabase.table("opportunity_processing")
+            .select("source_url, state, checkpoint")
+            .contains("checkpoint", {"final_grade_queued": "true"})
+            .neq("state", "processing")
+            .limit(5)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not look for a queued final grade: {e}")
+        return None
+    for row in found.data or []:
+        if not isinstance(row, dict) or row.get("state") == "processing":
+            continue
+        checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+        request = checkpoint.get("final_grade_request")
+        if not isinstance(request, dict) or not str(request.get("text") or "").strip():
+            continue
+        if _grade_claim_is_fresh(str(request.get("claimed_at") or "")):
+            continue
+        canonical = str(row.get("source_url") or "")
+        if not canonical:
+            continue
+        checkpoint = dict(checkpoint)
+        request = dict(request)
+        request["claimed_at"] = datetime.now(timezone.utc).isoformat()
+        checkpoint["final_grade_request"] = request
+        try:
+            updated = (
+                supabase.table("opportunity_processing")
+                .update({
+                    "checkpoint": checkpoint,
+                    "updated_at": request["claimed_at"],
+                })
+                .eq("source_url", canonical)
+                .contains("checkpoint", {"final_grade_queued": "true"})
+                .neq("state", "processing")
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"Could not claim the final grade: {e}")
+            continue
+        if not updated.data:
+            continue
+        return {
+            "source_url": canonical,
+            "request_id": str(request.get("request_id") or ""),
+            "text": str(request.get("text") or ""),
+            "filename": str(request.get("filename") or ""),
+            "uploaded_by": str(request.get("uploaded_by") or ""),
+            "criteria": request.get("criteria") if isinstance(request.get("criteria"), list) else [],
+        }
+    return None
+
+
+def finish_final_grade_request(source_url: str, request_id: str, error: str) -> bool:
+    """Drop a queued final that could not be graded. A newer upload is left in place."""
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state, checkpoint")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load a failed final grade: {e}")
+        return False
+    rows = loaded.data or []
+    if not rows:
+        return False
+    row = rows[0]
+    if row.get("state") == "processing":
+        return False
+    checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+    checkpoint = dict(checkpoint)
+    current = checkpoint.get("final_grade_request") if isinstance(checkpoint.get("final_grade_request"), dict) else {}
+    if request_id and current.get("request_id") != request_id:
+        return False
+    checkpoint.pop("final_grade_request", None)
+    checkpoint["final_grade_queued"] = "false"
+    checkpoint["final_grade_error"] = (error or "The file could not be graded. Nothing was stored.")[:500]
+    try:
+        updated = (
+            supabase.table("opportunity_processing")
+            .update({
+                "checkpoint": checkpoint,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .eq("source_url", canonical)
+            .neq("state", "processing")
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not record a failed final grade: {e}")
+        return False
+    return bool(updated.data)
 
 
 def dead_letter_opportunity_processing(

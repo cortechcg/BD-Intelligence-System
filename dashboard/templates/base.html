@@ -247,7 +247,7 @@ document.addEventListener("change", function (ev) {
       return true;
     }
     var studio = document.getElementById("outline-studio");
-    if (studio && !document.querySelector(".state.is-live")) {
+    if (studio && studio.open && !document.querySelector(".state.is-live")) {
       return true;
     }
     return false;

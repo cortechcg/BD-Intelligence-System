@@ -103,6 +103,7 @@ def test_bulk_trigger_of_forty_jobs_is_bounded_by_the_aggregate_cap(monkeypatch)
                 "execution_id": "e", "result": {}, "spend": {"spent_usd": 8.0}}
 
     monkeypatch.setattr(worker, "run_trigger", _fake_run_trigger)
+    monkeypatch.setattr(worker, "grade_one_pending_final", lambda: False)
 
     while worker.run_once("tok"):
         pass

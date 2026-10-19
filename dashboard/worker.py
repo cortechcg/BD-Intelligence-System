@@ -278,11 +278,64 @@ def _with_heartbeat(job: dict, token: str, fn):
         t.join(timeout=5)
 
 
-def run_once(worker_token: str) -> bool:
-    """Claim and run at most one trigger. Returns True if work was done."""
-    job = triggers.claim(worker_token, settings.WORKER_LEASE_SECONDS)
+def grade_one_pending_final() -> bool:
+    """Grade one uploaded final. The web process only queues the text.
+
+    Returns True when a request was claimed, including one that failed closed
+    and stored nothing. Returns False when the queue is empty.
+    """
+    from database.supabase_client import (
+        claim_final_grade_request,
+        finish_final_grade_request,
+        save_final_grade,
+    )
+    from intelligence.final_grade import NoStoredCriteria, grade_final, grade_record
+    from utils.observability import reset_run_spend_cap, start_run_spend_cap
+
+    job = claim_final_grade_request()
     if not job:
         return False
+    url = job["source_url"]
+    request_id = job["request_id"]
+
+    def _fail(message: str) -> bool:
+        finish_final_grade_request(url, request_id, message)
+        return True
+
+    blocked, why = triggers.aggregate_cap_reached()
+    if blocked:
+        return _fail(why)
+
+    start_run_spend_cap()
+    try:
+        grade = grade_final(job["text"], job["criteria"])
+    except NoStoredCriteria:
+        return _fail("No evaluation criteria are stored, so this file was not graded.")
+    except SpendCapError as exc:
+        return _fail(str(exc) or "per-run LLM spend cap reached")
+    except Exception as exc:
+        logger.warning(f"final grade failed: {exc}")
+        return _fail("The file could not be graded. Nothing was stored.")
+    finally:
+        reset_run_spend_cap()
+
+    record = grade_record(job["text"], job["filename"], job["uploaded_by"], grade)
+    record["request_id"] = request_id
+    ok, reason = save_final_grade(url, record, uploaded_by=job["uploaded_by"])
+    if not ok:
+        return _fail(reason or "could not save the grade")
+    return True
+
+
+def run_once(worker_token: str) -> bool:
+    """Claim and run at most one trigger, or one queued final grade."""
+    job = triggers.claim(worker_token, settings.WORKER_LEASE_SECONDS)
+    if not job:
+        try:
+            return grade_one_pending_final()
+        except Exception as exc:
+            logger.exception(f"final grade iteration failed: {exc}")
+            return False
 
     trigger_id = str(job["id"])
     logger.info(

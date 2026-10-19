@@ -353,7 +353,7 @@ def opportunity_page(request: Request, url: str = ""):
         "active_job": active,
         # Only poll on the opportunity workspace while a job for this URL is in flight;
         # never overwrite the DOM while a person is customizing the template outline.
-        "poll_ms": 5000 if active else 0,
+        "poll_ms": 5000 if active or detail.get("final_grade_pending") else 0,
         "triggering_enabled": enabled,
         "triggering_disabled_reason": reason,
         **_spend_context(),
@@ -817,35 +817,21 @@ async def grade_final_version(request: Request, session: dict = Depends(require_
     if not extracted.get("ok"):
         return _flash(back, str(extracted.get("reason") or "Could not read the file."), "stop")
 
-    from intelligence.final_grade import NoStoredCriteria, grade_final, grade_record
-    from utils.errors import SpendCapError
-    from utils.observability import reset_run_spend_cap, start_run_spend_cap
+    from database.supabase_client import queue_final_grade
 
-    start_run_spend_cap()
-    try:
-        grade = grade_final(extracted["text"], criteria)
-    except NoStoredCriteria:
-        return _flash(back, "No evaluation criteria are stored, so this file was not graded.", "stop")
-    except SpendCapError as exc:
-        return _flash(back, str(exc), "cap")
-    except Exception as exc:
-        logger.warning(f"final grade failed: {exc}")
-        return _flash(back, "The file could not be graded. Nothing was stored.", "stop")
-    finally:
-        reset_run_spend_cap()
-
-    from database.supabase_client import save_final_grade
-
-    record = grade_record(
-        extracted["text"],
-        extracted.get("filename") or filename,
-        session.get("email") or "",
-        grade,
+    ok, reason = queue_final_grade(
+        source_url,
+        text=extracted["text"],
+        filename=extracted.get("filename") or filename,
+        uploaded_by=session.get("email") or "",
+        criteria=criteria,
     )
-    ok, reason = save_final_grade(source_url, record, uploaded_by=session.get("email") or "")
     if not ok:
         return _flash(back, reason, "stop")
-    return _flash(back, grade.get("headline") or "Graded. Nothing was sent.")
+    return _flash(
+        back,
+        "The file is queued for grading. This page updates when the reading is stored. Nothing is sent.",
+    )
 
 
 @app.post("/opportunity/outline")

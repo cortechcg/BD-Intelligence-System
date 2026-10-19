@@ -684,12 +684,27 @@ def opportunity_detail(source_url: str) -> dict | None:
         ),
         "requirement_alignment": _requirement_alignment(analysis, sections),
         "final_grade": cp.get("final_grade") if isinstance(cp.get("final_grade"), dict) else {},
+        "final_grade_pending": _final_grade_pending(cp),
+        "final_grade_error": str(cp.get("final_grade_error") or ""),
         "recommended_outline": rec_outline,
         "accepted_outline": _outline_or_none(cp.get("accepted_outline")),
         "draft_templates": _draft_template_catalog(),
         "awaiting_outline": _awaiting_outline(item, cp, sections),
     })
     return detail
+
+
+def _final_grade_pending(checkpoint: dict) -> dict:
+    """Filename of a final waiting on the worker. The document text stays in the checkpoint."""
+    if str(checkpoint.get("final_grade_queued") or "") != "true":
+        return {}
+    request = checkpoint.get("final_grade_request")
+    if not isinstance(request, dict) or not str(request.get("text") or "").strip():
+        return {}
+    return {
+        "filename": str(request.get("filename") or ""),
+        "uploaded_by": str(request.get("uploaded_by") or ""),
+    }
 
 
 def _outline_or_none(value) -> dict | None:

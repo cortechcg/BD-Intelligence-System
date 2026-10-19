@@ -222,6 +222,13 @@ def test_save_final_grade_leaves_the_draft_and_stage_untouched(monkeypatch):
             "checkpoint": {
                 "proposal_sections": {"methodology": "The agent draft."},
                 "analysis": {"evaluation_criteria": [{"criterion": "Methodology"}]},
+                "final_grade_queued": "true",
+                "final_grade_request": {
+                    "request_id": "r1",
+                    "text": TEXT,
+                    "filename": "final.txt",
+                },
+                "final_grade_error": "earlier failure",
             },
         },
     }
@@ -234,6 +241,7 @@ def test_save_final_grade_leaves_the_draft_and_stage_untouched(monkeypatch):
             "rows": [{"criterion": "Methodology", "mark": 10, "weight": 40}],
             "percent": 25,
             "text": TEXT,
+            "request_id": "r1",
         },
         uploaded_by="amina@cortechconsultinggroup.com",
     )
@@ -246,6 +254,8 @@ def test_save_final_grade_leaves_the_draft_and_stage_untouched(monkeypatch):
     assert checkpoint["final_grade"]["percent"] == 25
     assert checkpoint["final_grade"]["text"] == TEXT
     assert checkpoint["final_grade"]["uploaded_by"] == "amina@cortechconsultinggroup.com"
+    assert "final_grade_request" not in checkpoint
+    assert "final_grade_queued" not in checkpoint
 
 
 def test_save_final_grade_refuses_while_a_run_is_in_progress(monkeypatch):
@@ -313,25 +323,20 @@ def _detail():
     }
 
 
-def test_upload_stores_the_grade_and_signoff_still_works(client, monkeypatch):
-    saved = {}
+def test_upload_queues_the_file_for_the_worker_and_signoff_still_works(client, monkeypatch):
+    queued = {}
     reviewed = {}
 
-    def _grade(text, criteria):
-        assert "Mogadishu" in text
-        assert criteria[0]["criterion"] == "Methodology"
-        return settle_grade(text, criteria, {"rows": [{
-            "criterion": "Methodology",
-            "mark": 40,
-            "reason": "Partial.",
-            "quote": "a field team based in Mogadishu",
-        }]})
+    def _queue(url, *, text, filename, uploaded_by, criteria):
+        queued["url"] = url
+        queued["text"] = text
+        queued["filename"] = filename
+        queued["by"] = uploaded_by
+        queued["criteria"] = criteria
+        return True, "queued"
 
-    def _save(url, record, uploaded_by=""):
-        saved["url"] = url
-        saved["record"] = record
-        saved["by"] = uploaded_by
-        return True, "saved"
+    def _grade(*_args, **_kwargs):
+        raise AssertionError("the web process must not call the model")
 
     def _record(url, stage):
         reviewed["url"] = url
@@ -339,8 +344,8 @@ def test_upload_stores_the_grade_and_signoff_still_works(client, monkeypatch):
         return True
 
     monkeypatch.setattr("dashboard.queries.opportunity_detail", lambda url: _detail())
+    monkeypatch.setattr("database.supabase_client.queue_final_grade", _queue)
     monkeypatch.setattr("intelligence.final_grade.grade_final", _grade)
-    monkeypatch.setattr("database.supabase_client.save_final_grade", _save)
     monkeypatch.setattr("database.supabase_client.record_human_pipeline_stage", _record)
     monkeypatch.setattr(
         "dashboard.triggers.aggregate_cap_reached",
@@ -354,10 +359,11 @@ def test_upload_stores_the_grade_and_signoff_still_works(client, monkeypatch):
         files={"final_file": ("final.txt", body.encode(), "text/plain")},
     )
     assert response.status_code == 303
-    assert saved["by"] == "amina@cortechconsultinggroup.com"
-    assert saved["record"]["rows"][0]["mark"] == 40
-    assert saved["record"]["below_bar"] is True
-    assert "Mogadishu" in saved["record"]["text"]
+    assert queued["by"] == "amina@cortechconsultinggroup.com"
+    assert queued["filename"] == "final.txt"
+    assert queued["criteria"][0]["criterion"] == "Methodology"
+    assert "Mogadishu" in queued["text"]
+    assert "queued for grading" in unquote(response.headers["location"]).lower()
     assert "send" not in response.headers["location"].lower()
 
     again = client.post(
@@ -368,19 +374,14 @@ def test_upload_stores_the_grade_and_signoff_still_works(client, monkeypatch):
     assert reviewed == {"url": "https://example.org/tor", "stage": "reviewed"}
 
 
-def test_empty_criteria_and_a_blocked_window_do_not_call_the_model(client, monkeypatch):
-    calls = {"grade": 0, "save": 0}
+def test_empty_criteria_and_a_blocked_window_do_not_queue_the_file(client, monkeypatch):
+    calls = {"grade": 0}
 
-    def _grade(*_args, **_kwargs):
+    def _queue(*_args, **_kwargs):
         calls["grade"] += 1
-        raise AssertionError("model called")
+        return True, "queued"
 
-    def _save(*_args, **_kwargs):
-        calls["save"] += 1
-        return True, "saved"
-
-    monkeypatch.setattr("intelligence.final_grade.grade_final", _grade)
-    monkeypatch.setattr("database.supabase_client.save_final_grade", _save)
+    monkeypatch.setattr("database.supabase_client.queue_final_grade", _queue)
     session = _signed(client)
     body = {"source_url": "https://example.org/tor", "csrf_token": auth.csrf_token(session)}
     files = {"final_file": ("final.txt", (TEXT + " ").encode(), "text/plain")}
@@ -400,11 +401,14 @@ def test_empty_criteria_and_a_blocked_window_do_not_call_the_model(client, monke
     blocked = client.post("/opportunity/final-grade", data=body, files=files)
     assert blocked.status_code == 303
     assert "cap" in blocked.headers["location"].lower()
-    assert calls == {"grade": 0, "save": 0}
+    assert calls == {"grade": 0}
 
 
-def test_a_failed_grade_stores_nothing(client, monkeypatch):
+def test_a_failed_grade_stores_nothing(monkeypatch):
+    from dashboard.worker import grade_one_pending_final
+
     saved = {"called": False}
+    finished = {}
 
     def _grade(*_args, **_kwargs):
         raise RuntimeError("model unavailable")
@@ -413,19 +417,111 @@ def test_a_failed_grade_stores_nothing(client, monkeypatch):
         saved["called"] = True
         return True, "saved"
 
-    monkeypatch.setattr("dashboard.queries.opportunity_detail", lambda url: _detail())
+    def _finish(url, request_id, error):
+        finished["url"] = url
+        finished["request_id"] = request_id
+        finished["error"] = error
+        return True
+
+    monkeypatch.setattr(
+        "database.supabase_client.claim_final_grade_request",
+        lambda: {
+            "source_url": "https://example.org/tor",
+            "request_id": "r1",
+            "text": TEXT,
+            "filename": "final.txt",
+            "uploaded_by": "amina@cortechconsultinggroup.com",
+            "criteria": [{"criterion": "Methodology", "weight_percent": 100}],
+        },
+    )
     monkeypatch.setattr("intelligence.final_grade.grade_final", _grade)
     monkeypatch.setattr("database.supabase_client.save_final_grade", _save)
+    monkeypatch.setattr("database.supabase_client.finish_final_grade_request", _finish)
     monkeypatch.setattr(
         "dashboard.triggers.aggregate_cap_reached",
         lambda window=None: (False, "under"),
     )
-    session = _signed(client)
-    response = client.post(
-        "/opportunity/final-grade",
-        data={"source_url": "https://example.org/tor", "csrf_token": auth.csrf_token(session)},
-        files={"final_file": ("final.txt", ((TEXT + " ") * 3).encode(), "text/plain")},
-    )
-    assert response.status_code == 303
-    assert "Nothing was stored" in unquote(response.headers["location"])
+    monkeypatch.setattr("utils.observability.start_run_spend_cap", lambda *a, **k: {})
+    monkeypatch.setattr("utils.observability.reset_run_spend_cap", lambda *a, **k: None)
+    assert grade_one_pending_final() is True
     assert saved["called"] is False
+    assert finished["request_id"] == "r1"
+    assert "Nothing was stored" in finished["error"]
+
+
+def test_the_worker_saves_a_grade_from_the_queued_file(monkeypatch):
+    from dashboard.worker import grade_one_pending_final
+
+    saved = {}
+
+    def _grade(text, criteria):
+        return settle_grade(text, criteria, {"rows": [{
+            "criterion": "Methodology",
+            "mark": 40,
+            "reason": "Partial.",
+            "quote": "a field team based in Mogadishu",
+        }]})
+
+    def _save(url, record, uploaded_by=""):
+        saved["url"] = url
+        saved["record"] = record
+        saved["by"] = uploaded_by
+        return True, "saved"
+
+    monkeypatch.setattr(
+        "database.supabase_client.claim_final_grade_request",
+        lambda: {
+            "source_url": "https://example.org/tor",
+            "request_id": "r1",
+            "text": (TEXT + " ") * 3,
+            "filename": "final.txt",
+            "uploaded_by": "amina@cortechconsultinggroup.com",
+            "criteria": [{"criterion": "Methodology", "weight_percent": 100}],
+        },
+    )
+    monkeypatch.setattr("intelligence.final_grade.grade_final", _grade)
+    monkeypatch.setattr("database.supabase_client.save_final_grade", _save)
+    monkeypatch.setattr(
+        "database.supabase_client.finish_final_grade_request",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("failure path")),
+    )
+    monkeypatch.setattr(
+        "dashboard.triggers.aggregate_cap_reached",
+        lambda window=None: (False, "under"),
+    )
+    monkeypatch.setattr("utils.observability.start_run_spend_cap", lambda *a, **k: {})
+    monkeypatch.setattr("utils.observability.reset_run_spend_cap", lambda *a, **k: None)
+    assert grade_one_pending_final() is True
+    assert saved["by"] == "amina@cortechconsultinggroup.com"
+    assert saved["record"]["request_id"] == "r1"
+    assert saved["record"]["rows"][0]["mark"] == 40
+    assert saved["record"]["below_bar"] is True
+
+
+def test_queue_final_grade_keeps_the_draft_and_stores_the_text(monkeypatch):
+    from database.supabase_client import queue_final_grade
+
+    store = {
+        "calls": [],
+        "row": {
+            "state": "pending",
+            "pipeline_stage": "drafted",
+            "checkpoint": {"proposal_sections": {"methodology": "The agent draft."}},
+        },
+    }
+    _patch_supabase(monkeypatch, store)
+    monkeypatch.setattr("database.airtable_client.log_agent_action", lambda *_a, **_k: None)
+    ok, reason = queue_final_grade(
+        "https://example.org/tor",
+        text=TEXT,
+        filename="final.txt",
+        uploaded_by="amina@cortechconsultinggroup.com",
+        criteria=[{"criterion": "Methodology", "weight_percent": 100}],
+    )
+    assert (ok, reason) == (True, "queued")
+    checkpoint = store["update"]["checkpoint"]
+    assert checkpoint["proposal_sections"]["methodology"] == "The agent draft."
+    assert checkpoint["final_grade_queued"] == "true"
+    assert checkpoint["final_grade_request"]["text"] == TEXT
+    assert checkpoint["final_grade_request"]["filename"] == "final.txt"
+    assert "pipeline_stage" not in store["update"]
