@@ -802,3 +802,39 @@ def extract_uploaded_files(files: list[tuple[str, bytes]]) -> dict:
         "reason": "",
     }
 
+
+def extract_submission_bytes(filename: str, content: bytes) -> dict:
+    """Text from one uploaded final. Does not invent a source URL.
+
+    Returns ``{"ok": bool, "text": str, "filename": str, "reason": str}``.
+    """
+    name = (filename or "").strip() or "final"
+    data = content or b""
+    if not data:
+        return {"ok": False, "text": "", "filename": name, "reason": "No file content received."}
+    if len(data) > MAX_DOCUMENT_BYTES:
+        return {
+            "ok": False,
+            "text": "",
+            "filename": name,
+            "reason": f"'{name}' exceeds the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB document size limit.",
+        }
+    text, _file_type = _extract_from_bytes(data, name)
+    text = (text or "").strip()
+    if not text:
+        return {
+            "ok": False,
+            "text": "",
+            "filename": name,
+            "reason": "Could not extract readable text from the uploaded file. Use a text-based PDF, Word (.docx), or .txt file.",
+        }
+    quality = assess_extraction(text, source=name)
+    if not quality["ok"]:
+        return {
+            "ok": False,
+            "text": "",
+            "filename": name,
+            "reason": f"Uploaded file looks incomplete: {quality['reason']}.",
+        }
+    return {"ok": True, "text": text[:MAX_EXTRACTED_TEXT_CHARS], "filename": name, "reason": ""}
+

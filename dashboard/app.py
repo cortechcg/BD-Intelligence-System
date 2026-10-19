@@ -181,6 +181,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_draft": "/draft",
         "url_mark_reviewed": "/opportunity/reviewed",
         "url_mark_outcome": "/opportunity/outcome",
+        "url_final_grade": "/opportunity/final-grade",
         "url_outline": "/opportunity/outline",
         "cancel_copy": CANCEL_COPY,
         "claude_model": CLAUDE_MODEL,
@@ -776,6 +777,75 @@ def mark_reviewed(
     if record_human_pipeline_stage(canonical, "reviewed"):
         return _flash(back, "Marked reviewed.")
     return _flash(back, "Could not record reviewed.", "stop")
+
+
+@app.post("/opportunity/final-grade")
+async def grade_final_version(request: Request, session: dict = Depends(require_session)):
+    """Grade an uploaded final against stored criteria. Does not email or submit."""
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    source_url = str(form.get("source_url") or "").strip()
+    _canonical, back = _detail_back(source_url) if source_url else ("", "/")
+    if not source_url:
+        return _flash("/", "Missing the opportunity.", "stop")
+    detail = queries.opportunity_detail(source_url)
+    if detail is None:
+        return _flash("/", "No stored row for that opportunity.", "stop")
+    if not detail.get("has_draft"):
+        return _flash(back, "Grade a final after a draft exists.", "stop")
+
+    upload = form.get("final_file")
+    filename = str(getattr(upload, "filename", "") or "").strip()
+    data = b""
+    if upload is not None and hasattr(upload, "read"):
+        raw = await upload.read()
+        data = bytes(raw or b"")
+    if not data:
+        return _flash(back, "Choose the Word, PDF, or text file to grade.", "stop")
+
+    criteria = detail.get("evaluation_criteria") or []
+    if not criteria:
+        return _flash(back, "No evaluation criteria are stored, so this file was not graded.", "stop")
+
+    blocked, why = triggers.aggregate_cap_reached()
+    if blocked:
+        return _flash(back, why, "cap")
+
+    from processors.downloader import extract_submission_bytes
+
+    extracted = extract_submission_bytes(filename, data)
+    if not extracted.get("ok"):
+        return _flash(back, str(extracted.get("reason") or "Could not read the file."), "stop")
+
+    from intelligence.final_grade import NoStoredCriteria, grade_final, grade_record
+    from utils.errors import SpendCapError
+    from utils.observability import reset_run_spend_cap, start_run_spend_cap
+
+    start_run_spend_cap()
+    try:
+        grade = grade_final(extracted["text"], criteria)
+    except NoStoredCriteria:
+        return _flash(back, "No evaluation criteria are stored, so this file was not graded.", "stop")
+    except SpendCapError as exc:
+        return _flash(back, str(exc), "cap")
+    except Exception as exc:
+        logger.warning(f"final grade failed: {exc}")
+        return _flash(back, "The file could not be graded. Nothing was stored.", "stop")
+    finally:
+        reset_run_spend_cap()
+
+    from database.supabase_client import save_final_grade
+
+    record = grade_record(
+        extracted["text"],
+        extracted.get("filename") or filename,
+        session.get("email") or "",
+        grade,
+    )
+    ok, reason = save_final_grade(source_url, record, uploaded_by=session.get("email") or "")
+    if not ok:
+        return _flash(back, reason, "stop")
+    return _flash(back, grade.get("headline") or "Graded. Nothing was sent.")
 
 
 @app.post("/opportunity/outline")

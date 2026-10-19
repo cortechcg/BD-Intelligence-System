@@ -947,6 +947,78 @@ def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
     return True, "saved"
 
 
+def save_final_grade(source_url: str, record: dict, *, uploaded_by: str = "") -> tuple[bool, str]:
+    """Store a graded final on the checkpoint. Does not touch the draft or the stage.
+
+    Refused while a worker holds the lease. A later outline save leaves this
+    key in place. A later upload replaces it.
+    """
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical:
+        return False, "missing url"
+    if not isinstance(record, dict) or not record.get("rows"):
+        return False, "no grade to store"
+    try:
+        loaded = (
+            supabase.table("opportunity_processing")
+            .select("state, pipeline_stage, checkpoint")
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not load opportunity for final grade: {e}")
+        return False, "could not load the opportunity"
+    rows = loaded.data or []
+    if not rows:
+        return False, "no stored row for that opportunity"
+    row = rows[0]
+    if row.get("state") == "processing":
+        return False, "a run is in progress — wait until it finishes"
+    checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+    checkpoint = dict(checkpoint)
+    stored = dict(record)
+    stored["uploaded_by"] = uploaded_by or stored.get("uploaded_by") or ""
+    stored["uploaded_at"] = datetime.now(timezone.utc).isoformat()
+    checkpoint["final_grade"] = stored
+    try:
+        updated = (
+            supabase.table("opportunity_processing")
+            .update({
+                "checkpoint": checkpoint,
+                "updated_at": stored["uploaded_at"],
+            })
+            .eq("source_url", canonical)
+            .neq("state", "processing")
+            .execute()
+        )
+    except Exception as e:
+        logger.warning(f"Could not save the final grade: {e}")
+        try:
+            from database.airtable_client import log_agent_action
+            log_agent_action(
+                "final_grade", canonical, "Could not save the final grade.",
+                status="Failed", error_message=str(e),
+            )
+        except Exception:
+            pass
+        return False, "could not save the grade"
+    if not updated.data:
+        return False, "could not save the grade"
+    try:
+        from database.airtable_client import log_agent_action
+        percent = stored.get("percent")
+        log_agent_action(
+            "final_grade",
+            canonical,
+            f"Graded {stored.get('filename') or 'the final'} at {percent}%. Nothing was sent.",
+            status="Success",
+        )
+    except Exception:
+        pass
+    return True, "saved"
+
+
 def dead_letter_opportunity_processing(
     source_url: str,
     claim_token: str,

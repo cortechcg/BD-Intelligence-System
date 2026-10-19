@@ -109,9 +109,8 @@
 <section id="stage-1-sources" aria-labelledby="h-stage-1">
   <div class="view-head">
     <div class="view-head__main">
-      <div class="eyebrow">Cortech Consulting Group</div>
       <h1 id="h-stage-1">Opportunities{% if c.halted %} <span class="hl hl--attention">{{ c.halted }} need{{ "s" if c.halted == 1 }} attention</span>{% endif %}</h1>
-      <p class="view-head__lead">Paste a tender link or drop a Terms of Reference. The desk reads it, scores Cortech’s fit, and drafts a proposal for you to review.</p>
+      <p class="view-head__lead">Paste a tender link or drop a Terms of Reference.</p>
       <ul class="view-head__meta">
         <li>{{ c.ledger_rows }} tracked</li>
         <li>{{ c.cache_rows }} discovered</li>
@@ -125,34 +124,22 @@
   {% endif %}
 
   <section class="panel panel--hero intake-card" aria-labelledby="h-submit">
-    <div class="panel__head">
-      <div>
-        <h2 id="h-submit">Start a bid</h2>
-        <p class="panel__desc">A Google Drive link, a tender page, or a file from your computer. PDF, Word, or plain text.</p>
-      </div>
-      <span class="intake-status" id="url-status-pill">Ready</span>
-    </div>
+    <h2 class="sr-only" id="h-submit">Start a bid</h2>
 
     {% if triggering_enabled %}
     <form method="post" action="{{ url_trigger_url }}" id="intake-form" class="intake-form" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="intent" id="intake-intent" value="auto">
 
-      <div class="intake-split">
-        <div class="intake-col">
-          <div class="submit-row">
-            <input type="url" id="url" name="url" aria-label="Tender or Google Drive URL" placeholder="Paste a Drive or tender link" autocomplete="off" spellcheck="false">
-            <button class="btn" type="submit" id="intake-submit-btn">Analyze, score and draft</button>
-          </div>
-        </div>
-        <div class="intake-divider" aria-hidden="true"><span>or</span></div>
-        <div class="intake-col">
-          <label class="upload-dropzone" id="upload-dropzone" for="tor-file">
-            <input type="file" id="tor-file" name="tor_file" accept=".pdf,.docx,.doc,.txt,.md" multiple class="sr-only">
-            <span class="upload-dropzone__title" id="upload-dropzone-title">Drop a ToR or RFP here</span>
-            <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word, or text. It starts as soon as you choose a file.</span>
-          </label>
-        </div>
+      <div class="intake-row">
+        <input type="url" id="url" name="url" aria-label="Tender or Google Drive URL" placeholder="Paste a Drive or tender link" autocomplete="off" spellcheck="false">
+        <button class="btn" type="submit" id="intake-submit-btn">Analyze, score and draft</button>
+        <label class="upload-dropzone" id="upload-dropzone" for="tor-file">
+          <input type="file" id="tor-file" name="tor_file" accept=".pdf,.docx,.doc,.txt,.md" multiple class="sr-only">
+          <span class="upload-dropzone__title" id="upload-dropzone-title">Choose a file</span>
+          <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word, or text</span>
+        </label>
+        <span class="intake-status" id="url-status-pill">Ready</span>
       </div>
 
       <div class="intake-form__foot">
@@ -170,14 +157,14 @@
       </div>
     </form>
     {% else %}
-    <div class="panel__in" style="padding-top: 0">
+    <div class="panel__in">
       <div class="band band--warn"><div class="band__title">Triggering is disabled</div>{{ triggering_disabled_reason }}</div>
     </div>
     {% endif %}
   </section>
 
-  <div class="glance">
-    <div class="panel glance__figures">
+  <div class="panel glance">
+    <div class="glance__figures">
       <a class="figure figure--outline" href="#outline">
         <div class="figure__label">Choose outline</div>
         <div class="figure__value{% if not c.choose_outline %} is-zero{% endif %}">{{ c.choose_outline }}</div>
@@ -199,7 +186,7 @@
         <div class="figure__sub">Halted runs</div>
       </a>
     </div>
-    <div class="panel glance__meter">
+    <div class="glance__meter">
       {% if spend.available %}
         {{ m.meter(spend.spent_usd, spend.cap_usd, "Spend, last " ~ spend.hours ~ "h",
                    foot=spend.runs ~ " run(s), cancelled and failed included" ~ (" · " ~ spend.runs_unknown_cost ~ " with unknown cost, treated as over" if spend.runs_unknown_cost else ""),
@@ -217,12 +204,11 @@
   </div>
 </section>
 
-<section class="section section--tight" id="stage-2-opportunities" aria-labelledby="h-stage-2">
+<section class="section" id="stage-2-opportunities" aria-labelledby="h-stage-2">
   <div class="panel workq" id="work-queue">
     <div class="workq__head">
       <div>
         <h2 id="h-stage-2">Work queue</h2>
-        <p class="panel__desc">One list. Pick a stage, then narrow it by source or a word in the title.</p>
       </div>
       <input type="search" id="opp-filter-q" class="workq__search" placeholder="Search title, buyer, or site" aria-label="Search opportunities">
     </div>
@@ -250,7 +236,6 @@
 
     <div class="tabpanel" id="outline" data-tabpanel="outline" role="tabpanel">
       <h3 class="tabpanel__title">Ready for a template ({{ c.choose_outline }})</h3>
-      <p class="tabpanel__note">Scored, and waiting for you to confirm the chapters.</p>
       {% if queue.choose_outline %}
         {{ opp_table(queue.choose_outline, bucket_name="outline") }}
       {% else %}
@@ -260,7 +245,6 @@
 
     <div class="tabpanel" id="drafted" data-tabpanel="drafted" role="tabpanel">
       <h3 class="tabpanel__title">Drafted proposals and EOIs ({{ c.drafted }})</h3>
-      <p class="tabpanel__note">Written and checked against the tender. Nothing is sent on its own.</p>
       {% if queue.drafted %}
         {{ opp_table(queue.drafted, bucket_name="drafted") }}
       {% else %}
@@ -279,7 +263,6 @@
 
     <div class="tabpanel" id="attention" data-tabpanel="attention" role="tabpanel">
       <h3 class="tabpanel__title">Needs attention ({{ c.halted }})</h3>
-      <p class="tabpanel__note">Halted runs. Resuming keeps the saved stage, so the reading already paid for is not repeated.</p>
       {% if queue.halted %}
         {{ opp_table(queue.halted, bucket_name="attention") }}
       {% else %}
@@ -289,7 +272,6 @@
 
     <div class="tabpanel" id="unclaimed" data-tabpanel="unclaimed" role="tabpanel">
       <h3 class="tabpanel__title">Discovered, not yet scored</h3>
-      <p class="tabpanel__note">{{ c.cache_without_ledger_shown }} waiting, of {{ c.cache_rows }} found across the portals.</p>
       {% if queue.cache_only %}
         {% if triggering_enabled %}
         <form id="bulk-form" method="post" action="{{ url_trigger_bulk }}" class="tabpanel__tools">
@@ -306,7 +288,6 @@
 
     <div class="tabpanel" id="skips" data-tabpanel="skips" role="tabpanel">
       <h3 class="tabpanel__title">Stopped by design ({{ c.terminal_skip }})</h3>
-      <p class="tabpanel__note">Staff vacancies and NO-BID decisions. These never reach a draft.</p>
       {% if queue.terminal_skip %}
         {{ opp_table(queue.terminal_skip, bucket_name="skips") }}
       {% else %}

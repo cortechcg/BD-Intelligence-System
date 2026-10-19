@@ -65,13 +65,15 @@ def test_post_routes_are_limited_to_queueing():
     )
     assert posts == [
         "/api/opportunity/outline",
+        "/opportunity/final-grade",
         "/opportunity/outcome", "/opportunity/outline", "/opportunity/reviewed",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
         "/trigger/rerun", "/trigger/retry", "/trigger/url",
     ]
     # Queue posts enqueue or cancel. Review posts record a person's decision.
-    # The outline post stores chapters for a later draft. None calls the
-    # pipeline inline and none can act outward.
+    # The outline post stores chapters for a later draft. The final-grade post
+    # scores an uploaded file and stores the reading. None calls the pipeline
+    # inline and none can act outward.
     src = inspect.getsource(app_module)
     assert "submit_single_url" not in src
     assert "process_opportunity" not in src
@@ -457,9 +459,41 @@ def test_drafted_page_shows_the_human_gate_and_no_send_control(env):
     assert "Mark reviewed" in html
     assert "Mark won" in html
     assert "Mark lost" in html
+    assert "Grade this version" in html
     assert "Download draft" in html
     for word in (">Send<", "Submit to", "Send to client"):
         assert word not in html
+
+
+def test_final_grade_below_the_bar_still_leaves_signoff_open(env):
+    from intelligence.draft_templates import catalog
+    from intelligence.final_grade import WARNING
+
+    detail = _detail("completed", "", stage="drafted")
+    detail["has_draft"] = True
+    detail["section_keys"] = ["methodology"]
+    detail["draft_templates"] = catalog()
+    detail["final_grade"] = {
+        "filename": "final.docx",
+        "uploaded_by": "amina@cortechconsultinggroup.com",
+        "percent": 40,
+        "below_bar": True,
+        "headline": f"This reading scores 40% against the stored criteria, under the 80% bar. {WARNING}",
+        "rows": [{
+            "criterion": "Methodology",
+            "weight": 40,
+            "mark": 0,
+            "reason": "the quoted passage is not in the file.",
+            "quote": "",
+        }],
+    }
+    html = _render_detail(env, detail)
+    assert "Grade the final version" in html
+    assert WARNING in html
+    assert "Mark reviewed" in html
+    assert "Mark won" in html
+    assert "Mark lost" in html
+    assert html.find("Change the chapters") < html.find("WIN PROBABILITY")
 
 
 def test_scored_opportunity_leads_with_the_outline(env):
