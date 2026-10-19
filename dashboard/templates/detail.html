@@ -428,6 +428,13 @@
         <p class="panel__desc">Upload the Word or PDF the team edited. It is graded against the stored evaluation criteria. Nothing here is sent to the client.</p>
       </div>
     </div>
+    {% set pending = d.get("final_grade_pending") or {} %}
+    {% if pending %}
+    <div class="band band--info" role="status">Grading {{ pending.filename or "the file" }}. This page updates when the reading is stored. Nothing is sent.</div>
+    {% endif %}
+    {% if d.get("final_grade_error") %}
+    <div class="band band--warn" role="status">{{ d.final_grade_error }}</div>
+    {% endif %}
     {% if fg.get("rows") %}
       {% if fg.get("below_bar") %}
       <div class="band band--warn"><div class="band__title">{{ fg.headline }}</div></div>
