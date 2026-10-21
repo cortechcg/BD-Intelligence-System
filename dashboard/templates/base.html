@@ -16,13 +16,73 @@
 {% set d_drafted = has_d and d.has_draft %}
 {% set active_stage = 5 if d_drafted else (4 if d_scored else (3 if (has_d or (job is defined and job)) else 2)) %}
 
-{# Masthead: wordmark, workflow stepper, signed-in person. #}
+<div class="app-shell">
+<aside class="sidenav" aria-label="Workspace navigation and active tenders">
+  <a class="masthead__brand" href="{{ url_queue }}" aria-label="{{ product_name or 'Cortech BD' }}, bid desk">
+    <span class="brand__mark" aria-hidden="true"></span>
+    <span class="brand-lockup">
+      <span class="masthead__product">{{ product_name or "Cortech BD" }}</span>
+      <span class="brand-lockup__product">Bid intelligence</span>
+    </span>
+  </a>
+
+  <div class="sidenav__caption">Workspace</div>
+  <nav class="nav" aria-label="Main navigation">
+    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
+      <span class="nav__icon nav__icon--pipeline" aria-hidden="true"></span>
+      <span>Pipeline</span>
+    </a>
+    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
+      <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
+      <span>Portfolio</span>
+    </a>
+  </nav>
+
+  {% set side_opps = sidebar_opps if (sidebar_opps is defined and sidebar_opps) else [] %}
+  {% if side_opps %}
+  <div class="sidenav__section">
+    <div class="sidenav__head">
+      <span class="label">Recent opportunities</span>
+      <span class="sidenav__count">{{ side_opps | length }}</span>
+    </div>
+    <ul class="sidenav__opps">
+      {% for item in side_opps[:8] %}
+      {% set is_sel = has_d and d.source_url == item.source_url %}
+      <li>
+        <a class="opp-card {% if is_sel %}is-selected{% endif %}"
+           href="{{ url_detail }}?url={{ item.source_url | urlencode }}"
+           title="{{ item.source_url }}">
+          <div class="opp-card__title clamp-2">
+            {% if item.title and item.title.value %}{{ item.title.value }}{% else %}Untitled tender{% endif %}
+          </div>
+          <div class="opp-card__meta">
+            <span class="clamp-1">{{ (item.client.value if item.client and item.client.value else item.source_url.split('//')[-1].split('/')[0]) }}</span>
+            {% if item.fit and item.fit.value is not none %}
+            <span class="mono">FIT {{ item.fit.value }}</span>
+            {% elif item.stage and item.stage.value %}
+            <span class="mono">{{ item.stage.value }}</span>
+            {% endif %}
+          </div>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="sidenav__foot">
+    <span class="sidenav__foot-mark" aria-hidden="true"></span>
+    <p class="sidenav__guard"><strong>Human review stays in the loop</strong>Every draft is reviewed and approved by your team before it leaves Cortech.</p>
+  </div>
+</aside>
+
+<div class="app-main">
 <header class="masthead">
   <div class="masthead__in">
-    <a class="masthead__brand" href="{{ url_queue }}" aria-label="{{ product_name or 'Cortech BD' }}, bid desk">
-      <span class="masthead__product">{{ product_name or "Cortech BD" }}</span>
-      <span class="masthead__kicker">Bid desk</span>
-    </a>
+    <div class="masthead__context">
+      <span class="masthead__context-label">Bid intelligence</span>
+      <span class="masthead__context-title">{% if view == 'portfolio' %}Portfolio overview{% elif has_d %}Opportunity workspace{% elif job is defined and job %}Run monitor{% else %}Opportunity pipeline{% endif %}</span>
+    </div>
 
     <nav class="stepper" role="tablist" aria-label="Bid desk workflow stages">
       <a role="tab"
@@ -80,6 +140,7 @@
     <div class="masthead__right">
       {% if viewer %}
       <div class="who">
+        <span class="who__avatar" aria-hidden="true">{{ viewer[:1] | upper }}</span>
         <span class="email">{{ viewer }}</span>
         {% if url_logout %}<a href="{{ url_logout }}">Sign out</a>{% endif %}
       </div>
@@ -87,59 +148,6 @@
     </div>
   </div>
 </header>
-
-{# Shell: index column on the left, main column of sheets on the right. #}
-<div class="shell">
-<aside class="sidenav" aria-label="Workspace navigation and active tenders">
-  <nav class="nav" aria-label="views">
-    <a href="{{ url_queue }}" {% if view == 'queue' %}aria-current="page"{% endif %}>
-      <span class="nav__dot" aria-hidden="true"></span>
-      <span>Pipeline</span>
-    </a>
-    <a href="{{ url_portfolio }}" {% if view == 'portfolio' %}aria-current="page"{% endif %}>
-      <span class="nav__dot" aria-hidden="true"></span>
-      <span>Portfolio</span>
-    </a>
-  </nav>
-
-  {% set side_opps = sidebar_opps if (sidebar_opps is defined and sidebar_opps) else [] %}
-  {% if side_opps %}
-  <div class="sidenav__section">
-    <div class="sidenav__head">
-      <span class="label">Opportunities</span>
-      <span class="sidenav__count">{{ side_opps | length }}</span>
-    </div>
-    <ul class="sidenav__opps">
-      {% for item in side_opps[:8] %}
-      {% set is_sel = has_d and d.source_url == item.source_url %}
-      <li>
-        <a class="opp-card {% if is_sel %}is-selected{% endif %}"
-           href="{{ url_detail }}?url={{ item.source_url | urlencode }}"
-           title="{{ item.source_url }}">
-          <div class="opp-card__title clamp-2">
-            {% if item.title and item.title.value %}{{ item.title.value }}{% else %}Untitled tender{% endif %}
-          </div>
-          <div class="opp-card__meta">
-            <span class="clamp-1">{{ (item.client.value if item.client and item.client.value else item.source_url.split('//')[-1].split('/')[0]) }}</span>
-            {% if item.fit and item.fit.value is not none %}
-            <span class="mono">FIT {{ item.fit.value }}</span>
-            {% elif item.stage and item.stage.value %}
-            <span class="mono">{{ item.stage.value }}</span>
-            {% endif %}
-          </div>
-        </a>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
-
-  <div class="sidenav__foot">
-    <p class="sidenav__guard"><strong>Stops at a draft.</strong> Your team reviews, finalises, signs annexes and submits. Nothing is sent to a client from here.</p>
-  </div>
-</aside>
-
-<div class="shell__main">
 <ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
   {% for s_num in range(1, 6) %}
   <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
