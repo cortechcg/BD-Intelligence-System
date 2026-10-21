@@ -4,28 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>{{ title }} · Cortech BD</title>
-<link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
+<title>{{ title }} · {{ product_name or "Cortech BD" }}</title>
+<link rel="stylesheet" href="{{ static_base }}/redesign.css?v={{ static_v }}">
 </head>
-<body>
-<main class="auth">
-  <div class="auth__card">
-    <span class="brand">
-      <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand-lockup">
-        <span class="brand__name">Cortech</span>
-        <span class="brand-lockup__product">BD Intelligence</span>
-      </span>
-    </span>
-    <h1>{{ title }}</h1>
-    <div class="band band--critical" role="alert">
-      <div class="band__title">{{ reason }}</div>
-      {% if hint %}{{ hint }}{% endif %}
-    </div>
-    <p>Only <strong>@{{ domain }}</strong> Google accounts can sign in. If you used a
-      personal account, choose your work account and try again.</p>
-    <a class="btn btn--quiet" href="{{ url_login }}">Try a different account</a>
-  </div>
+<body class="signin-page">
+<a class="skip-link" href="#access-error">Skip to message</a>
+<main class="signin-specimen" id="access-error">
+  <section class="signin-card" aria-labelledby="access-title">
+    <span class="brand-mark error-icon" aria-hidden="true">!</span>
+    <p class="eyebrow">Access check</p>
+    <h1 id="access-title">{{ title }}</h1>
+    <div class="login-warning" role="alert"><strong>{{ reason }}</strong>{% if hint %}<span>{{ hint }}</span>{% endif %}</div>
+    <p>Use an approved <strong>@{{ domain }}</strong> Google account{% if has_exceptions %}, or a named allow-list account{% endif %}. Choose the right account and try again.</p>
+    <a class="btn btn-primary signin-button" href="{{ url_login }}">Try a different account <span aria-hidden="true">→</span></a>
+    <div class="signin-rule"><strong>People decide and submit.</strong><span>This system prepares a draft and stops before anything is sent to a client.</span></div>
+  </section>
 </main>
 </body>
 </html>

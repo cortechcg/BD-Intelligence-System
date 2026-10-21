@@ -19,8 +19,8 @@ AUTH_ALLOWED_DOMAIN = (
     os.getenv("AUTH_ALLOWED_DOMAIN") or "cortechconsultinggroup.com"
 ).strip().lower().lstrip("@")
 
-#: Configurable product name for the top header bar ("Cortech BD" by default).
-PRODUCT_NAME = "Cortech BD"
+#: Configurable product name for the header and sign-in screen.
+PRODUCT_NAME = (os.getenv("PRODUCT_NAME") or "Cortech BD").strip() or "Cortech BD"
 
 
 def _allowed_emails() -> frozenset[str]:
