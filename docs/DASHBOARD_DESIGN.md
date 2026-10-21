@@ -1,10 +1,10 @@
 # Dashboard design direction
 
-> **2026-09-22, night: light cream + forest green (§14) is current.** A
-> subtractive pass: one cream surface, forest ink, brass only for "a person
-> needs to act". Structure and the Outfit face carry over; the surface stack,
-> tinted fills, uppercase headings and highlight pills from §9–§13 are gone.
-> Screenshots: `docs/design-pass/simple-before-*` / `simple-after-*`.
+> **2026-10-21: the workspace shell has been redesigned (§15).** The light
+> cream and forest-green system remains; a compact forest navigation rail now
+> holds the two destinations and recent opportunities, with the five-stage
+> workflow in the working header. The page stays focused on queue, evidence,
+> and review. This replaces the older wide left index and letterhead layout.
 
 Second pass, 2026-09-22. The first pass (2026-09-21) established the rules
 that still hold: colour encodes evidence status, missing data is grey, the
@@ -721,3 +721,23 @@ table cells 16×24px, body 15px at 1.6. Figures: 56px hero and bucket counts
 (the NEEDS ATTENTION count at weight 500, the routine counts at 400), 44px
 tiles and view titles, 24px supporting stats. That difference — size and
 weight, not colour or boxes — is the hierarchy.
+
+
+---
+
+## 15. Workspace shell redesign (2026-10-21)
+
+The 2026 redesign keeps the established cream, forest, brass and clay meanings
+while reorganizing the shared frame around the daily bid workflow:
+
+- A fixed forest rail holds Pipeline, Portfolio, recent opportunities, and a
+  reminder that proposals require human review. It collapses to a compact
+  horizontal navigation on tablets and phones.
+- The sticky work header identifies the current workspace and keeps the five
+  workflow stages available. A thin progress line reinforces the active stage.
+- Pipeline, opportunity, job, portfolio, sign-in and denied screens share the
+  same spacing, control, card and table treatment. The tender's document prose
+  remains serif; identifiers remain monospace.
+- The cream surface and evidence/status colors are unchanged. The darker rail
+  is workspace chrome and does not replace the semantics of recommendation,
+  pipeline state, missing data or human attention.
