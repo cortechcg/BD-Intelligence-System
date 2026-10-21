@@ -70,15 +70,19 @@ class _FreshStatic(StaticFiles):
 
 
 def _static_version() -> str:
-    css = HERE / "static" / "app.css"
+    assets = [
+        HERE / "static" / "app.css",
+        HERE / "static" / "redesign.css",
+        HERE / "static" / "redesign.js",
+    ]
     try:
-        return format(int(css.stat().st_mtime), "x")
+        return format(int(max(asset.stat().st_mtime for asset in assets)), "x")
     except OSError:
         return "0"
 
 
 app = FastAPI(
-    title="Cortech BD control", docs_url=None, redoc_url=None, openapi_url=None,
+    title=f"{settings.PRODUCT_NAME} control", docs_url=None, redoc_url=None, openapi_url=None,
     lifespan=_lifespan,
 )
 app.mount("/static", _FreshStatic(directory=str(HERE / "static")), name="static")
@@ -197,6 +201,7 @@ def _base_context(request: Request, view: str) -> dict:
 def _auth_context(request: Request) -> dict:
     return {
         "request": request,
+        "product_name": settings.PRODUCT_NAME,
         "static_base": "/static",
         "static_v": _static_version(),
         "domain": settings.AUTH_ALLOWED_DOMAIN,
@@ -274,6 +279,24 @@ def healthz():
     that fails on a transient PostgREST blip makes the platform restart a
     perfectly good web process."""
     return PlainTextResponse("ok")
+
+
+@app.get("/design-preview", response_class=HTMLResponse)
+def design_preview(request: Request):
+    """Authenticated, fictional UI prototype for the next Bid Desk design.
+
+    It is deliberately separate from the live pipeline. Every control in this
+    view is a front-end demonstration and cannot create or change a run.
+    """
+    session = current_session(request) or {}
+    return templates.TemplateResponse(request, "redesign.html", {
+        "request": request,
+        "product_name": settings.PRODUCT_NAME,
+        "viewer": session.get("email", "reviewer@example.test"),
+        "url_logout": "/auth/logout",
+        "static_base": "/static",
+        "static_v": _static_version(),
+    })
 
 
 # ── views ───────────────────────────────────────────────────────────────────

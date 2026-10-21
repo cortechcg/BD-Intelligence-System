@@ -4,36 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Sign in · Cortech BD</title>
-<link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
+<title>Sign in · {{ product_name or "Cortech BD" }}</title>
+<link rel="stylesheet" href="{{ static_base }}/redesign.css?v={{ static_v }}">
 </head>
-<body>
-<main class="auth">
-  <div class="auth__card">
-    <span class="brand">
-      <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand-lockup">
-        <span class="brand__name">Cortech</span>
-        <span class="brand-lockup__product">BD Intelligence</span>
-      </span>
-    </span>
-    <h1>Sign in</h1>
-    <p>The queue, scores and drafts for Cortech's tenders. Access is limited to
-      <strong>@{{ domain }}</strong> Google accounts{% if has_exceptions %} and a short list of named exceptions{% endif %}.</p>
-
+<body class="signin-page">
+<a class="skip-link" href="#sign-in">Skip to sign in</a>
+<main class="signin-specimen" id="sign-in">
+  <section class="signin-card" aria-labelledby="sign-in-title">
+    <span class="brand-mark" aria-hidden="true">{{ (product_name or "Cortech BD")[:1] | upper }}</span>
+    <p class="eyebrow">Bid desk</p>
+    <h1 id="sign-in-title">{{ product_name or "Cortech BD" }}</h1>
+    <p>Find opportunities, assess fit and prepare a draft for your team to review.</p>
     {% if configured %}
-      <a class="btn" href="{{ url_start }}">Continue with Google</a>
+      <a class="btn btn-primary signin-button" href="{{ url_start }}">Sign in with Google <span aria-hidden="true">→</span></a>
     {% else %}
-      <div class="band band--warn" role="alert">
-        <div class="band__title">Sign-in is not configured on this deployment</div>
-        {{ reason }}. Set the variables and redeploy; see <code>docs/DASHBOARD.md</code> §3.3.
-      </div>
-      <span class="btn" aria-disabled="true">Continue with Google</span>
+      <div class="login-warning" role="alert"><strong>Google sign-in is not configured</strong><span>{{ reason }}. Contact your administrator.</span></div>
+      <span class="btn btn-primary signin-button" aria-disabled="true">Sign in with Google</span>
     {% endif %}
-
-    <p class="auth__foot">Nothing here sends a proposal. The pipeline stops at
-      <code>drafted</code>; a person reviews every draft before it leaves.</p>
-  </div>
+    <span class="tiny-note">Access is limited to <strong>@{{ domain }}</strong> Google accounts{% if has_exceptions %} and a named allow-list{% endif %}.</span>
+    <div class="signin-rule"><strong>People decide and submit.</strong><span>This system prepares a draft and stops before anything is sent to a client.</span></div>
+  </section>
 </main>
 </body>
 </html>

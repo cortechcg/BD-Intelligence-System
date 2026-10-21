@@ -81,6 +81,8 @@ services:
 
       # ── Required: Google login (WEB ONLY — the worker never sees these) ──
       # Names are exactly what dashboard/settings.py reads.
+      - key: PRODUCT_NAME
+        value: "Cortech BD"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
