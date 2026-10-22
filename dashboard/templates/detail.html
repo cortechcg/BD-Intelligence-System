@@ -561,6 +561,34 @@
   </section>
   {% endif %}
 
+  {% set committee = d.committee_grade if d.committee_grade is mapping else {} %}
+  {% if committee and committee.rows %}
+  <section class="panel" aria-labelledby="h-committee">
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title" id="h-committee">Committee reading</h3>
+        <p class="panel__desc">{{ committee.warning }} The pass mark is {{ committee.bar_percent }}% of the weighted criteria.</p>
+      </div>
+      <span class="panel__note">{% if committee.score_percent is not none %}{{ committee.score_percent }}%{% if committee.points_short %} · {{ committee.points_short }} points short{% endif %}{% else %}Not scored{% endif %}</span>
+    </div>
+    <div class="table-wrap table-wrap--flush">
+      <table class="table">
+        <thead><tr><th>Criterion</th><th>Mark</th><th>Reason</th><th>How to reach the pass mark</th></tr></thead>
+        <tbody>
+        {% for row in committee.rows %}
+          <tr>
+            <td><strong>{{ row.criterion }}</strong></td>
+            <td class="mono">{% if row.mark is not none %}{{ row.mark }}{% if row.weight is not none %} / {{ row.weight }}{% endif %}{% else %}—{% endif %}</td>
+            <td>{{ row.reason }}</td>
+            <td>{{ row.improvement or "At the full mark for this criterion." }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
   {% set cg = d.get("claim_grounding") or {} %}
   {% set bgt = d.get("budget") or {} %}
   <div class="two-col">

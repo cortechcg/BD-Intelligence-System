@@ -43,6 +43,7 @@ _SKIP_KEYS = {
     "requirement_alignment",
     "claim_sheet",
     "draft_editor",
+    "committee_grade",
 }
 
 # Words that appear in almost every technical proposal. Matching only these

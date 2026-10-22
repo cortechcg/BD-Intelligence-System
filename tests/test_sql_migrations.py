@@ -43,6 +43,22 @@ def test_opportunity_facts_migration_is_additive_on_opportunities_cache():
     assert "CREATE TABLE" not in sql
 
 
+def test_knowledge_library_migration_is_additive():
+    sql = _sql("supabase_migration_knowledge_library.sql")
+    assert "CREATE TABLE IF NOT EXISTS library_documents" in sql
+    assert "CREATE TABLE IF NOT EXISTS library_events" in sql
+    assert "library_documents_live_hash_uidx" in sql
+    assert "ADD COLUMN IF NOT EXISTS email" in sql
+    assert "ADD COLUMN IF NOT EXISTS created_by_email" in sql
+    assert "'library_ingest'" in sql
+    executable = "\n".join(
+        line for line in sql.splitlines() if not line.strip().startswith("--")
+    )
+    for token in ("DROP TABLE", "DELETE FROM", "TRUNCATE", "UPDATE "):
+        assert token not in executable
+    assert "DROP CONSTRAINT IF EXISTS dashboard_triggers_trigger_kind_check" in executable
+
+
 def test_award_relationships_migration_requires_organizations_fk():
     sql = _sql("supabase_migration_award_relationships.sql")
     orgs = _sql("supabase_migration_organizations.sql")

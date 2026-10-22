@@ -10,6 +10,9 @@ pipeline already uses, under ``proposals/`` and ``cvs/``.
     python sync_source_documents.py pull     # bucket → data/  (fresh clone)
     python sync_source_documents.py push     # data/  → bucket (after adding documents)
 
+Library uploads already live under proposals/ and cvs/, so pull mirrors them.
+Push copies bytes only. Embedding stays in embed_cvs.py and the worker.
+
 Credentials: SUPABASE_URL and SUPABASE_SERVICE_KEY from .env, exactly as the
 pipeline reads them. Nothing here prints a key. Files are compared by size;
 ``--force`` re-transfers everything. The placeholder ``PUT_*_HERE.txt`` files

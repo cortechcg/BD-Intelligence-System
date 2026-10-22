@@ -555,7 +555,11 @@ def test_rewind_only_targets_agent_stages_that_resume_can_continue_from():
 def test_every_trigger_kind_enters_through_submit_single_url():
     src = inspect.getsource(worker.run_trigger)
     assert src.count("main.submit_single_url(") == 1, "one entry point, parametrised"
+    assert "run_library_ingest" in src
+    assert src.index("LIBRARY_INGEST") < src.index("import main")
     for kind in triggers.KINDS:
+        if kind == triggers.LIBRARY_INGEST:
+            continue
         assert worker._pipeline_args(kind).keys() <= {"force", "retry_dead_letter"}
     assert worker._pipeline_args(triggers.SUBMIT_URL) == {"force": True}
     assert worker._pipeline_args(triggers.DRAFT_EXISTING) == {"force": False}
