@@ -31,7 +31,11 @@ DRAFT_EXISTING = "draft_existing"
 RETRY_DEAD_LETTER = "retry_dead_letter"
 RERUN_FROM_EXTRACTED = "rerun_from_extracted"
 RERUN_FROM_SCORED = "rerun_from_scored"
-KINDS = (SUBMIT_URL, DRAFT_EXISTING, RETRY_DEAD_LETTER, RERUN_FROM_EXTRACTED, RERUN_FROM_SCORED)
+LIBRARY_INGEST = "library_ingest"
+KINDS = (
+    SUBMIT_URL, DRAFT_EXISTING, RETRY_DEAD_LETTER,
+    RERUN_FROM_EXTRACTED, RERUN_FROM_SCORED, LIBRARY_INGEST,
+)
 
 #: Human-readable, used in the UI and in the audit trail.
 KIND_LABELS = {
@@ -40,6 +44,7 @@ KIND_LABELS = {
     RETRY_DEAD_LETTER: "retry dead-letter, resume from checkpoint",
     RERUN_FROM_EXTRACTED: "re-run from extracted (re-score + re-draft)",
     RERUN_FROM_SCORED: "re-run from scored (re-draft only)",
+    LIBRARY_INGEST: "ingest library document",
 }
 
 _SELECT = (
@@ -100,7 +105,13 @@ def enqueue(source_url: str, kind: str, requested_by: str) -> str | None:
     """
     if kind not in KINDS:
         raise ValueError(f"unknown trigger kind: {kind}")
-    canonical = canonicalize_url(source_url) or source_url
+    raw = (source_url or "").strip()
+    # library:// is a document key, not a tender URL. canonicalize_url would
+    # treat it as a fetchable address.
+    if raw.startswith("library://"):
+        canonical = raw
+    else:
+        canonical = canonicalize_url(raw) or raw
     if not canonical:
         raise ValueError("empty source_url")
     data = _rpc(

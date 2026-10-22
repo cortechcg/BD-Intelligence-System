@@ -161,10 +161,14 @@ def run_trigger(job: dict) -> dict:
     Kept separate from the loop so tests can drive it directly without a
     queue, a signal handler, or a sleep.
     """
-    import main  # imported here so the module can be inspected without config
-
     url = job["source_url"]
     kind = job["trigger_kind"]
+    if kind == triggers.LIBRARY_INGEST:
+        from dashboard.library import run_library_ingest
+
+        return run_library_ingest(job)
+
+    import main  # imported here so the module can be inspected without config
 
     # "Re-run from [stage]" is a ledger rewind followed by the ordinary resume.
     if kind in (triggers.RERUN_FROM_EXTRACTED, triggers.RERUN_FROM_SCORED):
@@ -348,6 +352,19 @@ def run_once(worker_token: str) -> bool:
     # through this gate, so the cap holds no matter how many were queued.
     blocked, reason = triggers.aggregate_cap_reached()
     if blocked:
+        if job.get("trigger_kind") == triggers.LIBRARY_INGEST:
+            try:
+                from dashboard.library import document_id_from_source, _set_status
+                from database.supabase_client import get_supabase
+
+                document_id = document_id_from_source(str(job.get("source_url") or ""))
+                if document_id:
+                    _set_status(
+                        get_supabase(), document_id, "failed",
+                        "Embedding quota reached; retry later",
+                    )
+            except Exception:
+                logger.warning("library document was not marked failed after the spend cap")
         triggers.finish(
             trigger_id, worker_token,
             status="failed",

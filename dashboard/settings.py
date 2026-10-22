@@ -64,6 +64,16 @@ WORKER_LEASE_SECONDS = int(os.getenv("DASHBOARD_WORKER_LEASE_SECONDS") or 3600)
 #: Hard off-switch for triggering. The read-only views keep working.
 TRIGGERS_ENABLED = (os.getenv("DASHBOARD_TRIGGERS_ENABLED") or "true").lower() != "false"
 
+
+def library_admin_emails() -> set[str]:
+    """Allowlisted people who may archive someone else's library document.
+
+    Empty means only the uploader can archive their own. Read at call time
+    so a test can set the variable without reimporting settings.
+    """
+    raw = os.getenv("LIBRARY_ADMIN_EMAILS") or ""
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
 #: Aggregate cap across ALL dashboard-triggered runs in a trailing window.
 #:
 #: This is a control the pipeline did not have: the Phase 8 cap

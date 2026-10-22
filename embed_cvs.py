@@ -707,6 +707,8 @@ def embed_proposal_from_file(
         logger.warning(f"No usable proposal text in {path.name}. Skipping.")
         return "skipped"
 
+    from intelligence.library_ingest import embed_proposal_text
+
     lookup = f"local:{path.name}"
     title = title or path.stem
     metadata = {
@@ -715,35 +717,19 @@ def embed_proposal_from_file(
         "won": won,
         "source_file": path.name,
     }
-
-    def _embed_and_store():
-        embedding = get_embedding_openai(proposal_text)
-        return store_single_embedding_row(
-            supabase=supabase,
-            table_name="proposal_embeddings",
-            lookup_column="airtable_proposal_id",
-            lookup_value=lookup,
-            payload={
-                "airtable_proposal_id": lookup,
-                "project_title": title,
-                "won": won,
-                "content_chunk": proposal_text[:2000],
-                "embedding": embedding,
-                "metadata": metadata,
-            },
-        )
-
-    embedding_id, action, duplicate_count = retry_on_transient(
-        _embed_and_store, label=title
+    embedding_id = embed_proposal_text(
+        supabase,
+        lookup=lookup,
+        title=title,
+        text=proposal_text,
+        won=won,
+        metadata=metadata,
     )
-    if duplicate_count:
-        logger.warning(
-            f"Repaired {duplicate_count} duplicate proposal embedding row(s) "
-            f"for {title}."
-        )
-    logger.success(f"Proposal embedding {action}: {title} ({embedding_id})")
+    if embedding_id == "skipped":
+        return "skipped"
+    logger.success(f"Proposal embedding stored: {title} ({embedding_id})")
     console.print(
-        f"  [green]{action}[/green] {title} "
+        f"  [green]stored[/green] {title} "
         f"({table_count(supabase, 'proposal_embeddings')} proposal_embeddings rows)"
     )
     return "embedded"

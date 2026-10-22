@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Library · Cortech BD{% endblock %}
+
+{% block content %}
+<div class="view-head">
+  <div class="view-head__main">
+    <h1 id="h-library">Knowledge Library</h1>
+    <p class="view-head__lead">Past proposals and CVs the agent uses for matching and drafting.</p>
+  </div>
+</div>
+
+{% if flash %}
+<div class="band {% if flash_kind == 'stop' %}band--critical{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
+{% endif %}
+
+{% if not available %}
+<section class="panel">
+  <h2>The library table is not available</h2>
+  <p>{{ unavailable_reason }}</p>
+</section>
+{% else %}
+
+<section class="figures" aria-label="Library counts">
+  <div class="figure">
+    <div class="figure__label">Past proposals</div>
+    <div class="figure__value">{{ counts.proposals_ready }}</div>
+    <div class="figure__sub">ready · {{ counts.proposals_processing }} processing</div>
+  </div>
+  <div class="figure">
+    <div class="figure__label">CVs</div>
+    <div class="figure__value">{{ counts.cv_consultants }}</div>
+    <div class="figure__sub">consultants · {{ counts.cvs_ready }} ready</div>
+  </div>
+</section>
+
+<nav class="tabs" aria-label="Library sections">
+  {% for key, label in (("proposals", "Proposals"), ("cvs", "CVs"), ("mine", "My uploads"), ("processing", "Processing")) %}
+  <a href="/library?tab={{ key }}" {% if tab == key %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+<section class="panel" aria-labelledby="h-add">
+  <div class="panel__head">
+    <h2 class="panel__title" id="h-add">Add to library</h2>
+  </div>
+  <form method="post" action="/library/upload" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <fieldset>
+      <legend>What are you adding?</legend>
+      <label><input type="radio" name="kind" value="proposal" checked> Past proposal</label>
+      <label><input type="radio" name="kind" value="cv"> CV</label>
+    </fieldset>
+    <label>Files
+      <input type="file" name="files" accept=".pdf,.docx" multiple required>
+    </label>
+    <p>PDF or DOCX, up to 10 files, each up to 25 MiB.</p>
+    <label>Title <input name="title" autocomplete="off"></label>
+    <label>Client <input name="client" autocomplete="organization"></label>
+    <label>Donor <input name="donor" autocomplete="off"></label>
+    <label>Country <input name="country" autocomplete="country-name"></label>
+    <label>Sectors <input name="sectors" placeholder="Separate with commas"></label>
+    <label>Submission date <input name="submission_date" inputmode="numeric" placeholder="YYYY-MM-DD" autocomplete="off"></label>
+    <label>Type
+      <select name="proposal_type">
+        <option value="">Unknown</option>
+        <option value="technical">Technical</option>
+        <option value="eoi">EOI</option>
+        <option value="financial">Financial</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label>Outcome
+      <select name="outcome">
+        <option value="unknown">Unknown</option>
+        <option value="won">Won</option>
+        <option value="lost">Lost</option>
+        <option value="pending">Pending</option>
+      </select>
+    </label>
+    <fieldset>
+      <legend>Whose CV is this?</legend>
+      <label><input type="radio" name="whose" value="me"> Me</label>
+      <label><input type="radio" name="whose" value="existing"> Someone on the team
+        <input name="consultant_id" placeholder="Consultant id">
+      </label>
+      <label><input type="radio" name="whose" value="new"> New team member</label>
+      <label>Full name <input name="new_full_name" autocomplete="name"></label>
+      <label>Email <input name="new_email" type="email" autocomplete="email"></label>
+      <label>Role <input name="new_role"></label>
+      <label>Based in <input name="new_based_in"></label>
+      <label>Languages <input name="new_languages"></label>
+      <label>Sectors <input name="new_sectors"></label>
+      <label>Years of experience <input name="new_years" inputmode="decimal"></label>
+    </fieldset>
+    <p>Rates and availability are never inferred from a CV. Add them in the consultant record.</p>
+    <button type="submit">Add to library</button>
+  </form>
+</section>
+
+{% if tab == "cvs" %}
+  {% if not rows %}
+  <section class="empty">
+    <h2>No CVs yet</h2>
+    <p>Add the first team CV so matching can use it.</p>
+  </section>
+  {% else %}
+  <ul class="card-list">
+    {% for row in rows %}
+    <li class="panel">
+      <h2>{{ row.title or "CV" }}</h2>
+      <p>{{ row.status }} · added by {{ row.uploaded_by_name or row.uploaded_by_email }}</p>
+      <p>Availability is Unknown unless the consultant record already has a value.</p>
+      {% if row.error_message %}<p>{{ row.error_message }}</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+{% elif tab == "processing" and not rows %}
+<section class="empty">
+  <h2>Nothing processing</h2>
+</section>
+{% elif tab == "mine" and not rows %}
+<section class="empty">
+  <h2>You have not added a document yet</h2>
+</section>
+{% elif not rows %}
+<section class="empty">
+  <h2>No past proposals yet</h2>
+  <p>Add a won or lost proposal so drafting can cite real precedent.</p>
+</section>
+{% else %}
+<div class="table-wrap">
+  <table class="table">
+    <caption>Library documents</caption>
+    <thead>
+      <tr>
+        <th>Title</th><th>Client / donor</th><th>Country</th><th>Type</th>
+        <th>Date</th><th>Outcome</th><th>Uploaded by</th><th>Status</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td><a href="/api/library/{{ row.id }}">{{ row.title or row.original_filename }}</a></td>
+        <td>{{ row.client or "—" }}{% if row.donor %} · {{ row.donor }}{% endif %}</td>
+        <td>{{ row.country or "—" }}</td>
+        <td>{{ row.proposal_type or "—" }}</td>
+        <td class="mono">{{ row.submission_date or "—" }}</td>
+        <td>{{ row.outcome or "unknown" }}</td>
+        <td>{{ row.uploaded_by_name or row.uploaded_by_email }}</td>
+        <td>{{ row.status }}{% if row.error_message %} — {{ row.error_message }}{% endif %}</td>
+        <td>
+          {% if row.uploaded_by_email == viewer or library_admin %}
+          <form method="post" action="/library/{{ row.id }}/archive">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Archive</button>
+          </form>
+          {% endif %}
+          {% if row.status == "failed" %}
+          <form method="post" action="/library/{{ row.id }}/reprocess">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit">Reprocess</button>
+          </form>
+          {% endif %}
+          <a href="/library/{{ row.id }}/file">Download original</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

@@ -94,7 +94,7 @@ def test_parchment_desk_and_no_gradients():
     shadow_ok = (
         "page--portfolio", ".panel", ".tile", ".table-wrap", ".auth",
         ".band", ".notice", ".empty", ".disclosure", ".sidenav", ".stageboard",
-        ".intake-card",
+        ".intake-card", ".nav__icon",
     )
     for selector, rule in rules():
         sel = selector.strip()
@@ -115,13 +115,14 @@ def test_two_fills_only():
             if tok in (
                 "ground", "surface", "track", "hover", "selected", "glass", "line", "desk",
                 "stepper-well", "color-upcoming", "color-ok-bg", "color-warn-bg", "color-err-bg",
+                "color-tint",
             ):
                 continue
             assert any(k in sel for k in (
                 ".btn", ".chip--bid", "rail__seg", "meter__fill", "::before", "state--",
                 "bar__fill", "mix__seg", "legend__swatch", ".orb", ".brand__mark",
                 ".nav__dot", ".steps__num", ".masthead", "stage-progress__seg",
-                ".doc-chip__icon", ".match-bar__fill", ".tile--dark",
+                ".doc-chip__icon", ".match-bar__fill", ".tile--dark", ".sidenav",
             )), f"fill {tok} on {sel[:70]}"
 
 
@@ -216,7 +217,10 @@ def test_hierarchy_is_size():
 
 
 def test_radii_vocabulary():
-    allowed = {"var(--r-card)", "var(--r-ctl)", "var(--r-pill)", "var(--r-mark)", "50%", "0", "0 var(--r-mark) var(--r-mark) 0"}
+    allowed = {
+        "var(--r-card)", "var(--r-ctl)", "var(--r-pill)", "var(--r-mark)", "50%", "0",
+        "0 var(--r-mark) var(--r-mark) 0", "var(--r-mark) var(--r-mark) 0 0",
+    }
     for val in re.findall(r"border-radius:\s*([^;]+);", BODY):
         assert val.strip() in allowed, val
 

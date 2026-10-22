@@ -104,6 +104,9 @@ services:
         sync: false               # explicit off-domain exceptions, comma-separated full
                                   # addresses. Leave EMPTY unless a decision says otherwise
                                   # (docs/DASHBOARD.md §3.5). Empty = domain only.
+      - key: LIBRARY_ADMIN_EMAILS
+        sync: false               # comma-separated addresses that may archive another
+                                  # person's library document. Empty = uploaders only.
 
       # ── Behaviour (defaults identical to dashboard/settings.py) ──
       - key: DASHBOARD_SESSION_MAX_AGE

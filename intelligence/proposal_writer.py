@@ -82,6 +82,7 @@ DRAFT_META_KEYS = frozenset({
     "requirement_alignment",
     "claim_sheet",
     "draft_editor",
+    "committee_grade",
 })
 MIN_CLIENT_FACING_DRAFT_CHARS = 20
 
@@ -804,6 +805,7 @@ _META_SECTION_KEYS = {
     "requirement_alignment",
     "claim_sheet",
     "draft_editor",
+    "committee_grade",
 }
 
 
@@ -1826,6 +1828,7 @@ def _final_money_audit(sections: dict) -> None:
             "lightweight_reason",
             "claim_sheet",
             "draft_editor",
+            "committee_grade",
         }:
             continue
         sections[key] = scrub(value, str(key))
@@ -2001,8 +2004,11 @@ def _raise_to_criteria_bar(
         meets_evaluation_bar,
     )
 
+    from intelligence.committee_grade import improvement_lines, reading_from_alignment
+
     outline = sections.get("submission_outline") if isinstance(sections.get("submission_outline"), dict) else {}
     report = align_draft_to_requirements(analysis, sections, outline=outline)
+    sections["committee_grade"] = reading_from_alignment(report)
     if not report.get("criteria_total"):
         logger.info(
             "  No evaluation criteria were extracted — an 80% alignment score "
@@ -2036,6 +2042,7 @@ def _raise_to_criteria_bar(
                 key, sections.get(key) or "", rows, analysis or {}, system_blocks
             )
         report = align_draft_to_requirements(analysis, sections, outline=outline)
+        sections["committee_grade"] = reading_from_alignment(report)
         percent = report.get("criteria_score_percent")
         if meets_evaluation_bar(percent):
             logger.info(
@@ -2044,9 +2051,11 @@ def _raise_to_criteria_bar(
             )
             return sections
     missing = "; ".join(str(item) for item in (report.get("missing") or [])[:8]) or "see the criterion trace"
+    advice = improvement_lines(sections.get("committee_grade") or {})
     raise DraftingError(
         f"draft alignment is {percent}% against the evaluation criteria; "
         f"the bar is {EVALUATION_ALIGNMENT_BAR}%. Missing: {missing}"
+        + (f" To reach the pass mark: {advice}" if advice else "")
     )
 
 

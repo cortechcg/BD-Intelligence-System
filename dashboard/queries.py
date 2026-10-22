@@ -683,6 +683,7 @@ def opportunity_detail(source_url: str) -> dict | None:
             k for k, v in sections.items() if isinstance(v, str) and v.strip()
         ),
         "requirement_alignment": _requirement_alignment(analysis, sections),
+        "committee_grade": sections.get("committee_grade") if isinstance(sections.get("committee_grade"), dict) else {},
         "final_grade": cp.get("final_grade") if isinstance(cp.get("final_grade"), dict) else {},
         "final_grade_pending": _final_grade_pending(cp),
         "final_grade_error": str(cp.get("final_grade_error") or ""),

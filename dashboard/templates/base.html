@@ -36,6 +36,10 @@
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
       <span>Portfolio</span>
     </a>
+    <a href="{{ url_library }}" {% if view == 'library' %}aria-current="page"{% endif %}>
+      <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
+      <span>Library</span>
+    </a>
     <a href="/design-preview">
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
       <span>Bid desk redesign preview</span>

@@ -173,6 +173,7 @@ def _base_context(request: Request, view: str) -> dict:
         "static_v": _static_version(),
         "url_queue": "/",
         "url_portfolio": "/portfolio",
+        "url_library": "/library",
         "url_detail": "/opportunity",
         "url_job": "/job",
         "url_logout": "/auth/logout",
@@ -1006,3 +1007,328 @@ def api_job(trigger_id: str, session: dict = Depends(require_session)):
 @app.get("/api/portfolio")
 def api_portfolio(session: dict = Depends(require_session)):
     return {**queries.portfolio_view(), **_spend_context()}
+
+
+# ── knowledge library ───────────────────────────────────────────────────────
+
+def _library_filters(request: Request, session: dict) -> dict:
+    params = request.query_params
+    tab = str(params.get("tab") or "proposals")
+    if tab not in ("proposals", "cvs", "mine", "processing"):
+        tab = "proposals"
+    filters = {
+        "q": str(params.get("q") or ""),
+        "donor": str(params.get("donor") or ""),
+        "sector": str(params.get("sector") or ""),
+        "country": str(params.get("country") or ""),
+        "outcome": str(params.get("outcome") or ""),
+        "uploader": str(params.get("uploader") or ""),
+        "consultant": str(params.get("consultant") or ""),
+        "status": str(params.get("status") or ""),
+    }
+    if tab == "mine":
+        filters["uploader"] = str(session.get("email") or "").strip().lower()
+    return tab, filters
+
+
+def _library_client():
+    from database.supabase_client import get_supabase
+
+    return get_supabase()
+
+
+@app.get("/library", response_class=HTMLResponse)
+def library_page(request: Request):
+    from dashboard import library as library_mod
+
+    session = current_session(request) or {}
+    ctx = _base_context(request, "library")
+    tab, filters = _library_filters(request, session)
+    try:
+        supabase = _library_client()
+        everything = library_mod.list_documents(supabase)
+        rows = library_mod.list_documents(supabase, tab=tab, filters=filters)
+        available = True
+        reason = ""
+        tally = library_mod.counts(everything)
+    except Exception as exc:
+        rows, everything = [], []
+        available = False
+        reason = "The library tables are not available yet. Apply supabase_migration_knowledge_library.sql."
+        tally = {"proposals_ready": 0, "proposals_processing": 0, "cv_consultants": 0, "cvs_ready": 0}
+        logger.warning(f"library page unavailable: {type(exc).__name__}")
+    processing = any(row.get("status") in ("uploaded", "queued", "extracting", "embedding") for row in everything)
+    ctx.update({
+        "tab": tab,
+        "rows": rows,
+        "counts": tally,
+        "available": available,
+        "unavailable_reason": reason,
+        "library_admin": library_mod.is_admin(session),
+        "poll_ms": 5000 if processing else 0,
+    })
+    return templates.TemplateResponse(request, "library.html", ctx)
+
+
+@app.get("/api/library")
+def api_library(request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    tab, filters = _library_filters(request, session)
+    rows = library_mod.list_documents(_library_client(), tab=tab, filters=filters)
+    return {"tab": tab, "documents": rows, "counts": library_mod.counts(rows)}
+
+
+@app.get("/api/library/{document_id}")
+def api_library_one(document_id: str, session: dict = Depends(require_session)):
+    supabase = _library_client()
+    found = supabase.table("library_documents").select("*").eq("id", document_id).limit(1).execute()
+    rows = found.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="no such document")
+    events = supabase.table("library_events").select("*").eq("document_id", document_id).execute()
+    return {"document": rows[0], "events": events.data or []}
+
+
+@app.get("/api/consultants")
+def api_consultants(q: str = "", session: dict = Depends(require_session)):
+    supabase = _library_client()
+    found = supabase.table("consultants").select(
+        "id,full_name,role_title,based_in,email"
+    ).limit(50).execute()
+    rows = found.data or []
+    needle = (q or "").strip().lower()
+    if needle:
+        rows = [
+            row for row in rows
+            if needle in " ".join(
+                str(row.get(field) or "") for field in ("full_name", "role_title", "based_in", "email")
+            ).lower()
+        ]
+    return {"consultants": rows[:20]}
+
+
+def _meta_from_form(form, index: int) -> dict:
+    prefix = f"meta[{index}]"
+    keyed = {
+        field: form.get(f"{prefix}[{field}]")
+        for field in (
+            "title", "client", "donor", "country", "sectors",
+            "submission_date", "proposal_type", "outcome",
+        )
+    }
+    if any(value not in (None, "") for value in keyed.values()):
+        return {key: str(value or "") for key, value in keyed.items()}
+    return {
+        field: str(form.get(field) or "")
+        for field in keyed
+    }
+
+
+def _consultant_for_upload(form, session: dict, supabase, kind: str) -> tuple[str | None, str | None]:
+    from dashboard import library as library_mod
+
+    if kind != "cv":
+        return None, None
+    whose = str(form.get("whose") or "existing").strip().lower()
+    if whose == "me":
+        row = library_mod.resolve_me(supabase, session)
+        return str(row.get("id") or ""), None
+    if whose == "new":
+        email, _name = library_mod.actor(session)
+        created = library_mod.create_consultant(
+            supabase,
+            {
+                "full_name": form.get("new_full_name"),
+                "email": form.get("new_email"),
+                "role_title": form.get("new_role"),
+                "based_in": form.get("new_based_in"),
+                "languages": form.get("new_languages"),
+                "thematic_expertise": form.get("new_sectors"),
+                "years_experience": form.get("new_years"),
+            },
+            email,
+            confirm=str(form.get("confirm_name") or "") in ("1", "true", "on"),
+        )
+        if created.get("did_you_mean") and not created.get("consultant"):
+            names = ", ".join(created["did_you_mean"])
+            return None, f"Did you mean {names}?"
+        return str((created.get("consultant") or {}).get("id") or ""), None
+    consultant_id = str(form.get("consultant_id") or "").strip()
+    if not consultant_id:
+        return None, "Choose whose CV this is"
+    return consultant_id, None
+
+
+@app.post("/library/upload")
+async def library_upload(request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    kind = str(form.get("kind") or "").strip().lower()
+    uploads = [item for item in form.getlist("files") if getattr(item, "filename", None)]
+    wants_json = "application/json" in str(request.headers.get("accept") or "")
+    if len(uploads) > library_mod.MAX_FILES:
+        message = "Upload 10 files or fewer at a time."
+        if wants_json:
+            return JSONResponse({"ok": False, "reason": message}, status_code=400)
+        return _flash("/library", message, "stop")
+    if not uploads:
+        message = "Choose a PDF or DOCX file."
+        if wants_json:
+            return JSONResponse({"ok": False, "reason": message}, status_code=400)
+        return _flash("/library", message, "stop")
+    try:
+        supabase = _library_client()
+        consultant_id, consultant_error = _consultant_for_upload(form, session, supabase, kind)
+    except Exception as exc:
+        message = str(exc) or "The consultant could not be saved."
+        if wants_json:
+            return JSONResponse({"ok": False, "reason": message}, status_code=400)
+        return _flash("/library", message, "stop")
+    if consultant_error:
+        if wants_json:
+            return JSONResponse({"ok": False, "reason": consultant_error}, status_code=400)
+        return _flash("/library", consultant_error, "stop")
+    results = []
+    for index, item in enumerate(uploads):
+        data = await item.read()
+        results.append(library_mod.store_upload(
+            supabase,
+            session,
+            kind=kind,
+            filename=str(item.filename),
+            data=bytes(data or b""),
+            meta=_meta_from_form(form, index),
+            consultant_id=consultant_id,
+        ))
+    if wants_json:
+        return {"ok": any(row.get("ok") for row in results), "results": results}
+    ok = [row for row in results if row.get("ok")]
+    bad = [row for row in results if not row.get("ok")]
+    message = f"Added {len(ok)} file(s)."
+    if bad:
+        message += " " + "; ".join(str(row.get("reason") or "not added") for row in bad[:4])
+    return _flash("/library", message, "" if ok else "stop")
+
+
+@app.post("/library/{document_id}/update")
+async def library_update(document_id: str, request: Request, session: dict = Depends(require_session)):
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    supabase = _library_client()
+    found = supabase.table("library_documents").select("*").eq("id", document_id).limit(1).execute()
+    rows = found.data or []
+    if not rows:
+        return _flash("/library", "That document is not in the library.", "stop")
+    current = rows[0]
+    outcome = str(form.get("outcome") or current.get("outcome") or "unknown").strip().lower()
+    if outcome not in ("won", "lost", "pending", "unknown"):
+        outcome = "unknown"
+    patch = {
+        "title": str(form.get("title") or current.get("title") or ""),
+        "client": str(form.get("client") or "").strip() or None,
+        "donor": str(form.get("donor") or "").strip() or None,
+        "country": str(form.get("country") or "").strip() or None,
+        "outcome": outcome,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    supabase.table("library_documents").update(patch).eq("id", document_id).execute()
+    if outcome != str(current.get("outcome") or "") and current.get("kind") == "proposal":
+        from dashboard import library as library_mod
+
+        triggers.enqueue(library_mod.library_source(document_id), triggers.LIBRARY_INGEST, session.get("email") or "")
+        supabase.table("library_documents").update({"status": "queued"}).eq("id", document_id).execute()
+    return _flash("/library", "Document details saved.")
+
+
+@app.post("/library/{document_id}/reprocess")
+async def library_reprocess(document_id: str, request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    if not settings.TRIGGERS_ENABLED:
+        return _flash("/library", "Read-only: new runs are paused", "stop")
+    queued = triggers.enqueue(
+        library_mod.library_source(document_id), triggers.LIBRARY_INGEST, session.get("email") or ""
+    )
+    if not queued:
+        return _flash("/library", "This document is already queued.", "stop")
+    _library_client().table("library_documents").update({"status": "queued"}).eq("id", document_id).execute()
+    return _flash("/library", "Reprocessing this document.")
+
+
+@app.post("/library/{document_id}/archive")
+async def library_archive(document_id: str, request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    ok, message = library_mod.archive_document(_library_client(), session, document_id)
+    if not ok and "archive a document you uploaded" in message:
+        raise HTTPException(status_code=403, detail=message)
+    return _flash("/library", message, "" if ok else "stop")
+
+
+@app.post("/library/{document_id}/restore")
+async def library_restore(document_id: str, request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    ok, message = library_mod.restore_document(_library_client(), session, document_id)
+    if not ok:
+        raise HTTPException(status_code=403, detail=message)
+    return _flash("/library", message)
+
+
+@app.post("/consultants/new")
+async def consultants_new(request: Request, session: dict = Depends(require_session)):
+    from dashboard import library as library_mod
+
+    form = await request.form()
+    _check_csrf(session, str(form.get("csrf_token") or ""))
+    email, _name = library_mod.actor(session)
+    try:
+        created = library_mod.create_consultant(
+            _library_client(),
+            {
+                "full_name": form.get("full_name"),
+                "email": form.get("email"),
+                "role_title": form.get("role_title"),
+                "based_in": form.get("based_in"),
+                "languages": form.get("languages"),
+                "thematic_expertise": form.get("thematic_expertise"),
+                "years_experience": form.get("years_experience"),
+            },
+            email,
+            confirm=str(form.get("confirm_name") or "") in ("1", "true", "on"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    wants_json = "application/json" in str(request.headers.get("accept") or "")
+    if wants_json:
+        return created
+    if created.get("did_you_mean") and not created.get("consultant"):
+        return _flash("/library", "Did you mean " + ", ".join(created["did_you_mean"]) + "?", "stop")
+    return _flash("/library", "Team member saved.")
+
+
+@app.get("/library/{document_id}/file")
+def library_file(document_id: str, session: dict = Depends(require_session)):
+    from dashboard.library import BUCKET
+
+    supabase = _library_client()
+    found = supabase.table("library_documents").select("storage_path").eq("id", document_id).limit(1).execute()
+    rows = found.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="no such document")
+    signed = supabase.storage.from_(BUCKET).create_signed_url(rows[0]["storage_path"], 60)
+    url = ""
+    if isinstance(signed, dict):
+        url = signed.get("signedURL") or signed.get("signed_url") or ""
+    if not url:
+        raise HTTPException(status_code=404, detail="the original could not be signed")
+    return RedirectResponse(url, status_code=302)

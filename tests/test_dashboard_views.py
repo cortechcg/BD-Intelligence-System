@@ -65,6 +65,12 @@ def test_post_routes_are_limited_to_queueing():
     )
     assert posts == [
         "/api/opportunity/outline",
+        "/consultants/new",
+        "/library/upload",
+        "/library/{document_id}/archive",
+        "/library/{document_id}/reprocess",
+        "/library/{document_id}/restore",
+        "/library/{document_id}/update",
         "/opportunity/final-grade",
         "/opportunity/outcome", "/opportunity/outline", "/opportunity/reviewed",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
@@ -72,7 +78,8 @@ def test_post_routes_are_limited_to_queueing():
     ]
     # Queue posts enqueue or cancel. Review posts record a person's decision.
     # The outline post stores chapters for a later draft. The final-grade post
-    # scores an uploaded file and stores the reading. None calls the pipeline
+    # queues a file for the worker. Library posts store a document or a
+    # consultant and may enqueue library_ingest. None calls the pipeline
     # inline and none can act outward.
     src = inspect.getsource(app_module)
     assert "submit_single_url" not in src
@@ -108,14 +115,14 @@ def client(monkeypatch):
 
 
 def test_pages_redirect_anonymous_users_to_login(client):
-    for path in ("/", "/portfolio", "/opportunity?url=x", "/draft?url=x"):
+    for path in ("/", "/portfolio", "/library", "/opportunity?url=x", "/draft?url=x"):
         r = client.get(path)
         assert r.status_code == 302, path
         assert r.headers["location"] == "/auth/login"
 
 
 def test_api_returns_401_for_anonymous_users(client):
-    for path in ("/api/queue", "/api/portfolio", "/api/opportunity?url=x"):
+    for path in ("/api/queue", "/api/portfolio", "/api/library", "/api/consultants", "/api/opportunity?url=x"):
         r = client.get(path)
         assert r.status_code == 401, path
 
