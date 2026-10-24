@@ -1,0 +1,591 @@
+{
+  "version": 1,
+  "source": "Cortech Consulting Group, Company Profile 2026",
+  "source_note": "Facts are copied from the Company Profile 2026. Fields marked tagged_by_cortech_bd (area groups and the one theme per project) were added by Cortech BD from the project description and are not in the profile. Nothing here is a value, outcome or date beyond what the profile states.",
+  "company": {
+    "name": "Cortech Consulting Group",
+    "tagline": "Where innovation meets impact.",
+    "summary": "Consulting across the humanitarian, public and private sectors since 2015.",
+    "established": 2015,
+    "offices": [
+      {
+        "city": "Nairobi",
+        "country": "Kenya",
+        "address": "2nd Floor, ACK Gardens, 1st Av Ngong Road"
+      },
+      {
+        "city": "Mogadishu",
+        "country": "Somalia",
+        "address": "Makkah al Mukaramma Road, Mogadishu"
+      },
+      {
+        "city": "London",
+        "country": "United Kingdom",
+        "address": "71-75 Shelton Street, Covent Garden, London WC2H 9JQ"
+      }
+    ],
+    "membership": "ICA World (International Consulting Alliance)",
+    "mission": "Making a positive difference in society across humanitarian, public and private sectors.",
+    "goal": "To be a leading provider of comprehensive solutions across multiple sectors.",
+    "vision": "A world where organizations and individuals thrive across various sectors.",
+    "closing_line": "Long-term partnerships, built one project at a time.",
+    "client_types": "Public, private and nonprofit organizations.",
+    "website": "www.cortechcgl.com",
+    "email": "info@cortechcgl.com"
+  },
+  "sectors": [
+    "Agricultural & rural development",
+    "Economic development",
+    "Education",
+    "Energy",
+    "Environment & climate change",
+    "Humanitarian aid & relief",
+    "Health",
+    "Trade & industry",
+    "Programme & resources management",
+    "Public administration",
+    "Social science & population",
+    "Law & governance",
+    "Urban development"
+  ],
+  "service_lines": [
+    {
+      "n": 1,
+      "name": "Evidence Building",
+      "items": [
+        "Research and survey",
+        "Baseline and impact assessment",
+        "Process monitoring",
+        "GIS mapping",
+        "Action research, rating and benchmarking"
+      ]
+    },
+    {
+      "n": 2,
+      "name": "Knowledge and Capacity Building",
+      "items": [
+        "Insight development",
+        "Prototypes and mentoring",
+        "Documentation of case studies and best practices",
+        "Knowledge-sharing platforms",
+        "Training and learning development"
+      ]
+    },
+    {
+      "n": 3,
+      "name": "Technical Assistance",
+      "items": [
+        "Strategy, programme and project design and development",
+        "Policy and roadmaps",
+        "Business planning",
+        "Due diligence",
+        "Risk analysis and institutional, social, environmental, financial, economic and technical appraisal"
+      ]
+    },
+    {
+      "n": 4,
+      "name": "Programme Management and Operations",
+      "items": [
+        "Project planning and implementation",
+        "Project management consultancy (PMC)",
+        "Grant and fund management",
+        "Project monitoring",
+        "Service delivery operations"
+      ]
+    },
+    {
+      "n": 5,
+      "name": "Engagement and Outreach",
+      "items": [
+        "Communication and behaviour change",
+        "Advocacy",
+        "Partnerships and alliance building",
+        "Networking",
+        "Campaigns"
+      ]
+    },
+    {
+      "n": 6,
+      "name": "Systems, Platforms and Institution Building",
+      "items": [
+        "MIS development and monitoring systems",
+        "Service management systems",
+        "Impact funds",
+        "Organization and utility building",
+        "Business accelerators and grand challenges"
+      ]
+    }
+  ],
+  "themes": [
+    {
+      "n": 1,
+      "slug": "agriculture",
+      "name": "Agriculture, Forestry & Biodiversity",
+      "items": [
+        "Independent assessment and verification",
+        "Forest landscape restoration and deforestation",
+        "Climate-resilient agriculture"
+      ]
+    },
+    {
+      "n": 2,
+      "slug": "pfm",
+      "name": "Public Financial Management",
+      "items": [
+        "Financial management and restructuring support",
+        "Fiduciary and accounting services",
+        "Financial management of grants"
+      ]
+    },
+    {
+      "n": 3,
+      "slug": "health",
+      "name": "Health & Nutrition",
+      "items": [
+        "Feasibility studies",
+        "Independent assessment and verification",
+        "Monitoring and evaluation"
+      ]
+    },
+    {
+      "n": 4,
+      "slug": "energy",
+      "name": "Energy & Power",
+      "items": [
+        "Technical assistance, climate budget tagging",
+        "Climate adaptation and risk mitigation",
+        "Climate fund and blue economy"
+      ]
+    },
+    {
+      "n": 5,
+      "slug": "environment",
+      "name": "Environment",
+      "items": [
+        "Environmental management and DRM",
+        "EIA",
+        "Third-party and independent verification",
+        "Environmental and social monitoring"
+      ]
+    },
+    {
+      "n": 6,
+      "slug": "wash",
+      "name": "WASH",
+      "items": [
+        "Country diagnostic reviews",
+        "System assessment and policy development",
+        "Independent verification of WASH"
+      ]
+    },
+    {
+      "n": 7,
+      "slug": "education",
+      "name": "Education",
+      "items": [
+        "Project management consultancy",
+        "Early childhood development",
+        "Curriculum and TVET development"
+      ]
+    },
+    {
+      "n": 8,
+      "slug": "it",
+      "name": "Information Technology",
+      "items": [
+        "ERP and SAP implementation",
+        "Tools and dashboards",
+        "Cybersecurity risk assessments",
+        "Data migration support"
+      ]
+    },
+    {
+      "n": 9,
+      "slug": "infrastructure",
+      "name": "Infrastructure / Urban Development",
+      "items": [
+        "Construction supervision",
+        "Architectural design review",
+        "Social and environmental management plans",
+        "ESHS"
+      ]
+    },
+    {
+      "n": 10,
+      "slug": "governance",
+      "name": "Governance & Institutional Strengthening",
+      "items": [
+        "Policy review and analysis",
+        "Capacity assessment and building",
+        "Institutional strengthening"
+      ]
+    },
+    {
+      "n": 11,
+      "slug": "mel",
+      "name": "Monitoring, Evaluation & Learning",
+      "items": [
+        "Third-party M&E",
+        "Endline and end-of-project evaluations",
+        "Documentation of best practices",
+        "M&E training"
+      ]
+    },
+    {
+      "n": 12,
+      "slug": "livelihoods",
+      "name": "Livelihoods & Financial Inclusion",
+      "items": [
+        "Market systems analysis",
+        "Financial service provider mapping",
+        "SME financing and business development",
+        "Financial literacy support"
+      ]
+    },
+    {
+      "n": 13,
+      "slug": "protection",
+      "name": "Migration, Protection & GEDSI",
+      "items": [
+        "Free movement frameworks",
+        "GEDSI assessments",
+        "PSEA and GBV prevention",
+        "Protection mainstreaming"
+      ]
+    }
+  ],
+  "key_partners": [
+    {
+      "n": 1,
+      "name": "African Union / IOM",
+      "work": "Monitoring and implementation framework for the Free Movement of Persons Protocol in Africa.",
+      "orgs": [
+        "African Union",
+        "IOM"
+      ]
+    },
+    {
+      "n": 2,
+      "name": "IGAD",
+      "work": "End-of-project evaluation of \"Improving Land Governance in the IGAD Region\" (Phase II).",
+      "orgs": [
+        "IGAD"
+      ]
+    },
+    {
+      "n": 3,
+      "name": "World Bank",
+      "work": "Assessment of Federal Member State Ministry of Health capacity in Somalia.",
+      "orgs": [
+        "World Bank"
+      ]
+    },
+    {
+      "n": 4,
+      "name": "Heifer International",
+      "work": "Agritech landscape study in Kenya.",
+      "orgs": [
+        "Heifer International"
+      ]
+    },
+    {
+      "n": 5,
+      "name": "MOAI / Federal Govt. of Somalia",
+      "work": "Community Early Warning and DRR training support, including inception and system design.",
+      "orgs": [
+        "Ministry of Agriculture and Irrigation, Federal Govt. of Somalia"
+      ]
+    },
+    {
+      "n": 6,
+      "name": "Norwegian Embassy",
+      "work": "Partner in governance, resilience and public sector programmes.",
+      "orgs": [
+        "Norwegian Embassy"
+      ]
+    },
+    {
+      "n": 7,
+      "name": "Welthungerhilfe",
+      "work": "Evaluation of the \"Chukua Control\" civil society empowerment initiatives in Kenya.",
+      "orgs": [
+        "Welthungerhilfe"
+      ]
+    },
+    {
+      "n": 8,
+      "name": "Danish Refugee Council",
+      "work": "Mapping financial service providers for refugees and host communities.",
+      "orgs": [
+        "DRC"
+      ]
+    },
+    {
+      "n": 9,
+      "name": "GIZ Somalia",
+      "work": "Survey of consultant fees for fairer payment structures.",
+      "orgs": [
+        "GIZ"
+      ]
+    }
+  ],
+  "named_organizations": [
+    "World Bank",
+    "IOM",
+    "GIZ",
+    "DRC",
+    "ActionAid",
+    "Welthungerhilfe",
+    "Norwegian Embassy",
+    "Somalia's Ministry of Fisheries & Blue Economy",
+    "NDMA",
+    "SORDES",
+    "AMARD",
+    "HIDIG",
+    "PGI"
+  ],
+  "project_note": "The profile calls these Sample Previous Projects: Selected assignments. They are a selection, not the full record.",
+  "projects": [
+    {
+      "id": "p01",
+      "year": 2026,
+      "client": "Ministry of Agriculture and Irrigation, Federal Govt. of Somalia",
+      "client_key": "Ministry of Agriculture and Irrigation, Federal Govt. of Somalia",
+      "orgs": [
+        "Ministry of Agriculture and Irrigation, Federal Govt. of Somalia"
+      ],
+      "title": "Consultancy services for Community Early Warning and DRR training support, including inception report and system design.",
+      "places": [
+        "Somalia"
+      ],
+      "area_group": "Somalia",
+      "theme": "environment",
+      "match_titles": []
+    },
+    {
+      "id": "p02",
+      "year": 2026,
+      "client": "IGAD",
+      "client_key": "IGAD",
+      "orgs": [
+        "IGAD"
+      ],
+      "title": "End-of-project evaluation of \"Improving Land Governance in the IGAD Region\" (Phase II).",
+      "places": [
+        "IGAD region"
+      ],
+      "area_group": "Regional",
+      "theme": "mel",
+      "match_titles": []
+    },
+    {
+      "id": "p03",
+      "year": 2025,
+      "client": "Heifer International Kenya",
+      "client_key": "Heifer International",
+      "orgs": [
+        "Heifer International"
+      ],
+      "title": "Agritech landscape study: ecosystem, innovations, market dynamics and scaling opportunities in Kenya.",
+      "places": [
+        "Kenya"
+      ],
+      "area_group": "Kenya",
+      "theme": "agriculture",
+      "match_titles": []
+    },
+    {
+      "id": "p04",
+      "year": 2025,
+      "client": "World Bank",
+      "client_key": "World Bank",
+      "orgs": [
+        "World Bank"
+      ],
+      "title": "Assessment of Federal Member State Ministry of Health capacity in Somalia.",
+      "places": [
+        "Somalia"
+      ],
+      "area_group": "Somalia",
+      "theme": "health",
+      "match_titles": []
+    },
+    {
+      "id": "p05",
+      "year": 2025,
+      "client": "DRC Kenya",
+      "client_key": "Danish Refugee Council",
+      "orgs": [
+        "DRC"
+      ],
+      "title": "Mapping financial service providers for refugees and host communities to enhance financial inclusion.",
+      "places": [
+        "Kenya"
+      ],
+      "area_group": "Kenya",
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p06",
+      "year": 2025,
+      "client": "Qatar Red Crescent (QRCS)",
+      "client_key": "Qatar Red Crescent",
+      "orgs": [
+        "Qatar Red Crescent (QRCS)"
+      ],
+      "title": "Capacity building for financing of SMEs to promote employment and economic resilience in Somalia.",
+      "places": [
+        "Somalia"
+      ],
+      "area_group": "Somalia",
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p07",
+      "year": 2025,
+      "client": "Welthungerhilfe",
+      "client_key": "Welthungerhilfe",
+      "orgs": [
+        "Welthungerhilfe"
+      ],
+      "title": "Evaluation of the \"Chukua Control\" civil society empowerment initiatives in Kenya.",
+      "places": [
+        "Kenya"
+      ],
+      "area_group": "Kenya",
+      "theme": "mel",
+      "match_titles": []
+    },
+    {
+      "id": "p08",
+      "year": 2025,
+      "client": "IOM & African Union",
+      "client_key": "African Union / IOM",
+      "orgs": [
+        "IOM",
+        "African Union"
+      ],
+      "title": "Monitoring and implementation framework for the Free Movement of Persons Protocol in Africa.",
+      "places": [
+        "Africa"
+      ],
+      "area_group": "Regional",
+      "theme": "protection",
+      "match_titles": []
+    },
+    {
+      "id": "p09",
+      "year": 2024,
+      "client": "GIZ Somalia",
+      "client_key": "GIZ",
+      "orgs": [
+        "GIZ"
+      ],
+      "title": "Survey of remuneration fees to support equitable consultant payment structures.",
+      "places": [
+        "Somalia"
+      ],
+      "area_group": "Somalia",
+      "theme": "governance",
+      "match_titles": []
+    },
+    {
+      "id": "p10",
+      "year": 2024,
+      "client": "HIDIG / UNICEF",
+      "client_key": "HIDIG",
+      "orgs": [
+        "HIDIG",
+        "UNICEF"
+      ],
+      "title": "Mapping financial service providers in Banadir to improve refugee access to finance.",
+      "places": [
+        "Banadir"
+      ],
+      "area_group": "Somalia",
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p11",
+      "year": 2024,
+      "client": "Pastoralist Girls Initiative (PGI)",
+      "client_key": "Pastoralist Girls Initiative",
+      "orgs": [
+        "PGI"
+      ],
+      "title": "Market systems analysis of value chains in Garissa and Tana River counties.",
+      "places": [
+        "Garissa",
+        "Tana River"
+      ],
+      "area_group": "Kenya",
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p12",
+      "year": 2023,
+      "year_to": 2024,
+      "client": "SORDES",
+      "client_key": "SORDES",
+      "orgs": [
+        "SORDES"
+      ],
+      "title": "Business development services (training, mentorship, financial literacy) for refugees and host communities.",
+      "places": [],
+      "area_group": null,
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p13",
+      "year": 2023,
+      "client": "Qatar Red Crescent (QRCS)",
+      "client_key": "Qatar Red Crescent",
+      "orgs": [
+        "Qatar Red Crescent (QRCS)"
+      ],
+      "title": "Financing of SMEs to promote employment and economic resilience in Somalia.",
+      "places": [
+        "Somalia"
+      ],
+      "area_group": "Somalia",
+      "theme": "livelihoods",
+      "match_titles": []
+    },
+    {
+      "id": "p14",
+      "year": 2023,
+      "client": "Pastoralist Girls Initiative (PGI)",
+      "client_key": "Pastoralist Girls Initiative",
+      "orgs": [
+        "PGI"
+      ],
+      "title": "Communication strategy for pastoral girls' advocacy and visibility.",
+      "places": [],
+      "area_group": null,
+      "theme": "protection",
+      "match_titles": []
+    },
+    {
+      "id": "p15",
+      "year": 2023,
+      "client": "Welthungerhilfe (WHH Kenya)",
+      "client_key": "Welthungerhilfe",
+      "orgs": [
+        "Welthungerhilfe"
+      ],
+      "title": "Three-day PSEA and GBV prevention training in Nairobi and Turkana.",
+      "places": [
+        "Nairobi",
+        "Turkana"
+      ],
+      "area_group": "Kenya",
+      "theme": "protection",
+      "match_titles": []
+    }
+  ]
+}

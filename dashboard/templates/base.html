@@ -6,6 +6,10 @@
 <meta name="robots" content="noindex, nofollow">
 <title>{% block title %}{{ product_name or "Cortech BD" }}{% endblock %}</title>
 <link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
+<link rel="stylesheet" href="{{ static_base }}/glass.css?v={{ static_v }}">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ static_base }}/brand/favicon.png">
+<script>document.documentElement.classList.add("js")</script>
+{% block head_extra %}{% endblock %}
 </head>
 <body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -19,9 +23,8 @@
 <div class="app-shell">
 <aside class="sidenav" aria-label="Workspace navigation and active tenders">
   <a class="masthead__brand" href="{{ url_queue }}" aria-label="{{ product_name or 'Cortech BD' }}, bid desk">
-    <span class="brand__mark" aria-hidden="true"></span>
     <span class="brand-lockup">
-      <span class="masthead__product">{{ product_name or "Cortech BD" }}</span>
+      <img class="brand-logo" src="{{ static_base }}/brand/cortech-logo.png" alt="" width="132" height="49" decoding="async">
       <span class="brand-lockup__product">Bid intelligence</span>
     </span>
   </a>
@@ -40,9 +43,9 @@
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
       <span>Library</span>
     </a>
-    <a href="/design-preview">
+    <a href="{{ url_track_record }}" {% if view == 'track' %}aria-current="page"{% endif %}>
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
-      <span>Bid desk redesign preview</span>
+      <span>Track record</span>
     </a>
   </nav>
 
@@ -89,9 +92,10 @@
   <div class="masthead__in">
     <div class="masthead__context">
       <span class="masthead__context-label">Bid intelligence</span>
-      <span class="masthead__context-title">{% if view == 'portfolio' %}Portfolio overview{% elif has_d %}Opportunity workspace{% elif job is defined and job %}Run monitor{% else %}Opportunity pipeline{% endif %}</span>
+      <span class="masthead__context-title">{% if view == 'portfolio' %}Portfolio overview{% elif view == 'track' %}Track record{% elif view == 'library' %}Knowledge Library{% elif has_d %}Opportunity workspace{% elif job is defined and job %}Run monitor{% else %}Opportunity pipeline{% endif %}</span>
     </div>
 
+    {% if view in ('library', 'track') %}<span aria-hidden="true"></span>{% else %}
     <nav class="stepper" role="tablist" aria-label="Bid desk workflow stages">
       <a role="tab"
          aria-selected="{{ 'true' if active_stage == 1 else 'false' }}"
@@ -144,6 +148,7 @@
       </span>
       {% endif %}
     </nav>
+    {% endif %}
 
     <div class="masthead__right">
       {% if viewer %}
@@ -156,13 +161,13 @@
     </div>
   </div>
 </header>
-<ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
+{% if view not in ('library', 'track') %}<ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
   {% for s_num in range(1, 6) %}
   <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
       title="Stage {{ s_num }} of 5"></li>
   {% endfor %}
-</ol>
-<main id="main-content" class="page{% if view == 'portfolio' %} page--portfolio{% endif %}">
+</ol>{% endif %}
+<main id="main-content" class="page{% if view == 'portfolio' %} page--portfolio{% elif view == 'track' %} page--track{% endif %}">
   {% block content %}{% endblock %}
 
   {% if generated_at %}<p class="foot">Updated {{ generated_at }}.</p>{% endif %}
@@ -333,6 +338,7 @@ document.addEventListener("change", function (ev) {
   document.addEventListener("cortech:page-swapped", bindBulk);
 })();
 </script>
+<script src="{{ static_base }}/motion.js?v={{ static_v }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

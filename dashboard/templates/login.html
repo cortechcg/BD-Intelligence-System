@@ -6,12 +6,15 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Sign in · {{ product_name or "Cortech BD" }}</title>
 <link rel="stylesheet" href="{{ static_base }}/redesign.css?v={{ static_v }}">
+<link rel="stylesheet" href="{{ static_base }}/glass.css?v={{ static_v }}">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ static_base }}/brand/favicon.png">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body class="signin-page">
 <a class="skip-link" href="#sign-in">Skip to sign in</a>
 <main class="signin-specimen" id="sign-in">
   <section class="signin-card" aria-labelledby="sign-in-title">
-    <span class="brand-mark" aria-hidden="true">{{ (product_name or "Cortech BD")[:1] | upper }}</span>
+    <img class="brand-logo brand-logo--card" src="{{ static_base }}/brand/cortech-logo.png" alt="Cortech Consulting Group" width="150" height="56" decoding="async">
     <p class="eyebrow">Bid desk</p>
     <h1 id="sign-in-title">{{ product_name or "Cortech BD" }}</h1>
     <p>Find opportunities, assess fit and prepare a draft for your team to review.</p>
@@ -25,5 +28,6 @@
     <div class="signin-rule"><strong>People decide and submit.</strong><span>This system prepares a draft and stops before anything is sent to a client.</span></div>
   </section>
 </main>
+<script src="{{ static_base }}/motion.js?v={{ static_v }}"></script>
 </body>
 </html>

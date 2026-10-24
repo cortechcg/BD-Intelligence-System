@@ -8,7 +8,8 @@
 > Literata sets headings and display figures; Public Sans sets the interface;
 > IBM Plex Mono marks identifiers. Rules are hairlines, the page carries a
 > CSS-only paper grain, and tab-style underlines replace pills. Sections below
-> describe earlier passes and use earlier colour names.
+> describe earlier passes and use earlier colour names. Section 16 covers
+> the track record page, the glass layer, motion and the library add flow.
 
 > **2026-10-21: the workspace shell has been redesigned (§15).** The light
 > cream and forest-green system remains; a compact forest navigation rail now
@@ -751,3 +752,80 @@ while reorganizing the shared frame around the daily bid workflow:
 - The cream surface and evidence/status colors are unchanged. The darker rail
   is workspace chrome and does not replace the semantics of recommendation,
   pipeline state, missing data or human attention.
+
+## 16. Track record, glass, motion and the library add flow (2026-10-24)
+
+**Bid desk redesign preview retired.** `/design-preview`, `redesign.html` and
+`redesign.js` are gone. `redesign.css` stays because sign-in and denied still
+use it. The shared logic behind the preview was not touched.
+
+**Track record (`/track-record`, sidebar after Library).** Read-only, from
+`dashboard/track_record.py`. The base record is the versioned file
+`intelligence/company_profile_2026.json` (Company Profile 2026: selected
+assignments, 13 thematic areas, 13 sectors, 6 service lines, 9 key partners,
+offices, contact). `proposal_embeddings` rows (Knowledge Library included;
+archived documents and financial-only files left out) are merged on top. The
+page always renders from the profile, even if the database is empty or down; in
+that case a note says the Library records could not be read. Rules, each covered
+by a test in `tests/test_track_record.py`:
+
+- Merge key is the exact normalised title, or an explicit `match_titles` entry in
+  the profile. There is no fuzzy matching. A library row that matches a profile
+  assignment can only add "won"; unmatched rows are added and counted as library.
+- Won shows only where a library record says won. Otherwise "Not recorded",
+  never "Lost" (ADR 006).
+- The nine named partners are "Key partners". The profile carries no ranking, so
+  none is shown and the word "senior" is not used. `senior_clients.json` is removed.
+- The profile lists selected assignments. The page says "selected assignments",
+  never "all projects", and points to the Knowledge Library for the full record.
+- Areas and themes on each assignment are tagged by Cortech BD from the project
+  description, and the page says so. A project range counts in its start year.
+- Headline figures are computed from the merged list, not typed in. Missing values
+  read n/a and the gaps are counted on the page.
+- The list works without script (GET filter form, theme tiles are links). `track.js`
+  filters in place and keeps the URL in sync.
+- Sample rows exist only in `dashboard/design/ui_harness.py`, labelled as sample.
+
+**Logo.** `static/brand/cortech-logo.png` is the official 180 by 67 file, used
+unaltered in the sidebar (with a "Bid intelligence" caption), sign-in, denied and
+the Track record facts panel, never above 150 px wide. The file is opaque (cream
+plate, dark corner pixels), so it is clipped to a 9 px radius and given a hairline.
+`static/brand/favicon.png` is a plain 64 by 64 crop of the mark. A higher
+resolution or SVG logo would be sharper on retina screens. `favicon.svg` is removed.
+
+**Glass.** `static/glass.css` adds restrained translucency over a fixed,
+quiet atmosphere (two soft teal and copper washes on the limestone). Surfaces
+are solid by default. Translucency and `backdrop-filter: blur(14px)` apply only
+inside `@supports` for backdrop-filter and when the user has not asked for
+reduced transparency. Used on: sidebar, sticky header, hero and KPI panels,
+sign-in card, track record figures and floating notices. Not used on lists,
+tables, forms or library cards, so reading surfaces stay solid. Paper alpha is
+0.62 to 0.74. At most a few blurred layers are on screen. Contrast is tested in
+`tests/test_dashboard_glass.py` against a deliberately dark worst-case
+backdrop, not the average one. The tightest pair is accent on the sidebar at 4.55.
+
+**Motion.** `static/motion.js` plus rules in `glass.css`: headline words rise in
+turn, figures count up to their real value, blocks fade up once on scroll,
+masthead gets a soft shadow once scrolled, hover and focus ease in. With
+`prefers-reduced-motion` nothing moves and everything shows at once. With no
+script, nothing is hidden: the `.js` class that enables hidden starting states
+is added by an inline script in the head, and a timed fallback reveals content.
+`python dashboard/design/ui_harness.py` shoots with reduced motion by default;
+set `HARNESS_MOTION=no-preference` to see motion. `dashboard/design/motion_check.py`
+is a short script to record that the animations run.
+
+**Library add flow.** The Library has one primary button, "Add a CV or past
+proposal", that opens a drop-zone panel (drag and drop or file picker, CV or
+Past proposal, type and size hints, progress, results, errors). It posts to the
+existing `/library/upload` with the same field names, so ingest and embeddings
+are unchanged. Past proposals have a quiet Won / Lost / Pending control per
+row that posts to the existing `/library/{id}/update` with the current title,
+client, donor and country repeated. Without script the form still posts and
+redirects as before.
+
+**Release notes and known limits.** The Cortech logo file is only 180 px wide, so
+it may look a little soft on some glass surfaces and on high-resolution screens.
+Watch it after deploy and swap in an SVG or a larger file when one is available
+(replace `static/brand/cortech-logo.png`, and re-crop `favicon.png` from the mark).
+`tests/test_live_dashboard_queue.py` reads the live database and races the live
+worker, so it can fail intermittently when run with the full suite; it passes alone.

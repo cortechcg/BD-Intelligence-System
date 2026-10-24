@@ -14,6 +14,7 @@ writes one PNG per page and width (1440, 1024, 390).
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -207,6 +208,14 @@ JOBS = [
      "spend_usd": None, "spend_limit_usd": 2.0, "provider_calls": None, "spend_known": None},
 ]
 
+LIBRARY_CVS = [
+    {"id": "c1", "title": "Sample CV: team leader", "original_filename": "cv-one.pdf", "uploaded_by_name": "Amina Njoroge",
+     "uploaded_by_email": "staff@cortechconsultinggroup.com", "status": "ready", "error_message": None, "kind": "cv", "outcome": None},
+    {"id": "c2", "title": "Sample CV: evaluation specialist", "original_filename": "cv-two.docx", "uploaded_by_name": "Ali Hassan",
+     "uploaded_by_email": "ali@cortechconsultinggroup.com", "status": "queued", "error_message": None, "kind": "cv", "outcome": None},
+    {"id": "c3", "title": "Sample CV: scanned copy", "original_filename": "cv-three.pdf", "uploaded_by_name": "Ali Hassan",
+     "uploaded_by_email": "ali@cortechconsultinggroup.com", "status": "failed", "error_message": "the PDF has no text layer", "kind": "cv", "outcome": None},
+]
 LIBRARY_ROWS = [
     {"id": "d1", "title": "UNICEF WASH baseline, Kenya", "original_filename": "unicef-wash.pdf", "client": "UNICEF", "donor": "UNICEF",
      "country": "Kenya", "proposal_type": "technical", "submission_date": "2024-03-18", "outcome": "won",
@@ -217,6 +226,12 @@ LIBRARY_ROWS = [
     {"id": "d3", "title": "FAO value chain proposal", "original_filename": "fao.pdf", "client": "FAO", "donor": None,
      "country": "Somalia", "proposal_type": None, "submission_date": None, "outcome": "lost",
      "uploaded_by_name": "Ali Hassan", "uploaded_by_email": "ali@cortechconsultinggroup.com", "status": "failed", "error_message": "the PDF has no text layer", "kind": "proposal"},
+    {"id": "d4", "title": "World Bank labour market study", "original_filename": "wb-labour.pdf", "client": "World Bank", "donor": "World Bank",
+     "country": "Uganda", "proposal_type": "technical", "submission_date": "2025-02-10", "outcome": "pending",
+     "uploaded_by_name": "Amina Njoroge", "uploaded_by_email": "staff@cortechconsultinggroup.com", "status": "ready", "error_message": None, "kind": "proposal"},
+    {"id": "d5", "title": "SAMPLE: Education sector review", "original_filename": "education-review.pdf", "client": "Sample Client", "donor": None,
+     "country": None, "proposal_type": None, "submission_date": None, "outcome": "unknown",
+     "uploaded_by_name": "Amina Njoroge", "uploaded_by_email": "staff@cortechconsultinggroup.com", "status": "embedding", "error_message": None, "kind": "proposal"},
 ]
 
 
@@ -283,11 +298,43 @@ def install_fixtures():
         "hours": 24, "cap_usd": settings.AGGREGATE_CAP_USD, "available": True}
     triggers.aggregate_cap_reached = lambda window=None: (False, "3.71 of 10.00 USD used in the last 24h")
 
+    from dashboard import track_record
+
+    track_record.load_track_record = lambda: track_record.build_track_record(SAMPLE_TRACK_ROWS)
+
     app_module._library_client = lambda: object()
-    library_mod.list_documents = lambda sb, tab="proposals", filters=None: (
-        [r for r in LIBRARY_ROWS if (tab != "cvs")] if tab in ("proposals", "mine") else
-        ([r for r in LIBRARY_ROWS if r["status"] == "processing"] if tab == "processing" else []))
+    def _list_documents(sb, tab="proposals", filters=None):
+        if tab == "cvs":
+            return list(LIBRARY_CVS)
+        if tab == "processing":
+            return [r for r in LIBRARY_ROWS + LIBRARY_CVS if r["status"] in ("queued", "embedding", "processing")]
+        return list(LIBRARY_ROWS)
+
+    library_mod.list_documents = _list_documents
     return app_module
+
+
+# ── track record fixtures: SAMPLE DATA, labelled as such, never shipped ────
+# Invented names for layout review only. They live in this harness and are
+# never read by the app. The real page shows the Company Profile 2026 file and
+# adds proposal_embeddings rows; these stand in for those rows only.
+SAMPLE_TRACK_ROWS = [
+    {"airtable_proposal_id": f"sample-{i}", "project_title": t, "won": w,
+     "metadata": {"client": c, "year": y, "thematic_areas": th, "location": loc}}
+    for i, (t, c, y, th, loc, w) in enumerate([
+        ("Sample project A: household survey", "Sample Client One", 2024, ["Monitoring and evaluation", "Research"], ["Kenya", "Somalia"], True),
+        ("Sample project B: market assessment", "Sample Client One", 2023, ["Research", "Livelihoods"], ["Kenya"], False),
+        ("Sample project C: endline evaluation", "Sample Client Two", 2024, ["Monitoring and evaluation"], ["Somalia", "Ethiopia"], True),
+        ("Sample project D: capacity assessment", "Sample Client Three", 2022, ["Capacity building", "Governance"], ["Uganda"], False),
+        ("Sample project E: baseline study", "Sample Client Two", 2022, ["Monitoring and evaluation", "WASH"], ["Kenya", "Uganda"], False),
+        ("Sample project F: mapping exercise", "Sample Client Four", 2025, ["Research", "Protection"], ["Somalia"], False),
+        ("Sample project G: policy review", "Sample Client One", 2025, ["Governance", "Research"], ["Kenya", "South Sudan"], True),
+        ("Sample project H: learning review", "Sample Client Five", 2021, ["Capacity building"], ["Ethiopia"], False),
+        ("Sample project I: value chain study", "Sample Client Six", 2023, ["Livelihoods", "Agriculture"], ["Somalia", "Kenya"], False),
+        ("Sample project J: gender assessment", "Sample Client Two", 2025, ["Gender and inclusion", "Research"], ["Somalia"], False),
+        ("Sample project K: no details recorded", "", None, [], [], False),
+    ])
+]
 
 
 PAGES = [
@@ -299,7 +346,15 @@ PAGES = [
     ("job-failed", "/job/" + JOBS[3]["id"]),
     ("portfolio", "/portfolio"),
     ("library", "/library"),
-    ("redesign", "/design-preview"),
+    ("library-cvs", "/library?tab=cvs"),
+    ("library-empty", "/library-empty"),
+    ("library-cvs-empty", "/library-empty?tab=cvs"),
+    ("library-open", "/library"),
+    ("library-error", "/library"),
+    ("track-record", "/track-record"),
+    ("track-record-empty", "/track-record-empty"),
+    ("track-record-down", "/track-record-down"),
+    ("track-record-theme", "/track-record?theme=livelihoods"),
     ("login", "/auth/login"),
     ("denied", "/auth/denied-preview"),
 ]
@@ -320,7 +375,70 @@ def serve(port: int) -> None:
             request, "That account is not allowed", "outside.person@gmail.com is not on an approved domain.", 403,
             hint="Sign in with your Cortech Google account.")
 
+    def _track_variant(request, model):  # pragma: no cover - harness only
+        ctx = app_module._base_context(request, "track")
+        ctx.update({"t": model, "poll_ms": 0, "shown": model["projects"], "shown_ns": {p["n"] for p in model["projects"]},
+                    "sel": {"q": "", "client": "", "year": "", "area": "", "theme": "", "won": False}})
+        return app_module.templates.TemplateResponse(request, "track_record.html", ctx)
+
+    @app_module.app.get("/track-record-empty", response_class=HTMLResponse)
+    def track_empty_preview(request: Request):  # pragma: no cover - harness only
+        from dashboard import track_record
+
+        return _track_variant(request, track_record.build_track_record([]))  # profile only, library empty
+
+    @app_module.app.get("/track-record-down", response_class=HTMLResponse)
+    def track_down_preview(request: Request):  # pragma: no cover - harness only
+        from dashboard import track_record
+
+        return _track_variant(request, track_record.unavailable(
+            "The past-proposal records in the Knowledge Library could not be read just now."))
+
+    @app_module.app.get("/library-empty", response_class=HTMLResponse)
+    def library_empty_preview(request: Request, tab: str = "proposals"):  # pragma: no cover - harness only
+        ctx = app_module._base_context(request, "library")
+        ctx.update({"tab": tab, "rows": [], "available": True, "unavailable_reason": "", "library_admin": False, "poll_ms": 0,
+                    "counts": {"proposals_ready": 0, "proposals_processing": 0, "cv_consultants": 0, "cvs_ready": 0}})
+        return app_module.templates.TemplateResponse(request, "library.html", ctx)
+
     uvicorn.run(app_module.app, host="127.0.0.1", port=port, log_level="warning")
+
+
+def _step_library_open(page):
+    page.click("[data-lib-open]")
+    page.wait_for_selector("[data-lib-panel].is-open")
+    page.wait_for_timeout(450)
+
+
+def _step_library_error(page):
+    _step_library_open(page)
+    page.route("**/library/upload", lambda r: r.fulfill(status=400, content_type="application/json", body=json.dumps({
+        "ok": False, "reason": "Nothing was added. See the notes below.",
+        "results": [{"ok": False, "filename": "proposal-2024.pdf", "reason": "The file extension does not match its contents"}]})))
+    page.set_input_files("#lib-files", {"name": "proposal-2024.pdf", "mimeType": "application/pdf", "buffer": b"%PDF-1.4 sample"})
+    page.fill("input[name=client]", "Sample Client")
+    page.click("[data-lib-submit]")
+    page.wait_for_selector("[data-lib-status][data-state=error]")
+    page.wait_for_timeout(300)
+
+
+STEPS = {"library-open": _step_library_open, "library-error": _step_library_error}
+
+
+def _settle(page):
+    """Scroll the whole page once so every scroll reveal has run, then return to the top."""
+    height = page.evaluate("document.documentElement.scrollHeight")
+    y = 0
+    while y < height:
+        page.evaluate(f"window.scrollTo(0, {y})")
+        page.wait_for_timeout(120)
+        y += 500
+    page.wait_for_timeout(1500)
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(200)
+
+
+MOTION = os.environ.get("HARNESS_MOTION", "reduce")  # "reduce" is deterministic; "no-preference" scrolls through the reveals
 
 
 def shoot(outdir: str, port: int = 8765, only: list[str] | None = None) -> None:
@@ -345,10 +463,10 @@ def shoot(outdir: str, port: int = 8765, only: list[str] | None = None) -> None:
         with sync_playwright() as p:
             browser = p.chromium.launch(channel="chrome")
             for width, height in ((1440, 900), (1024, 768), (390, 844)):
-                ctx = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1)
+                ctx = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1, reduced_motion=MOTION)
                 ctx.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": token,
                                   "url": f"http://127.0.0.1:{port}"}])
-                anon = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1)
+                anon = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1, reduced_motion=MOTION)
                 page = ctx.new_page()
                 for name, path in PAGES:
                     if only and name not in only:
@@ -358,9 +476,20 @@ def shoot(outdir: str, port: int = 8765, only: list[str] | None = None) -> None:
                     page.goto(f"http://127.0.0.1:{port}{path}", wait_until="networkidle")
                     page.evaluate("document.fonts.ready")
                     page.add_style_tag(content="*{scroll-behavior:auto!important}")
+                    if name in STEPS:
+                        STEPS[name](page)
+                        page.evaluate("window.scrollTo(0, 0)")
+                        page.wait_for_timeout(200)
+                    elif MOTION == "no-preference":
+                        _settle(page)
                     if name.startswith("detail") or name.startswith("job"):
                         page.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
-                    page.screenshot(path=str(out / f"{name}-{width}.png"), full_page=True)
+                    # Grow the window to the page so sticky columns and the fixed backdrop span it,
+                    # as they would on a tall display.
+                    full = page.evaluate("Math.ceil(document.documentElement.scrollHeight)")
+                    page.set_viewport_size({"width": width, "height": max(height, full)})
+                    page.wait_for_timeout(250)
+                    page.screenshot(path=str(out / f"{name}-{width}.png"))
                     page.close()
                 anon.close()
                 ctx.close()

@@ -6,12 +6,15 @@
 <meta name="robots" content="noindex, nofollow">
 <title>{{ title }} · {{ product_name or "Cortech BD" }}</title>
 <link rel="stylesheet" href="{{ static_base }}/redesign.css?v={{ static_v }}">
+<link rel="stylesheet" href="{{ static_base }}/glass.css?v={{ static_v }}">
+<link rel="icon" type="image/png" sizes="64x64" href="{{ static_base }}/brand/favicon.png">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body class="signin-page">
 <a class="skip-link" href="#access-error">Skip to message</a>
 <main class="signin-specimen" id="access-error">
   <section class="signin-card" aria-labelledby="access-title">
-    <span class="brand-mark error-icon" aria-hidden="true">!</span>
+    <img class="brand-logo brand-logo--card" src="{{ static_base }}/brand/cortech-logo.png" alt="Cortech Consulting Group" width="150" height="56" decoding="async">
     <p class="eyebrow">Access check</p>
     <h1 id="access-title">{{ title }}</h1>
     <div class="login-warning" role="alert"><strong>{{ reason }}</strong>{% if hint %}<span>{{ hint }}</span>{% endif %}</div>
@@ -20,5 +23,6 @@
     <div class="signin-rule"><strong>People decide and submit.</strong><span>This system prepares a draft and stops before anything is sent to a client.</span></div>
   </section>
 </main>
+<script src="{{ static_base }}/motion.js?v={{ static_v }}"></script>
 </body>
 </html>

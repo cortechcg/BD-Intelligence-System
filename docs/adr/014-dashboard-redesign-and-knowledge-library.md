@@ -12,7 +12,7 @@ re-checked in the tree. They are the codebase brief.
 ### 1. Route inventory
 
 GET: `/`, `/opportunity`, `/job/{trigger_id}`, `/portfolio`, `/draft`,
-`/design-preview`, `/healthz`, `/auth/login`, `/auth/google`,
+`/track-record` (was `/design-preview`), `/healthz`, `/auth/login`, `/auth/google`,
 `/auth/callback`, `/auth/logout`, `/api/queue`, `/api/opportunity`,
 `/api/draft-templates`, `/api/job/{trigger_id}`, `/api/portfolio`.
 
@@ -130,7 +130,9 @@ It is not dropped.
    come from the session. A form field with those names is ignored.
 6. `LIBRARY_ADMIN_EMAILS` is a web-service variable. Empty means only the
    uploader can archive their own document. Restore is admin-only.
-7. Palette, glass, and the retirement of `/design-preview` wait for one
+7. Update 2026-10-24: `/design-preview` is retired and replaced by
+   `/track-record`; glass is described in docs/DASHBOARD_DESIGN.md section 16.
+   Original note: palette, glass, and the retirement of `/design-preview` wait for one
    change that updates `test_dashboard_palette.py` on purpose. This slice
    does not delete that test and does not change its colour pins. The
    allowlist now also names the committed rail-icon hairline, the sidenav

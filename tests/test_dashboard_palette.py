@@ -101,7 +101,9 @@ def test_limestone_desk_and_no_gradients():
         if re.search(r"(^|;|\s)box-shadow:(?!\s*none)", rule):
             assert any(k in sel for k in shadow_ok), f"shadow: {sel[:70]}"
         assert "gradient(" not in rule, f"gradient in {sel[:70]}"
-    assert "gradient(" not in CSS, "flat colour only, no gradients anywhere"
+    # app.css stays flat. The one atmospheric backdrop lives in glass.css and is
+    # policed by tests/test_dashboard_glass.py.
+    assert "gradient(" not in CSS, "app.css is flat colour only"
     assert re.search(r"\.btn \{[^}]*background: var\(--fill\)", BODY), "the primary button is flat teal"
     assert ".panel--hero { border-top: 0; }" in BODY
 

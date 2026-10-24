@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% block title %}Track record · Cortech BD{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_base }}/track.css?v={{ static_v }}">
+{% endblock %}
+{% block scripts %}<script src="{{ static_base }}/track.js?v={{ static_v }}" defer></script>{% endblock %}
+{% block content %}
+{% set f = t.figures %}
+{% set co = t.company %}
+{% macro na() %}<span class="v-missing">n/a</span>{% endmacro %}
+{% macro plural(n, one, many) %}{{ n }} {{ one if n == 1 else many }}{% endmacro %}
+{% macro row(p, hide) %}
+      <tr id="p-{{ p.n }}"{% if hide %} hidden{% endif %} data-client="{{ p.client or '' }}" data-year="{{ p.year or '' }}" data-won="{{ '1' if p.won else '' }}"
+          data-areas="{{ p.areas | join('|') }}" data-themes="{{ p.theme_slugs | join('|') }}"
+          data-q="{{ (p.title ~ ' ' ~ (p.client or '')) | lower }}">
+        <td class="num" data-label="Year">{% if p.year_label %}{{ p.year_label }}{% else %}{{ na() }}{% endif %}</td>
+        <th scope="row" data-label="Assignment">{{ p.title }}{% if p.source == "library" %} <span class="tr-tag">Knowledge Library</span>{% endif %}</th>
+        <td data-label="Client">{% if p.client %}{{ p.client }}{% else %}{{ na() }}{% endif %}</td>
+        <td data-label="Area">{% if p.places %}{{ p.places | join(", ") }}{% else %}{{ na() }}{% endif %}</td>
+        <td data-label="Theme">{% if p.themes %}{{ p.themes | join(", ") }}{% else %}{{ na() }}{% endif %}</td>
+        <td data-label="Outcome">{% if p.won %}<span class="tr-tag tr-tag--won">Won</span>{% else %}<span class="muted">Not recorded</span>{% endif %}</td>
+      </tr>
+{% endmacro %}
+
+<header class="tr-hero">
+  <div class="tr-hero__main">
+    <p class="eyebrow">{{ co.name or "Cortech" }} · Track record</p>
+    <h1>{{ co.tagline or "Where we have worked, and for whom" }}</h1>
+    {% if co.summary %}<p class="tr-hero__lead">{{ co.summary }}</p>{% endif %}
+    {% if co.mission %}<p class="tr-hero__mission">{{ co.mission }}</p>{% endif %}
+  </div>
+  <dl class="tr-hero__aside tr-facts">
+    <div class="tr-facts__logo"><dt class="sr-only">Company</dt><dd><img class="brand-logo" src="{{ static_base }}/brand/cortech-logo.png" alt="{{ co.name or 'Cortech Consulting Group' }}" width="132" height="49" decoding="async"></dd></div>
+    <div><dt>Since</dt><dd class="tr-num">{{ co.established or "n/a" }}</dd></div>
+    <div><dt>Offices</dt><dd>{% if co.offices %}{{ co.offices | map(attribute='city') | join(", ") }}{% else %}{{ na() }}{% endif %}</dd></div>
+    <div><dt>Member of</dt><dd>{{ co.membership or "n/a" }}</dd></div>
+  </dl>
+</header>
+
+{% if not t.profile_loaded %}
+<section class="tr-note" aria-labelledby="h-tr-off">
+  <h2 id="h-tr-off">The company profile could not be read</h2>
+  <p>The versioned profile file is missing or unreadable, so only past proposals can be shown. Nothing has been changed.</p>
+</section>
+{% endif %}
+
+<section class="tr-figures" aria-label="Track record in numbers">
+  <div class="tr-figrow tr-figrow--lg">
+    <div class="tr-fig">
+      <span class="tr-fig__label">Selected assignments</span>
+      <span class="tr-fig__value">{{ f.assignments }}</span>
+      <span class="tr-fig__sub">{% if f.assign_first %}{{ f.assign_first }} to {{ f.assign_last }}{% else %}years not recorded{% endif %}</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Clients</span>
+      <span class="tr-fig__value">{{ f.clients }}</span>
+      <span class="tr-fig__sub">on those assignments</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Key partners</span>
+      <span class="tr-fig__value">{{ f.key_partners }}</span>
+      <span class="tr-fig__sub">named in the profile</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Thematic areas</span>
+      <span class="tr-fig__value">{{ f.themes_total }}</span>
+      <span class="tr-fig__sub">{{ f.themes_covered }} with a selected assignment</span>
+    </div>
+  </div>
+  <div class="tr-figrow tr-figrow--sm">
+    <div class="tr-fig">
+      <span class="tr-fig__label">Areas of work</span>
+      <span class="tr-fig__value">{{ f.areas }}</span>
+      <span class="tr-fig__sub">{% if t.areas %}{{ t.areas | map(attribute='name') | join(", ") }}{% else %}n/a{% endif %}</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Established</span>
+      <span class="tr-fig__value" data-static>{{ f.established or "n/a" }}</span>
+      <span class="tr-fig__sub">{% if f.years_active %}{{ f.years_active }} years{% else %}n/a{% endif %}</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Offices</span>
+      <span class="tr-fig__value">{{ f.offices }}</span>
+      <span class="tr-fig__sub">{% if co.offices %}{{ co.offices | map(attribute='city') | join(", ") }}{% else %}n/a{% endif %}</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Sectors</span>
+      <span class="tr-fig__value">{{ f.sectors }}</span>
+      <span class="tr-fig__sub">named in the profile</span>
+    </div>
+    <div class="tr-fig">
+      <span class="tr-fig__label">Service lines</span>
+      <span class="tr-fig__value">{{ f.service_lines }}</span>
+      <span class="tr-fig__sub">named in the profile</span>
+    </div>
+  </div>
+</section>
+<p class="tr-selection">{{ t.project_note }} The full record is in the <a href="{{ url_library }}">Knowledge Library</a>.</p>
+{% if t.library_error %}
+<p class="tr-libnote" role="status">{{ t.library_error }} The Company Profile 2026 is shown in full. Nothing has been changed.</p>
+{% elif f.library_added %}
+<p class="tr-libnote">{{ plural(f.library_added, "more past proposal", "more past proposals") }} from the Knowledge Library {{ "is" if f.library_added == 1 else "are" }} added below{% if f.library_won %}; {{ f.library_won }} {{ "is" if f.library_won == 1 else "are" }} recorded as won{% endif %}.</p>
+{% else %}
+<p class="tr-libnote">No further past proposals are recorded in the Knowledge Library yet. Add them there and they appear here once processed.</p>
+{% endif %}
+
+<nav class="tr-jump" aria-label="On this page">
+  <a href="#partners">Key partners</a>
+  <a href="#years">Years</a>
+  <a href="#areas">Areas</a>
+  <a href="#themes">Themes</a>
+  <a href="#projects">Assignments</a>
+  <a href="#clients">Clients</a>
+  <a href="#services">Service lines</a>
+  <a href="#sectors">Sectors</a>
+  <a href="#about">About this data</a>
+</nav>
+
+{% if t.key_partners %}
+<section class="tr-section" id="partners" aria-labelledby="h-partners">
+  <div class="tr-section__head">
+    <h2 id="h-partners">Key partners</h2>
+    <p>The Company Profile 2026 names these {{ f.key_partners }} as key partners, with the work for each.</p>
+  </div>
+  <ol class="tr-roll">
+    {% for k in t.key_partners %}
+    <li class="tr-roll__item">
+      <span class="tr-roll__n tr-num" aria-hidden="true">{{ "%02d" | format(k.n) }}</span>
+      <h3 class="tr-roll__name">{{ k.name }}</h3>
+      <p class="tr-roll__work">{{ k.work }}</p>
+      {% if k.assignments %}<p class="tr-roll__meta">{{ plural(k.assignments, "selected assignment", "selected assignments") }} on this page</p>{% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<section class="tr-section" id="years" aria-labelledby="h-years">
+  <div class="tr-section__head">
+    <h2 id="h-years">Assignments by year</h2>
+    <p>{% if f.first_year %}One square for each assignment. A range counts in the year it began.{% else %}No record carries a year yet.{% endif %}</p>
+  </div>
+  {% if t.timeline %}
+  <ol class="tr-tl">
+    {% for y in t.timeline %}
+    <li class="tr-tl__col{% if not y.count %} is-empty{% endif %}">
+      <a class="tr-tl__year tr-num" href="{{ url_track_record }}?year={{ y.year }}#projects" data-f="year" data-v="{{ y.year }}">{{ y.year }}<span class="sr-only">, {{ plural(y.count, "assignment", "assignments") }}, show them</span></a>
+      <div class="tr-tl__sq" aria-hidden="true">{% for i in range(y.count) %}<i class="{{ 'is-won' if i < y.won else '' }}" style="--i:{{ i }}"></i>{% endfor %}</div>
+      <p class="tr-tl__n"><span class="tr-num">{{ y.count }}</span> {{ "assignment" if y.count == 1 else "assignments" }}{% if y.won %}, {{ y.won }} won{% endif %}</p>
+      <ul class="tr-tl__list">
+        {% for it in y['items'][:8] %}<li>{{ it.client or "Client n/a" }}{% if it.year_label and it.year_label != y.year | string %} <span class="tr-tl__range">{{ it.year_label }}</span>{% endif %}</li>{% endfor %}
+        {% if y['items'] | length > 8 %}<li class="tr-tl__more">and {{ y['items'] | length - 8 }} more</li>{% endif %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ol>
+  <p class="tr-legend"><span class="tr-key tr-key--all" aria-hidden="true"></span>Outcome not recorded <span class="tr-key tr-key--won" aria-hidden="true"></span>Recorded as won</p>
+  {% else %}
+  <p class="tr-quiet">No record carries a year yet. {{ na() }}</p>
+  {% endif %}
+</section>
+
+<section class="tr-section" id="areas" aria-labelledby="h-areas">
+  <div class="tr-section__head">
+    <h2 id="h-areas">Areas of work</h2>
+    <p>One dot for each assignment in the area.{% if f.no_area %} {{ plural(f.no_area, "assignment names", "assignments name") }} no place and {{ "is" if f.no_area == 1 else "are" }} not shown here. {{ na() }}{% endif %} Area groups are tagged by Cortech BD from the places each description names.</p>
+  </div>
+  {% if t.areas %}
+  {% set top = t.areas[0].count %}
+  <ol class="tr-areas">
+    {% for a in t.areas %}
+    {% set shown_n = [a.count, 24] | min %}
+    <li class="tr-area{% if loop.index > 8 %} tr-area--more{% endif %}">
+      <a class="tr-area__name" href="{{ url_track_record }}?area={{ a.name | urlencode }}#projects" data-f="area" data-v="{{ a.name }}">{{ a.name }}<span class="sr-only">, show its assignments</span></a>
+      <span class="tr-area__places">{% if a.places %}{{ a.places | join(", ") }}{% else %}&nbsp;{% endif %}</span>
+      <svg class="tr-dots" viewBox="0 0 {{ shown_n * 16 }} 14" width="{{ shown_n * 16 }}" height="14" aria-hidden="true" focusable="false">
+        {% for i in range(shown_n) %}<circle cx="{{ i * 16 + 7 }}" cy="7" r="5" class="{{ 'is-top' if a.count == top else '' }}" style="--i:{{ i }}"/>{% endfor %}
+      </svg>
+      <span class="tr-area__n tr-num">{{ a.count }}<span class="sr-only"> assignment{{ "s" if a.count != 1 }}</span></span>
+    </li>
+    {% endfor %}
+  </ol>
+  {% if t.areas | length > 8 %}<p class="tr-more"><button type="button" class="link-button" data-toggle-areas aria-expanded="false" hidden>Show all {{ t.areas | length }} areas</button><span class="tr-more__nojs muted small">All {{ t.areas | length }} areas are listed above.</span></p>{% endif %}
+  {% else %}
+  <p class="tr-quiet">No record names a country or region yet, so there is nothing to show. {{ na() }}</p>
+  {% endif %}
+</section>
+
+<section class="tr-section" id="themes" aria-labelledby="h-themes">
+  <div class="tr-section__head">
+    <h2 id="h-themes">Thematic areas</h2>
+    <p>The {{ f.themes_total }} thematic areas in the profile. Select one to see what it covers and which assignments are tagged to it. The tag on each assignment is the closest theme, set by Cortech BD from the project description.</p>
+  </div>
+  <ul class="tr-themes">
+    {% for th in t.themes %}
+    {% set lvl = 0 if not th.count else (1 if th.count == 1 else (2 if th.count == 2 else (3 if th.count < 5 else 4))) %}
+    <li>
+      <a class="tr-theme tr-theme--{{ lvl }}{% if sel.theme == th.slug %} is-on{% endif %}" href="{{ url_track_record }}?theme={{ th.slug }}#themes" data-f="theme" data-v="{{ th.slug }}" aria-controls="tp-{{ th.slug }}"{% if sel.theme == th.slug %} aria-current="true"{% endif %}>
+        <span class="tr-theme__no tr-num" aria-hidden="true">{{ "%02d" | format(th.n) }}</span>
+        <span class="tr-theme__name">{{ th.name }}</span>
+        <span class="tr-theme__c"><span class="tr-num">{{ th.count }}</span> {{ "assignment" if th.count == 1 else "assignments" }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="tr-tpanels">
+    <p class="tr-quiet tr-tpanels__hint"{% if sel.theme %} hidden{% endif %}>Select a theme above.</p>
+    {% for th in t.themes %}
+    <div class="tr-tpanel{% if sel.theme == th.slug %} is-open{% endif %}" id="tp-{{ th.slug }}" role="region" aria-labelledby="tph-{{ th.slug }}">
+      <h3 id="tph-{{ th.slug }}"><span class="tr-num">{{ "%02d" | format(th.n) }}</span> {{ th.name }}</h3>
+      <div class="tr-tpanel__cols">
+        <div>
+          <p class="label">What it covers</p>
+          <ul class="tr-caps">{% for it in th['items'] %}<li>{{ it }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <p class="label">Assignments tagged to it</p>
+          {% if th.projects %}
+          <ul class="tr-tagged">
+            {% for p in th.projects %}<li><span class="tr-num">{{ p.year_label or "n/a" }}</span> {{ p.client or "Client n/a" }}</li>{% endfor %}
+          </ul>
+          <p><a class="link-button" href="{{ url_track_record }}?theme={{ th.slug }}#projects" data-f="theme" data-v="{{ th.slug }}" data-go>Show these in the list</a></p>
+          {% else %}
+          <p class="tr-quiet">None of the selected assignments is tagged to this theme. It is still a thematic area in the profile.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="tr-section" id="projects" aria-labelledby="h-projects">
+  <div class="tr-section__head">
+    <h2 id="h-projects">Selected assignments</h2>
+    <p>The selection from the Company Profile 2026, newest first{% if f.library_added %}, with past proposals from the Knowledge Library{% endif %}.</p>
+  </div>
+
+  <form class="tr-filters" data-tr-filters method="get" action="{{ url_track_record }}#projects" role="search" aria-label="Filter assignments">
+    <label class="tr-field tr-field--search"><span>Search</span><input type="search" name="q" data-f="q" value="{{ sel.q }}" placeholder="Title or client" autocomplete="off"></label>
+    <label class="tr-field"><span>Client</span>
+      <select name="client" data-f="client"><option value="">All clients</option>{% for n in t.filters.clients %}<option{% if sel.client == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+    <label class="tr-field"><span>Year</span>
+      <select name="year" data-f="year"><option value="">All years</option>{% for n in t.filters.years %}<option{% if sel.year == n | string %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+    <label class="tr-field"><span>Area</span>
+      <select name="area" data-f="area"><option value="">All areas</option>{% for n in t.filters.areas %}<option{% if sel.area == n %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
+    <label class="tr-field"><span>Theme</span>
+      <select name="theme" data-f="theme"><option value="">All themes</option>{% for th in t.filters.themes %}<option value="{{ th.slug }}"{% if sel.theme == th.slug %} selected{% endif %}>{{ th.name }}</option>{% endfor %}</select></label>
+    <label class="tr-check"><input type="checkbox" name="won" value="1" data-f="won"{% if sel.won %} checked{% endif %}> <span>Recorded as won only</span></label>
+    <button type="submit" class="btn btn-ghost tr-apply">Apply filters</button>
+    <a class="link-button tr-clear" href="{{ url_track_record }}#projects" data-reset>Clear</a>
+  </form>
+  <p class="tr-count" data-tr-count aria-live="polite">{% if shown | length == t.projects | length %}{{ plural(t.projects | length, "assignment", "assignments") }}{% else %}{{ shown | length }} of {{ plural(t.projects | length, "assignment", "assignments") }}{% endif %}</p>
+
+  <div class="tr-tablewrap">
+  <table class="tr-table tr-table--projects" data-tr-table>
+    <caption class="sr-only">Selected assignments</caption>
+    <thead><tr><th scope="col" class="num">Year</th><th scope="col">Assignment</th><th scope="col">Client</th><th scope="col">Area</th><th scope="col">Theme</th><th scope="col">Outcome</th></tr></thead>
+    <tbody>
+      {% for p in t.projects %}{{ row(p, p.n not in shown_ns) }}{% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="tr-quiet" data-tr-none{% if shown %} hidden{% endif %}>No assignment matches these filters. <a href="{{ url_track_record }}#projects">Clear the filters</a>.</p>
+  <p class="tr-fine">Profile assignments show their outcome as not recorded: the profile does not state one. Area and theme are tagged by Cortech BD from the project description.</p>
+</section>
+
+<section class="tr-section" id="clients" aria-labelledby="h-clients">
+  <div class="tr-section__head">
+    <h2 id="h-clients">All clients</h2>
+    <p>{{ plural(t.clients | length, "organisation", "organisations") }}: every one the Company Profile 2026 names as a client, key partner or assignment client{% if f.library_added %}, plus clients on past proposals in the Knowledge Library{% endif %}.</p>
+  </div>
+  {% if t.clients %}
+  <ul class="tr-index">
+    {% for c in t.clients %}
+    <li class="tr-index__item">
+      <span class="tr-index__name">{{ c.name }}</span>
+      <span class="tr-index__meta">
+        {% if c.key_partner %}<span class="tr-tag tr-tag--partner">Key partner</span>{% endif %}
+        {% if c.projects %}<span class="tr-num">{{ plural(c.projects, "assignment", "assignments") }}</span>{% endif %}
+        {% if c.library_only %}<span class="tr-tag">Knowledge Library</span>{% endif %}
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="tr-quiet">No client is recorded yet. {{ na() }}</p>
+  {% endif %}
+</section>
+
+{% if t.service_lines %}
+<section class="tr-section" id="services" aria-labelledby="h-services">
+  <div class="tr-section__head">
+    <h2 id="h-services">Service lines</h2>
+    <p>The {{ f.service_lines }} service lines in the Company Profile 2026.</p>
+  </div>
+  <ol class="tr-lines">
+    {% for s in t.service_lines %}
+    <li class="tr-line">
+      <span class="tr-line__n tr-num" aria-hidden="true">{{ "%02d" | format(s.n) }}</span>
+      <h3>{{ s.name }}</h3>
+      <ul>{% for it in s['items'] %}<li>{{ it }}</li>{% endfor %}</ul>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if t.sectors %}
+<section class="tr-section" id="sectors" aria-labelledby="h-sectors">
+  <div class="tr-section__head">
+    <h2 id="h-sectors">Sectors</h2>
+    <p>The {{ f.sectors }} sectors in the Company Profile 2026.</p>
+  </div>
+  <ol class="tr-sectors">
+    {% for s in t.sectors %}<li><span class="tr-num" aria-hidden="true">{{ "%02d" | format(loop.index) }}</span>{{ s }}</li>{% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+<section class="tr-section tr-about" id="about" aria-labelledby="h-about">
+  <div class="tr-section__head"><h2 id="h-about">About this data</h2></div>
+  <ul>
+    <li>Source: {{ t.source or "the Company Profile 2026" }}, shipped as a versioned file in this repository. It is a selection from the profile, not the full record. The full record is in the Knowledge Library.</li>
+    <li>The profile calls the assignments a selection. They are shown as selected assignments, not as the complete list of work.</li>
+    <li>Area groups and the one theme on each assignment are tagged by Cortech BD from the project description. They are not in the profile. Where a description names no place, the area reads n/a.</li>
+    <li>Outcome: Won only where a Knowledge Library record says so. Anything else reads not recorded, because an unchecked box is not a loss.</li>
+    <li>A past proposal joins a profile assignment only when its title matches exactly. Otherwise it is added as its own line.</li>
+    <li>Key partners are the nine the profile names as key partners. The data holds no ranking of partners, so none is shown.</li>
+    {% if f.no_client or f.no_year or f.no_area or f.no_theme %}<li>Gaps: {{ f.no_client }} without a client, {{ f.no_year }} without a year, {{ f.no_area }} without an area, {{ f.no_theme }} without a theme.</li>{% endif %}
+  </ul>
+  {% if co.offices %}
+  <footer class="tr-contact" aria-label="Contact">
+    {% for o in co.offices %}<p><span class="label">{{ o.country }}</span>{{ o.address }}</p>{% endfor %}
+    <p><span class="label">Web and email</span>{{ co.website }}<br>{% if co.email %}<a href="mailto:{{ co.email }}">{{ co.email }}</a>{% endif %}</p>
+  </footer>
+  {% endif %}
+</section>
+{% endblock %}

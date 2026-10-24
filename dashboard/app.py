@@ -73,7 +73,12 @@ def _static_version() -> str:
     assets = [
         HERE / "static" / "app.css",
         HERE / "static" / "redesign.css",
-        HERE / "static" / "redesign.js",
+        HERE / "static" / "track.css",
+        HERE / "static" / "track.js",
+        HERE / "static" / "glass.css",
+        HERE / "static" / "motion.js",
+        HERE / "static" / "library.css",
+        HERE / "static" / "library.js",
     ]
     try:
         return format(int(max(asset.stat().st_mtime for asset in assets)), "x")
@@ -174,6 +179,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_queue": "/",
         "url_portfolio": "/portfolio",
         "url_library": "/library",
+        "url_track_record": "/track-record",
         "url_detail": "/opportunity",
         "url_job": "/job",
         "url_logout": "/auth/logout",
@@ -280,24 +286,6 @@ def healthz():
     that fails on a transient PostgREST blip makes the platform restart a
     perfectly good web process."""
     return PlainTextResponse("ok")
-
-
-@app.get("/design-preview", response_class=HTMLResponse)
-def design_preview(request: Request):
-    """Authenticated, fictional UI prototype for the next Bid Desk design.
-
-    It is deliberately separate from the live pipeline. Every control in this
-    view is a front-end demonstration and cannot create or change a run.
-    """
-    session = current_session(request) or {}
-    return templates.TemplateResponse(request, "redesign.html", {
-        "request": request,
-        "product_name": settings.PRODUCT_NAME,
-        "viewer": session.get("email", "reviewer@example.test"),
-        "url_logout": "/auth/logout",
-        "static_base": "/static",
-        "static_v": _static_version(),
-    })
 
 
 # ── views ───────────────────────────────────────────────────────────────────
@@ -427,6 +415,31 @@ def portfolio_page(request: Request):
     })
     ctx["charts"] = _portfolio_charts(portfolio, ctx["digest"], ctx["dashboard_runs"])
     return templates.TemplateResponse(request, "portfolio.html", ctx)
+
+
+@app.get("/track-record", response_class=HTMLResponse)
+def track_record_page(request: Request, q: str = "", client: str = "", year: str = "", area: str = "",
+                      theme: str = "", won: str = ""):
+    """Read-only track record: the Company Profile 2026 plus the past proposals.
+
+    See dashboard/track_record.py for the rules. It writes nothing; the profile
+    renders even when the database is empty or cannot be read. The project
+    filters are plain query parameters so the table filters without a script.
+    """
+    from dashboard import track_record
+
+    t = track_record.load_track_record()
+    q, client, year, area, theme = (v.strip()[:120] for v in (q, client, year, area, theme))
+    shown = track_record.filter_projects(t["projects"], q=q, client=client, year=year, area=area, theme=theme,
+                                         won=won in ("1", "on", "true"))
+    ctx = _base_context(request, "track")
+    ctx.update({
+        "t": t, "poll_ms": 0, "shown": shown, "shown_ns": {p["n"] for p in shown},
+        "sel": {"q": q, "client": client, "year": year, "area": area,
+                "theme": theme if theme in {x["slug"] for x in t["themes"]} else "",
+                "won": won in ("1", "on", "true")},
+    })
+    return templates.TemplateResponse(request, "track_record.html", ctx)
 
 
 def _spend_by_day(runs: list[dict]) -> dict:

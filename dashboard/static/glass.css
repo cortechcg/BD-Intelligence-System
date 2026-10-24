@@ -1,0 +1,126 @@
+/* v3 surface and motion layer. Loaded after app.css on every page.
+
+   Glass is used on a short list of surfaces only: the sidebar, the sticky
+   masthead, hero panels, KPI groups, the library add panel and floating
+   notices. Dense reading surfaces (tables, forms, lists) stay solid paper.
+   Every translucent fill has a solid fallback: browsers without backdrop-filter
+   and people who ask for reduced transparency get plain paper. Washes, alphas
+   and ink pairs are read by tests/test_dashboard_palette.py. */
+:root {
+  /* Atmosphere: two tonal washes and the existing grain. Worst case under
+     glass is both at peak alpha on the same pixel, which the tests assume. */
+  --wash-teal: rgba(27, 73, 80, 0.13);
+  --wash-copper: rgba(176, 85, 43, 0.10);
+
+  /* Translucent paper. Alphas stay in the 55 to 75 percent band. */
+  --glass-paper: 251, 250, 246;
+  --glass-a-panel: 0.68;
+  --glass-a-rail: 0.62;
+  --glass-a-bar: 0.74;
+  --glass-solid: #fbfaf6;
+  --glass-solid-rail: #e8e4d9;
+  --glass-edge: rgba(255, 255, 255, 0.72);
+  --glass-ring: rgba(28, 35, 33, 0.08);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --glass-drop: 0 10px 30px -14px rgba(28, 35, 33, 0.2), 0 1px 2px rgba(28, 35, 33, 0.04);
+  --glass-blur: blur(14px) saturate(1.04);
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 0.18s; --dur-2: 0.3s; --dur-3: 0.7s;
+}
+
+/* Atmosphere: fixed, behind everything, no extra blur layer. */
+body { position: relative; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(54vmax 40vmax at 4% -8%, var(--wash-teal), transparent 70%),
+    radial-gradient(46vmax 36vmax at 104% 104%, var(--wash-copper), transparent 70%),
+    radial-gradient(34vmax 26vmax at 82% 8%, rgba(27, 73, 80, 0.08), transparent 70%);
+}
+.app-shell, .app-main { background: transparent; }
+.signin-page .signin-specimen { background: transparent; }
+
+/* Solid by default. */
+.sidenav { background-color: var(--glass-solid-rail); }
+.masthead { background-color: var(--ground); }
+.panel--hero, .cover, .panel.glance, .figures, .tr-figures, .tr-facts, .tr-tpanel, .tiles .tile, .lib-panel, .auth__card, .signin-card {
+  background-color: var(--glass-solid);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  @media not (prefers-reduced-transparency: reduce) {
+    .sidenav {
+      background-color: rgba(232, 228, 217, var(--glass-a-rail));
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border-right-color: var(--glass-edge);
+      box-shadow: inset -1px 0 0 var(--glass-ring);
+    }
+    .masthead {
+      background-color: rgba(var(--glass-paper), var(--glass-a-bar));
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border-bottom-color: var(--glass-ring);
+      box-shadow: var(--glass-hi);
+    }
+    .panel--hero, .cover, .panel.glance, .figures, .tr-figures, .tr-facts, .tr-tpanel, .tiles .tile, .lib-panel, .auth__card, .signin-card {
+      background-color: rgba(var(--glass-paper), var(--glass-a-panel));
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      border-color: var(--glass-edge);
+      box-shadow: var(--glass-hi), 0 0 0 1px var(--glass-ring), var(--glass-drop);
+    }
+    .panel--hero { border-top-color: var(--ink); }
+    .lib-panel { border-top-color: var(--fill); }
+    /* Floating notices sit above content, so they get the strongest glass. */
+    body > .band[style*="position:fixed"] {
+      background-color: rgba(var(--glass-paper), var(--glass-a-bar));
+      -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+      box-shadow: var(--glass-hi), var(--glass-drop);
+    }
+  }
+}
+.masthead.is-stuck { box-shadow: var(--glass-hi), 0 8px 24px -16px rgba(28, 35, 33, 0.3); }
+
+/* Hover and focus: short, quiet, never layout-shifting. */
+a, button, .btn, .nav a, .tabs > a, .table tbody tr, .tile, .panel, .opp-card, .tr-jump a, .tr-theme, .tr-roll__item, input, select, textarea {
+  transition: color var(--dur-1) ease, background-color var(--dur-1) ease, border-color var(--dur-1) ease,
+              box-shadow var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), opacity var(--dur-1) ease;
+}
+.table tbody tr:hover td { background-color: rgba(27, 73, 80, 0.045); }
+.tiles .tile:hover, .lib-card:hover { transform: translateY(-2px); }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+:focus-visible { outline-offset: 2px; box-shadow: 0 0 0 4px rgba(27, 73, 80, 0.14); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--fill); }
+
+/* Headline: words rise in one after another. The heading is plain text until
+   motion.js splits it, and it is never hidden for longer than the fallback. */
+.js [data-split]:not(.is-split) { opacity: 0; animation: fx-fallback 0.01s 0.7s forwards; }
+.is-split .w { display: inline-block; opacity: 0; transform: translateY(0.45em);
+  animation: fx-word 0.75s var(--ease-out) forwards; animation-delay: calc(var(--i, 0) * 55ms + 80ms); }
+@keyframes fx-word { to { opacity: 1; transform: none; } }
+@keyframes fx-fallback { to { opacity: 1; } }
+
+/* Scroll reveals. motion.js adds .rv only when it can also remove it. */
+.rv { opacity: 0; transform: translateY(14px); }
+.rv.rv-in { opacity: 1; transform: none;
+  transition: opacity var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
+  transition-delay: var(--d, 0ms); }
+/* Chart marks wait for their section. */
+.rv:not(.rv-in) .tr-tl__sq i, .rv:not(.rv-in) .tr-dots circle { animation-play-state: paused; }
+
+/* People who ask for less motion get the finished page at once. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; transition-delay: 0ms !important; }
+  .rv { opacity: 1; transform: none; }
+  .is-split .w { opacity: 1; transform: none; }
+}
+
+/* Official logo. The file is an opaque 180 by 67 image on its own cream plate
+   with dark corner pixels, so it is never shown above natural size and the
+   corners are clipped to the plate's own radius. Sizes per breakpoint are set
+   with the sidebar rules in app.css. */
+.brand-logo { display: block; width: 132px; max-width: 100%; height: auto; border-radius: 9px; box-shadow: 0 0 0 1px var(--line); }
+.brand-logo--card { width: 150px; margin: 0 0 20px; }
+.signin-card .brand-logo--card, .auth__card .brand-logo--card { margin: 0 0 20px; }

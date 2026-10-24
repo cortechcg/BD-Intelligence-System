@@ -1235,21 +1235,7 @@ a:hover { color: var(--color-petrol-hover); text-decoration-color: currentColor;
   align-self: stretch; display: flex; align-items: center; gap: var(--sp3);
   padding: 0 var(--sp1) var(--sp4); border-bottom: 1px solid var(--ink); color: var(--ink); text-decoration: none;
 }
-.sidenav .brand__mark {
-  position: relative; display: block; flex: none; width: 34px; height: 34px;
-  border-radius: 50%; background: var(--fill);
-}
-.sidenav .brand__mark::before {
-  content: ""; position: absolute; inset: 6px; border: 1.5px solid var(--on-fill); border-radius: 50%;
-}
-.sidenav .brand__mark::after {
-  content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--on-fill);
-}
-.brand-lockup { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.sidenav .masthead__product {
-  font-family: var(--doc); font-size: var(--t19); font-weight: var(--font-weight-regular);
-  line-height: 1.05; letter-spacing: var(--track-title); color: var(--ink);
-}
+.brand-lockup { display: flex; flex-direction: column; gap: var(--sp2); min-width: 0; }
 .brand-lockup__product { font-family: var(--doc); font-style: italic; font-size: var(--t13); line-height: 1.2; color: var(--ink-2); letter-spacing: 0; }
 .sidenav__caption { margin: var(--sp5) var(--sp1) var(--sp2); font-family: var(--doc); font-style: italic; font-size: var(--t13); color: var(--ink-2); }
 .sidenav .nav { gap: 0; }
@@ -1541,27 +1527,7 @@ input[type="file"]::file-selector-button:hover { border-color: var(--fill); colo
 .tabs > a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--fill); }
 nav.tabs { margin: 0 0 var(--sp6); padding: 0; }
 nav.tabs + .panel { margin-bottom: var(--sp6); }
-.lib-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp4) var(--sp5); align-items: start; }
-.lib-form > input[type="hidden"] { display: none; }
-.lib-form label { display: grid; gap: 6px; font-size: var(--t13); font-weight: var(--font-weight-medium); color: var(--ink); }
-.lib-form input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), .lib-form select {
-  width: 100%; min-height: 42px; padding: 9px var(--sp3); border: 1px solid var(--line-input); border-radius: var(--r-ctl);
-  background: var(--surface); color: var(--ink); font: inherit; font-size: var(--t14); font-weight: var(--font-weight-regular);
-}
-.lib-form input[type="file"] { padding: 7px var(--sp3); }
-.lib-form input[type="file"]::file-selector-button {
-  margin-right: var(--sp3); padding: 5px var(--sp3); border: 1px solid var(--line-input); border-radius: var(--r-ctl);
-  background: var(--hover); color: var(--ink); font: inherit; font-size: var(--t13); cursor: pointer;
-}
-.lib-form fieldset { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp3) var(--sp5); margin: 0; padding: var(--sp4) 0 0; border: 0; border-top: 1px solid var(--line-row); }
-.lib-form legend { float: left; width: 100%; margin: 0 0 var(--sp1); padding: 0; font-family: var(--doc); font-size: var(--t15); color: var(--ink); }
-.lib-form fieldset label { display: inline-flex; align-items: center; gap: var(--sp2); font-weight: var(--font-weight-regular); font-size: var(--t14); }
-.lib-form fieldset label:has(input:not([type="radio"])) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp2) var(--sp3); flex: 1 1 100%; }
-.lib-form fieldset label:has(input:not([type="radio"])) input:not([type="radio"]) { flex: 1 1 150px; width: auto; min-width: 0; }
-.lib-form fieldset label > input[type="radio"] { margin: 0; }
-.lib-form label:has(input[type="file"]) { grid-column: 1 / -1; }
-.lib-form > p { grid-column: 1 / -1; margin: 0; font-size: var(--t13); color: var(--ink-2); }
-.lib-form > .btn { grid-column: 1 / -1; justify-self: start; }
+/* The library add form lives in library.css. */
 .card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp4); margin: 0; padding: 0; list-style: none; }
 .card-list .panel h2 { font-size: var(--t19); }
 .card-list .panel p { margin-top: var(--sp2); font-size: var(--t14); color: var(--ink-2); }
@@ -1580,7 +1546,6 @@ nav.tabs + .panel { margin-bottom: var(--sp6); }
 /* Authentication and access states served from app.css */
 .auth { background-color: var(--ground); background-image: var(--grain); background-size: 240px 240px; }
 .auth__card { max-width: 440px; padding: var(--sp7); }
-.auth__card .brand__mark { width: 28px; height: 28px; border-radius: 50%; background: var(--fill); }
 .auth h1 { font-size: var(--t44); letter-spacing: var(--track-display); }
 .auth p { font-size: var(--t15); }
 .auth .btn { min-height: 44px; margin-top: var(--sp6); }
@@ -1601,7 +1566,6 @@ nav.tabs + .panel { margin-bottom: var(--sp6); }
   .intake-row { padding: var(--sp3) var(--sp5) var(--sp4); }
   .figures { grid-template-columns: 1fr; }
   .figures .figure + .figure { border-left: 0; border-top: 1px solid var(--line-row); }
-  .lib-form { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
   :root { --masthead-h: 56px; }
@@ -1612,6 +1576,7 @@ nav.tabs + .panel { margin-bottom: var(--sp6); }
   }
   .sidenav .masthead__brand { align-self: center; padding: 0 var(--sp4) 0 0; border-bottom: 0; }
   .brand-lockup__product { display: none; }
+  .sidenav .brand-logo { width: 108px; }
   .sidenav__caption, .sidenav__section, .sidenav__foot { display: none; }
   .sidenav .nav { flex-direction: row; flex: 1; flex-wrap: wrap; }
   .sidenav .nav a { min-height: 40px; padding: 0 var(--sp3); border-left: 0; border-bottom: 2px solid transparent; }
@@ -1633,11 +1598,8 @@ nav.tabs + .panel { margin-bottom: var(--sp6); }
 @media (max-width: 680px) {
   .sidenav { flex-wrap: wrap; gap: var(--sp1) var(--sp3); padding: var(--sp3) var(--sp4) 0; }
   .sidenav .masthead__brand { padding-right: var(--sp3); }
-  .sidenav .brand__mark { width: 30px; height: 30px; }
-  .sidenav .brand__mark::before { inset: 5px; }
-  .sidenav .brand__mark::after { inset: 12px; }
-  .sidenav .masthead__product { font-size: var(--t17); }
-  .sidenav .nav { flex: 1 0 100%; order: 3; gap: 0; margin: 0 calc(var(--sp1) * -1); overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .sidenav .brand-logo { width: 96px; }
+    .sidenav .nav { flex: 1 0 100%; order: 3; gap: 0; margin: 0 calc(var(--sp1) * -1); overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
   .sidenav .nav a { flex: none; min-height: 40px; padding: 0 var(--sp3); font-size: var(--t13); }
   .masthead__in { grid-template-columns: 1fr; gap: 0; padding: 0 var(--sp4); }
   .masthead__right { order: -1; justify-content: space-between; padding: var(--sp2) 0 0; }
