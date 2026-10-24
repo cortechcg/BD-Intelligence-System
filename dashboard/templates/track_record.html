@@ -162,7 +162,7 @@
 <section class="tr-section" id="areas" aria-labelledby="h-areas">
   <div class="tr-section__head">
     <h2 id="h-areas">Areas of work</h2>
-    <p>One dot for each assignment in the area.{% if f.no_area %} {{ plural(f.no_area, "assignment names", "assignments name") }} no place and {{ "is" if f.no_area == 1 else "are" }} not shown here. {{ na() }}{% endif %} Area groups are tagged by Cortech BD from the places each description names.</p>
+    <p>One dot for each assignment in the area. An assignment naming two countries counts under both.{% if f.no_area %} {{ plural(f.no_area, "assignment names", "assignments name") }} no place and {{ "is" if f.no_area == 1 else "are" }} not shown here.{% endif %} Areas are tagged by Cortech BD from the places each description names.</p>
   </div>
   {% if t.areas %}
   {% set top = t.areas[0].count %}
@@ -322,7 +322,7 @@
   <ul>
     <li>Source: {{ t.source or "the Company Profile 2026" }}, shipped as a versioned file in this repository. It is a selection from the profile, not the full record. The full record is in the Knowledge Library.</li>
     <li>The profile calls the assignments a selection. They are shown as selected assignments, not as the complete list of work.</li>
-    <li>Area groups and the one theme on each assignment are tagged by Cortech BD from the project description. They are not in the profile. Where a description names no place, the area reads n/a.</li>
+    <li>Area groups and the one theme on each assignment are tagged by Cortech BD from the project description. They are not in the profile. Where a description names no place, no area is shown.</li>
     <li>Outcome: Won only where a Knowledge Library record says so. Anything else reads not recorded, because an unchecked box is not a loss.</li>
     <li>A past proposal joins a profile assignment only when its title matches exactly. Otherwise it is added as its own line.</li>
     <li>Key partners are the nine the profile names as key partners. The data holds no ranking of partners, so none is shown.</li>

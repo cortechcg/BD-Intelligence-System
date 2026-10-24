@@ -249,7 +249,7 @@ def build_track_record(rows: list[dict], *, profile: dict | None = None,
     timeline = [{"year": y, "count": year_n.get(y, 0), "won": year_won.get(y, 0), "items": year_items.get(y, [])}
                 for y in range(span[0], span[1] + 1)] if span else []
 
-    # Areas: ranked groups, with the places named inside each.
+    # Areas: ranked groups, with the sub-places the profile names inside each.
     area_n: dict[str, int] = defaultdict(int)
     area_name: dict[str, str] = {}
     area_places: dict[str, dict[str, str]] = defaultdict(dict)
@@ -258,7 +258,9 @@ def build_track_record(rows: list[dict], *, profile: dict | None = None,
             k = a.casefold()
             area_n[k] += 1
             area_name.setdefault(k, a)
-            for pl in p["places"]:
+            # Sub-places come only from the profile, which names places inside an
+            # area. Library rows list countries, which would read as nested.
+            for pl in p["places"] if p["source"] == "profile" else []:
                 if pl.casefold() != k:
                     area_places[k].setdefault(pl.casefold(), pl)
     areas = [{"name": area_name[k], "count": n, "places": list(area_places[k].values())}

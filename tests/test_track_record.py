@@ -349,3 +349,39 @@ def test_nav_has_track_record_and_no_preview_link(page):
     html = page.get("/track-record").text
     assert 'href="/track-record"' in html
     assert "design-preview" not in html and "Bid desk redesign preview" not in html
+
+
+def _area(t, name):
+    return next(a for a in t["areas"] if a["name"] == name)
+
+
+def test_area_sublabels_list_only_places_inside_the_area():
+    t = track_record.build_track_record([_row(7, "Two countries", "Client One", 2024, ["WASH"], ["Somalia", "Kenya"])])
+    somalia, kenya, regional = _area(t, "Somalia"), _area(t, "Kenya"), _area(t, "Regional")
+    assert somalia["places"] == ["Banadir"]
+    assert kenya["places"] == ["Garissa", "Tana River", "Nairobi", "Turkana"]
+    assert regional["places"] == ["IGAD region", "Africa"]
+    # An assignment naming two countries still counts once under each.
+    base = track_record.build_track_record([])
+    assert somalia["count"] == _area(base, "Somalia")["count"] + 1
+    assert kenya["count"] == _area(base, "Kenya")["count"] + 1
+    # A country with no sub-place has no sublabel.
+    assert _area(track_record.build_track_record([_row(8, "Uganda study", "Client Two", 2024, ["WASH"], ["Uganda"])]),
+                 "Uganda")["places"] == []
+
+
+def test_areas_blurb_reads_naturally_and_prose_never_uses_na(page):
+    html = page.get("/track-record").text
+    text = re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>", "", html, flags=re.S))
+    text = re.sub(r"\s+", " ", text)
+    assert "An assignment naming two countries counts under both." in text
+    assert "Areas are tagged by Cortech BD from the places each description names." in text
+    assert "Area groups are tagged" not in text
+    assert not re.search(r"[.,;:] n/a|n/a [A-Z][a-z]+ (are|is) ", text)
+    # n/a only ever stands alone as a value.
+    for m in re.finditer(r"n/a", html):
+        before = html[max(0, m.start() - 24):m.start()]
+        after = html[m.end():m.end() + 8]
+        assert before.endswith(">") or before.endswith('"') or before.endswith("Client ") \
+            or before.endswith(" or ") or before.endswith("else %}"), before
+        assert after.startswith("<") or after.startswith("{") or after.startswith('"'), after
