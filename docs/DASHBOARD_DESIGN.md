@@ -1,5 +1,15 @@
 # Dashboard design direction
 
+> **2026-10-24: UI v3 (limestone, deep teal, copper).** The visual system was
+> redesigned again, with no change to logic, routes, hooks or wording. Ground
+> `#f1eee6`, paper `#fbfaf6`, stone index column `#e8e4d9`, ink `#1c2321`, deep
+> teal `#1b4950` for primary actions and progress, copper (`#b0552b` marks,
+> `#963f1f` text) only where a person must act, madder `#a23846` for errors.
+> Literata sets headings and display figures; Public Sans sets the interface;
+> IBM Plex Mono marks identifiers. Rules are hairlines, the page carries a
+> CSS-only paper grain, and tab-style underlines replace pills. Sections below
+> describe earlier passes and use earlier colour names.
+
 > **2026-10-21: the workspace shell has been redesigned (§15).** The light
 > cream and forest-green system remains; a compact forest navigation rail now
 > holds the two destinations and recent opportunities, with the five-stage

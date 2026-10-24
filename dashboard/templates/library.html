@@ -43,7 +43,7 @@
   <div class="panel__head">
     <h2 class="panel__title" id="h-add">Add to library</h2>
   </div>
-  <form method="post" action="/library/upload" enctype="multipart/form-data">
+  <form class="lib-form" method="post" action="/library/upload" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <fieldset>
       <legend>What are you adding?</legend>
@@ -93,7 +93,7 @@
       <label>Years of experience <input name="new_years" inputmode="decimal"></label>
     </fieldset>
     <p>Rates and availability are never inferred from a CV. Add them in the consultant record.</p>
-    <button type="submit">Add to library</button>
+    <button class="btn" type="submit">Add to library</button>
   </form>
 </section>
 
