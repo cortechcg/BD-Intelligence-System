@@ -1,0 +1,99 @@
+/* Type and header hierarchy, v3.1. Loaded after every other stylesheet, so it
+   owns the look of headings across the dashboard. Nothing here changes layout
+   structure, ids, routes or wording.
+
+   Two header levels, both on a bar so a header never melts into the text below:
+     Level 1  page title        deep teal bar, paper-white text, Outfit 700
+     Level 2  section and card  light teal bar, ink text, 4px deep-teal rule, Outfit 600
+   Small labels (h4, table heads, sidebar group labels) use Public Sans 600 caps on the
+   Level 2 tint. Body and detail stay Public Sans 400 in a calmer size, with muted
+   ink for secondary text.
+
+   Scale (px / line-height / weight / tracking):
+     page title   34 -> 26 on phones / 1.12 / 700 / -0.015em
+     section      21 / 1.22 / 600 / -0.005em        card (h3)  18 / 1.25 / 600 / -0.005em
+     label        12 / 1.3  / 600 / +0.08em caps    body       14.5 / 1.55 / 400
+   Contrast: paper #fbfaf6 on #1b4950 = 9.5; ink #1c2321 on #dfe9e8 = 12.9, on #d2e1df = 11.4. */
+
+@font-face {
+  font-family: "Outfit var";
+  src: url("fonts/outfit-var-latin.woff2") format("woff2");
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
+
+:root {
+  --hd: "Outfit var", "Outfit", "Public Sans var", "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bar-1: #1b4950;       /* level 1 bar */
+  --bar-1-ink: #fbfaf6;
+  --bar-2: #dfe9e8;       /* level 2 bar */
+  --bar-2-side: #d2e1df;  /* level 2 bar on the stone sidebar */
+  --bar-ink: #1c2321;
+  --bar-rule: #1b4950;
+  --body-size: 14.5px;
+}
+
+body { font-size: var(--body-size); }
+.view-head__lead, .tr-hero__lead { color: var(--ink-2); font-size: 15px; }
+.view-head__lead { margin-top: var(--sp4); }
+.muted, .small { color: var(--ink-2); }
+
+/* Level 1: page title */
+body h1:not(#_):not(.sr-only) {
+  font-family: var(--hd); font-weight: 700; font-optical-sizing: auto;
+  font-size: clamp(26px, 2.4vw + 14px, 34px); line-height: 1.12; letter-spacing: -0.015em;
+  font-variation-settings: normal; text-wrap: balance; max-width: none;
+  color: var(--bar-1-ink); background: var(--bar-1);
+  padding: 16px 22px; border-radius: var(--r-card);
+}
+body h1:not(#_) .hl { vertical-align: middle; }
+body .eyebrow:not(#_) {
+  font-family: var(--ui); font-weight: 600; color: var(--bar-rule);
+  font-size: 12px; letter-spacing: 0.1em; font-variant-numeric: tabular-nums lining-nums;
+}
+.view-head__main > .eyebrow, .tr-hero__main > .eyebrow { margin-bottom: var(--sp2); }
+.view-head__main > h1, .tr-hero__main > h1 { margin-bottom: 0; }
+body .signin-card h1:not(#_):not(.sr-only), body .auth h1:not(#_):not(.sr-only) { margin: var(--sp3) 0 var(--sp4); }
+
+/* Level 2: section, panel and card titles */
+body :is(h2, h3):not(#_):not(.sr-only) {
+  font-family: var(--hd); font-weight: 600; font-optical-sizing: auto; font-variation-settings: normal;
+  font-size: 18px; line-height: 1.25; letter-spacing: -0.005em; text-wrap: balance;
+  color: var(--bar-ink); background: var(--bar-2);
+  padding: 10px 16px; border-left: 4px solid var(--bar-rule); border-radius: 0 var(--r-card) var(--r-card) 0;
+}
+body h2:not(#_):not(.sr-only) { font-size: 21px; line-height: 1.22; padding: 11px 18px; }
+body :is(h2, h3):not(#_) .tr-num { color: var(--ink-2); }
+.panel__in > :is(h2, h3), .panel__head :is(h2, h3), .lib-card h2, .lib-empty h2 { margin-bottom: var(--sp3); }
+.section__head h2, .tr-section__head h2, .workq__head h2 { margin-bottom: 0; }
+
+/* Level 2 compact: list group titles and small headings */
+body h4:not(#_) {
+  display: block; font-family: var(--ui); font-weight: 600; font-size: 12px; line-height: 1.3;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--bar-ink); background: var(--bar-2);
+  padding: 7px 12px; border-left: 3px solid var(--bar-rule); border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
+}
+.list-group__title:not(#_) { display: flex; }
+body .lib-form h3:not(#_):not(.sr-only) { font-family: var(--hd); font-size: 14px; letter-spacing: 0; text-transform: none; padding: 8px 14px; }
+.lib-form h3 .small { color: var(--ink-2); }
+
+/* Table headers */
+body :is(.table, .tr-table, .lib-table) thead:not(#_) th:not(#_) {
+  font-family: var(--ui); font-weight: 600; font-size: 12px; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--bar-ink); background: var(--bar-2); border-bottom: 2px solid var(--bar-rule);
+}
+body :is(.table, .tr-table, .lib-table) thead:not(#_) { background: var(--bar-2); }
+
+/* Sidebar group labels */
+.sidenav__caption:not(#_), .sidenav .sidenav__head:not(#_) {
+  font-family: var(--ui); font-weight: 600; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--bar-ink); background: var(--bar-2-side); border-left: 3px solid var(--bar-rule);
+  padding: 7px 12px; border-radius: 0 var(--r-ctl) var(--r-ctl) 0; border-bottom: 0;
+}
+.sidenav .sidenav__head .label, .sidenav .sidenav__count { color: var(--bar-ink); font-weight: 600; }
+.masthead__context-title { font-family: var(--hd); font-weight: 600; }
+
+@media (max-width: 640px) {
+  body h2:not(#_):not(.sr-only) { font-size: 19px; padding: 10px 14px; }
+  body :is(h2, h3):not(#_):not(.sr-only) { padding-left: 14px; padding-right: 14px; }
+  body h1:not(#_):not(.sr-only) { padding: 14px 16px; }
+}

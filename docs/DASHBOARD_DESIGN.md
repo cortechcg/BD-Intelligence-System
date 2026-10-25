@@ -873,3 +873,40 @@ text or dimming. `pending.js` has no input or key listeners and skips forms that
 
 Checked by `tests/test_dashboard_pending.py` and `dashboard/design/motion_check.py` (delay, orbit
 radius and period at 0, 200 and 400 ms, handoff fade, Escape, reduced motion, quiet search bar).
+
+## 18. Type and header hierarchy (2026-10-25)
+
+`static/type.css` loads after every other stylesheet and owns heading styles. No markup, id, route
+or wording changed. Headers now sit on a bar, so they read as structure and not as larger body text.
+
+### 18.1 Faces
+
+- Headers: Outfit (variable, weights 600 and 700, self-hosted `fonts/outfit-var-latin.woff2`, licence
+  `fonts/LICENSE-Outfit-OFL.txt`). A sturdy geometric sans, clearly unlike the Literata used for
+  large figures, the masthead wordmark and pull quotes, which stay as they were.
+- Body and detail: Public Sans 400 at 14.5px (was 15px), secondary text in muted ink.
+- Labels: Public Sans 600, 12px, uppercase, +0.08em, tabular lining figures.
+
+### 18.2 Two levels
+
+| Level | Used for | Face | Size | Colours | Contrast |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Page title (h1) | Outfit 700, -0.015em, 1.12 | 34px, 26px on phones (clamp) | paper #fbfaf6 on deep teal #1b4950 | 9.5 |
+| 2 | Section (h2) | Outfit 600, -0.005em, 1.22 | 21px, 19px on phones | ink #1c2321 on teal tint #dfe9e8, 4px #1b4950 rule | 12.9, rule 8.0 |
+| 2 | Card and panel (h3) | Outfit 600, 1.25 | 18px | same | 12.9 |
+| 2 compact | h4, table heads, sidebar group labels | Public Sans 600 caps | 12px | ink on #dfe9e8 (sidebar: #d2e1df) | 12.9, 11.4 |
+
+Bars are 10 to 16px of padding, square on the rule side and 4px rounded on the other, so they
+cannot overflow a card. Headings that sit beside a button or a field keep shrink-to-fit width.
+Screen-reader-only headings (`.sr-only`) are not styled.
+
+### 18.3 Spacing
+
+Page title to lead text 16px; eyebrow to title 8px; panel and card titles carry 12px below them.
+Table head bars end in a 2px deep-teal rule. The sidebar uses the same rule and tint, darker by a
+step so it shows against the stone column.
+
+### 18.4 Checks
+
+`tests/test_dashboard_typography.py` pins the file loading order, the face and licence, the
+weights and sizes, and AA on each header pair (floor 7:1 for bar text, 4.5:1 for the rule).

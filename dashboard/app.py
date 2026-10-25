@@ -76,6 +76,7 @@ def _static_version() -> str:
         HERE / "static" / "track.css",
         HERE / "static" / "track.js",
         HERE / "static" / "glass.css",
+        HERE / "static" / "type.css",
         HERE / "static" / "motion.js",
         HERE / "static" / "library.css",
         HERE / "static" / "library.js",

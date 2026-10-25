@@ -12,6 +12,7 @@
 <script>document.documentElement.classList.add("js")</script>
 <script src="{{ static_base }}/pending.js?v={{ static_v }}"></script>
 {% block head_extra %}{% endblock %}
+<link rel="stylesheet" href="{{ static_base }}/type.css?v={{ static_v }}">
 </head>
 <body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
 <a class="skip-link" href="#main-content">Skip to main content</a>
