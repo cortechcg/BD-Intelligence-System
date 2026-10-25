@@ -836,7 +836,7 @@ Every wait that follows a user action now looks the same: a full-viewport white 
 plate with the unaltered Cortech logo (132px wide, never above 150px) circling a 22px orbit.
 One component: `static/pending.css` and `static/pending.js`, loaded by base, login and denied.
 
-- Motion: transform only. An arm turns once per 0.8s, linear, and the logo counter-turns by the
+- Motion: transform only. An arm turns once per 0.5s, linear, and the logo counter-turns by the
   same angle so it travels in a circle and never rotates. No spinner ring. The phase follows the
   wall clock so the orbit carries on across a page change.
 - Timing: shows after 150ms so quick actions never flash. On the destination page the plate is

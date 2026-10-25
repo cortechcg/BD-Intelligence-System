@@ -6,7 +6,7 @@
    bfcache return, on a script error, on Escape, and after 30 s at the latest. */
 (function () {
   "use strict";
-  var DELAY = 150, LOOP = 800, FAILSAFE = 30000, KEY = "cortech.pending";
+  var DELAY = 150, LOOP = 500, FAILSAFE = 30000, KEY = "cortech.pending";
   var d = document, root = d.documentElement;
   var me = d.currentScript;
   var base = me && me.src ? me.src.replace(/pending\.js(\?.*)?$/, "") : "/static/";

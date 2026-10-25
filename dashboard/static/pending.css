@@ -23,13 +23,13 @@
    phase comes from the wall clock, so the orbit carries on across a page change. */
 .pend__arm {
   position: relative; width: 0; height: 0; will-change: transform;
-  animation: pend-arm 0.8s linear infinite; animation-delay: var(--pend-phase, 0ms);
+  animation: pend-arm 0.5s linear infinite; animation-delay: var(--pend-phase, 0ms);
 }
 .pend__logo {
   position: absolute; left: -66px; top: -24.5px; display: block; width: 132px; height: 49px;
   border-radius: 9px; box-shadow: 0 0 0 1px var(--line, rgba(28, 35, 33, 0.14)); /* same plate treatment as .brand-logo */
   will-change: transform; transform: translateX(22px);
-  animation: pend-counter 0.8s linear infinite; animation-delay: var(--pend-phase, 0ms);
+  animation: pend-counter 0.5s linear infinite; animation-delay: var(--pend-phase, 0ms);
 }
 .pend--panel .pend__logo { width: 120px; height: 45px; left: -60px; top: -22.5px; }
 

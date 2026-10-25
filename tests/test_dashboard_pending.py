@@ -37,7 +37,7 @@ def test_overlay_is_plain_white_with_no_spinner_ring():
 
 def test_orbit_is_a_fast_linear_transform_only_loop():
     css = _strip(CSS)
-    assert css.count("0.8s linear infinite") == 2
+    assert css.count("0.5s linear infinite") == 2
     props = set(re.findall(r"([a-z-]+):", " ".join(re.findall(r"@keyframes pend-[a-z]+ \{(.*?\}.*?)\}", css, flags=re.S))))
     assert props <= {"transform"}, props
     radius = int(re.search(r"translateX\((\d+)px\)", css).group(1))
