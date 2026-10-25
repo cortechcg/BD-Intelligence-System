@@ -120,6 +120,87 @@ def main(outdir: str) -> int:
                 page.wait_for_timeout(500)
                 after = row.eval_on_selector("td", "el => getComputedStyle(el).backgroundColor")
                 results.append(_ok("row tints on hover", before != after, f"{before} to {after}"))
+
+            # 7: pending overlay (white, orbiting logo, 0.8 s loop, 150 ms delay, handoff fade, no search indicator)
+            page.goto(base + "/", wait_until="networkidle")
+            page.wait_for_timeout(600)
+            page.evaluate("window.__t0 = performance.now(); CortechPending.show({})")
+            page.wait_for_timeout(60)
+            early = page.evaluate("!!document.querySelector('.pend')")
+            page.wait_for_selector(".pend")
+            page.wait_for_timeout(300)
+            info = page.evaluate("""() => { const o = document.querySelector('.pend'); const l = o.querySelector('.pend__logo');
+                const cs = getComputedStyle(o); const a = getComputedStyle(o.querySelector('.pend__arm'));
+                const lc = getComputedStyle(l);
+                return {bg: cs.backgroundColor, pos: cs.position, op: cs.opacity, w: l.getBoundingClientRect().width,
+                        dur: a.animationDuration, fn: a.animationTimingFunction, ldur: lc.animationDuration, lfn: lc.animationTimingFunction,
+                        label: o.textContent.trim(), role: o.getAttribute('role'),
+                        live: o.getAttribute('aria-live'),
+                        ring: !!o.querySelector('.pend__ring, .spinner')}; }""")
+            results.append(_ok("pending overlay is not shown in the first 60 ms (150 ms delay)", not early))
+            results.append(_ok("pending overlay is opaque white and fixed", info["bg"] == "rgb(255, 255, 255)" and info["pos"] == "fixed" and float(info["op"]) > 0.95, str(info["bg"])))
+            results.append(_ok("pending logo is at most 150px wide, no spinner ring", info["w"] <= 150 and not info["ring"], f"{info['w']}px"))
+            results.append(_ok("orbit loop is 0.8s and linear, transform-only",
+                               info["dur"] == "0.8s" and info["fn"] == "linear" and info["ldur"] == "0.8s" and info["lfn"] == "linear", f"{info['dur']} {info['fn']}"))
+            results.append(_ok("pending label is Loading, polite live region", info["label"] == "Loading" and info["role"] == "status" and info["live"] == "polite"))
+            # orbit frames at 0, 200 and 400 ms: pause the loop at each time and measure the logo centre
+            pts = []
+            for ms in (0, 200, 400, 800):
+                page.evaluate("""(ms) => document.getAnimations().forEach(a => {
+                    if (a.animationName === 'pend-arm' || a.animationName === 'pend-counter') { a.pause(); a.currentTime = ms; } })""", ms)
+                page.wait_for_timeout(80)
+                pts.append(page.evaluate("""() => { const l = document.querySelector('.pend__logo').getBoundingClientRect();
+                    const v = {x: innerWidth / 2, y: innerHeight / 2}; return [l.left + l.width / 2 - v.x, l.top + l.height / 2 - v.y, l.width, l.height]; }"""))
+                if ms in (0, 200, 400):
+                    page.screenshot(path=str(out / f"frame-pending-orbit-{ms}ms.png"))
+            import math
+            radii = [round(math.hypot(x, y), 1) for x, y, _, _ in pts]
+            moved = math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]) > 20 and math.hypot(pts[2][0] - pts[0][0], pts[2][1] - pts[0][1]) > 20
+            results.append(_ok("logo moves between 0, 200 and 400 ms on a circle of 18 to 28px radius",
+                               moved and all(18 <= r <= 28 for r in radii), f"radii {radii}, points {[[round(a), round(b)] for a, b, _, _ in pts]}"))
+            results.append(_ok("one loop (800 ms) returns to the start", math.hypot(pts[3][0] - pts[0][0], pts[3][1] - pts[0][1]) < 2))
+            results.append(_ok("logo is not rotated or resized while orbiting", len({(round(w), round(h)) for _, _, w, h in pts}) == 1))
+            page.evaluate("CortechPending.hide(true)")
+            gone = page.evaluate("!document.querySelector('.pend')")
+            results.append(_ok("pending overlay clears on hide", gone))
+            # search input: typing shows no overlay, no spinner, no pending text
+            page.fill("#opp-filter-q", "water")
+            page.wait_for_timeout(500)
+            quiet = page.evaluate("""() => !document.querySelector('.pend') && !document.querySelector('#url-status-pill') &&
+                !/(Loading|Uploading|Starting|Running|Searching)/.test(document.querySelector('.workq__head').textContent) &&
+                !document.querySelector('.workq__head [aria-busy=true], .workq__head .spinner')""")
+            results.append(_ok("search bar shows no pending indicator while typing", bool(quiet)))
+            # handoff: a flagged navigation brings the overlay up at once and fades it out (200 to 300 ms) on load
+            page.evaluate("sessionStorage.setItem('cortech.pending', String(Date.now()))")
+            page.evaluate("""() => { window.__log = []; }""")
+            ctx.add_init_script("""(() => { window.__pend = {}; const mo = new MutationObserver(() => {
+                const o = document.querySelector('.pend'); const t = performance.now();
+                if (o && !window.__pend.added) window.__pend.added = t;
+                if (o && o.classList.contains('is-off') && !window.__pend.off) window.__pend.off = t;
+                if (!o && window.__pend.added && !window.__pend.removed) window.__pend.removed = t; });
+                mo.observe(document, {childList: true, subtree: true, attributes: true, attributeFilter: ['class']}); })()""")
+            page.goto(base + "/library", wait_until="domcontentloaded")
+            page.wait_for_timeout(1200)
+            h = page.evaluate("window.__pend")
+            fade = (h.get("removed", 0) - h.get("off", 0)) if h.get("off") and h.get("removed") else -1
+            results.append(_ok("handoff: overlay is up on the new page then fades out in 200 to 300 ms", 200 <= fade <= 330, f"{fade:.0f} ms"))
+            results.append(_ok("handoff: overlay is gone afterwards", page.evaluate("!document.querySelector('.pend')")))
+            page.evaluate("CortechPending.show({now: true})")
+            page.wait_for_timeout(200)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(100)
+            results.append(_ok("Escape clears a stuck overlay", page.evaluate("!document.querySelector('.pend')")))
+            # reduced motion: the loop is off and the logo sits still
+            rctx = browser.new_context(viewport={"width": 1440, "height": 900}, reduced_motion="reduce")
+            rctx.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": token, "url": f"http://127.0.0.1:{PORT}"}])
+            rp = rctx.new_page()
+            rp.goto(base + "/", wait_until="networkidle")
+            rp.evaluate("CortechPending.show({now: true})")
+            rp.wait_for_timeout(300)
+            rm = rp.evaluate("""() => { const l = document.querySelector('.pend__logo'); const a = document.querySelector('.pend__arm');
+                return [getComputedStyle(l).animationName, getComputedStyle(a).animationName, getComputedStyle(l).transform]; }""")
+            results.append(_ok("reduced motion: no orbit animation", rm[0] == "none" and rm[1] == "none" and rm[2] in ("none", "matrix(1, 0, 0, 1, 0, 0)"), str(rm)))
+            rctx.close()
             page.wait_for_timeout(800)
             ctx.close()
             browser.close()

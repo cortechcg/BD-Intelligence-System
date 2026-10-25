@@ -829,3 +829,47 @@ Watch it after deploy and swap in an SVG or a larger file when one is available
 (replace `static/brand/cortech-logo.png`, and re-crop `favicon.png` from the mark).
 `tests/test_live_dashboard_queue.py` reads the live database and races the live
 worker, so it can fail intermittently when run with the full suite; it passes alone.
+
+## 17. Pending state: white plate, orbiting logo (2026-10-25)
+
+Every wait that follows a user action now looks the same: a full-viewport white (#ffffff)
+plate with the unaltered Cortech logo (132px wide, never above 150px) circling a 22px orbit.
+One component: `static/pending.css` and `static/pending.js`, loaded by base, login and denied.
+
+- Motion: transform only. An arm turns once per 0.8s, linear, and the logo counter-turns by the
+  same angle so it travels in a circle and never rotates. No spinner ring. The phase follows the
+  wall clock so the orbit carries on across a page change.
+- Timing: shows after 150ms so quick actions never flash. On the destination page the plate is
+  re-mounted at once (sessionStorage flag, 6s fresh) and fades out over 250ms after first paint.
+- Fail-safes: hidden on `pageshow` from the back-forward cache, on a script `error`, on Escape,
+  and after 30s at the latest.
+- Reduced motion: no orbit, logo still, the fade is near instant.
+- Screen readers: the plate is `role="status"` `aria-live="polite"` with a visually hidden "Loading".
+- Wired to: internal link clicks (not hash-only, not downloads, not modified clicks), form submits
+  (library upload, Won/Lost/Pending control, archive, reprocess, detail page actions, bulk, outline,
+  intake), and programmatic redirects through `CortechPending.go()`. The Library upload XHR uses
+  `CortechPending.show({scope: panel})`, a white plate over the panel only.
+
+### 17.1 Audit: what each busy state became
+
+| Before | Now |
+| --- | --- |
+| Intake button "Starting..." | Button unchanged, plate shown |
+| `#url-status-pill` beside the paste-link field ("Ready", "Running...", "Uploading...") | Removed. An empty submit uses the native validation message |
+| Dropzone sub text "Uploading..." | Removed |
+| Library upload "Uploading N%" text, progress bar, disabled button | Panel plate, then the existing redirect via `go()` |
+| Won/Lost/Pending, archive, reprocess, detail forms, bulk, outline, login links | Full plate on submit or click |
+| Notification and job auto redirects | `go()`, same plate |
+
+### 17.2 What stays as data, and what stays silent
+
+Status chips and data labels are data, not busy states, and keep their wording: `.state--pending`,
+`.state--processing`, the Won/Lost/PENDING outcome control values, the Processing tab and its
+chips, the "Grading" band on the detail page. The background poll (silent swap of the main
+region) and in-place filtering on the Track record page do not show the plate.
+
+Search inputs (work queue search, Library and Track record filters) never show a plate, spinner,
+text or dimming. `pending.js` has no input or key listeners and skips forms that hold a search field.
+
+Checked by `tests/test_dashboard_pending.py` and `dashboard/design/motion_check.py` (delay, orbit
+radius and period at 0, 200 and 400 ms, handoff fade, Escape, reduced motion, quiet search bar).

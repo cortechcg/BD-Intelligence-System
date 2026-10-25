@@ -7,8 +7,10 @@
 <title>{% block title %}{{ product_name or "Cortech BD" }}{% endblock %}</title>
 <link rel="stylesheet" href="{{ static_base }}/app.css?v={{ static_v }}">
 <link rel="stylesheet" href="{{ static_base }}/glass.css?v={{ static_v }}">
+<link rel="stylesheet" href="{{ static_base }}/pending.css?v={{ static_v }}">
 <link rel="icon" type="image/png" sizes="64x64" href="{{ static_base }}/brand/favicon.png">
 <script>document.documentElement.classList.add("js")</script>
+<script src="{{ static_base }}/pending.js?v={{ static_v }}"></script>
 {% block head_extra %}{% endblock %}
 </head>
 <body{% if poll_ms %} data-poll-ms="{{ poll_ms }}"{% endif %}>
@@ -203,7 +205,7 @@
             if (data.pipeline_stage === "scored") {
               dest += "#outline-studio";
             }
-            window.location.assign(dest);
+            if (window.CortechPending) window.CortechPending.go(dest); else window.location.assign(dest);
             return;
           }
         }

@@ -139,7 +139,6 @@
           <span class="upload-dropzone__title" id="upload-dropzone-title">Choose a file</span>
           <span class="upload-dropzone__sub" id="upload-dropzone-sub">PDF, Word, or text</span>
         </label>
-        <span class="intake-status" id="url-status-pill">Ready</span>
       </div>
 
       <div class="intake-form__foot">
@@ -438,12 +437,10 @@
     var fileInput = document.getElementById("tor-file");
     var dropzone = document.getElementById("upload-dropzone");
     var dzTitle = document.getElementById("upload-dropzone-title");
-    var dzSub = document.getElementById("upload-dropzone-sub");
     var autoDraftToggle = document.getElementById("auto-draft-toggle");
     var intentInput = document.getElementById("intake-intent");
     var autoToggle = document.getElementById("auto-score-paste");
     var btn = document.getElementById("intake-submit-btn");
-    var statusPill = document.getElementById("url-status-pill");
     var submitted = false;
 
     function syncModeLabels() {
@@ -455,15 +452,13 @@
       autoDraftToggle.addEventListener("change", syncModeLabels);
       syncModeLabels();
     }
-    function triggerSubmit(labelMsg) {
+    function triggerSubmit() {
       if (submitted) return;
       var hasUrl = input && /^https?:\/\/\S+/i.test((input.value || "").trim());
       var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
       if (!hasUrl && !hasFile) return;
       submitted = true;
       window.__cortechFormDirty = false;
-      if (btn) btn.textContent = "Starting…";
-      if (statusPill) statusPill.textContent = labelMsg || "Starting…";
       if (typeof form.requestSubmit === "function") form.requestSubmit();
       else form.submit();
     }
@@ -472,38 +467,29 @@
       var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
       if (!hasUrl && !hasFile) {
         ev.preventDefault();
-        if (statusPill) statusPill.textContent = "Paste a link or choose a file";
+        if (input) { input.setCustomValidity("Paste a link or choose a file"); input.reportValidity(); }
         return;
       }
       submitted = true;
       window.__cortechFormDirty = false;
-      if (btn) btn.textContent = "Starting…";
-      if (statusPill) statusPill.textContent = "Running…";
     });
     if (input) {
-      input.addEventListener("input", function () {
-        if (!statusPill) return;
-        var val = (input.value || "").trim();
-        if (/^https?:\/\/\S+/i.test(val)) statusPill.textContent = "Link ready";
-        else if (val.length) statusPill.textContent = "Needs an https:// link";
-        else statusPill.textContent = "Ready";
-      });
+      input.addEventListener("input", function () { input.setCustomValidity(""); });
       input.addEventListener("paste", function () {
         if (!autoToggle || !autoToggle.checked) return;
         setTimeout(function () {
-          if (/^https?:\/\/\S+/i.test((input.value || "").trim()) && !submitted) triggerSubmit("Starting…");
+          if (/^https?:\/\/\S+/i.test((input.value || "").trim()) && !submitted) triggerSubmit();
         }, 60);
       });
     }
     if (fileInput) {
       fileInput.addEventListener("change", function () {
+        if (input) input.setCustomValidity("");
         if (!fileInput.files || !fileInput.files.length) return;
         var names = [];
         for (var i = 0; i < fileInput.files.length; i++) names.push(fileInput.files[i].name);
         if (dzTitle) dzTitle.textContent = names.join(", ");
-        if (dzSub) dzSub.textContent = "Uploading…";
-        if (statusPill) statusPill.textContent = "File selected";
-        if (!autoToggle || autoToggle.checked) setTimeout(function () { triggerSubmit("Uploading…"); }, 80);
+        if (!autoToggle || autoToggle.checked) setTimeout(function () { triggerSubmit(); }, 80);
       });
     }
     if (dropzone && fileInput) {

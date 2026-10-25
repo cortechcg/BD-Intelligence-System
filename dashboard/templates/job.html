@@ -190,7 +190,7 @@
   var target = node.getAttribute("data-auto-redirect-url");
   if (target) {
     setTimeout(function () {
-      window.location.assign(target);
+      if (window.CortechPending) window.CortechPending.go(target); else window.location.assign(target);
     }, 600);
   }
 })();

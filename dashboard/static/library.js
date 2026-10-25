@@ -93,18 +93,19 @@
     if (!files.length) { setMsg("Choose a PDF or DOCX file.", "error", 0); return; }
     if (bad.length) { setMsg("Remove the files marked above, then try again.", "error", 0); return; }
     var btn = $("[data-lib-submit]", f); btn.disabled = true;
+    var host = f.closest(".lib-panel") || f;
+    var P = window.CortechPending;
+    function done() { btn.disabled = false; if (P) P.hide(true); }
+    if (P) P.show({ scope: host });
     var data = new FormData(f);
     data.delete("files");
     files.forEach(function (x) { data.append("files", x, x.name); });
     var xhr = new XMLHttpRequest();
     xhr.open("POST", f.getAttribute("action"));
     xhr.setRequestHeader("Accept", "application/json");
-    xhr.upload.onprogress = function (e) {
-      if (e.lengthComputable) setMsg("Uploading " + Math.round(e.loaded / e.total * 100) + "%", "", e.loaded / e.total * 100);
-    };
-    xhr.onerror = function () { btn.disabled = false; setMsg("The upload did not finish. Check your connection and try again.", "error"); };
+    xhr.onerror = function () { done(); setMsg("The upload did not finish. Check your connection and try again.", "error"); };
     xhr.onload = function () {
-      btn.disabled = false;
+      done();
       var body = null; try { body = JSON.parse(xhr.responseText); } catch (e) {}
       if (xhr.status === 401 || xhr.status === 403) { setMsg("Your session has ended. Sign in again, then retry.", "error"); return; }
       if (!body) { setMsg("The server sent an unexpected reply. Nothing was added.", "error"); return; }
@@ -117,9 +118,11 @@
       setMsg(ok === total ? "Added " + ok + (ok === 1 ? " file" : " files") + ". The agent is reading it now." :
         "Added " + ok + " of " + total + ". See the notes below.", ok === total ? "ok" : "error", 100);
       files = []; syncInput(); renderFiles(); window.__cortechFormDirty = false;
-      setTimeout(function () { if (ok === total) location.assign("/library?tab=processing"); }, 1600);
+      setTimeout(function () {
+        if (ok !== total) return;
+        if (P) P.go("/library?tab=processing"); else location.assign("/library?tab=processing");
+      }, 1600);
     };
-    setMsg("Uploading 0%", "", 0);
     xhr.send(data);
   }
 

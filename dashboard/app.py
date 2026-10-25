@@ -79,6 +79,8 @@ def _static_version() -> str:
         HERE / "static" / "motion.js",
         HERE / "static" / "library.css",
         HERE / "static" / "library.js",
+        HERE / "static" / "pending.css",
+        HERE / "static" / "pending.js",
     ]
     try:
         return format(int(max(asset.stat().st_mtime for asset in assets)), "x")

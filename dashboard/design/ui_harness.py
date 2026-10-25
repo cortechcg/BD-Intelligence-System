@@ -357,6 +357,12 @@ PAGES = [
     ("track-record-theme", "/track-record?theme=livelihoods"),
     ("login", "/auth/login"),
     ("denied", "/auth/denied-preview"),
+    # Pending state, forced visible. The orbit is paused at 0, 200 and 400 ms of the 800 ms loop.
+    ("pending-orbit-0", "/"),
+    ("pending-orbit-200", "/"),
+    ("pending-orbit-400", "/"),
+    ("pending-panel", "/library"),
+    ("search-bar", "/"),
 ]
 
 
@@ -422,7 +428,42 @@ def _step_library_error(page):
     page.wait_for_timeout(300)
 
 
-STEPS = {"library-open": _step_library_open, "library-error": _step_library_error}
+def _pause_orbit(page, ms):
+    page.evaluate("""(ms) => document.getAnimations().forEach(a => {
+        if (a.animationName === 'pend-arm' || a.animationName === 'pend-counter') { a.pause(); a.currentTime = ms; } })""", ms)
+
+
+def _step_pending(ms):
+    def step(page):
+        page.evaluate("CortechPending.show({now: true})")
+        page.wait_for_selector(".pend.is-on")
+        page.wait_for_timeout(400)
+        _pause_orbit(page, ms)
+        page.wait_for_timeout(60)
+    return step
+
+
+def _step_pending_panel(page):
+    _step_library_open(page)
+    page.evaluate("CortechPending.show({now: true, scope: document.querySelector('.lib-panel')})")
+    page.wait_for_selector(".pend--panel.is-on")
+    page.wait_for_timeout(400)
+    _pause_orbit(page, 200)
+    page.evaluate("document.querySelector('.pend--panel').scrollIntoView({block: 'center', behavior: 'instant'})")
+    page.wait_for_timeout(60)
+
+
+def _step_search_bar(page):
+    page.fill("#opp-filter-q", "water")
+    page.wait_for_timeout(500)
+
+
+STEPS = {"library-open": _step_library_open, "library-error": _step_library_error,
+         "pending-orbit-0": _step_pending(0), "pending-orbit-200": _step_pending(200),
+         "pending-orbit-400": _step_pending(400), "pending-panel": _step_pending_panel,
+         "search-bar": _step_search_bar}
+VIEWPORT_ONLY = {"pending-orbit-0", "pending-orbit-200", "pending-orbit-400", "pending-panel"}
+CLIP = {"search-bar": "#work-queue .workq__head"}  # the head holds the heading and the search field
 
 
 def _settle(page):
@@ -463,7 +504,8 @@ def shoot(outdir: str, port: int = 8765, only: list[str] | None = None) -> None:
         with sync_playwright() as p:
             browser = p.chromium.launch(channel="chrome")
             for width, height in ((1440, 900), (1024, 768), (390, 844)):
-                ctx = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1, reduced_motion=MOTION)
+                ctx = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1,
+                                          reduced_motion="no-preference" if only and all(n.startswith("pending") for n in only) else MOTION)
                 ctx.add_cookies([{"name": settings.SESSION_COOKIE_NAME, "value": token,
                                   "url": f"http://127.0.0.1:{port}"}])
                 anon = browser.new_context(viewport={"width": width, "height": height}, device_scale_factor=1, reduced_motion=MOTION)
@@ -478,10 +520,22 @@ def shoot(outdir: str, port: int = 8765, only: list[str] | None = None) -> None:
                     page.add_style_tag(content="*{scroll-behavior:auto!important}")
                     if name in STEPS:
                         STEPS[name](page)
-                        page.evaluate("window.scrollTo(0, 0)")
+                        if name not in VIEWPORT_ONLY:
+                            page.evaluate("window.scrollTo(0, 0)")
                         page.wait_for_timeout(200)
                     elif MOTION == "no-preference":
                         _settle(page)
+                    if name in CLIP:
+                        bb = page.locator(CLIP[name]).bounding_box()
+                        pad = 16
+                        clip = {"x": max(bb["x"] - pad, 0), "y": max(bb["y"] - pad, 0), "width": min(bb["width"] + 2 * pad, width), "height": bb["height"] + 2 * pad}
+                        page.screenshot(path=str(out / f"{name}-{width}.png"), clip=clip, full_page=True)
+                        page.close()
+                        continue
+                    if name in VIEWPORT_ONLY:
+                        page.screenshot(path=str(out / f"{name}-{width}.png"))
+                        page.close()
+                        continue
                     if name.startswith("detail") or name.startswith("job"):
                         page.evaluate("document.querySelectorAll('details').forEach(d => d.open = true)")
                     # Grow the window to the page so sticky columns and the fixed backdrop span it,
