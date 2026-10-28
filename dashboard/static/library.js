@@ -107,16 +107,13 @@
     function done() { btn.disabled = false; if (P) P.hide(true); }
     if (P) P.show({ scope: host });
     var results = $("[data-lib-results]"); if (results) results.innerHTML = "";
-    setMsg("Uploading " + files.length + (files.length === 1 ? " file…" : " files…"), "", 10);
+    var box = $("[data-lib-status]"); if (box) box.hidden = true;  // no stale message from the last try
     var data = new FormData(f);
     data.delete("files");
     files.forEach(function (x) { data.append("files", x, x.name); });
     var xhr = new XMLHttpRequest();
     xhr.open("POST", f.getAttribute("action"));
     xhr.setRequestHeader("Accept", "application/json");
-    xhr.upload.onprogress = function (e) {
-      if (e.lengthComputable) setMsg("Uploading… " + Math.round(100 * e.loaded / e.total) + "%", "", Math.max(10, 90 * e.loaded / e.total));
-    };
     xhr.onerror = function () {
       done();
       // The browser refuses to send a file that changed on disk after it was
