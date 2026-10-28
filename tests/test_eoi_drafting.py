@@ -120,6 +120,7 @@ def test_generate_proposal_null_fields_dry_path(monkeypatch):
     )
     monkeypatch.setattr(proposal_writer, "generate_quality_self_score", lambda *a, **k: {})
     monkeypatch.setattr(proposal_writer, "_repair_weakest_section", lambda s, *a, **k: s)
+    monkeypatch.setattr(proposal_writer, "_rewrite_section_for_gate", lambda key, current, *a, **k: current)
     monkeypatch.setattr(proposal_writer, "_final_money_audit", lambda s: None)
     monkeypatch.setattr(proposal_writer, "_log_proposal_usage", lambda *a, **k: None)
     monkeypatch.setattr(proposal_writer, "load_past_work_matches", lambda *a, **k: [])

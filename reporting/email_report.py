@@ -1751,6 +1751,13 @@ def send_proposal_email(opportunity_result: dict) -> None:
             "Technical file only. Confirm the financial envelope is a separate "
             "submission. Nothing has been sent to the client.",
         ))
+    gate = proposal.get("quality_gate") if isinstance(proposal.get("quality_gate"), dict) else {}
+    gate_blocked = gate.get("status") != "READY"
+    gate_score = gate.get("score")
+    review_items.insert(0, (
+        "Quality gate",
+        str(gate.get("headline") or "No quality gate result is stored; treat this draft as BLOCKED."),
+    ))
     if alignment_headline:
         review_items.append(("Alignment", alignment_headline))
     for gap in team_gaps[:4]:
@@ -2190,21 +2197,20 @@ def send_proposal_email(opportunity_result: dict) -> None:
     safe_deadline_subject = _subject_text(deadline)[:10]
     if is_lightweight:
         subject = (
-            f"QUICK FLAG: {_subject_text(title)[:50]} | "
+            f"{'BLOCKED ' if gate_blocked else ''}QUICK FLAG: {_subject_text(title)[:50]} | "
             f"Deadline: {safe_deadline_subject} | "
             f"Score: {_whole(score)}/100 | WATCH"
         )
-    elif is_eoi:
-        subject = (
-            f"{doc_label}: {_subject_text(title)[:50]} | "
-            f"Deadline: {safe_deadline_subject} | "
-            f"Score: {_whole(score)}/100 | REVIEW REQUIRED"
-        )
     else:
+        # The quality gate, not the bid score, says whether the draft is ready.
+        verdict = (
+            f"BLOCKED quality {_whole(gate_score)}/100"
+            if gate_blocked
+            else f"READY FOR REVIEW quality {_whole(gate_score)}/100"
+        )
         subject = (
-            f"{doc_label}: {_subject_text(title)[:50]} | "
-            f"Deadline: {safe_deadline_subject} | "
-            f"Score: {_whole(score)}/100 | REVIEW REQUIRED"
+            f"{verdict} | {doc_label}: {_subject_text(title)[:50]} | "
+            f"Deadline: {safe_deadline_subject} | Bid score: {_whole(score)}/100"
         )
 
     if _send_email(subject, html, attachment_path=docx_path):

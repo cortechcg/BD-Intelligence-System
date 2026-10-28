@@ -1,8 +1,13 @@
 """Hybrid scorer: LLM numbers are audit-only; code calculates the score."""
 
+import json
+from pathlib import Path
+
 from intelligence.bid_scorer import apply_bid_intelligence, compute_bid_intelligence
 from intelligence.compliance import build_compliance_matrix
 from intelligence.cv_matcher import score_capability_match
+
+_MODEL_VERSION = json.loads(Path("intelligence/scoring_model.json").read_text())["score_version"]
 
 
 def _analysis(**overrides):
@@ -46,7 +51,7 @@ def test_does_not_use_llm_number_as_final_score():
     assert result["fit"]["score"] != 12
     assert result["fit"]["score"] >= 70
     assert result["recommendation"] == "BID"
-    assert result["score_version"] == "1.0.0"
+    assert result["score_version"] == _MODEL_VERSION
     assert "fit" in result["weights"]
     assert result["calibrated_win_probability"]["value"] is None
     assert result["calibrated_win_probability"]["status"] == "INSUFFICIENT DATA"
@@ -104,7 +109,7 @@ def test_expected_value_not_guessed_when_value_known():
 
 def test_weights_version_stored():
     a = compute_bid_intelligence(_analysis())
-    assert a["score_version"] == "1.0.0"
+    assert a["score_version"] == _MODEL_VERSION
     assert a["weights"]["fit"]["geography"] == 0.30
 
 

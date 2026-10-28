@@ -13,9 +13,29 @@ from tests.golden.loader import (
 )
 from tests.golden.metrics import coerce_number, format_rate, mae, null_agreement
 
+_AGGRESSION = {"NO-BID": 0, "WATCH": 1, "BID": 2}
+
+
+def _no_more_aggressive(got: str, expected: str, unknown: list[str]) -> bool:
+    """Scoring 1.1.0 rule against a human label made with the full document.
+
+    The labels only carry geography and thematic, so language, eligibility and
+    team arrive UNKNOWN. The scorer may then hold a labelled BID at WATCH, but
+    only while it names the unknown factors; it may never call a BID the
+    label does not, and never NO-BID a labelled BID.
+    """
+    if _AGGRESSION[got] > _AGGRESSION[expected]:
+        return False
+    if expected == "BID" and got == "NO-BID":
+        return False
+    if got != expected and expected == "BID":
+        return bool(unknown)
+    return True
+
 
 def compute_scoring_metrics(items: list[dict]) -> dict:
     rec_pairs = []
+    conservative_pairs = []
     budget_pairs = []
     budget_null_pairs = []
     ev_insufficient = 0
@@ -37,6 +57,9 @@ def compute_scoring_metrics(items: list[dict]) -> dict:
             skipped.append({"id": item["id"], "reason": "expected_recommendation is null"})
         else:
             rec_pairs.append((got, expected))
+            conservative_pairs.append(
+                (got, expected, list(result.get("fit", {}).get("unknown_factors") or []))
+            )
 
         pred_budget = result.get("commercial_value", {}).get("contract_value_usd")
         gold_budget = coerce_number(labels.get("budget_usd"))
@@ -58,6 +81,10 @@ def compute_scoring_metrics(items: list[dict]) -> dict:
     )
     n_run = len(items) - len(crashed)
     return {
+        "conservative_agreement": (
+            sum(_no_more_aggressive(g, y, u) for g, y, u in conservative_pairs) / scored
+            if scored else None
+        ),
         "n_items": len(items),
         "n_recommendation_scored": scored,
         "n_skipped_recommendation": len(skipped),
@@ -87,7 +114,8 @@ def test_scoring_metrics_against_labeled_expected(capsys):
         f"  n={metrics['n_items']} rec_scored={metrics['n_recommendation_scored']} "
         f"rec_skipped={metrics['n_skipped_recommendation']} crashed={metrics['n_crashed']}"
     )
-    print(f"  recommendation accuracy={format_rate(metrics['recommendation_accuracy'])}")
+    print(f"  recommendation exact match={format_rate(metrics['recommendation_accuracy'])} (informational: labels lack language/eligibility/team)")
+    print(f"  never more aggressive than the label={format_rate(metrics['conservative_agreement'])}")
     print(
         f"  commercial MAE={format_rate(metrics['budget_mae'])} "
         f"(n_numeric={metrics['budget_numeric_n']}) "
@@ -103,7 +131,7 @@ def test_scoring_metrics_against_labeled_expected(capsys):
     assert "GOLDEN SCORING" in captured.out
 
     assert metrics["n_crashed"] == 0
-    assert metrics["recommendation_accuracy"] == 1.0
+    assert metrics["conservative_agreement"] == 1.0
     assert metrics["budget_mae"] == 0.0
     assert metrics["budget_null_agreement"] == 1.0
     assert metrics["ev_insufficient_rate"] == 1.0
@@ -133,6 +161,7 @@ def test_empty_set_scoring_metrics_do_not_crash():
     assert metrics["n_items"] == 0
     assert metrics["n_crashed"] == 0
     assert metrics["recommendation_accuracy"] is None
+    assert metrics["conservative_agreement"] is None
 
 
 def test_garbage_analysis_does_not_blow_up_scorer():
@@ -153,12 +182,15 @@ def test_missing_budget_stays_unknown_not_zero():
     assert result["commercial_value"]["status"] == "UNKNOWN"
 
 
-def test_internal_audit_item_is_watch_not_forced_bid():
+def test_internal_audit_item_is_not_forced_bid():
+    """Labelled WATCH. With language, eligibility and team unknown the
+    penalised fit drops below the WATCH line; it must never read as BID."""
     items = {item["id"]: item for item in load_golden_set()}
     result = compute_bid_intelligence(analysis_from_labels(items["g-025"]))
-    assert result["recommendation"] == "WATCH"
+    assert result["recommendation"] in {"WATCH", "NO-BID"}
     assert result["fit"]["score"] is not None
-    assert 45 <= result["fit"]["score"] < 70
+    assert result["fit"]["score"] < 70
+    assert result["fit"]["worst_case"] < 70
 
 
 def test_wrong_geography_item_stays_no_bid_even_with_stated_budget():

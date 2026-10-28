@@ -6,7 +6,9 @@
 {% set running = job.status in ("queued", "running") %}
 {% set opp_url = (d.source_url if d and d.source_url else job.source_url) or '' %}
 {% set awaiting_outline = (job.status == "succeeded") and ((job.result_summary and job.result_summary.get("awaiting_outline")) or (d and d.stage.value == "scored" and not d.has_draft)) %}
-{% set draft_ready = (job.status == "succeeded") and d and d.has_draft %}
+{% set draft_done = (job.status == "succeeded") and d and d.has_draft %}
+{% set draft_ready = draft_done and d.quality_gate and d.quality_gate.status == "READY" %}
+{% set draft_blocked = draft_done and not draft_ready %}
 
 <div class="view-head">
   <div class="view-head__main">
@@ -16,6 +18,8 @@
         The tender is scored
       {% elif draft_ready %}
         The draft is ready to read
+      {% elif draft_blocked %}
+        The draft is BLOCKED by the quality gate
       {% elif running %}
         Reading and scoring the tender…
       {% else %}
@@ -46,6 +50,16 @@
     <a class="btn" id="open-outline-workspace" href="{{ url_detail }}?url={{ opp_url | urlencode }}#outline-studio">Choose the chapters</a>
   </div>
 </div>
+{% elif draft_blocked and opp_url %}
+<div class="row-between">
+  <div>
+    <h2>BLOCKED — not ready</h2>
+    <p class="section__sub">{{ d.quality_gate.headline if d.quality_gate else "No quality gate result is stored." }}</p>
+  </div>
+  <div class="row">
+    <a class="btn" href="{{ url_detail }}?url={{ opp_url | urlencode }}#quality-gate">See what blocks it</a>
+  </div>
+</div>
 {% elif draft_ready and opp_url %}
 <div class="row-between" data-auto-redirect-url="{{ url_detail }}?url={{ opp_url | urlencode }}">
   <div>
@@ -67,7 +81,7 @@
       <span>Requirements, deliverables, and Cortech’s fit</span>
     </div>
   </li>
-  <li class="steps__item {% if draft_ready %}is-done{% elif awaiting_outline %}is-active{% endif %}">
+  <li class="steps__item {% if draft_done %}is-done{% elif awaiting_outline %}is-active{% endif %}">
     <span class="steps__num">2</span>
     <div class="steps__text">
       <strong>Choose the chapters</strong>
@@ -182,7 +196,7 @@
   </details>
 </section>
 
-{% if (awaiting_outline or draft_ready) and opp_url %}
+{% if (awaiting_outline or draft_done) and opp_url %}
 <script>
 (function () {
   var node = document.querySelector("[data-auto-redirect-url]");

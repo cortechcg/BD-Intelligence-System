@@ -39,6 +39,12 @@ PATs), `RESEND_API_KEY`, `GMAIL_APP_PASSWORD`, `IMAP_PASSWORD`. On
 2026-10-28 the Airtable PAT, Supabase service key, Gmail app password and
 IMAP password in the working `.env` were **still the leaked values**.
 
+History was rewritten on 2026-10-28 with `git filter-repo` (`.env` removed
+from every commit, every leaked value replaced by a placeholder) and
+force-pushed to `main` (c21966a → 1f80c8d). A fresh clone then scanned 0
+findings with `scripts/secret_scan.py --history` and gitleaks. A local backup
+of the old history (it still contains the values) is kept outside the repo.
+
 A history rewrite removes the values from future clones only. Anyone who
 cloned or forked before it, and GitHub's cached commit views, still have
 them. Every value above must be treated as compromised and rotated at the

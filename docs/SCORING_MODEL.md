@@ -10,7 +10,7 @@ The official FIT, WIN PROBABILITY, and BID/WATCH/NO-BID are calculated in `intel
 
 | Dimension | Meaning | Missing inputs |
 |---|---|---|
-| **FIT** | Geography, thematic, language, eligibility, team coverage | Factor dropped and remaining weights renormalized; if none usable, FIT is UNKNOWN |
+| **FIT** | Geography, thematic, language, eligibility, team coverage | Since v1.1.0 scored at `unknown_factor_value` (25) with its full weight — a penalty, never dropped. `worst_case`/`best_case` store FIT with every UNKNOWN at 0 / 100. If no factor is known, FIT is UNKNOWN |
 | **WIN PROBABILITY** | Derived from FIT + deadline feasibility + known-client name overlap + eligibility | Same; not a guess at P(win) from vibes |
 | **COMMERCIAL VALUE** | `estimated_budget_usd` if a positive number was extracted | `null` / UNKNOWN — not invented |
 | **STRATEGIC VALUE** | Core thematic + priority geography + name on the profile client list | UNKNOWN factors dropped |
@@ -21,12 +21,34 @@ The official FIT, WIN PROBABILITY, and BID/WATCH/NO-BID are calculated in `intel
 
 Eligibility: credentials not on the profile are UNKNOWN, not a fabricated fail. The scorer will not invent ISO/PSEA/registration the company does not list.
 
-## Recommendation thresholds (v1.0.0)
+## Recommendation thresholds (v1.1.0)
 
-- BID if FIT ≥ 70
-- WATCH if FIT ≥ 45 (or FIT is UNKNOWN)
-- NO-BID if FIT < 45
+- BID only if the **worst case** FIT (every UNKNOWN factor at 0) is ≥ 70.
+  Learning an unknown factor can only raise FIT, so a BID can never fall back
+  to WATCH, and missing evidence never earns a BID. (The 2026-10 incident: the
+  same tender scored 59 then 77 because v1.0.0 dropped UNKNOWN factors.)
+- NO-BID if the penalised FIT < 45 **and** at least half the fit weight is
+  known evidence (`no_bid_min_known_coverage`), or if eligibility is verified
+  ineligible. A low score made of penalties alone is WATCH.
+- WATCH otherwise (and when FIT is UNKNOWN).
 - `is_consultancy_contract` remains a separate gate in `main.py` (default True)
+- Tests: `tests/test_scoring_unknowns.py` (exhaustive single-unknown flip check).
+  The golden set's labels carry only geography and thematic, so
+  `tests/test_golden_scoring.py` asserts the scorer is never more aggressive
+  than the human label; exact match is printed for information.
+
+## Draft quality gate
+
+`intelligence/quality_gate.py` scores the written draft (0–100, bar 70) against
+the ToR's weighted criteria, else the ToR's criteria equally weighted (no
+weight figure claimed), else the reading brief's criteria, else standard
+criteria marked INFERRED. A criterion whose section rests on
+[INSUFFICIENT EVIDENCE], a placeholder or an unverified claim earns zero.
+Placeholders, unverified named past work, unsupported claims, leaked template
+numbering and evaluation weights the ToR does not state are blockers. Failing
+sections are rewritten and re-scored at most twice. Below 70 or with any
+blocker the draft is BLOCKED: the review email subject starts with BLOCKED and
+the dashboard never shows it as ready. Tests: `tests/test_quality_gate.py`.
 
 ## Evidence labels
 

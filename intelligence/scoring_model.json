@@ -1,6 +1,6 @@
 {
   "score_version": "1.1.0",
-  "notes": "Deterministic aggregation only. Changing weights does not rewrite historical stored scores \u2014 callers persist this score_version with the result. Lists mirror CORTECH_PROFILE; keep them aligned by hand. 1.1.0: an UNKNOWN factor is scored at unknown_factor_value (a penalty), not dropped. The recommendation is decided on the bounds with every UNKNOWN at 0 and at 100: BID only if the worst case is BID, NO-BID only if the best case is NO-BID, otherwise WATCH.",
+  "notes": "Deterministic aggregation only. Changing weights does not rewrite historical stored scores \u2014 callers persist this score_version with the result. Lists mirror CORTECH_PROFILE; keep them aligned by hand. 1.1.0: an UNKNOWN factor is scored at unknown_factor_value (a penalty), not dropped. The recommendation is decided on the bounds with every UNKNOWN at 0 and at 100: BID only if the worst case (every UNKNOWN = 0) clears bid_min_fit, so an unknown can never flip BID to WATCH. NO-BID on the penalised fit, and only when at least no_bid_min_known_coverage of the fit weight is known evidence; otherwise WATCH.",
   "typical_budget_usd": {
     "min": 1000,
     "max": 300000
@@ -145,7 +145,8 @@
   "recommendation": {
     "bid_min_fit": 70,
     "watch_min_fit": 45,
-    "no_bid_if_ineligible": true
+    "no_bid_if_ineligible": true,
+    "no_bid_min_known_coverage": 0.5
   },
   "unknown_factor_value": 25
 }

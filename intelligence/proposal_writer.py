@@ -83,6 +83,7 @@ DRAFT_META_KEYS = frozenset({
     "claim_sheet",
     "draft_editor",
     "committee_grade",
+    "quality_gate",
 })
 MIN_CLIENT_FACING_DRAFT_CHARS = 20
 
@@ -444,7 +445,139 @@ def _finalize_client_draft(
                 "criteria_total": 0,
                 "missing": [],
             }
-    return grounded
+    return _enforce_quality_gate(grounded, analysis, matched_team_result, system_blocks)
+
+
+def _enforce_quality_gate(
+    sections: dict,
+    analysis: dict | None,
+    matched_team_result: dict | None,
+    system_blocks: list[dict] | None,
+) -> dict:
+    """Score the written draft, repair what fails, re-score (bounded).
+
+    The result is stored on sections['quality_gate']. Below the bar, or with
+    any blocker left, the draft is BLOCKED: stored for a person to fix, never
+    reported as ready (intelligence/quality_gate.py).
+    """
+    from intelligence import quality_gate
+
+    repair = None
+    if system_blocks is not None:
+        def repair(current: dict, gate: dict) -> dict:
+            return _repair_for_quality_gate(
+                current, gate, analysis, matched_team_result, system_blocks
+            )
+    try:
+        sections = quality_gate.enforce(sections, analysis, repair=repair)
+    except DraftingError:
+        raise
+    except Exception as e:
+        logger.warning(f"  Quality gate failed closed: {e}")
+        sections["quality_gate"] = {
+            "status": quality_gate.BLOCKED,
+            "score": 0.0,
+            "bar": quality_gate.QUALITY_BAR,
+            "headline": f"Quality gate could not score this draft ({type(e).__name__}); BLOCKED.",
+            "blockers": [{"kind": "gate_error", "section": "", "text": str(e)[:120]}],
+            "rows": [],
+        }
+    gate = sections["quality_gate"]
+    log = logger.info if gate.get("status") == quality_gate.READY else logger.warning
+    log(f"  {gate.get('headline')}")
+    return sections
+
+
+def _repair_for_quality_gate(
+    sections: dict,
+    gate: dict,
+    analysis: dict | None,
+    matched_team_result: dict | None,
+    system_blocks: list[dict],
+) -> dict:
+    """One repair round: rewrite each failing section, then re-ground claims."""
+    from intelligence.quality_gate import sections_to_repair
+
+    plan = sections_to_repair(gate)
+    for row in gate.get("rows") or []:
+        if row.get("earned", 0) < 1 and not row.get("section"):
+            key = _section_for_criterion(
+                {"label": row.get("criterion"), "text": row.get("criterion")}, sections
+            )
+            if key:
+                plan.setdefault(key, {"blockers": [], "criteria": []})["criteria"].append(row)
+    if not plan:
+        return sections
+    for key, todo in plan.items():
+        current = sections.get(key)
+        if not isinstance(current, str) or not current.strip():
+            continue
+        logger.info(
+            f"  Quality gate repair: '{key}' — {len(todo['blockers'])} blocker(s), "
+            f"{len(todo['criteria'])} criterion gap(s)"
+        )
+        sections[key] = _rewrite_section_for_gate(
+            key, current, todo, analysis or {}, system_blocks
+        )
+    sections = compile_client_draft(sections)
+    sections = _attach_claim_grounding(sections, analysis, matched_team_result)
+    _final_money_audit(sections)
+    return sections
+
+
+_GATE_FIX = {
+    "placeholder": "Remove the placeholder. Write the fact from the evidence pack, or remove the sentence. Never leave a bracketed marker.",
+    "unverified_claim": "This names past work or a person the evidence pack does not support. Replace it with an assignment or expert from the evidence pack, or remove it.",
+    "unsupported_claim": "This claim has no supporting evidence. Support it from the evidence pack, or remove it.",
+    "template_numbering": "Remove this template numbering. Use the client's headings only, without house numbers.",
+    "invented_weight": "The ToR states no such weight. Remove every evaluation weight, score or percentage the ToR does not state.",
+}
+
+
+def _rewrite_section_for_gate(
+    key: str,
+    current: str,
+    todo: dict,
+    analysis: dict,
+    system_blocks: list[dict],
+) -> str:
+    """Rewrite one chapter so a procurement committee finds nothing to mark down."""
+    defects = [
+        f"- {_GATE_FIX.get(b.get('kind'), 'Fix this defect.')} Found: {b.get('text') or ''}"
+        for b in todo.get("blockers") or []
+    ]
+    criteria = [
+        f"- {row.get('criterion')}" + (" (inferred standard criterion)" if row.get("inferred") else "")
+        for row in todo.get("criteria") or []
+    ]
+    user_prompt = f"""Rewrite this proposal section to submission standard.
+
+A procurement committee and a technical evaluation committee will read it.
+They must find no gap, no placeholder, no unverified named past work and no
+house template numbering. Every named past assignment, client, person,
+figure and date must come from the evidence pack. Where the evidence does
+not exist, leave the claim out rather than mark it. Do not write
+[INSUFFICIENT EVIDENCE], [NOT VERIFIED], [UNKNOWN] or any bracketed marker.
+Do not state an evaluation weight or score the ToR does not state. Do not
+add prices, day rates or a budget. Keep every accurate, supported fact.
+
+DEFECTS TO REMOVE:
+{chr(10).join(defects) or '- none'}
+
+CRITERIA THIS SECTION MUST ANSWER, each in its own paragraph of at least 60 words:
+{chr(10).join(criteria) or '- none'}
+
+CURRENT SECTION:
+{current}
+
+{_eval_criteria_block(analysis)}{QUALITY_SUFFIX}"""
+    return _generate_section(
+        f"{key}_quality_gate_repair",
+        CLAUDE_MODEL_PROPOSAL,
+        CLAUDE_MAX_TOKENS,
+        system_blocks,
+        user_prompt,
+    )
 
 
 def _draft_meta(system_blocks: list[dict]) -> dict:
@@ -679,8 +812,10 @@ MANDATORY WRITING STANDARDS:
 - Do not invent evaluation criteria or requirements. Use what the tender states.
 - Do not invent projects, clients, CVs, staff names, statistics, contract
   values, or credentials. If a claim is not in CORTECH PROFILE, the past-
-  assignment list, matched-team evidence, or the tender documents, write
-  [NOT VERIFIED] or [INSUFFICIENT EVIDENCE] instead of filling the gap.
+  assignment list, matched-team evidence, or the tender documents, leave
+  it out. Never write a bracketed marker such as [NOT VERIFIED] or
+  [INSUFFICIENT EVIDENCE] in the proposal: the quality gate lists every gap
+  for the reviewer, and a committee marks a placeholder down.
 - Match Cortech house voice: concrete, evidence-led, assignment-specific,
   the same register as the trusted house-style block and house-voice excerpts.
 - Where the tender prescribes a structure, heading, or page limit, follow it
@@ -773,7 +908,8 @@ assignment. This section must:
 3. Use the client's vocabulary lock unchanged.
 4. If a paragraph could be pasted into a different ToR or REOI unchanged,
    rewrite it before returning.
-5. Invent nothing. If evidence is missing, write [INSUFFICIENT EVIDENCE].
+5. Invent nothing. If evidence is missing, leave the claim out; never write a
+   bracketed marker. The quality gate reports the gap to the reviewer.
 6. Include no financial information (no fees, rates, budgets, contract values).
 7. House voice is register only. Do not import another assignment's method,
    geography, or section list.
@@ -828,7 +964,9 @@ block — not writing a generic Cortech brochure or recycling another assignment
 4. Past assignments and house-voice excerpts are evidence and register only.
    Do not import another ToR's method, geography, problem, or section list.
 5. If a sentence would still be true for a different buyer, rewrite it
-   against THIS document or write [INSUFFICIENT EVIDENCE].
+   against THIS document or remove it.
+6. No house template numbering ("Section 1", "5.1"). Use the client's
+   headings, and the client's numbering only where the tender prescribes it.
 """
 
 STRATEGY_EXECUTION_RULE = """
@@ -837,7 +975,8 @@ A document lock, reading brief, and win strategy are supplied with the tender
 pack. They are the assignment's facts and the bid's thesis. Every section must
 execute that strategy. Do not invent a competing method, a different problem
 statement, or a generic development-sector narrative. If evidence for a scored
-claim is missing, write [INSUFFICIENT EVIDENCE] rather than filling the gap.
+claim is missing, leave the claim out rather than filling the gap or writing
+a bracketed marker; the quality gate reports it to the reviewer.
 """
 
 
@@ -2011,8 +2150,8 @@ def _raise_to_criteria_bar(
     sections["committee_grade"] = reading_from_alignment(report)
     if not report.get("criteria_total"):
         logger.info(
-            "  No evaluation criteria were extracted — an 80% alignment score "
-            "cannot be claimed"
+            "  No evaluation criteria were extracted — no alignment figure is "
+            "claimed; the quality gate scores against the reader's or inferred criteria"
         )
         return sections
     percent = report.get("criteria_score_percent")
@@ -2052,11 +2191,13 @@ def _raise_to_criteria_bar(
             return sections
     missing = "; ".join(str(item) for item in (report.get("missing") or [])[:8]) or "see the criterion trace"
     advice = improvement_lines(sections.get("committee_grade") or {})
-    raise DraftingError(
-        f"draft alignment is {percent}% against the evaluation criteria; "
-        f"the bar is {EVALUATION_ALIGNMENT_BAR}%. Missing: {missing}"
-        + (f" To reach the pass mark: {advice}" if advice else "")
+    # Not a drafting failure: the quality gate scores the finished draft and
+    # holds it at BLOCKED, so a person sees it instead of a dead letter.
+    logger.warning(
+        f"  Evaluation alignment {percent}% after {_CRITERIA_REPAIR_ROUNDS} repair "
+        f"round(s); missing: {missing}" + (f" To improve: {advice}" if advice else "")
     )
+    return sections
 
 
 def _repair_weakest_section(
@@ -2666,8 +2807,8 @@ state, in the client's order if they gave one. Typical coverage:
 - Conflict of interest / independence statement
 - Language of submission and any mandatory forms
 For each requirement: quote it, then evidence it. If a requirement cannot be
-evidenced from CORTECH PROFILE or the matched team, write [INSUFFICIENT EVIDENCE]
-rather than inventing a credential. State no monetary amounts.
+evidenced from CORTECH PROFILE or the matched team, do not claim it and do not
+write a bracketed marker; the quality gate lists it for the reviewer. State no monetary amounts.
 
 {eoi_criteria}{QUALITY_SUFFIX}""",
         ),

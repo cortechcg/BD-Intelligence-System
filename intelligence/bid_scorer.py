@@ -339,26 +339,35 @@ def _recommend(
     eligibility: dict,
     model: dict,
     bounds: tuple[Optional[float], Optional[float]] | None = None,
+    known_coverage: float = 1.0,
 ) -> str:
     """Stable, conservative recommendation.
 
-    With ``bounds`` (FIT at every UNKNOWN = 0 and = 100): BID only when even
-    the worst case is BID; NO-BID only when even the best case is NO-BID;
-    otherwise WATCH. So learning the value of an unknown factor can never turn
-    a BID into a WATCH or a NO-BID into a WATCH — missing evidence holds the
-    call at WATCH instead of swinging it.
+    ``fit`` is the penalised FIT (each UNKNOWN at unknown_factor_value).
+    ``bounds`` is FIT with every UNKNOWN at 0 and at 100.
+
+    * BID only when even the worst case (every UNKNOWN = 0) clears the BID
+      line. Learning an unknown factor can then only raise the score, so a BID
+      can never fall back to WATCH, and missing evidence never earns a BID.
+    * NO-BID on the penalised FIT, as before: verified evidence against the
+      bid (wrong geography, ineligible) is not softened by what is unknown.
+      But only when at least ``no_bid_min_known_coverage`` of the fit weight
+      is known; a low score made of penalties alone is WATCH, not NO-BID.
+    * Otherwise WATCH.
     """
     rules = model["recommendation"]
     if rules.get("no_bid_if_ineligible") and eligibility.get("gaps") and eligibility.get("status") == STATUS_VERIFIED and (eligibility.get("value") or 0) < 40:
         return "NO-BID"
     if bounds is None:
         return _band(fit, rules)
-    worst, best = bounds
-    if worst is None or best is None:
+    worst, _best = bounds
+    if fit is None or worst is None:
         return "WATCH"
-    if _band(worst, rules) == "BID":
+    if worst >= rules["bid_min_fit"]:
         return "BID"
-    if _band(best, rules) == "NO-BID":
+    if fit < rules["watch_min_fit"] and known_coverage >= float(
+        rules.get("no_bid_min_known_coverage", 0.5)
+    ):
         return "NO-BID"
     return "WATCH"
 
@@ -495,7 +504,7 @@ def compute_bid_intelligence(
     else:
         ev_reason = "Need P(win) and contract_value and pursuit_cost — at least one is missing"
 
-    recommendation = _recommend(fit_score, eligibility, model, (fit_worst, fit_best))
+    recommendation = _recommend(fit_score, eligibility, model, (fit_worst, fit_best), fit_cov)
     unknown_fit = [f["name"] for f in fit_factors if f["status"] == STATUS_UNKNOWN or f["value"] is None]
     llm_rec = bid_analysis.get("bid_recommendation")
     llm_fit = bid_analysis.get("cortech_fit_score")

@@ -573,6 +573,8 @@ def opportunity_detail(source_url: str) -> dict | None:
         "lightweight", "lightweight_reason", "submission_type", "quality_score",
         "claim_grounding", "tender_brief", "win_strategy", "document_lock",
         "section_order", "omitted_financial", "submission_outline", "requirement_alignment",
+        "quality_gate", "committee_grade", "claim_sheet", "draft_editor", "format_compliance",
+        "required_attachments", "required_forms",
     }
     client_draft_list = []
     for k, v in sections.items():
@@ -599,6 +601,7 @@ def opportunity_detail(source_url: str) -> dict | None:
     detail.update({
         "scored": scored,
         "has_draft": bool(sections),
+        "quality_gate": _quality_gate(analysis, sections),
         "evaluation_criteria": eval_criteria,
         "deliverables": deliverables,
         "submission_requirements": sub_reqs,
@@ -727,6 +730,35 @@ def _awaiting_outline(item: dict, checkpoint: dict, sections: dict) -> bool:
         return False
     accepted = checkpoint.get("accepted_outline") if isinstance(checkpoint.get("accepted_outline"), dict) else {}
     return not (isinstance(accepted.get("sections"), list) and accepted.get("sections"))
+
+
+def _quality_gate(analysis: dict, sections: dict) -> dict:
+    """The stored gate verdict; drafts written before the gate are scored now.
+
+    Scoring is pure (no model call). A draft with no verdict is never shown
+    as ready: if scoring fails, it reads BLOCKED.
+    """
+    if not sections:
+        return {}
+    stored = sections.get("quality_gate")
+    if isinstance(stored, dict) and stored.get("status"):
+        return stored
+    try:
+        from intelligence.quality_gate import score_draft
+
+        gate = score_draft(sections, analysis)
+        gate["scored_after_drafting"] = True
+        return gate
+    except Exception as exc:
+        logger.warning(f"quality gate could not score a stored draft: {exc}")
+        return {
+            "status": "BLOCKED",
+            "score": None,
+            "bar": 70,
+            "headline": "This draft has no quality gate result; treat it as BLOCKED.",
+            "blockers": [],
+            "rows": [],
+        }
 
 
 def _requirement_alignment(analysis: dict, sections: dict) -> dict:

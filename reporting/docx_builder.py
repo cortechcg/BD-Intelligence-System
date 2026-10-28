@@ -62,6 +62,7 @@ _DOCX_SKIP_KEYS = {
     "requirement_alignment",
     "claim_sheet",
     "draft_editor",
+    "quality_gate",
 }
 
 

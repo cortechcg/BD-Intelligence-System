@@ -367,6 +367,7 @@ def test_generate_proposal_writes_prescribed_outline_only(monkeypatch):
     monkeypatch.setattr(proposal_writer, "FULL_DRAFT_FOR_WATCH", True)
     monkeypatch.setattr(proposal_writer, "get_relevant_lessons", lambda *a, **k: "")
     monkeypatch.setattr(proposal_writer, "get_donor_intelligence", lambda *a, **k: "")
+    monkeypatch.setattr(proposal_writer, "_rewrite_section_for_gate", lambda key, current, *a, **k: current)
     monkeypatch.setattr(
         proposal_writer,
         "build_system_blocks",

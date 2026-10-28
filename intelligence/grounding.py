@@ -88,6 +88,7 @@ _SKIP_KEYS = {
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "quality_gate",
 }
 
 _PERSON_RE = re.compile(

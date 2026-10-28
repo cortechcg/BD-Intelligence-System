@@ -636,6 +636,7 @@ _FORMAT_META_KEYS = {
     "required_forms",
     "format_compliance",
     "requirement_alignment",
+    "quality_gate",
 }
 
 

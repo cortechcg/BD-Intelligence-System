@@ -44,6 +44,7 @@ _SKIP_KEYS = {
     "claim_sheet",
     "draft_editor",
     "committee_grade",
+    "quality_gate",
 }
 
 # Words that appear in almost every technical proposal. Matching only these
@@ -565,10 +566,15 @@ def _report(rows: list[dict], error: str = "") -> dict:
             1 for row in criteria if row.get("status") == "partially_addressed"
         )
         headline += "."
-        if criteria_score is not None:
+        if criteria_score is not None and criteria_weights_stated(rows):
             headline += (
                 f" Alignment score {criteria_score:g}% "
                 f"(bar {EVALUATION_ALIGNMENT_BAR}%)."
+            )
+        elif criteria_score is not None:
+            headline += (
+                " The ToR states no weights, so no weighted alignment figure "
+                "is claimed; the quality gate weights these criteria equally."
             )
         if partial_criteria:
             headline += (
@@ -606,6 +612,7 @@ def _report(rows: list[dict], error: str = "") -> dict:
         "criteria_addressed": criteria_addressed,
         "criteria_total": len(criteria),
         "criteria_score_percent": criteria_score,
+        "criteria_weights_stated": criteria_weights_stated(rows),
         "criteria_bar_percent": EVALUATION_ALIGNMENT_BAR,
         "meets_criteria_bar": meets_evaluation_bar(criteria_score),
         "missing": [item for item in missing if item],
@@ -613,6 +620,20 @@ def _report(rows: list[dict], error: str = "") -> dict:
         "method": "section_trace",
         "error": error,
     }
+
+
+def criteria_weights_stated(rows: list[dict] | None) -> bool:
+    """True only when every evaluation criterion carries a positive ToR weight."""
+    criteria = [
+        row for row in (rows or [])
+        if isinstance(row, dict) and row.get("kind") == "evaluation_criterion"
+    ]
+    return bool(criteria) and all(
+        isinstance(row.get("weight_percent"), (int, float))
+        and not isinstance(row.get("weight_percent"), bool)
+        and row["weight_percent"] > 0
+        for row in criteria
+    )
 
 
 def criteria_alignment_percent(rows: list[dict] | None) -> float | None:

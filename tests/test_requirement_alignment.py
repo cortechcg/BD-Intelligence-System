@@ -345,16 +345,25 @@ def test_draft_is_rewritten_until_criteria_alignment_clears_80(monkeypatch):
     assert report["meets_criteria_bar"] is True
 
 
-def test_draft_below_80_after_repair_is_not_returned(monkeypatch):
+def test_draft_below_80_after_repair_is_held_by_the_quality_gate_not_dead_lettered(monkeypatch):
+    """Alignment repair still runs its bounded rounds. A draft that stays
+    below the bar is returned, and the quality gate holds it at BLOCKED so a
+    person sees it, instead of a DraftingError that dead-letters the tender."""
     from intelligence import proposal_writer
+    from intelligence.quality_gate import BLOCKED, score_draft
 
+    calls = []
     monkeypatch.setattr(
         proposal_writer,
         "_generate_section",
-        lambda *args, **kwargs: "The team will continue the same field plan. " * 8,
+        lambda *args, **kwargs: calls.append(1) or "The team will continue the same field plan. " * 8,
     )
-    with pytest.raises(DraftingError, match="80%"):
-        proposal_writer._raise_to_criteria_bar(_sections(), _analysis(), [])
+    returned = proposal_writer._raise_to_criteria_bar(_sections(), _analysis(), [])
+    assert calls, "the bounded alignment repair still ran"
+    assert not returned["committee_grade"]["at_bar"]
+    gate = score_draft(returned, _analysis())
+    assert gate["status"] == BLOCKED
+    assert gate["score"] < 70
 
 
 def test_missing_criteria_does_not_invent_a_passing_score():

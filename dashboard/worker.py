@@ -191,6 +191,11 @@ def _result_summary(result: dict | None, snapshot: dict) -> dict:
             "draft_path": result.get("_draft_path"),
         })
         summary["has_draft"] = bool(result.get("proposal_sections"))
+        sections = result.get("proposal_sections")
+        gate = sections.get("quality_gate") if isinstance(sections, dict) else None
+        if isinstance(gate, dict):
+            summary["quality_gate"] = gate.get("status")
+            summary["quality_score"] = gate.get("score")
         summary["awaiting_outline"] = bool(result.get("awaiting_outline"))
         outline = result.get("recommended_outline")
         if isinstance(outline, dict) and outline.get("name"):

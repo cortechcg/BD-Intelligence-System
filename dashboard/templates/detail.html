@@ -519,7 +519,7 @@
     <div class="tile">
       <div class="tile__label">Requirement alignment</div>
       <div class="tile__value">
-        {% if d.requirement_alignment and d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}<span class="tile__unit">/ 100</span>{% else %}n/a{% endif %}
+        {% if d.requirement_alignment and d.requirement_alignment.criteria_score_percent is not none and d.requirement_alignment.criteria_weights_stated %}{{ d.requirement_alignment.criteria_score_percent }}<span class="tile__unit">/ 100</span>{% else %}n/a{% endif %}
       </div>
       <div class="tile__sub">{{ (d.requirement_alignment.rows | length) if (d.requirement_alignment and d.requirement_alignment.rows) else 0 }} requirements checked</div>
     </div>
@@ -532,6 +532,34 @@
     </div>
   </div>
 
+  {% if d.has_draft and d.quality_gate %}
+  {% set qg = d.quality_gate %}
+  <section class="panel" id="quality-gate" aria-labelledby="h-gate">
+    <div class="band {% if qg.status == 'READY' %}band--info{% else %}band--critical{% endif %} band--wide" role="status">
+      <strong>{{ "READY FOR REVIEW" if qg.status == "READY" else "BLOCKED — not ready" }}</strong> · {{ qg.headline }}
+    </div>
+    <div class="panel__head">
+      <div>
+        <h3 class="panel__title" id="h-gate">Quality gate</h3>
+        <p class="panel__desc">{{ qg.criteria_note or "" }} A criterion resting on [INSUFFICIENT EVIDENCE], a placeholder or an unverified claim earns zero. Below {{ qg.bar or 70 }}/100, or with any blocker, the draft is BLOCKED.</p>
+      </div>
+      <span class="panel__note">{% if qg.score is not none %}{{ qg.score }} / 100 · bar {{ qg.bar or 70 }}{% else %}n/a{% endif %}{% if qg.repair_rounds %} · {{ qg.repair_rounds }} repair round(s){% endif %}</span>
+    </div>
+    {% if qg.blockers %}
+    <div class="table-wrap table-wrap--flush">
+      <table class="table">
+        <thead><tr><th>Blocker</th><th>Section</th><th>Found</th></tr></thead>
+        <tbody>
+        {% for b in qg.blockers[:40] %}
+          <tr><td>{{ b.kind | replace("_", " ") }}</td><td class="mono">{{ b.section }}</td><td>{{ b.text }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   {% if d.requirement_alignment and d.requirement_alignment.headline %}
   <section class="panel" aria-labelledby="h-align">
     <div class="panel__head">
@@ -539,7 +567,7 @@
         <h3 class="panel__title" id="h-align">Requirement alignment</h3>
         <p class="panel__desc">{{ d.requirement_alignment.headline }} A requirement counts only when its own words sit in the cited section.</p>
       </div>
-      <span class="panel__note">{% if d.requirement_alignment.criteria_score_percent is not none %}{{ d.requirement_alignment.criteria_score_percent }}% · bar {{ d.requirement_alignment.criteria_bar_percent or 80 }}%{% else %}{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }}{% endif %}</span>
+      <span class="panel__note">{% if d.requirement_alignment.criteria_score_percent is not none and d.requirement_alignment.criteria_weights_stated %}{{ d.requirement_alignment.criteria_score_percent }}% · bar {{ d.requirement_alignment.criteria_bar_percent or 80 }}%{% else %}{{ d.requirement_alignment.criteria_addressed or 0 }} of {{ d.requirement_alignment.criteria_total or 0 }}{% endif %}</span>
     </div>
     {% if d.requirement_alignment.rows %}
     <div class="table-wrap table-wrap--flush">
