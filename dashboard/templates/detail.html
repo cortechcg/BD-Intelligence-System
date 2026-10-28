@@ -425,15 +425,22 @@
     <div class="panel__head">
       <div>
         <h2 class="panel__title" id="h-final-grade">Grade the final version</h2>
-        <p class="panel__desc">Upload the Word or PDF the team edited. It is graded against the stored evaluation criteria. Nothing here is sent to the client.</p>
+        <p class="panel__desc">Upload the Word or PDF the team edited. The senior technical and procurement committee grades it against {{ (d.grading_criteria or []) | length }} criteria. {{ d.grading_criteria_note or "" }} Nothing here is sent to the client.</p>
       </div>
     </div>
     {% set pending = d.get("final_grade_pending") or {} %}
     {% if pending %}
-    <div class="band band--info" role="status">Grading {{ pending.filename or "the file" }}. This page updates when the reading is stored. Nothing is sent.</div>
+    <div class="band band--info" role="status" data-final-grade-progress>
+      {% if pending.claimed_at %}
+      <strong>Step 2 of 2 · The committee is reading {{ pending.filename or "the file" }}</strong> against {{ pending.criteria_count }} criteria (started {{ pending.claimed_at[11:19] }} UTC). This usually takes under a minute.
+      {% else %}
+      <strong>Step 1 of 2 · Queued</strong> {{ pending.filename or "the file" }} (uploaded {{ (pending.uploaded_at or "")[11:19] }} UTC). Waiting for the worker to start the reading.
+      {% endif %}
+      This page updates by itself. Nothing is sent.
+    </div>
     {% endif %}
     {% if d.get("final_grade_error") %}
-    <div class="band band--warn" role="status">{{ d.final_grade_error }}</div>
+    <div class="band band--critical" role="alert"><strong>Grading failed.</strong> {{ d.final_grade_error }}</div>
     {% endif %}
     {% if fg.get("rows") %}
       {% if fg.get("below_bar") %}

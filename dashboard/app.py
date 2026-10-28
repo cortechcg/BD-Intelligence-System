@@ -843,9 +843,12 @@ async def grade_final_version(request: Request, session: dict = Depends(require_
     if not data:
         return _flash(back, "Choose the Word, PDF, or text file to grade.", "stop")
 
-    criteria = detail.get("evaluation_criteria") or []
+    # ToR criteria, else the reading brief's, else standard criteria marked
+    # inferred (intelligence/quality_gate.gate_criteria). Never a refusal.
+    criteria = detail.get("grading_criteria") or detail.get("evaluation_criteria") or []
+    criteria_source = detail.get("grading_criteria_source") or "tor"
     if not criteria:
-        return _flash(back, "No evaluation criteria are stored, so this file was not graded.", "stop")
+        return _flash(back, "No criteria could be assembled for this tender, so the file was not graded.", "stop")
 
     blocked, why = triggers.aggregate_cap_reached()
     if blocked:
@@ -865,12 +868,14 @@ async def grade_final_version(request: Request, session: dict = Depends(require_
         filename=extracted.get("filename") or filename,
         uploaded_by=session.get("email") or "",
         criteria=criteria,
+        criteria_source=criteria_source,
     )
     if not ok:
         return _flash(back, reason, "stop")
     return _flash(
         back,
-        "The file is queued for grading. This page updates when the reading is stored. Nothing is sent.",
+        f"{filename or 'The file'} is queued for grading by the committee ({len(criteria)} criteria). "
+        "Progress shows below and the result appears here. Nothing is sent.",
     )
 
 

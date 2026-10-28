@@ -250,6 +250,19 @@ document.addEventListener("change", function (ev) {
   }
 }, true);
 
+/* A flash is shown once. Drop ?msg=&kind= from the address so the live
+   refresh (which refetches this URL) does not repeat an old message next to
+   a newer result, e.g. "queued" beside "grading failed". */
+(function () {
+  try {
+    var u = new URL(window.location.href);
+    if (u.searchParams.has("msg") || u.searchParams.has("kind")) {
+      u.searchParams.delete("msg"); u.searchParams.delete("kind");
+      history.replaceState(history.state, "", u.pathname + (u.search || "") + u.hash);
+    }
+  } catch (e) {}
+})();
+
 (function () {
   var ms = parseInt(document.body.getAttribute("data-poll-ms") || "0", 10);
   if (!ms) return;

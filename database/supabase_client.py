@@ -1067,6 +1067,7 @@ def queue_final_grade(
     filename: str,
     uploaded_by: str,
     criteria: list,
+    criteria_source: str = "tor",
 ) -> tuple[bool, str]:
     """Park an extracted final for the worker to grade. Does not call a model.
 
@@ -1110,6 +1111,7 @@ def queue_final_grade(
         "char_count": len(document),
         "text": document,
         "criteria": criteria,
+        "criteria_source": criteria_source or "tor",
     }
     checkpoint["final_grade_queued"] = "true"
     checkpoint.pop("final_grade_error", None)
@@ -1214,6 +1216,7 @@ def claim_final_grade_request() -> dict | None:
             "filename": str(request.get("filename") or ""),
             "uploaded_by": str(request.get("uploaded_by") or ""),
             "criteria": request.get("criteria") if isinstance(request.get("criteria"), list) else [],
+            "criteria_source": str(request.get("criteria_source") or "tor"),
         }
     return None
 

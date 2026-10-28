@@ -356,7 +356,7 @@ def grade_one_pending_final() -> bool:
         finish_final_grade_request,
         save_final_grade,
     )
-    from intelligence.final_grade import NoStoredCriteria, grade_final, grade_record
+    from intelligence.final_grade import GradeReplyError, NoStoredCriteria, grade_final, grade_record
     from utils.observability import reset_run_spend_cap, start_run_spend_cap
 
     job = claim_final_grade_request()
@@ -375,14 +375,21 @@ def grade_one_pending_final() -> bool:
 
     start_run_spend_cap()
     try:
-        grade = grade_final(job["text"], job["criteria"])
+        grade = grade_final(job["text"], job["criteria"], job.get("criteria_source") or "tor")
     except NoStoredCriteria:
         return _fail("No evaluation criteria are stored, so this file was not graded.")
     except SpendCapError as exc:
         return _fail(str(exc) or "per-run LLM spend cap reached")
-    except Exception as exc:
+    except GradeReplyError as exc:
         logger.warning(f"final grade failed: {exc}")
-        return _fail("The file could not be graded. Nothing was stored.")
+        return _fail(f"The file could not be graded: {exc}. Nothing was stored. Grade it again.")
+    except Exception as exc:
+        kind = classify_exception(exc)
+        logger.warning(f"final grade failed ({kind}): {type(exc).__name__}: {exc}")
+        return _fail(
+            f"The file could not be graded ({kind}: {type(exc).__name__}). "
+            "Nothing was stored. Grade it again."
+        )
     finally:
         reset_run_spend_cap()
 

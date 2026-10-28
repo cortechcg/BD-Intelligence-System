@@ -327,7 +327,7 @@ def test_upload_queues_the_file_for_the_worker_and_signoff_still_works(client, m
     queued = {}
     reviewed = {}
 
-    def _queue(url, *, text, filename, uploaded_by, criteria):
+    def _queue(url, *, text, filename, uploaded_by, criteria, criteria_source="tor"):
         queued["url"] = url
         queued["text"] = text
         queued["filename"] = filename
@@ -454,7 +454,7 @@ def test_the_worker_saves_a_grade_from_the_queued_file(monkeypatch):
 
     saved = {}
 
-    def _grade(text, criteria):
+    def _grade(text, criteria, criteria_source="tor"):
         return settle_grade(text, criteria, {"rows": [{
             "criterion": "Methodology",
             "mark": 40,

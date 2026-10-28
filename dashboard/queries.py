@@ -602,6 +602,7 @@ def opportunity_detail(source_url: str) -> dict | None:
         "scored": scored,
         "has_draft": bool(sections),
         "quality_gate": _quality_gate(analysis, sections),
+        **_grading_criteria(analysis, sections),
         "evaluation_criteria": eval_criteria,
         "deliverables": deliverables,
         "submission_requirements": sub_reqs,
@@ -708,6 +709,9 @@ def _final_grade_pending(checkpoint: dict) -> dict:
     return {
         "filename": str(request.get("filename") or ""),
         "uploaded_by": str(request.get("uploaded_by") or ""),
+        "uploaded_at": str(request.get("uploaded_at") or ""),
+        "claimed_at": str(request.get("claimed_at") or ""),
+        "criteria_count": len(request.get("criteria") or []),
     }
 
 
@@ -730,6 +734,26 @@ def _awaiting_outline(item: dict, checkpoint: dict, sections: dict) -> bool:
         return False
     accepted = checkpoint.get("accepted_outline") if isinstance(checkpoint.get("accepted_outline"), dict) else {}
     return not (isinstance(accepted.get("sections"), list) and accepted.get("sections"))
+
+
+def _grading_criteria(analysis: dict, sections: dict) -> dict:
+    """What the final is graded against: the same cascade as the quality gate.
+
+    ToR criteria (with weights if stated), else the reading brief's criteria,
+    else standard criteria marked inferred. A final can always be graded.
+    """
+    try:
+        from intelligence.quality_gate import SOURCE_NOTES, gate_criteria
+
+        criteria, source = gate_criteria(analysis, sections)
+        return {
+            "grading_criteria": criteria,
+            "grading_criteria_source": source,
+            "grading_criteria_note": SOURCE_NOTES.get(source, ""),
+        }
+    except Exception as exc:
+        logger.warning(f"grading criteria unavailable: {exc}")
+        return {"grading_criteria": [], "grading_criteria_source": "", "grading_criteria_note": ""}
 
 
 def _quality_gate(analysis: dict, sections: dict) -> dict:
