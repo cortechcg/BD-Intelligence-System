@@ -6,6 +6,7 @@ extract or embed. `run_library_ingest` runs on the worker only.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from typing import Any
 
@@ -16,7 +17,6 @@ from intelligence.library_ingest import content_hash, detect_type, name_key, saf
 BUCKET = "Cortech-documents"
 MAX_FILES = 10
 PREFIX = {"proposal": "proposals", "cv": "cvs"}
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _CONSULTANT_FIELDS = (
     "full_name",
     "role_title",
@@ -84,14 +84,70 @@ def validate_file(filename: str, data: bytes) -> dict:
     }
 
 
+_DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015\u2212\ufe58\ufe63\uff0d/."), "-")
+_MONTHS = {
+    name: number
+    for number, names in enumerate(
+        (("jan", "january"), ("feb", "february"), ("mar", "march"), ("apr", "april"),
+         ("may",), ("jun", "june"), ("jul", "july"), ("aug", "august"),
+         ("sep", "sept", "september"), ("oct", "october"), ("nov", "november"),
+         ("dec", "december")),
+        start=1,
+    )
+    for name in names
+}
+
+
+def _clean_date_text(value: str) -> str:
+    """What the person meant, without what the clipboard or keyboard added.
+
+    A pasted date can carry invisible direction marks (U+200E/U+200F) or a
+    zero-width space, and an autocorrecting keyboard swaps '-' for a
+    non-breaking hyphen or an en dash. All of them display as 2026-10-29.
+    """
+    text = unicodedata.normalize("NFKC", str(value or ""))
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    text = text.translate(_DASHES)
+    return " ".join(text.split()).strip(" ,")
+
+
 def _date_or_none(value: str) -> str | None:
-    raw = (value or "").strip()
+    """ISO date for submission_date, or None when left empty.
+
+    Accepts YYYY-MM-DD (what the date picker sends), YYYY-M-D, YYYYMMDD,
+    DD-MM-YYYY or DD/MM/YYYY (day first, the convention in Kenya and Somalia;
+    month first only when the day-first reading is impossible), and
+    '29 October 2026' / 'Oct 29, 2026'.
+    """
+    raw = _clean_date_text(value)
     if not raw:
         return None
-    if not _DATE.match(raw):
-        raise ValueError("submission_date must be YYYY-MM-DD")
-    date.fromisoformat(raw)
-    return raw
+    candidates: list[tuple[int, int, int]] = []
+    if m := re.fullmatch(r"(\d{4})-(\d{1,2})-(\d{1,2})", raw):
+        candidates.append((int(m[1]), int(m[2]), int(m[3])))
+    elif m := re.fullmatch(r"(\d{4})(\d{2})(\d{2})", raw):
+        candidates.append((int(m[1]), int(m[2]), int(m[3])))
+    elif m := re.fullmatch(r"(\d{1,2})-(\d{1,2})-(\d{4})", raw):
+        first, second, year = int(m[1]), int(m[2]), int(m[3])
+        candidates.append((year, second, first))
+        candidates.append((year, first, second))
+    else:
+        words = re.findall(r"[a-z]+|\d+", raw.lower())
+        months = [_MONTHS[w] for w in words if w in _MONTHS]
+        numbers = [int(w) for w in words if w.isdigit()]
+        years = [n for n in numbers if n >= 1900]
+        days = [n for n in numbers if n < 1900]
+        if len(months) == 1 and len(years) == 1 and len(days) == 1:
+            candidates.append((years[0], months[0], days[0]))
+    for year, month, day in candidates:
+        try:
+            return date(year, month, day).isoformat()
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Submission date '{' '.join(str(value).split())[:40]}' is not a date. Use the date picker, or type it as "
+        "YYYY-MM-DD (for example 2026-10-29), or leave it empty"
+    )
 
 
 def _tags(value) -> list[str]:
@@ -149,6 +205,27 @@ def find_consultant_by_name_key(supabase, key: str) -> dict | None:
     found = supabase.table("consultants").select("*").eq("name_key", key).limit(1).execute()
     rows = _rows(found)
     return rows[0] if rows else None
+
+
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def check_consultant_id(supabase, consultant_id: str) -> tuple[str | None, str | None]:
+    """(id, None) when the consultant exists; (None, reason) otherwise.
+
+    The 'Someone on the team' box takes a value from the list. A name typed
+    into it is not an id, and used to fail later as an opaque insert error.
+    """
+    value = (consultant_id or "").strip()
+    if not _UUID.match(value):
+        return None, (
+            f"'{value[:60]}' is not on the team list. Pick the consultant from the "
+            "suggestions, or choose New team member"
+        )
+    found = supabase.table("consultants").select("id").eq("id", value).limit(1).execute()
+    if not _rows(found):
+        return None, "That consultant is not in the team list any more. Pick another, or choose New team member"
+    return value, None
 
 
 def find_consultant_by_email(supabase, email: str) -> dict | None:
@@ -326,7 +403,8 @@ def store_upload(
             {"content-type": row["mime_type"], "upsert": "false"},
         )
     except Exception as exc:
-        return {"ok": False, "filename": filename, "reason": f"The file was not stored ({type(exc).__name__})"}
+        detail = str(getattr(exc, "message", "") or exc)[:160]
+        return {"ok": False, "filename": filename, "reason": f"The file was not stored ({type(exc).__name__}: {detail})"}
     try:
         supabase.table("library_documents").insert(row).execute()
     except Exception as exc:
@@ -340,7 +418,14 @@ def store_upload(
                 "existing_id": (again or {}).get("id"),
                 "reason": "Already in the library",
             }
-        return {"ok": False, "filename": filename, "reason": "The library row was not stored"}
+        code = getattr(exc, "code", "") or ""
+        detail = str(getattr(exc, "message", "") or "")[:160]
+        return {
+            "ok": False,
+            "filename": filename,
+            "reason": "The library row was not stored"
+            + (f" (database {code}: {detail})" if code or detail else f" ({type(exc).__name__})"),
+        }
     queued = triggers.enqueue(library_source(doc_id), triggers.LIBRARY_INGEST, email)
     _event(supabase, doc_id, email, "uploaded", {"filename": row["original_filename"]})
     _log("library_uploaded", doc_id)

@@ -1172,8 +1172,8 @@ def _consultant_for_upload(form, session: dict, supabase, kind: str) -> tuple[st
         return str((created.get("consultant") or {}).get("id") or ""), None
     consultant_id = str(form.get("consultant_id") or "").strip()
     if not consultant_id:
-        return None, "Choose whose CV this is"
-    return consultant_id, None
+        return None, "Choose whose CV this is: Me, someone on the team, or a new team member"
+    return library_mod.check_consultant_id(supabase, consultant_id)
 
 
 @app.post("/library/upload")

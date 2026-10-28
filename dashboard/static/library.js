@@ -80,10 +80,19 @@
     var ul = $("[data-lib-results]"); ul.innerHTML = "";
     (results || []).forEach(function (r) {
       var li = document.createElement("li");
-      var tag = document.createElement("span"); tag.className = r.ok ? "ok" : "no"; tag.textContent = r.ok ? "Added" : "Not added";
-      var t = document.createElement("span"); t.textContent = (r.filename || r.title || "File") + (r.ok ? "" : ": " + (r.reason || "could not be added"));
+      var tag = document.createElement("span"); tag.className = r.ok ? "ok" : "no";
+      tag.textContent = r.duplicate ? "Skipped" : r.ok ? "Added" : "Not added";
+      var t = document.createElement("span");
+      t.textContent = (r.filename || r.title || "File") + (r.duplicate ? ": already in the library" : r.ok ? "" : ": " + (r.reason || "could not be added"));
       li.appendChild(tag); li.appendChild(t); ul.appendChild(li);
     });
+  }
+
+  function unreadable(list) {
+    return Promise.all(list.map(function (x) {
+      if (!x.slice || !window.Response) return Promise.resolve(null);
+      return new Response(x.slice(0, 1)).arrayBuffer().then(function () { return null; }, function () { return x.name; });
+    })).then(function (names) { return names.filter(Boolean); });
   }
 
   function submit(ev) {
@@ -97,13 +106,30 @@
     var P = window.CortechPending;
     function done() { btn.disabled = false; if (P) P.hide(true); }
     if (P) P.show({ scope: host });
+    var results = $("[data-lib-results]"); if (results) results.innerHTML = "";
+    setMsg("Uploading " + files.length + (files.length === 1 ? " file…" : " files…"), "", 10);
     var data = new FormData(f);
     data.delete("files");
     files.forEach(function (x) { data.append("files", x, x.name); });
     var xhr = new XMLHttpRequest();
     xhr.open("POST", f.getAttribute("action"));
     xhr.setRequestHeader("Accept", "application/json");
-    xhr.onerror = function () { done(); setMsg("The upload did not finish. Check your connection and try again.", "error"); };
+    xhr.upload.onprogress = function (e) {
+      if (e.lengthComputable) setMsg("Uploading… " + Math.round(100 * e.loaded / e.total) + "%", "", Math.max(10, 90 * e.loaded / e.total));
+    };
+    xhr.onerror = function () {
+      done();
+      // The browser refuses to send a file that changed on disk after it was
+      // chosen (net::ERR_UPLOAD_FILE_CHANGED). Say so instead of blaming the network.
+      unreadable(files).then(function (changed) {
+        if (changed.length) {
+          setMsg("Not sent: " + changed.join(", ") + " changed on disk after you chose it. Remove it, choose it again, then add.", "error", 0);
+        } else {
+          setMsg("The browser could not reach the server, so nothing was added. Check the connection and add again.", "error", 0);
+        }
+      });
+    };
+    xhr.ontimeout = function () { done(); setMsg("The upload took too long and was stopped. Nothing was added. Try fewer or smaller files.", "error", 0); };
     xhr.onload = function () {
       done();
       var body = null; try { body = JSON.parse(xhr.responseText); } catch (e) {}
@@ -111,12 +137,16 @@
       if (!body) { setMsg("The server sent an unexpected reply. Nothing was added.", "error"); return; }
       showResults(body.results || []);
       if (xhr.status >= 400 || !body.ok) {
-        setMsg(body.reason || "Nothing was added. See the notes below.", "error", 100); return;
+        var first = (body.results || []).filter(function (r) { return !r.ok && r.reason; })[0];
+        setMsg(body.reason || (first ? "Not added: " + first.reason : "Nothing was added (HTTP " + xhr.status + ")."), "error", 100); return;
       }
       var ok = (body.results || []).filter(function (r) { return r.ok; }).length;
+      var dup = (body.results || []).filter(function (r) { return r.duplicate; }).length;
       var total = (body.results || []).length;
-      setMsg(ok === total ? "Added " + ok + (ok === 1 ? " file" : " files") + ". The agent is reading it now." :
-        "Added " + ok + " of " + total + ". See the notes below.", ok === total ? "ok" : "error", 100);
+      var added = ok - dup;
+      var note = dup ? " " + dup + " already in the library, skipped." : "";
+      setMsg(ok === total ? (added ? "Added " + added + (added === 1 ? " file" : " files") + ". The agent is reading it now." : "Nothing new to add.") + note :
+        "Added " + added + " of " + total + "." + note + " See the notes below.", ok === total ? "ok" : "error", 100);
       files = []; syncInput(); renderFiles(); window.__cortechFormDirty = false;
       setTimeout(function () {
         if (ok !== total) return;
