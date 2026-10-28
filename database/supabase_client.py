@@ -47,9 +47,35 @@ _opportunity_stage_columns_available: bool | None = None
 class EmbeddingError(Exception):
     """OpenAI embedding call failed. CV matching must not treat this as 'no staff'."""
 
-    def __init__(self, message: str, *, auth: bool = False):
+    def __init__(
+        self,
+        message: str,
+        *,
+        auth: bool = False,
+        status: int | None = None,
+        error_type: str = "",
+        error_code: str = "",
+    ):
         super().__init__(message)
         self.auth = auth
+        self.status = status
+        self.error_type = error_type
+        self.error_code = error_code
+
+
+def _openai_error_fields(response) -> tuple[str, str]:
+    """OpenAI's own error.type and error.code, or "" when the body has none.
+
+    The message text is deliberately not returned: it can echo part of the key.
+    """
+    try:
+        body = response.json()
+    except Exception:
+        return "", ""
+    error = body.get("error") if isinstance(body, dict) else None
+    if not isinstance(error, dict):
+        return "", ""
+    return str(error.get("type") or ""), str(error.get("code") or "")
 
 
 def _is_missing_content_hash_column(exc: Exception) -> bool:
@@ -220,24 +246,33 @@ def get_embedding(text: str) -> list[float]:
         timeout=30,
     )
 
-    if response.status_code == 200:
+    status = response.status_code
+    if status == 200:
         return response.json()["data"][0]["embedding"]
 
-    if response.status_code in (401, 403):
+    openai_type, openai_code = _openai_error_fields(response)
+    detail = (
+        f"HTTP {status}, openai_error_type={openai_type or 'none'}, "
+        f"openai_error_code={openai_code or 'none'}"
+    )
+    if status in (401, 403):
         logger.error(
-            f"OpenAI rejected OPENAI_API_KEY ({response.status_code} invalidated). "
+            f"OpenAI rejected OPENAI_API_KEY ({detail}). "
             f"{env_file_save_hint()} Embeddings power CV matching and past-proposal "
-            "search — they are not the Anthropic drafting key. Create a new key at "
-            "https://platform.openai.com/api-keys paste OPENAI_API_KEY=sk-... with "
-            f"no quotes, save, and rerun. error_type={ErrorType.AUTH_ERROR}"
+            "search — they are not the Anthropic drafting key. Check the key set "
+            "on this host (on Render: the service's Environment tab), save, and "
+            f"rerun. error_type={ErrorType.AUTH_ERROR}"
         )
         raise EmbeddingError(
-            "OpenAI embeddings API key is invalid or revoked",
-            auth=True,
+            f"OpenAI embeddings rejected the API key ({detail})",
+            auth=True, status=status, error_type=openai_type, error_code=openai_code,
         )
 
-    logger.error(f"Embedding failed: HTTP {response.status_code}")
-    raise EmbeddingError(f"Failed to get embedding: HTTP {response.status_code}")
+    logger.error(f"Embedding failed: {detail}")
+    raise EmbeddingError(
+        f"Failed to get embedding ({detail})",
+        status=status, error_type=openai_type, error_code=openai_code,
+    )
 
 
 def summarize_for_embedding(text: str) -> str:

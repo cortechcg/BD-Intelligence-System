@@ -1,3 +1,6 @@
+import json
+
+import pytest
 from database import supabase_client
 from pathlib import Path
 
@@ -163,6 +166,61 @@ def test_get_embedding_uses_sanitized_env_key_and_does_not_dump_401_body(monkeyp
     except supabase_client.EmbeddingError as exc:
         assert exc.auth is True
         assert "Your API key has been invalidated." not in str(exc)
+
+
+def _embedding_response(status, body):
+    class _Response:
+        status_code = status
+        text = json.dumps(body) if body is not None else "<html>bad gateway</html>"
+
+        def json(self):
+            if body is None:
+                raise ValueError("not json")
+            return body
+
+    return _Response()
+
+
+@pytest.mark.parametrize("status,body,etype,code,auth", [
+    (401, {"error": {"message": "Incorrect API key provided: sk-proj-****abcd",
+                     "type": "invalid_request_error", "code": "invalid_api_key"}},
+     "invalid_request_error", "invalid_api_key", True),
+    (403, {"error": {"message": "Project does not have access",
+                     "type": "invalid_request_error", "code": "model_not_found"}},
+     "invalid_request_error", "model_not_found", True),
+    (429, {"error": {"message": "You exceeded your current quota",
+                     "type": "insufficient_quota", "code": "insufficient_quota"}},
+     "insufficient_quota", "insufficient_quota", False),
+    (502, None, "", "", False),
+])
+def test_get_embedding_reports_real_status_and_openai_error_type(monkeypatch, status, body, etype, code, auth):
+    """The log line and the exception carry the real HTTP status and OpenAI's
+    own error type/code — never a hardcoded "401 invalidated", never the body."""
+    from loguru import logger
+
+    monkeypatch.setattr(supabase_client, "get_openai_api_key", lambda: "sk-test-openai-key")
+    monkeypatch.setattr(
+        supabase_client.httpx, "post", lambda *a, **k: _embedding_response(status, body)
+    )
+    lines: list[str] = []
+    sink = logger.add(lambda m: lines.append(str(m)), level="ERROR")
+    try:
+        with pytest.raises(supabase_client.EmbeddingError) as info:
+            supabase_client.get_embedding("evaluation Somalia")
+    finally:
+        logger.remove(sink)
+    exc = info.value
+    assert exc.status == status
+    assert exc.error_type == etype
+    assert exc.error_code == code
+    assert exc.auth is auth
+    logged = "\n".join(lines)
+    assert f"HTTP {status}" in logged and f"HTTP {status}" in str(exc)
+    assert f"openai_error_type={etype or 'none'}" in logged
+    assert "invalidated" not in logged
+    assert "sk-proj-****abcd" not in logged and "sk-test-openai-key" not in logged
+    if body:
+        assert body["error"]["message"] not in str(exc)
 
 
 def test_store_opportunity_writes_content_hash(monkeypatch):

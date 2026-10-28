@@ -395,6 +395,24 @@ def run_once(worker_token: str) -> bool:
     return True
 
 
+def probe_embeddings() -> bool:
+    """One tiny embedding at boot so the platform log shows whether THIS
+    service's OPENAI_API_KEY works, before a tender depends on it. Non-fatal:
+    CV search has a flagged lexical fallback (intelligence/cv_matcher.py)."""
+    from database.supabase_client import EmbeddingError, get_embedding
+
+    try:
+        get_embedding("monitoring and evaluation consultant, Somalia")
+    except EmbeddingError as exc:
+        logger.error(f"OPENAI_API_KEY check failed at boot: {exc}")
+        return False
+    except Exception as exc:
+        logger.error(f"OPENAI_API_KEY check could not run at boot: {type(exc).__name__}: {exc}")
+        return False
+    logger.info("OPENAI_API_KEY check: embeddings OK (HTTP 200)")
+    return True
+
+
 def main_loop() -> int:
     configure_logging()
     require_env()
@@ -412,6 +430,8 @@ def main_loop() -> int:
         f"dashboard worker up (token {worker_token[:24]}…); aggregate cap "
         f"{settings.AGGREGATE_CAP_USD:.2f} USD / {settings.AGGREGATE_WINDOW_HOURS}h"
     )
+
+    probe_embeddings()
 
     if not triggers.queue_available():
         logger.critical(
