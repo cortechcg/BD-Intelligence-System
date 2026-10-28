@@ -70,24 +70,46 @@ def _factor(name: str, value: Optional[float], status: str, evidence: str, **ext
     return payload
 
 
-def _weighted_mean(factors: list[dict], weights: dict[str, float]) -> tuple[Optional[float], float]:
-    """Average of factors that are not UNKNOWN. Returns (score, coverage 0-1)."""
+def _weighted_mean(
+    factors: list[dict],
+    weights: dict[str, float],
+    unknown_value: float | None = None,
+) -> tuple[Optional[float], float]:
+    """Weighted mean over the model's factors. Returns (score, coverage 0-1).
+
+    ``unknown_value=None`` keeps the legacy behaviour (UNKNOWN dropped and the
+    remaining weights renormalised) for the descriptive strategic/risk views.
+    FIT and WIN pass a number: an UNKNOWN factor then counts at that value
+    with its full weight, so missing evidence lowers the score instead of
+    vanishing from it (scoring_model.json ``unknown_factor_value``).
+    """
     usable = []
-    total_w = 0.0
+    known_w = 0.0
     for factor in factors:
         name = factor["name"]
         if name not in weights:
             continue
-        if factor["status"] == STATUS_UNKNOWN or factor["value"] is None:
-            continue
         w = float(weights[name])
+        if factor["status"] == STATUS_UNKNOWN or factor["value"] is None:
+            if unknown_value is None:
+                continue
+            usable.append((float(unknown_value), w))
+            continue
         usable.append((factor["value"], w))
-        total_w += w
-    if not usable or total_w <= 0:
+        known_w += w
+    total_w = sum(w for _, w in usable)
+    if not usable or total_w <= 0 or known_w <= 0:
         return None, 0.0
     score = sum(v * w for v, w in usable) / total_w
-    coverage = total_w / sum(weights.values()) if weights else 0.0
+    coverage = known_w / sum(weights.values()) if weights else 0.0
     return _clamp(score), coverage
+
+
+def _fit_bounds(factors: list[dict], weights: dict[str, float]) -> tuple[Optional[float], Optional[float]]:
+    """FIT with every UNKNOWN at 0 (worst) and at 100 (best)."""
+    worst, _ = _weighted_mean(factors, weights, unknown_value=0.0)
+    best, _ = _weighted_mean(factors, weights, unknown_value=100.0)
+    return worst, best
 
 
 def _geography_factor(locations: list[str], model: dict) -> dict:
@@ -302,10 +324,7 @@ def _contract_value(opportunity: dict) -> tuple[Optional[float], str]:
     return value, STATUS_VERIFIED
 
 
-def _recommend(fit: Optional[float], eligibility: dict, model: dict) -> str:
-    rules = model["recommendation"]
-    if rules.get("no_bid_if_ineligible") and eligibility.get("gaps") and eligibility.get("status") == STATUS_VERIFIED and (eligibility.get("value") or 0) < 40:
-        return "NO-BID"
+def _band(fit: Optional[float], rules: dict) -> str:
     if fit is None:
         return "WATCH"
     if fit >= rules["bid_min_fit"]:
@@ -313,6 +332,35 @@ def _recommend(fit: Optional[float], eligibility: dict, model: dict) -> str:
     if fit >= rules["watch_min_fit"]:
         return "WATCH"
     return "NO-BID"
+
+
+def _recommend(
+    fit: Optional[float],
+    eligibility: dict,
+    model: dict,
+    bounds: tuple[Optional[float], Optional[float]] | None = None,
+) -> str:
+    """Stable, conservative recommendation.
+
+    With ``bounds`` (FIT at every UNKNOWN = 0 and = 100): BID only when even
+    the worst case is BID; NO-BID only when even the best case is NO-BID;
+    otherwise WATCH. So learning the value of an unknown factor can never turn
+    a BID into a WATCH or a NO-BID into a WATCH — missing evidence holds the
+    call at WATCH instead of swinging it.
+    """
+    rules = model["recommendation"]
+    if rules.get("no_bid_if_ineligible") and eligibility.get("gaps") and eligibility.get("status") == STATUS_VERIFIED and (eligibility.get("value") or 0) < 40:
+        return "NO-BID"
+    if bounds is None:
+        return _band(fit, rules)
+    worst, best = bounds
+    if worst is None or best is None:
+        return "WATCH"
+    if _band(worst, rules) == "BID":
+        return "BID"
+    if _band(best, rules) == "NO-BID":
+        return "NO-BID"
+    return "WATCH"
 
 
 def _confidence(factors: list[dict]) -> dict:
@@ -368,8 +416,10 @@ def compute_bid_intelligence(
     deadline_feas, deadline_pressure = _deadline_factors(deadline, URGENT_DEADLINE_DAYS, SOON_DEADLINE_DAYS)
     known_client = _known_client_factor(client, donor, model)
 
+    unknown_value = float(model.get("unknown_factor_value", 25))
     fit_factors = [geo, thematic, language, eligibility, team]
-    fit_score, fit_cov = _weighted_mean(fit_factors, model["weights"]["fit"])
+    fit_score, fit_cov = _weighted_mean(fit_factors, model["weights"]["fit"], unknown_value)
+    fit_worst, fit_best = _fit_bounds(fit_factors, model["weights"]["fit"])
 
     win_factors = [
         _factor("fit", fit_score, STATUS_VERIFIED if fit_score is not None else STATUS_UNKNOWN, "Deterministic fit dimension"),
@@ -377,7 +427,9 @@ def compute_bid_intelligence(
         known_client,
         eligibility,
     ]
-    win_score, win_cov = _weighted_mean(win_factors, model["weights"]["win_probability"])
+    win_score, win_cov = _weighted_mean(
+        win_factors, model["weights"]["win_probability"], unknown_value
+    )
 
     # Strategic pieces reuse geography/thematic/client with dedicated names
     core_thematic = _factor(
@@ -443,7 +495,8 @@ def compute_bid_intelligence(
     else:
         ev_reason = "Need P(win) and contract_value and pursuit_cost — at least one is missing"
 
-    recommendation = _recommend(fit_score, eligibility, model)
+    recommendation = _recommend(fit_score, eligibility, model, (fit_worst, fit_best))
+    unknown_fit = [f["name"] for f in fit_factors if f["status"] == STATUS_UNKNOWN or f["value"] is None]
     llm_rec = bid_analysis.get("bid_recommendation")
     llm_fit = bid_analysis.get("cortech_fit_score")
     llm_win = bid_analysis.get("win_probability")
@@ -454,6 +507,12 @@ def compute_bid_intelligence(
     why = []
     if fit_score is not None:
         why.append(f"Fit {round(fit_score)}/100 (weights {model['score_version']}).")
+        if unknown_fit:
+            why.append(
+                f"Unknown: {', '.join(unknown_fit)} — scored at {unknown_value:g} each; "
+                f"fit could be {round(fit_worst or 0)}–{round(fit_best or 0)}, so the call "
+                f"is {recommendation} until that evidence exists."
+            )
     else:
         why.append("Fit INSUFFICIENT DATA — too many UNKNOWN factors.")
     why.append(geo["evidence"])
@@ -475,6 +534,10 @@ def compute_bid_intelligence(
         "factor_evidence": all_factors,
         "fit": {
             "score": None if fit_score is None else round(fit_score, 2),
+            "worst_case": None if fit_worst is None else round(fit_worst, 2),
+            "best_case": None if fit_best is None else round(fit_best, 2),
+            "unknown_factors": unknown_fit,
+            "unknown_factor_value": unknown_value,
             "coverage": round(fit_cov, 3),
             "status": STATUS_VERIFIED if fit_score is not None else STATUS_UNKNOWN,
         },
