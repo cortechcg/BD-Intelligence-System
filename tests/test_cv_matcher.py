@@ -203,3 +203,48 @@ def test_embedding_error_is_not_treated_as_external_recruitment(monkeypatch):
         "CV SEARCH UNAVAILABLE"
     )
     assert result["capability_summary"]["status"] == "UNKNOWN"
+
+
+_PEOPLE = [
+    {"id": "c1", "full_name": "Amina Evaluator", "role_title": "Monitoring and Evaluation Specialist",
+     "key_skills": "evaluation design, KoboToolbox, surveys", "thematic_expertise": ["WASH", "evaluation"],
+     "geographic_experience": ["Somalia"], "languages": ["English", "Somali"], "cv_text": "Led endline evaluations in Somalia."},
+    {"id": "c2", "full_name": "Omar Engineer", "role_title": "Water Engineer",
+     "key_skills": "borehole design, water infrastructure", "thematic_expertise": ["WASH"],
+     "geographic_experience": ["Kenya"], "languages": ["English"], "cv_text": "Water supply engineering."},
+]
+
+
+def test_embedding_failure_falls_back_to_flagged_lexical_match(monkeypatch):
+    """Embeddings down must not leave a slot empty when CV text names the skills."""
+    from database.supabase_client import EmbeddingError
+
+    monkeypatch.setattr(cv_matcher, "search_consultants",
+                        lambda **kw: (_ for _ in ()).throw(EmbeddingError("HTTP 401", auth=True)))
+    monkeypatch.setattr(cv_matcher, "log_agent_action", lambda **kw: None)
+    monkeypatch.setattr(cv_matcher, "get_all_consultants", lambda: _PEOPLE)
+    result = cv_matcher.match_team_to_requirements([
+        {"role": "Monitoring and Evaluation Specialist", "required_skills": ["evaluation", "KoboToolbox"],
+         "required_geographic_experience": ["Somalia"]},
+        {"role": "Water Engineer", "required_skills": ["water infrastructure", "borehole"]},
+        {"role": "Astrophysicist", "required_skills": ["telescope"]},
+    ])
+    team = result["matched_team"]
+    assert team["Monitoring and Evaluation Specialist"]["consultant_name"] == "Amina Evaluator"
+    assert team["Water Engineer"]["consultant_name"] == "Omar Engineer"
+    for role in ("Monitoring and Evaluation Specialist", "Water Engineer"):
+        slot = team[role]
+        assert slot["match_method"] == "lexical_fallback"
+        assert slot["capability"]["confidence"] == "LOW"
+        assert "LOWER CONFIDENCE" in slot["capability"]["why"]
+    # No CV evidence at all: stays honestly unavailable, not invented.
+    assert team["Astrophysicist"]["consultant_name"] == "CV SEARCH UNAVAILABLE"
+    assert result["lexical_fallback"] is True and result["match_confidence"] == "LOW"
+    assert result["search_unavailable"] is True
+
+
+def test_lexical_fallback_counts_at_half_credit_and_inferred_in_the_score():
+    from intelligence.bid_scorer import _team_capacity_factor
+
+    f = _team_capacity_factor({"coverage_percent": 100, "gaps": [], "lexical_fallback": True})
+    assert f["status"] == "INFERRED" and f["value"] == 50.0

@@ -228,6 +228,14 @@ def _team_capacity_factor(matched_team_result: Optional[dict]) -> dict:
     evidence = f"Role coverage {coverage}%"
     if gaps:
         evidence += f"; unmatched roles: {', '.join(str(g) for g in gaps)}"
+    if matched_team_result.get("lexical_fallback"):
+        # Keyword matches stand in for failed embeddings: counted, but at
+        # half credit and never VERIFIED.
+        return _factor(
+            "team_capacity", float(coverage) * 0.5, STATUS_INFERRED,
+            evidence + "; LOWER CONFIDENCE lexical CV fallback (embeddings unavailable)",
+            gaps=list(gaps),
+        )
     return _factor("team_capacity", float(coverage), STATUS_VERIFIED, evidence, gaps=list(gaps))
 
 

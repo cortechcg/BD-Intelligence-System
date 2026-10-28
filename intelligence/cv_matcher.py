@@ -1,5 +1,6 @@
 # intelligence/cv_matcher.py
 import json
+import re
 from loguru import logger
 from database.supabase_client import EmbeddingError, search_consultants
 from database.airtable_client import get_all_consultants, log_agent_action
@@ -326,7 +327,12 @@ def filter_by_availability(matches: list[dict]) -> list[dict]:
             continue
         req = match.get("requirement")
         if req is not None or match.get("capability") is not None:
+            previous = match.get("capability") or {}
             match["capability"] = score_capability_match(req or {}, match)
+            if match.get("match_method") == LEXICAL_FALLBACK:
+                match["capability"]["confidence"] = "LOW"
+                match["capability"]["match_method"] = LEXICAL_FALLBACK
+                match["capability"]["why"] = previous.get("why") or match["capability"]["why"]
     return sorted(
         matches,
         key=lambda m: _AVAIL_RANK.get(m.get("availability_flag"), 1),
@@ -355,8 +361,14 @@ def _team_capability_summary(matched_team: dict, gaps: list) -> dict:
         for match in (matched_team or {}).values()
     )
     match_score = round(sum(scores) / len(scores), 2) if scores else 0.0
+    lexical = any(
+        isinstance(match, dict) and match.get("match_method") == LEXICAL_FALLBACK
+        for match in (matched_team or {}).values()
+    )
     if unavailable:
         status = "UNKNOWN"
+    elif lexical:
+        status = "PARTIAL"
     elif gaps and not scores:
         status = "MISSING"
     elif gaps or unknown:
@@ -376,6 +388,109 @@ def _team_capability_summary(matched_team: dict, gaps: list) -> dict:
     }
 
 
+LEXICAL_FALLBACK = "lexical_fallback"
+_LEX_STOP = {
+    "and", "the", "for", "with", "of", "in", "on", "to", "or", "a", "an",
+    "required", "skills", "experience", "years", "senior", "junior", "mid",
+    "level", "expert", "specialist", "consultant", "team", "lead", "member",
+}
+_LEX_MIN_HITS = 2
+
+
+def _lex_tokens(*parts) -> set[str]:
+    words: set[str] = set()
+    for part in parts:
+        for item in _as_list(part) if not isinstance(part, str) else [part]:
+            for word in re.findall(r"[a-z][a-z0-9+/&-]{2,}", str(item).lower()):
+                if word not in _LEX_STOP:
+                    words.add(word)
+    return words
+
+
+def lexical_candidates(requirement: dict, consultants: list[dict], limit: int = 3) -> list[dict]:
+    """Keyword overlap between a role and stored CV text. Lower confidence.
+
+    Used only when embeddings fail, so a slot is filled from real CV words
+    rather than left empty. Every result is flagged ``lexical_fallback``; its
+    similarity is a keyword-overlap share, not a semantic score.
+    """
+    role_words = _lex_tokens(requirement.get("role"))
+    want = role_words | _lex_tokens(
+        requirement.get("required_skills"),
+        requirement.get("required_thematic_areas") or requirement.get("thematic_areas"),
+        requirement.get("required_geographic_experience"),
+        requirement.get("required_languages") or requirement.get("language_requirements"),
+    )
+    if not want:
+        return []
+    best: dict[str, dict] = {}
+    for person in consultants or []:
+        name = str(person.get("full_name") or "").strip()
+        if not name:
+            continue
+        title_words = _lex_tokens(person.get("role_title"))
+        blob = _lex_tokens(
+            person.get("role_title"), person.get("key_skills"), person.get("thematic_expertise"),
+            person.get("geographic_experience"), person.get("languages"), person.get("tools"),
+            person.get("key_assignments"), (person.get("cv_text") or "")[:6000],
+        )
+        hits = want & blob
+        if len(hits) < _LEX_MIN_HITS:
+            continue
+        score = (len(hits) + 2 * len(role_words & title_words)) / (len(want) + 2 * max(len(role_words), 1))
+        score = round(min(score, 1.0), 3)
+        key = name.lower()
+        if key in best and best[key]["similarity"] >= score:
+            continue
+        best[key] = {
+            "consultant_name": name,
+            "airtable_consultant_id": person.get("id"),
+            "role_title": person.get("role_title") or "",
+            "similarity": score,
+            "metadata": {
+                "geographic_experience": person.get("geographic_experience") or [],
+                "thematic_expertise": person.get("thematic_expertise") or [],
+                "languages": person.get("languages") or [],
+                "key_skills": person.get("key_skills") or "",
+                "tools": person.get("tools") or [],
+                "years_experience": person.get("years_experience"),
+            },
+            "lexical_hits": sorted(hits)[:12],
+        }
+    ranked = sorted(best.values(), key=lambda m: m["similarity"], reverse=True)
+    return ranked[:limit]
+
+
+def _lexical_slot(role: str, req: dict, consultants: list[dict], used: set[str]) -> dict | None:
+    candidates = lexical_candidates(req, consultants)
+    if not candidates:
+        return None
+    # Prefer someone not already named for another role.
+    pick = next((c for c in candidates if c["consultant_name"].lower() not in used), candidates[0])
+    capability = score_capability_match(req, pick)
+    capability["confidence"] = "LOW"
+    capability["match_method"] = LEXICAL_FALLBACK
+    capability["why"] = (
+        "LOWER CONFIDENCE — keyword match on CV text (embeddings unavailable): "
+        + ", ".join(pick["lexical_hits"][:6])
+        + (f"; {capability['why']}" if capability.get("why") else "")
+    )
+    capability.setdefault("unknown", []).append("semantic similarity not computed")
+    return {
+        "consultant_name": pick["consultant_name"],
+        "airtable_id": pick.get("airtable_consultant_id"),
+        "airtable_consultant_id": pick.get("airtable_consultant_id"),
+        "role_title": pick.get("role_title") or "",
+        "similarity_score": round(pick["similarity"] * 100),
+        "metadata": pick["metadata"],
+        "all_matches": candidates,
+        "requirement": req,
+        "match_method": LEXICAL_FALLBACK,
+        "confidence": "LOW",
+        "capability": capability,
+    }
+
+
 def match_team_to_requirements(
     team_requirements: list[dict],
     opportunity_id: str = None,
@@ -389,6 +504,8 @@ def match_team_to_requirements(
     matched_team = {}
     gaps = []
     search_unavailable = False
+    lexical_used = False
+    consultants_cache: list[dict] | None = None
 
     title_label = (opportunity_title or "")[:80]
     logger.info(
@@ -447,23 +564,37 @@ def match_team_to_requirements(
         Education: {req.get('required_education') or ''}
         """
 
-        if search_unavailable:
-            matched_team[role] = _unavailable_slot(role, req)
-            continue
+        if not search_unavailable:
+            try:
+                matches = search_consultants(
+                    query_text=search_query,
+                    match_threshold=0.60,
+                    match_count=3
+                )
+            except EmbeddingError as e:
+                search_unavailable = True
+                logger.error(
+                    f"  CV search unavailable for remaining roles ({e}) — "
+                    "using the flagged lexical fallback, not treating this as a staffing gap"
+                )
 
-        try:
-            matches = search_consultants(
-                query_text=search_query,
-                match_threshold=0.60,
-                match_count=3
-            )
-        except EmbeddingError as e:
-            search_unavailable = True
-            logger.error(
-                f"  CV search unavailable for remaining roles ({e}) — "
-                "not treating this as a staffing gap"
-            )
-            matched_team[role] = _unavailable_slot(role, req)
+        if search_unavailable:
+            if consultants_cache is None:
+                consultants_cache = get_all_consultants()
+            used = {
+                str(m.get("consultant_name") or "").lower()
+                for m in matched_team.values() if isinstance(m, dict)
+            }
+            slot = _lexical_slot(role, req, consultants_cache, used)
+            if slot:
+                lexical_used = True
+                matched_team[role] = slot
+                logger.warning(
+                    f"  {role} → {slot['consultant_name']} (LOWER CONFIDENCE lexical "
+                    f"fallback, {slot['similarity_score']}% keyword overlap)"
+                )
+            else:
+                matched_team[role] = _unavailable_slot(role, req)
             continue
 
         if matches:
@@ -526,7 +657,11 @@ def match_team_to_requirements(
     except Exception:
         pass
 
-    if search_unavailable:
+    unfilled = sum(
+        1 for m in matched_team.values()
+        if isinstance(m, dict) and m.get("consultant_name") == "CV SEARCH UNAVAILABLE"
+    )
+    if search_unavailable and unfilled:
         coverage = None
     else:
         coverage = round(
@@ -538,5 +673,7 @@ def match_team_to_requirements(
         "gaps": gaps,
         "coverage_percent": coverage,
         "search_unavailable": search_unavailable,
+        "lexical_fallback": lexical_used,
+        "match_confidence": "LOW" if lexical_used else ("UNKNOWN" if search_unavailable else "NORMAL"),
         "capability_summary": _team_capability_summary(matched_team, gaps),
     }
