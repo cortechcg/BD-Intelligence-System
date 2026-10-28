@@ -28,6 +28,20 @@ jobs:
 
   test-and-audit:
     runs-on: ubuntu-latest
+    # Disposable Postgres for tests/test_queue_scopes_pg.py (atomic claims,
+    # queue scopes). Never the hosted Supabase project.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      QUEUE_TEST_DATABASE_URL: postgresql://postgres:ci-only@127.0.0.1:5432/postgres  # secret-scan: allow (throwaway CI container)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

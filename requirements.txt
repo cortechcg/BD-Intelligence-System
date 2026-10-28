@@ -64,7 +64,7 @@ tiktoken==0.13.0
 truststore==0.10.4
 typing-inspection==0.4.2
 typing_extensions==4.15.0
-urllib3==2.7.0
+urllib3==2.8.0
 websockets==15.0.1
 yarl==1.24.2
 pytest==9.0.3
@@ -84,3 +84,5 @@ python-multipart==0.0.31
 
 # Test-side: tests/test_render_yaml.py parses the Render Blueprint.
 PyYAML==6.0.3
+# Test-side: tests/test_queue_scopes_pg.py drives real Postgres concurrently.
+psycopg[binary]==3.3.6

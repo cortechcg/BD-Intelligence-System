@@ -81,7 +81,7 @@ def test_bulk_trigger_of_forty_jobs_is_bounded_by_the_aggregate_cap(monkeypatch)
     window = {"spent": 0.0}
     pipeline_calls = {"n": 0}
 
-    monkeypatch.setattr(triggers, "claim", lambda token, lease: queue.pop(0) if queue else None)
+    monkeypatch.setattr(triggers, "claim", lambda token, lease, scope: queue.pop(0) if queue else None)
     monkeypatch.setattr(
         triggers, "spend_window",
         lambda hours=None: _window(window["spent"], runs=len(ledger)),

@@ -16,10 +16,22 @@ Trigger kinds — every one maps onto an existing pipeline entry point:
                                                  retry_dead_letter=True)   resume
     rerun_from_extracted  rewind_opportunity_stage(url, "extracted") then resume
     rerun_from_scored     rewind_opportunity_stage(url, "scored")    then resume
+
+Scopes (supabase_migration_trigger_scopes.sql). Every row has one, and a
+worker claims from exactly one:
+
+    production   the dashboard's real requests; only cortech-bd-worker
+    staging      a non-production worker, if one is ever deployed
+    test         live queue tests; no deployed worker consumes it
+
+A URL on a reserved test host (.invalid / .test / .example / .localhost) is
+always ``test`` — the database forces it on enqueue and a CHECK constraint
+refuses a production row for one.
 """
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from loguru import logger
 
@@ -47,11 +59,38 @@ KIND_LABELS = {
     LIBRARY_INGEST: "ingest library document",
 }
 
+PRODUCTION = "production"
+STAGING = "staging"
+TEST = "test"
+SCOPES = (PRODUCTION, STAGING, TEST)
+
+#: RFC 2606 / RFC 6761 reserved names. Nothing real can resolve under them.
+_TEST_TLDS = ("invalid", "test", "example", "localhost")
+
+
+def is_test_url(source_url: str) -> bool:
+    """True for a reserved test host. Mirrors dashboard_trigger_is_test_url()."""
+    try:
+        host = (urlsplit((source_url or "").strip()).hostname or "").rstrip(".").lower()
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return host.rsplit(".", 1)[-1] in _TEST_TLDS
+
+
+def scope_for(source_url: str, requested: str = PRODUCTION) -> str:
+    """The scope the database will store: a test host is always ``test``."""
+    if requested not in SCOPES:
+        raise ValueError(f"unknown trigger scope: {requested}")
+    return TEST if is_test_url(source_url) else requested
+
+
 _SELECT = (
     "id,source_url,trigger_kind,status,requested_by,requested_at,started_at,"
     "finished_at,attempt_count,error_kind,error_message,execution_id,result_summary,"
     "cancel_requested_at,cancelled_by,last_heartbeat_at,spend_usd,spend_limit_usd,"
-    "provider_calls,spend_known"
+    "provider_calls,spend_known,scope"
 )
 
 
@@ -97,11 +136,15 @@ def _as_bool(data: Any) -> bool:
 
 # ── enqueue ─────────────────────────────────────────────────────────────────
 
-def enqueue(source_url: str, kind: str, requested_by: str) -> str | None:
+def enqueue(
+    source_url: str, kind: str, requested_by: str, *, scope: str = PRODUCTION,
+) -> str | None:
     """Queue a run. Returns the trigger id, or ``None`` if one is in flight.
 
     ``None`` is the database's unique partial index refusing a duplicate, not
     an error — a second click while a run is queued/running is a no-op.
+    ``scope`` is where the row goes; a reserved test host is forced to
+    ``test`` here and again by the database.
     """
     if kind not in KINDS:
         raise ValueError(f"unknown trigger kind: {kind}")
@@ -120,6 +163,7 @@ def enqueue(source_url: str, kind: str, requested_by: str) -> str | None:
             "p_source_url": canonical,
             "p_trigger_kind": kind,
             "p_requested_by": (requested_by or "unknown")[:320],
+            "p_scope": scope_for(canonical, scope),
         },
     )
     if isinstance(data, list):
@@ -147,13 +191,29 @@ def enqueue_many(source_urls: list[str], kind: str, requested_by: str) -> list[d
 
 # ── worker side ─────────────────────────────────────────────────────────────
 
-def claim(worker_token: str, lease_seconds: int = 3600) -> dict | None:
-    """Atomically take the next request, or reclaim an expired lease."""
+def claim(worker_token: str, lease_seconds: int, scope: str) -> dict | None:
+    """Atomically take the next request IN ``scope``, or reclaim an expired lease.
+
+    ``scope`` has no default on purpose: a caller must say which queue it
+    consumes. FOR UPDATE SKIP LOCKED in the RPC means two workers polling the
+    same scope never receive the same row.
+    """
+    if scope not in SCOPES:
+        raise ValueError(f"unknown trigger scope: {scope}")
     row = _first(_rpc(
         "claim_dashboard_trigger",
-        {"p_worker_token": worker_token, "p_lease_seconds": int(lease_seconds)},
+        {
+            "p_worker_token": worker_token,
+            "p_lease_seconds": int(lease_seconds),
+            "p_scope": scope,
+        },
     ))
     if not row:
+        return None
+    if str(row.get("scope") or "") != scope:
+        logger.error(
+            f"dashboard trigger claim returned scope {row.get('scope')!r}, asked for {scope!r}"
+        )
         return None
     # Same discipline as claim_opportunity_processing: the database echoes the
     # token it accepted, and a mismatch fails safe rather than letting this
@@ -162,6 +222,23 @@ def claim(worker_token: str, lease_seconds: int = 3600) -> dict | None:
         logger.error("dashboard trigger claim did not return its ownership token")
         return None
     return row
+
+
+def register_worker(worker_token: str, scope: str | None, identity: dict, note: str = "") -> bool:
+    """Record which service consumes which scope (None = idle). Never raises."""
+    try:
+        return _as_bool(_rpc("register_dashboard_worker", {
+            "p_worker_token": worker_token,
+            "p_scope": scope or "",
+            "p_service_name": identity.get("service_name") or "",
+            "p_service_id": identity.get("service_id") or "",
+            "p_instance_id": identity.get("instance_id") or "",
+            "p_git_commit": identity.get("git_commit") or "",
+            "p_note": note,
+        }))
+    except Exception as exc:
+        logger.warning(f"worker registry write failed (non-fatal): {exc}")
+        return False
 
 
 def heartbeat(
@@ -352,6 +429,7 @@ def recent(limit: int = 15) -> list[dict]:
     try:
         res = (
             get_supabase().table("dashboard_triggers").select(_SELECT)
+            .eq("scope", PRODUCTION)
             .order("requested_at", desc=True).limit(limit).execute()
         )
         rows = res.data or []
@@ -367,7 +445,8 @@ def for_url(source_url: str, limit: int = 5) -> list[dict]:
     try:
         res = (
             get_supabase().table("dashboard_triggers").select(_SELECT)
-            .eq("source_url", canonical).order("requested_at", desc=True)
+            .eq("source_url", canonical).eq("scope", PRODUCTION)
+            .order("requested_at", desc=True)
             .limit(limit).execute()
         )
     except Exception:
@@ -380,6 +459,7 @@ def in_flight_urls() -> set[str]:
     try:
         res = (
             get_supabase().table("dashboard_triggers").select("source_url")
+            .eq("scope", PRODUCTION)
             .in_("status", ["queued", "running"]).limit(500).execute()
         )
     except Exception:
@@ -392,6 +472,7 @@ def in_flight_by_url() -> dict[str, dict]:
     try:
         res = (
             get_supabase().table("dashboard_triggers").select(_SELECT)
+            .eq("scope", PRODUCTION)
             .in_("status", ["queued", "running"]).limit(500).execute()
         )
     except Exception:
@@ -401,7 +482,8 @@ def in_flight_by_url() -> dict[str, dict]:
 
 def queue_available() -> bool:
     try:
-        get_supabase().table("dashboard_triggers").select("id,spend_usd").limit(1).execute()
+        # `scope` proves supabase_migration_trigger_scopes.sql is applied.
+        get_supabase().table("dashboard_triggers").select("id,spend_usd,scope").limit(1).execute()
         return True
     except Exception:
         return False

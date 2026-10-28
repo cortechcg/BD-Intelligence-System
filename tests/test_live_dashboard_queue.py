@@ -6,26 +6,17 @@ It never prints keys, only ever touches rows whose ``source_url`` is under a
 reserved ``https://dashboard-queue.test.invalid/`` prefix, and deletes them in
 a finally block — it cannot disturb a real opportunity.
 
-Shared state, found 2026-09-22: ``dashboard_triggers`` is the PRODUCTION queue
-and, since the Render worker went live, it has a second consumer. ``claim()``
-takes the oldest queued row with no URL filter, so between ``enqueue`` and the
-test's own ``claim`` the live worker (polling every 5 s) can take the probe row
-first, run ``submit_single_url`` on the unresolvable URL and leave a
-``failed`` ledger row behind — which is exactly what happened once in a full
-local run. Two rules now make the tests safe against that consumer:
-
-* ``_claim_probe`` only accepts the probe row. If the live worker won the race
-  the test SKIPS with the reason (it cannot pass, and failing would be a lie
-  about the code). It never keeps a lease on a row it did not create.
-* the fixture also deletes any ``opportunity_processing`` /
-  ``opportunities_cache`` rows the worker may have created for the probe URL.
-
-The tests refuse to run at all if a real (non-prefix) job is queued, because
-``claim`` could then hand them a real job.
+Scopes (supabase_migration_trigger_scopes.sql, 2026-10-28). Before them,
+``claim()`` took the oldest queued row with no filter, so the production
+workers (two Render services) ran these probe rows: 9 failed ledger rows for
+``dashboard-queue.test.invalid`` between 10-18 and 10-25. Now every probe row
+is stored as scope ``test`` by the database itself (reserved host), the test
+claims with scope ``test``, and no deployed worker consumes that scope. A
+probe can no longer reach production, and a test can no longer be handed a
+real job.
 """
 from __future__ import annotations
 
-import time
 import uuid
 
 import pytest
@@ -43,43 +34,18 @@ pytestmark = pytest.mark.skipif(
 PREFIX = "https://dashboard-queue.test.invalid/"
 
 
-def _foreign_queued_rows() -> list[str]:
-    rows = (
-        get_supabase().table("dashboard_triggers").select("source_url")
-        .eq("status", "queued").limit(5).execute().data or []
-    )
-    return [r["source_url"] for r in rows if not str(r.get("source_url", "")).startswith(PREFIX)]
+SCOPE = triggers.TEST
 
 
 @pytest.fixture
 def probe_url():
-    foreign = _foreign_queued_rows()
-    if foreign:
-        pytest.skip(
-            f"{len(foreign)} real job(s) are queued in dashboard_triggers; "
-            "claim() would hand a test a real job. Re-run when the queue is idle."
-        )
     url = f"{PREFIX}{uuid.uuid4()}"
     try:
         yield url
     finally:
         sb = get_supabase()
-        # If the LIVE worker claimed the probe row, its pipeline run is still
-        # going when the test body ends and writes its ledger row seconds
-        # later — deleting immediately would leave that row behind (which is
-        # exactly what happened on 2026-09-22: five probe rows surfaced in the
-        # Queue's "Needs attention"). Wait for the run to finish first.
-        deadline = time.monotonic() + 90
-        while time.monotonic() < deadline:
-            try:
-                live = (sb.table("dashboard_triggers").select("status").eq("source_url", url)
-                        .eq("status", "running").limit(1).execute().data or [])
-            except Exception:
-                live = []
-            if not live:
-                break
-            time.sleep(3)
-        # The trigger row the test made, plus anything the worker created.
+        # The trigger row the test made. The ledger/cache deletes are kept as
+        # a guard; with scopes no worker can have created them.
         for table in ("dashboard_triggers", "opportunity_processing", "opportunities_cache"):
             try:
                 sb.table(table).delete().eq("source_url", url).execute()
@@ -88,29 +54,36 @@ def probe_url():
 
 
 def _claim_probe(url: str, token: str, lease_seconds: int = 120) -> dict:
-    """Claim the probe row or skip — never hold a lease on someone else's row.
-
-    ``claim`` returns the oldest queued row. With no foreign queued rows (the
-    fixture checked) that is the probe row, or None if the live worker took it
-    first. A different row means a real job was queued in the window since the
-    check: there is no release call, so the test fails loudly and says how
-    long the lease it is holding will last.
-    """
-    job = triggers.claim(token, lease_seconds=lease_seconds)
-    if job is None:
-        row = get_supabase().table("dashboard_triggers").select("status,worker_token").eq(
-            "source_url", url).order("requested_at", desc=True).limit(1).execute().data
-        newest = (row or [{}])[0]
-        pytest.skip(
-            f"the live worker claimed the probe row first (status now {newest.get('status')!r}, "
-            f"worker_token {str(newest.get('worker_token'))[:12]!r}); dashboard_triggers has "
-            "another consumer, so this test cannot run right now"
-        )
+    """Claim from the test scope. Only probe rows live there."""
+    job = triggers.claim(token, lease_seconds, SCOPE)
+    assert job is not None, "the probe row should be waiting in the test scope"
     assert job["source_url"] == url, (
-        f"claim() returned a real job ({job['source_url'][:60]}) — a real run was queued "
-        "during the test; its lease expires in {lease_seconds}s. Re-run when idle."
+        f"claim() in the test scope returned {job['source_url'][:60]}; "
+        "an older probe row was left queued"
     )
+    assert job["scope"] == SCOPE
     return job
+
+
+def test_probe_rows_are_stored_in_the_test_scope_whatever_was_asked(probe_url):
+    tid = triggers.enqueue(probe_url, triggers.SUBMIT_URL, "ci@cortechconsultinggroup.com",
+                           scope=triggers.PRODUCTION)
+    row = get_supabase().table("dashboard_triggers").select("scope").eq("id", tid).execute().data
+    assert row and row[0]["scope"] == "test"
+
+
+def test_production_claim_never_sees_a_probe_row(probe_url):
+    triggers.enqueue(probe_url, triggers.SUBMIT_URL, "ci@cortechconsultinggroup.com")
+    rows = get_supabase().table("dashboard_triggers").select("id,scope").eq(
+        "source_url", probe_url).execute().data
+    assert rows and rows[0]["scope"] == "test"
+    # Postgres, not Python, refuses a production row for a reserved host.
+    with pytest.raises(Exception) as info:
+        get_supabase().table("dashboard_triggers").insert({
+            "source_url": probe_url + "-direct", "trigger_kind": "submit_url",
+            "requested_by": "ci", "scope": "production",
+        }).execute()
+    assert "production_not_test_url" in str(info.value) or "23514" in str(info.value)
 
 
 def test_queue_table_exists():
@@ -121,7 +94,7 @@ def test_queue_table_exists():
 
 def test_enqueue_claim_heartbeat_finish_round_trip(probe_url):
     trigger_id = triggers.enqueue(
-        probe_url, triggers.SUBMIT_URL, "ci@cortechconsultinggroup.com"
+        probe_url, triggers.SUBMIT_URL, "ci@cortechconsultinggroup.com", scope=SCOPE
     )
     assert trigger_id
 
@@ -175,15 +148,19 @@ def test_finished_rows_surface_their_failure_kind(probe_url):
         str(job["id"]), token, status="failed",
         error_kind="DEAD_LETTER", error_message="drafting dead-lettered",
     )
-    rows = [r for r in triggers.recent(50) if r["source_url"] == probe_url]
-    assert rows, "the finished trigger should be listed"
-    assert rows[0]["ui_state"] == "dead_letter"
-    assert rows[0]["error_kind"] == "DEAD_LETTER"
+    row = triggers.get(str(job["id"]))
+    assert row["ui_state"] == "dead_letter"
+    assert row["error_kind"] == "DEAD_LETTER"
+    # The dashboard lists production requests only; a probe never shows up.
+    assert probe_url not in {r["source_url"] for r in triggers.recent(50)}
 
 
-def test_in_flight_urls_reflects_queued_rows(probe_url):
+def test_in_flight_urls_lists_production_rows_only(probe_url):
     triggers.enqueue(probe_url, triggers.SUBMIT_URL, "ci@cortechconsultinggroup.com")
-    assert probe_url in triggers.in_flight_urls()
+    queued = get_supabase().table("dashboard_triggers").select("status").eq(
+        "source_url", probe_url).execute().data
+    assert queued and queued[0]["status"] == "queued"
+    assert probe_url not in triggers.in_flight_urls()
 
 
 def test_enqueue_rejects_an_unknown_kind(probe_url):

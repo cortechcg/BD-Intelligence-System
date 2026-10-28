@@ -38,6 +38,21 @@ def test_web_service_binds_port_and_has_a_health_check():
     assert web.get("healthCheckPath") == "/healthz"
 
 
+def test_only_the_declared_worker_may_own_the_production_queue():
+    """BD-Intelligence-System (Oregon, never declared) consumed production
+    triggers until 2026-10-28. The worker's production owner is pinned by
+    service name in code, and the blueprint declares that same name."""
+    from dashboard import worker as worker_mod
+
+    worker = _by_type("worker")
+    assert worker["name"] == worker_mod.PRODUCTION_WORKER_SERVICE
+    env = {e["key"]: e for e in worker["envVars"]}
+    assert env["DASHBOARD_WORKER_SCOPE"]["value"] == "production"
+    assert worker["region"] == "frankfurt"
+    names = {s["name"] for s in SPEC["services"]}
+    assert "BD-Intelligence-System" not in names
+
+
 def test_worker_is_a_background_worker_with_no_port_or_health_check():
     worker = _by_type("worker")
     assert worker["name"] == "cortech-bd-worker"

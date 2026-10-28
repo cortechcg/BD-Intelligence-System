@@ -43,6 +43,19 @@
 #   cortech-bd-dashboard  type: web     dashboard UI + thin API   (binds $PORT)
 #   cortech-bd-worker     type: worker  runs dashboard-triggered jobs  (no port)
 #
+# ┌─ NOT IN THIS FILE, AND MUST NOT EXIST: BD-Intelligence-System ────────────┐
+# │ A third service, "BD-Intelligence-System" (Oregon, hand-made in the UI,   │
+# │ never declared here), ran this same image and consumed the same           │
+# │ dashboard_triggers queue as cortech-bd-worker until 2026-10-28, including │
+# │ the live tests' dashboard-queue.test.invalid probe rows. Since            │
+# │ supabase_migration_trigger_scopes.sql + dashboard/worker.py scopes:       │
+# │   * only the Render service NAMED cortech-bd-worker may claim the         │
+# │     production scope; any other service idles (logs QUEUE SCOPE: NONE);  │
+# │   * a reserved test host is always scope `test`, enforced in Postgres.    │
+# │ Delete BD-Intelligence-System in the Render dashboard. dashboard_workers  │
+# │ shows every worker process and the scope it consumes.                     │
+# └───────────────────────────────────────────────────────────────────────────┘
+#
 # Nothing here replaces the existing discovery schedule (systemd timers). See
 # docs/DASHBOARD.md §"Scheduler" and the opt-in Render Cron block at the end.
 #
@@ -217,6 +230,12 @@ services:
         value: "512"
       - key: FULL_DRAFT_FOR_WATCH
         value: "true"
+
+      # ── Queue scope (dashboard/worker.py resolve_worker_scope) ──
+      # Production is owned by the service NAMED cortech-bd-worker; this
+      # value cannot grant it to any other service. Staging/test are opt-in.
+      - key: DASHBOARD_WORKER_SCOPE
+        value: production
 
       # ── Worker loop tuning (dashboard/settings.py defaults) ──
       - key: DASHBOARD_HEARTBEAT_SECONDS

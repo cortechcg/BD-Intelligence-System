@@ -29,6 +29,7 @@ import os
 import signal
 import sys
 import threading
+import time
 import uuid
 
 from loguru import logger
@@ -45,6 +46,63 @@ from utils.observability import (
 from utils.urls import canonicalize_url
 
 _stop = threading.Event()
+
+#: The one Render service allowed to consume the production scope. Any other
+#: service running this image (BD-Intelligence-System, a preview, a hand-made
+#: copy) resolves to idle unless it is explicitly given a non-production scope.
+PRODUCTION_WORKER_SERVICE = "cortech-bd-worker"
+SCOPE_ENV = "DASHBOARD_WORKER_SCOPE"
+#: Off Render, production is never the default. Set to "1" only to run the
+#: production queue from a laptop on purpose (for example during an outage).
+LOCAL_PRODUCTION_OVERRIDE_ENV = "DASHBOARD_WORKER_ALLOW_LOCAL_PRODUCTION"
+REGISTRY_INTERVAL_SECONDS = 60.0
+
+
+def worker_identity(env: dict | None = None) -> dict:
+    env = os.environ if env is None else env
+    return {
+        "service_name": str(env.get("RENDER_SERVICE_NAME") or "").strip(),
+        "service_id": str(env.get("RENDER_SERVICE_ID") or "").strip(),
+        "instance_id": str(env.get("RENDER_INSTANCE_ID") or "").strip(),
+        "git_commit": str(env.get("RENDER_GIT_COMMIT") or "").strip()[:12],
+        "on_render": bool(env.get("RENDER") or env.get("RENDER_SERVICE_ID")),
+    }
+
+
+def resolve_worker_scope(env: dict | None = None) -> tuple[str | None, str]:
+    """Which queue scope this process consumes, and why. ``None`` = idle.
+
+    * On Render, production belongs to the service named cortech-bd-worker
+      and to no other, whatever its environment says.
+    * Another Render service may consume ``staging`` or ``test`` only when
+      DASHBOARD_WORKER_SCOPE says so; otherwise it idles.
+    * Off Render, DASHBOARD_WORKER_SCOPE must be set; production also needs
+      DASHBOARD_WORKER_ALLOW_LOCAL_PRODUCTION=1.
+    """
+    env = os.environ if env is None else env
+    ident = worker_identity(env)
+    raw = str(env.get(SCOPE_ENV) or "").strip().lower()
+    if raw and raw not in triggers.SCOPES:
+        return None, f"{SCOPE_ENV}={raw!r} is not one of {', '.join(triggers.SCOPES)}"
+    name = ident["service_name"]
+    if ident["on_render"]:
+        if name == PRODUCTION_WORKER_SERVICE:
+            if raw and raw != triggers.PRODUCTION:
+                return raw, f"{name} explicitly set to {raw}"
+            return triggers.PRODUCTION, f"Render service {name} owns the production queue"
+        if raw == triggers.PRODUCTION or not raw:
+            return None, (
+                f"Render service {name or ident['service_id'] or 'unknown'} is not "
+                f"{PRODUCTION_WORKER_SERVICE}; it may not consume production triggers"
+            )
+        return raw, f"Render service {name or ident['service_id']} set to {raw}"
+    if not raw:
+        return None, f"not on Render and {SCOPE_ENV} is unset"
+    if raw == triggers.PRODUCTION and str(env.get(LOCAL_PRODUCTION_OVERRIDE_ENV) or "") != "1":
+        return None, (
+            f"production from a local process needs {LOCAL_PRODUCTION_OVERRIDE_ENV}=1"
+        )
+    return raw, f"local process set to {raw}"
 
 
 def _handle_signal(signum, _frame):
@@ -331,10 +389,12 @@ def grade_one_pending_final() -> bool:
     return True
 
 
-def run_once(worker_token: str) -> bool:
-    """Claim and run at most one trigger, or one queued final grade."""
-    job = triggers.claim(worker_token, settings.WORKER_LEASE_SECONDS)
+def run_once(worker_token: str, scope: str = triggers.PRODUCTION) -> bool:
+    """Claim and run at most one trigger in ``scope``, or one queued final grade."""
+    job = triggers.claim(worker_token, settings.WORKER_LEASE_SECONDS, scope)
     if not job:
+        if scope != triggers.PRODUCTION:
+            return False  # uploaded finals are production data
         try:
             return grade_one_pending_final()
         except Exception as exc:
@@ -343,9 +403,22 @@ def run_once(worker_token: str) -> bool:
 
     trigger_id = str(job["id"])
     logger.info(
-        f"claimed trigger {trigger_id} kind={job['trigger_kind']} "
+        f"claimed trigger {trigger_id} scope={scope} kind={job['trigger_kind']} "
         f"by={job['requested_by']} url={job['source_url'][:80]}"
     )
+
+    # The database already refuses this; a second check costs nothing and
+    # keeps a probe URL from ever reaching main.submit_single_url.
+    if scope == triggers.PRODUCTION and triggers.is_test_url(job["source_url"]):
+        triggers.finish(
+            trigger_id, worker_token,
+            status="failed",
+            error_kind=ErrorType.VALIDATION_ERROR,
+            error_message="refused: a reserved test host is never run by the production worker",
+            result={"gate": "test_url"},
+        )
+        logger.error(f"trigger {trigger_id} refused: test URL in the production scope")
+        return True
 
     # ── Aggregate cap: enforced here, before any provider call ──
     # A user who queues forty jobs gets forty rows; every one of them passes
@@ -426,10 +499,29 @@ def main_loop() -> int:
         "discovery. Each job calls main.submit_single_url() for one URL."
     )
     worker_token = f"{os.getenv('RENDER_INSTANCE_ID') or 'local'}-{uuid.uuid4()}"
+    identity = worker_identity()
+    scope, why = resolve_worker_scope()
     logger.info(
         f"dashboard worker up (token {worker_token[:24]}…); aggregate cap "
         f"{settings.AGGREGATE_CAP_USD:.2f} USD / {settings.AGGREGATE_WINDOW_HOURS}h"
     )
+    logger.info(
+        f"QUEUE SCOPE: {scope or 'NONE (idle)'} — {why} "
+        f"[service={identity['service_name'] or '-'} id={identity['service_id'] or '-'}]"
+    )
+
+    if scope is None:
+        # Stay up and consume nothing. Exiting would make the platform restart
+        # the process in a loop (and may keep an older, consuming build live).
+        logger.critical(
+            "This worker consumes NO triggers. If this service should not exist, "
+            "delete it on Render; production jobs run only on "
+            f"{PRODUCTION_WORKER_SERVICE}."
+        )
+        while not _stop.is_set():
+            triggers.register_worker(worker_token, None, identity, note=why)
+            _stop.wait(REGISTRY_INTERVAL_SECONDS)
+        return 0
 
     probe_embeddings()
 
@@ -443,9 +535,14 @@ def main_loop() -> int:
         return 1
 
     idle = settings.WORKER_POLL_SECONDS
+    last_registered = 0.0
     while not _stop.is_set():
+        now = time.monotonic()
+        if now - last_registered >= REGISTRY_INTERVAL_SECONDS:
+            triggers.register_worker(worker_token, scope, identity, note=why)
+            last_registered = now
         try:
-            did_work = run_once(worker_token)
+            did_work = run_once(worker_token, scope)
         except triggers.QueueUnavailable as exc:
             logger.critical(str(exc))
             return 1
