@@ -4,11 +4,45 @@ Threat model: a **local** process that fetches public tender pages/PDFs/emails a
 
 ## Secrets
 
-- `.env` is gitignored and must not be committed.
-- `.env.example` is **placeholders only**. It previously contained live-looking credentials; that was a real defect and has been replaced.
-- Logs must not print full API keys. Analyzer 401 messages still use last-4 only.
+- `.env` and every `.env.*` except `.env.example` are gitignored (and
+  dockerignored). `tests/test_secret_scan.py::test_env_files_are_ignored`
+  fails if that ever changes.
+- `.env.example` is **placeholders only**.
+- Logs must not print full API keys. Analyzer 401 messages use last-4 only.
 - Do not dump full ToR text into structured log lines (`utils/observability.log_stage` truncates field values).
 
+### Secret scanning
+
+`scripts/secret_scan.py` (stdlib only) knows the formats this project uses:
+Anthropic, OpenAI, Airtable PAT, Supabase JWT / `sb_secret_` / `sbp_`,
+Resend, Google OAuth client secret, GitHub tokens, private key blocks,
+Postgres URLs with a password, and any `*_PASSWORD` / `*_SECRET` /
+`*_API_KEY` / `*_SERVICE_KEY` assignment with a non-placeholder value. It
+reports rule, location and a sha256 fingerprint. It never prints a value.
+
+| Where | Command |
+|---|---|
+| pre-commit (per clone: `git config core.hooksPath .githooks`) | `scripts/secret_scan.py --staged` |
+| CI job `secret-scan` | `--tree`, `--history` (all refs, every blob), then gitleaks `detect --redact` over full history |
+
+A deliberate fake in a test is built at runtime, or its line carries the
+comment `secret-scan: allow`.
+
+### 2026-10-28 exposure (public repository)
+
+`cortechcg/BD-Intelligence-System` is **public**. Before the 2026-10-28
+scrub, history contained `.env` (added in the first commit, 2e34fa6) and a
+`.env.example` with live values (from c2f6b2f / 39a370c onward). Values
+found, by name: `SUPABASE_SERVICE_KEY` (two distinct values),
+`ANTHROPIC_API_KEY` (two), `OPENAI_API_KEY` (two), `AIRTABLE_API_KEY` (two
+PATs), `RESEND_API_KEY`, `GMAIL_APP_PASSWORD`, `IMAP_PASSWORD`. On
+2026-10-28 the Airtable PAT, Supabase service key, Gmail app password and
+IMAP password in the working `.env` were **still the leaked values**.
+
+A history rewrite removes the values from future clones only. Anyone who
+cloned or forked before it, and GitHub's cached commit views, still have
+them. Every value above must be treated as compromised and rotated at the
+provider; the rewrite is hygiene, not remediation.
 ## Untrusted document content
 
 Scraped PDFs, HTML, Google Drive files, and newsletter blurbs are **data**.
@@ -45,7 +79,7 @@ This is **not** a kernel namespace, cgroup memory kill, or gVisor jail.
 
 ## CI dependency scan
 
-`.github/workflows/ci.yml` runs `pip-audit -r requirements.txt` then pytest
+`.github/workflows/ci.yml` runs the secret scan (above), then `pip-audit -r requirements.txt` then pytest
 excluding `tests/test_live_supabase_stages.py` (CI must not write hosted
 `opportunity_processing`).
 A 2026-09-15 scan reported PYSEC findings in `cryptography` 49.0.0,

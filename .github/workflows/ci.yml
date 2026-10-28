@@ -5,6 +5,27 @@ on:
   pull_request:
 
 jobs:
+  # Fails while any live credential is reachable in the tree or in history.
+  # Values are never printed: our scanner shows fingerprints, gitleaks runs
+  # with --redact.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Secret scan (working tree)
+        run: python scripts/secret_scan.py --tree
+      - name: Secret scan (full history, all refs)
+        run: python scripts/secret_scan.py --history
+      - name: gitleaks (full history)
+        run: |
+          docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.18.4 \
+            detect --source /repo --redact --no-banner --verbose
+
   test-and-audit:
     runs-on: ubuntu-latest
     steps:

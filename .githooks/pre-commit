@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuse a commit that stages a live credential. Enable once per clone:
+#   git config core.hooksPath .githooks
+# Prints rule + fingerprint only, never the value (scripts/secret_scan.py).
+set -e
+PY="${PYTHON:-}"
+for candidate in .venv/bin/python cortech/bin/python python3 python; do
+    if [ -z "$PY" ] && command -v "$candidate" >/dev/null 2>&1; then PY="$candidate"; fi
+done
+exec "$PY" scripts/secret_scan.py --staged
