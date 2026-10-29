@@ -303,14 +303,17 @@ def install_fixtures():
     track_record.load_track_record = lambda: track_record.build_track_record(SAMPLE_TRACK_ROWS)
 
     app_module._library_client = lambda: object()
-    def _list_documents(sb, tab="proposals", filters=None):
+    def _list_documents(sb, tab="proposals", filters=None, limit=200):
         if tab == "cvs":
             return list(LIBRARY_CVS)
+        if tab == "all":
+            return list(LIBRARY_ROWS) + list(LIBRARY_CVS)
         if tab == "processing":
             return [r for r in LIBRARY_ROWS + LIBRARY_CVS if r["status"] in ("queued", "embedding", "processing")]
         return list(LIBRARY_ROWS)
 
     library_mod.list_documents = _list_documents
+    library_mod.census_rows = lambda sb: list(LIBRARY_ROWS) + list(LIBRARY_CVS)
     return app_module
 
 

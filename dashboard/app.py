@@ -1067,18 +1067,18 @@ def library_page(request: Request):
     tab, filters = _library_filters(request, session)
     try:
         supabase = _library_client()
-        everything = library_mod.list_documents(supabase)
+        census = library_mod.census_rows(supabase)
         rows = library_mod.list_documents(supabase, tab=tab, filters=filters)
         available = True
         reason = ""
-        tally = library_mod.counts(everything)
+        tally = library_mod.counts(census)
     except Exception as exc:
-        rows, everything = [], []
+        rows, census = [], []
         available = False
         reason = "The library tables are not available yet. Apply supabase_migration_knowledge_library.sql."
         tally = {"proposals_ready": 0, "proposals_processing": 0, "cv_consultants": 0, "cvs_ready": 0}
         logger.warning(f"library page unavailable: {type(exc).__name__}")
-    processing = any(row.get("status") in ("uploaded", "queued", "extracting", "embedding") for row in everything)
+    processing = any(row.get("status") in ("uploaded", "queued", "extracting", "embedding") for row in census)
     ctx.update({
         "tab": tab,
         "rows": rows,
@@ -1096,8 +1096,9 @@ def api_library(request: Request, session: dict = Depends(require_session)):
     from dashboard import library as library_mod
 
     tab, filters = _library_filters(request, session)
-    rows = library_mod.list_documents(_library_client(), tab=tab, filters=filters)
-    return {"tab": tab, "documents": rows, "counts": library_mod.counts(rows)}
+    supabase = _library_client()
+    rows = library_mod.list_documents(supabase, tab=tab, filters=filters)
+    return {"tab": tab, "documents": rows, "counts": library_mod.census_counts(supabase)}
 
 
 @app.get("/api/library/{document_id}")

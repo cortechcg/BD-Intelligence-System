@@ -466,7 +466,16 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def list_documents(supabase, *, tab: str = "proposals", filters: dict | None = None) -> list[dict]:
+CENSUS_LIMIT = 5000
+
+
+def list_documents(
+    supabase,
+    *,
+    tab: str = "proposals",
+    filters: dict | None = None,
+    limit: int = 200,
+) -> list[dict]:
     filters = filters or {}
     query = supabase.table("library_documents").select("*").is_("archived_at", "null")
     if tab == "cvs":
@@ -477,6 +486,7 @@ def list_documents(supabase, *, tab: str = "proposals", filters: dict | None = N
         query = query.eq("uploaded_by_email", filters["uploader"])
     elif tab == "processing":
         query = query.in_("status", ["uploaded", "queued", "extracting", "embedding"])
+    # tab == "all" keeps every kind; that list is the KPI census, not a tab.
     for key, column in (
         ("donor", "donor"),
         ("country", "country"),
@@ -489,7 +499,7 @@ def list_documents(supabase, *, tab: str = "proposals", filters: dict | None = N
             continue
         if filters.get(key):
             query = query.eq(column, filters[key])
-    found = query.order("created_at", desc=True).limit(200).execute()
+    found = query.order("created_at", desc=True).limit(limit).execute()
     rows = _rows(found)
     needle = str(filters.get("q") or "").strip().lower()
     sector = str(filters.get("sector") or "").strip().lower()
@@ -521,6 +531,23 @@ def counts(rows: list[dict]) -> dict:
         "cv_consultants": len(consultants),
         "cvs_ready": len(ready_cvs),
     }
+
+
+def census_rows(supabase) -> list[dict]:
+    """Slim rows for the KPI strip. Does not load file text or tab filters."""
+    found = (
+        supabase.table("library_documents")
+        .select("kind,status,consultant_id")
+        .is_("archived_at", "null")
+        .limit(CENSUS_LIMIT)
+        .execute()
+    )
+    return _rows(found)
+
+
+def census_counts(supabase) -> dict:
+    """KPI totals across kinds. The open tab is filtered; these figures are not."""
+    return counts(census_rows(supabase))
 
 
 def run_library_ingest(job: dict) -> dict:

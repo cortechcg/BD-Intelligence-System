@@ -39,9 +39,10 @@ def client(monkeypatch):
 
 def _patch(monkeypatch, rows):
     monkeypatch.setattr(app_module, "_library_client", lambda: object())
-    monkeypatch.setattr(library_mod, "list_documents", lambda _s, tab="proposals", filters=None: [
+    monkeypatch.setattr(library_mod, "list_documents", lambda _s, tab="proposals", filters=None, limit=200: [
         r for r in rows if (r["kind"] == "cv") == (tab == "cvs")
-    ] if tab in ("proposals", "cvs") else list(rows) if tab == "mine" else [])
+    ] if tab in ("proposals", "cvs") else list(rows) if tab in ("mine", "all") else [])
+    monkeypatch.setattr(library_mod, "census_rows", lambda _s: list(rows))
     monkeypatch.setattr(library_mod, "counts", lambda _r: {
         "proposals_ready": 2, "proposals_processing": 0, "cv_consultants": 1, "cvs_ready": 1,
     })
@@ -91,6 +92,27 @@ def test_cv_rows_have_no_outcome_control(client, monkeypatch):
     html = client.get("/library?tab=cvs").text
     assert "Amina Njoroge" in html
     assert "/library/c1/update" not in html
+
+
+def test_kpi_counts_cvs_on_the_proposals_tab(client, monkeypatch):
+    monkeypatch.setattr(app_module, "_library_client", lambda: object())
+    rows = [PROPOSAL, UNMARKED, CV]
+
+    def fake_list(_s, tab="proposals", filters=None, limit=200):
+        if tab == "cvs":
+            return [CV]
+        if tab == "proposals":
+            return [PROPOSAL, UNMARKED]
+        return []
+
+    monkeypatch.setattr(library_mod, "list_documents", fake_list)
+    monkeypatch.setattr(library_mod, "census_rows", lambda _s: rows)
+    html = client.get("/library").text
+    assert "WASH baseline, Kenya" in html
+    assert "Amina Njoroge" not in html
+    cvs = html.split('figure__label">CVs</div>', 1)[1].split("figure__sub", 1)[0]
+    assert ">1</div>" in cvs
+    assert "consultants · 1 ready" in html
 
 
 def test_empty_and_unavailable_states(client, monkeypatch):

@@ -410,6 +410,24 @@ def test_triggers_paused_refuses_the_upload(monkeypatch):
     assert "paused" in refused["reason"].lower()
 
 
+def test_census_counts_include_cvs_when_the_open_tab_is_proposals():
+    db = _DB()
+    db.documents = [
+        {"id": "p1", "kind": "proposal", "status": "ready", "consultant_id": None},
+        {"id": "c1", "kind": "cv", "status": "ready", "consultant_id": "k1"},
+        {"id": "c2", "kind": "cv", "status": "ready", "consultant_id": "k2"},
+        {"id": "c3", "kind": "cv", "status": "queued", "consultant_id": "k3"},
+        {"id": "old", "kind": "cv", "status": "ready", "consultant_id": "k4", "archived_at": "2026-01-01"},
+    ]
+    on_proposals_tab = library.counts(library.list_documents(db))
+    assert on_proposals_tab["proposals_ready"] == 1
+    assert on_proposals_tab["cvs_ready"] == 0
+    tally = library.census_counts(db)
+    assert tally["proposals_ready"] == 1
+    assert tally["cvs_ready"] == 2
+    assert tally["cv_consultants"] == 2
+
+
 def test_library_page_renders_empty(env=None):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
 
