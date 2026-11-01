@@ -1384,7 +1384,7 @@ def get_pipeline_summary() -> dict:
                         "score": score,
                         "days_left": days_left,
                     })
-            except:
+            except Exception:  # skip a malformed record, never abort the digest
                 pass
 
     return stats
