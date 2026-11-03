@@ -1,3 +1,4 @@
+import re
 # database/supabase_client.py
 from datetime import datetime, timezone
 
@@ -325,28 +326,71 @@ def upsert_cv_embedding(
         raise
 
 
+def dedupe_consultant_matches(rows: list[dict] | None, limit: int) -> list[dict]:
+    """Keep each consultant's best-scoring chunk only.
+
+    cv_embeddings stores several chunks per CV (160 chunks for 71 people), so
+    the raw RPC top-N is often the same person 2-3 times, leaving no real
+    alternatives for a role. Rows come back ordered by similarity; keep the
+    first per consultant id (or name when the id is missing).
+    """
+    seen: set[str] = set()
+    out: list[dict] = []
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        keys = {k for k in (
+            str(row.get("airtable_consultant_id") or ""),
+            normalize_person_name(row.get("consultant_name")),
+        ) if k}
+        if not keys or keys & seen:
+            continue
+        seen |= keys
+        out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+_NAME_TITLES = {"dr", "eng", "prof", "professor", "mr", "mrs", "ms", "miss"}
+
+
+def normalize_person_name(name) -> str:
+    """Order-insensitive name key: 'Dr. Akama Maiko Erick' == 'Erick Maiko Akama'.
+
+    The same consultant is in cv_embeddings under several Airtable ids and
+    name orderings (45 of 71 names have more than one id), so id alone does
+    not collapse duplicates.
+    """
+    tokens = re.findall(r"[a-z]+", str(name or "").lower())
+    tokens = [t for t in tokens if t not in _NAME_TITLES]
+    return " ".join(sorted(tokens))
+
+
 def search_consultants(
     query_text: str,
     match_threshold: float = 0.65,
     match_count: int = 5
 ) -> list[dict]:
-    """Semantic search for consultants matching a role requirement."""
-    try:
-        query_embedding = get_embedding(query_text)
+    """Semantic search for consultants matching a role requirement.
 
+    Returns up to match_count DISTINCT consultants. An RPC/database failure
+    raises EmbeddingError (search unavailable) instead of returning [] —
+    an empty list means "nobody passed the threshold" and was turning a
+    Supabase outage into "EXTERNAL RECRUITMENT NEEDED" marked VERIFIED.
+    """
+    query_embedding = get_embedding(query_text)
+    try:
         result = supabase.rpc("match_consultants", {
             "query_embedding": query_embedding,
             "match_threshold": match_threshold,
-            "match_count": match_count,
+            # over-fetch: several chunks per CV collapse to one person below
+            "match_count": max(match_count * 5, match_count),
         }).execute()
-
-        return result.data
-
-    except EmbeddingError:
-        raise
     except Exception as e:
-        logger.error(f"Consultant search failed: {e}")
-        return []
+        logger.error(f"Consultant search failed: {type(e).__name__}: {e}")
+        raise EmbeddingError(f"match_consultants RPC failed: {type(e).__name__}") from e
+    return dedupe_consultant_matches(result.data, match_count)
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
