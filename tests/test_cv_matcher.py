@@ -248,3 +248,89 @@ def test_lexical_fallback_counts_at_half_credit_and_inferred_in_the_score():
 
     f = _team_capacity_factor({"coverage_percent": 100, "gaps": [], "lexical_fallback": True})
     assert f["status"] == "INFERRED" and f["value"] == 50.0
+
+
+def test_semantic_match_prefers_unassigned_consultant(monkeypatch):
+    from intelligence import cv_matcher
+
+    star = {"consultant_name": "Star", "airtable_consultant_id": "recA", "similarity": 0.75}
+    other = {"consultant_name": "Other", "airtable_consultant_id": "recB", "similarity": 0.66}
+    monkeypatch.setattr(cv_matcher, "search_consultants", lambda **kw: [star, other])
+    monkeypatch.setattr(cv_matcher, "log_agent_action", lambda **kw: None, raising=False)
+    result = cv_matcher.match_team_to_requirements(
+        [{"role": "Team Leader"}, {"role": "Evaluation Specialist"}]
+    )
+    names = sorted(m["consultant_name"] for m in result["matched_team"].values())
+    assert names == ["Other", "Star"]
+    assert not any(m["shared_with_other_role"] for m in result["matched_team"].values())
+
+
+def test_semantic_match_reuses_and_flags_when_only_one_candidate(monkeypatch):
+    from intelligence import cv_matcher
+
+    star = {"consultant_name": "Star", "airtable_consultant_id": "recA", "similarity": 0.75}
+    monkeypatch.setattr(cv_matcher, "search_consultants", lambda **kw: [star])
+    monkeypatch.setattr(cv_matcher, "log_agent_action", lambda **kw: None, raising=False)
+    result = cv_matcher.match_team_to_requirements([{"role": "A"}, {"role": "B"}])
+    flags = sorted(m["shared_with_other_role"] for m in result["matched_team"].values())
+    assert flags == [False, True]
+
+
+def test_dedupe_consultant_matches_keeps_best_chunk_per_person():
+    from database.supabase_client import dedupe_consultant_matches
+
+    rows = [
+        {"consultant_name": "A", "airtable_consultant_id": "r1", "similarity": 0.7},
+        {"consultant_name": "A", "airtable_consultant_id": "r1", "similarity": 0.69},
+        {"consultant_name": "B", "airtable_consultant_id": "r2", "similarity": 0.65},
+        {"consultant_name": "c", "similarity": 0.64},
+        {"consultant_name": "C ", "similarity": 0.63},
+    ]
+    out = dedupe_consultant_matches(rows, 5)
+    assert [r["consultant_name"] for r in out] == ["A", "B", "c"]
+    assert out[0]["similarity"] == 0.7
+    assert dedupe_consultant_matches(rows, 1) == rows[:1]
+
+
+def test_rpc_failure_is_search_unavailable_not_no_match(monkeypatch):
+    from database import supabase_client as sc
+
+    class Boom:
+        def rpc(self, *a, **k):
+            raise RuntimeError("function match_consultants does not exist")
+
+    monkeypatch.setattr(sc, "get_embedding", lambda text: [0.0] * 1536)
+    monkeypatch.setattr(sc, "supabase", Boom())
+    import pytest
+    with pytest.raises(sc.EmbeddingError):
+        sc.search_consultants("x", match_count=3)
+
+
+def test_duplicate_cvs_under_reordered_names_collapse_to_one_person():
+    from database.supabase_client import dedupe_consultant_matches, normalize_person_name
+
+    assert normalize_person_name("Dr. Akama Maiko Erick") == normalize_person_name("Erick Maiko Akama")
+    rows = [
+        {"consultant_name": "Akama Maiko Erick", "airtable_consultant_id": "r1", "similarity": 0.6},
+        {"consultant_name": "Erick Maiko Akama", "airtable_consultant_id": "r9", "similarity": 0.59},
+        {"consultant_name": "Other", "airtable_consultant_id": "r2", "similarity": 0.5},
+    ]
+    assert [r["airtable_consultant_id"] for r in dedupe_consultant_matches(rows, 5)] == ["r1", "r2"]
+
+
+def test_search_query_omits_empty_fields(monkeypatch):
+    from intelligence import cv_matcher
+
+    seen = {}
+
+    def fake_search(**kw):
+        seen.update(kw)
+        return []
+
+    monkeypatch.setattr(cv_matcher, "search_consultants", fake_search)
+    monkeypatch.setattr(cv_matcher, "log_agent_action", lambda **kw: None, raising=False)
+    cv_matcher.match_team_to_requirements([{"role": "Statistician", "required_skills": ["statistics"]}])
+    q = seen["query_text"]
+    assert "Skills required: statistics" in q
+    assert "Languages" not in q and "Education" not in q and "0+" not in q
+    assert seen["match_threshold"] == cv_matcher.CV_MATCH_THRESHOLD

@@ -2,7 +2,8 @@
 import json
 import re
 from loguru import logger
-from database.supabase_client import EmbeddingError, search_consultants
+import os
+from database.supabase_client import EmbeddingError, normalize_person_name, search_consultants
 from database.airtable_client import get_all_consultants, log_agent_action
 
 _SCORE_KEYS = (
@@ -491,6 +492,19 @@ def _lexical_slot(role: str, req: dict, consultants: list[dict], used: set[str])
     }
 
 
+def _person_key(match: dict) -> str:
+    return normalize_person_name(match.get("consultant_name")) or str(
+        match.get("airtable_consultant_id") or match.get("airtable_id") or ""
+    )
+
+
+# text-embedding-3-small cosine scores for a genuinely relevant CV against a
+# role query sit around 0.45-0.55 (measured 2026-11-03 on the live corpus:
+# best Statistics Specialist 0.53, best Market Systems 0.54). The old 0.60
+# cut-off sent those roles to "EXTERNAL RECRUITMENT NEEDED".
+CV_MATCH_THRESHOLD = float(os.getenv("CV_MATCH_THRESHOLD", "0.45"))
+
+
 def match_team_to_requirements(
     team_requirements: list[dict],
     opportunity_id: str = None,
@@ -554,22 +568,31 @@ def match_team_to_requirements(
         if isinstance(langs, str):
             langs = [langs]
 
-        search_query = f"""
-        {level} {role}
-        Skills required: {', '.join(str(s) for s in skills)}
-        Thematic / sector: {', '.join(str(t) for t in themes)}
-        Geographic experience needed: {', '.join(str(g) for g in geo)}
-        Languages: {', '.join(str(lang) for lang in langs)}
-        Years experience: {req.get('years_experience_minimum') or 0}+
-        Education: {req.get('required_education') or ''}
-        """
+        # Only include fields we actually know: empty "Languages: " /
+        # "Years experience: 0+" lines are noise that pulls the query
+        # embedding away from every CV.
+        query_lines = [f"{level} {role}"]
+        for label, values in (
+            ("Skills required", skills),
+            ("Thematic / sector", themes),
+            ("Geographic experience needed", geo),
+            ("Languages", langs),
+        ):
+            joined = ", ".join(str(v) for v in values if v)
+            if joined:
+                query_lines.append(f"{label}: {joined}")
+        if req.get("years_experience_minimum"):
+            query_lines.append(f"Years experience: {req.get('years_experience_minimum')}+")
+        if req.get("required_education"):
+            query_lines.append(f"Education: {req.get('required_education')}")
+        search_query = "\n".join(query_lines)
 
         if not search_unavailable:
             try:
                 matches = search_consultants(
                     query_text=search_query,
-                    match_threshold=0.60,
-                    match_count=3
+                    match_threshold=CV_MATCH_THRESHOLD,
+                    match_count=5,
                 )
             except EmbeddingError as e:
                 search_unavailable = True
@@ -598,7 +621,17 @@ def match_team_to_requirements(
             continue
 
         if matches:
-            best_match = matches[0] if isinstance(matches[0], dict) else {}
+            # Prefer a consultant not already staffed on another role: the
+            # same senior CV was winning Team Leader AND Evaluation
+            # Specialist, so a 4-role team was really 2 people. Reuse only
+            # when nobody else passed the threshold, and flag it.
+            assigned = {
+                _person_key(m) for m in matched_team.values() if isinstance(m, dict)
+            }
+            dict_matches = [m for m in matches if isinstance(m, dict)]
+            fresh = [m for m in dict_matches if _person_key(m) not in assigned]
+            best_match = (fresh or dict_matches or [{}])[0]
+            shared_role = bool(dict_matches) and not fresh
             try:
                 similarity = float(best_match.get("similarity") or 0)
             except (TypeError, ValueError):
@@ -616,6 +649,7 @@ def match_team_to_requirements(
                 "all_matches": matches,
                 "requirement": req,
                 "capability": score_capability_match(req, best_match),
+                "shared_with_other_role": shared_role,
             }
             logger.success(
                 f"  {role} → {name} "
