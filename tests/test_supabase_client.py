@@ -327,6 +327,50 @@ def test_record_discovered_opportunity_does_not_embed(monkeypatch):
     assert len(row["discovered_at"]) == 10
 
 
+def test_custom_source_metadata_is_required_for_a_new_discovery_row(monkeypatch):
+    from types import SimpleNamespace
+
+    attempts = []
+
+    class _Table:
+        def select(self, *_args):
+            return self
+
+        def eq(self, *_args):
+            return self
+
+        def limit(self, *_args):
+            return self
+
+        def execute(self):
+            return SimpleNamespace(data=[])
+
+        def insert(self, payload):
+            attempts.append(dict(payload))
+
+            class _Call:
+                def execute(_self):
+                    raise RuntimeError("source_metadata schema is unavailable")
+
+            return _Call()
+
+    monkeypatch.setattr(
+        supabase_client,
+        "supabase",
+        type("C", (), {"table": lambda self, _name: _Table()})(),
+    )
+    saved = supabase_client.record_discovered_opportunity(
+        "https://procurement.example/notices/17",
+        "Endline evaluation",
+        source_metadata={"configured_source_type": "custom"},
+        return_created=True,
+        require_source_metadata=True,
+    )
+    assert saved is False
+    assert len(attempts) == 1
+    assert attempts[0]["source_metadata"]["configured_source_type"] == "custom"
+
+
 def test_store_opportunity_retries_without_hash_when_column_missing(monkeypatch):
     from types import SimpleNamespace
 

@@ -30,14 +30,27 @@ _BLOCKED_HOSTS = {
     "metadata.google.internal",
     "metadata.google.com",
     "instance-data",
+    "instance-data.ec2.internal",
 }
+_BLOCKED_IPS = {
+    ipaddress.ip_address("168.63.129.16"),  # Azure platform / WireServer address
+}
+_BLOCKED_IPV6_NETWORKS = (
+    ipaddress.ip_network("64:ff9b::/96"),   # Well-known NAT64 prefix
+    ipaddress.ip_network("64:ff9b:1::/48"),  # Local-use NAT64 prefix
+    ipaddress.ip_network("2002::/16"),      # 6to4 embeds an IPv4 destination
+)
 
 
 class UnsafeURLError(ValueError):
     error_type = ErrorType.SSRF_ERROR
 
 
-def canonicalize_url(url: str) -> str:
+def canonicalize_url(
+    url: str,
+    *,
+    preserve_query_keys: set[str] | frozenset[str] = frozenset(),
+) -> str:
     """Deterministic URL key for exact-URL dedup.
 
     Does not strip tender identifiers (`id`, tokens). Strips tracking
@@ -54,13 +67,22 @@ def canonicalize_url(url: str) -> str:
     if host.startswith("www."):
         host = host[4:]
 
+    # urlparse.hostname omits the brackets required around IPv6 literals in
+    # an authority. Preserve a valid authority when canonicalizing an allowed
+    # public IPv6 URL.
+    try:
+        is_ipv6 = ipaddress.ip_address(host).version == 6
+    except ValueError:
+        is_ipv6 = False
+    authority_host = f"[{host}]" if is_ipv6 else host
+
     port = parsed.port
     if port and not (
         (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
     ):
-        netloc = f"{host}:{port}"
+        netloc = f"{authority_host}:{port}"
     else:
-        netloc = host
+        netloc = authority_host
 
     path = parsed.path or ""
     if path != "/" and path.endswith("/"):
@@ -71,9 +93,9 @@ def canonicalize_url(url: str) -> str:
     kept = []
     for key, value in parse_qsl(parsed.query, keep_blank_values=True):
         lk = key.lower()
-        if lk in TRACKING_QUERY_KEYS:
+        if lk in TRACKING_QUERY_KEYS and lk not in preserve_query_keys:
             continue
-        if any(lk.startswith(p) for p in TRACKING_QUERY_PREFIXES):
+        if any(lk.startswith(p) for p in TRACKING_QUERY_PREFIXES) and lk not in preserve_query_keys:
             continue
         kept.append((key, value))
     kept.sort(key=lambda kv: (kv[0].lower(), kv[1]))
@@ -105,6 +127,12 @@ def _ip_is_public(ip: ipaddress._BaseAddress) -> bool:
     mapped = getattr(ip, "ipv4_mapped", None)
     if mapped is not None:
         return _ip_is_public(mapped)
+    if ip in _BLOCKED_IPS:
+        return False
+    if isinstance(ip, ipaddress.IPv6Address) and any(
+        ip in network for network in _BLOCKED_IPV6_NETWORKS
+    ):
+        return False
     return bool(ip.is_global)
 
 
@@ -161,7 +189,7 @@ def assert_public_http_url(url: str, *, resolve: bool = False) -> str:
     try:
         parsed = urlparse(raw)
         # Accessing .port validates malformed/non-numeric port syntax.
-        _ = parsed.port
+        port = parsed.port
     except ValueError as exc:
         raise UnsafeURLError("malformed URL port") from exc
     scheme = (parsed.scheme or "").lower()
@@ -172,14 +200,26 @@ def assert_public_http_url(url: str, *, resolve: bool = False) -> str:
     if _host_is_blocked(host, resolve=resolve):
         raise UnsafeURLError(f"blocked host: {host}")
 
+    # Procurement feeds and public listings need only the standard web
+    # ports. Blocking alternate ports also prevents use of URL fetches as a
+    # probe against public services listening on administration ports.
+    expected_port = 80 if scheme == "http" else 443
+    if port is not None and port != expected_port:
+        raise UnsafeURLError("blocked non-standard port")
+
     # Userinfo in a tender URL is unusual and is a credential-smuggling vector.
-    if parsed.username or parsed.password:
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
         raise UnsafeURLError("URL must not contain userinfo")
 
     return raw
 
 
-def assert_safe_redirect(source_url: str, target_url: str) -> str:
+def assert_safe_redirect(
+    source_url: str,
+    target_url: str,
+    *,
+    resolve: bool = True,
+) -> str:
     """Validate a redirect target and reject HTTPS-to-HTTP downgrade hops."""
     try:
         source_scheme = (urlparse((source_url or "").strip()).scheme or "").lower()
@@ -188,7 +228,26 @@ def assert_safe_redirect(source_url: str, target_url: str) -> str:
         raise UnsafeURLError("malformed redirect URL") from exc
     if source_scheme == "https" and target_scheme == "http":
         raise UnsafeURLError("blocked HTTPS-to-HTTP redirect downgrade")
-    return assert_public_http_url(target_url, resolve=True)
+    return assert_public_http_url(target_url, resolve=resolve)
+
+
+def safe_url_log_label(url: str) -> str:
+    """Return a host-only URL label for logs; omit paths, queries, and secrets."""
+    try:
+        parsed = urlparse((url or "").strip())
+        host = parsed.hostname or "unknown-host"
+        try:
+            ip = ipaddress.ip_address(host)
+            if ip.version == 6:
+                host = f"[{host}]"
+        except ValueError:
+            pass
+        port = parsed.port
+        authority = host if port is None else f"{host}:{port}"
+        scheme = (parsed.scheme or "https").lower()
+        return f"{scheme}://{authority}"
+    except (TypeError, ValueError):
+        return "unknown-host"
 
 
 _UNSAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")

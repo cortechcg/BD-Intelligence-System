@@ -73,14 +73,17 @@ def test_post_routes_are_limited_to_queueing():
         "/library/{document_id}/update",
         "/opportunity/final-grade",
         "/opportunity/outcome", "/opportunity/outline", "/opportunity/reviewed",
+        "/sources/add", "/sources/{source_id}/enable", "/sources/{source_id}/pause",
+        "/sources/{source_id}/test",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
         "/trigger/rerun", "/trigger/retry", "/trigger/url",
     ]
     # Queue posts enqueue or cancel. Review posts record a person's decision.
     # The outline post stores chapters for a later draft. The final-grade post
     # queues a file for the worker. Library posts store a document or a
-    # consultant and may enqueue library_ingest. None calls the pipeline
-    # inline and none can act outward.
+    # consultant and may enqueue library_ingest. Source posts only change
+    # durable configuration or run a bounded preview check. None calls the
+    # opportunity pipeline inline and none can act outward.
     src = inspect.getsource(app_module)
     assert "submit_single_url" not in src
     assert "process_opportunity" not in src
@@ -115,7 +118,7 @@ def client(monkeypatch):
 
 
 def test_pages_redirect_anonymous_users_to_login(client):
-    for path in ("/", "/portfolio", "/library", "/opportunity?url=x", "/draft?url=x"):
+    for path in ("/", "/portfolio", "/library", "/sources", "/opportunity?url=x", "/draft?url=x"):
         r = client.get(path)
         assert r.status_code == 302, path
         assert r.headers["location"] == "/auth/login"
@@ -131,6 +134,10 @@ def test_trigger_posts_reject_anonymous_users(client):
     r = client.post("/trigger/url", data={"url": "https://example.org/x"})
     assert r.status_code == 302
     r = client.post("/trigger/existing", data={"source_url": "https://example.org/x"})
+    assert r.status_code == 302
+    r = client.post("/sources/add", data={"name": "Public feed", "url": "https://example.org/feed"})
+    assert r.status_code == 302
+    r = client.post("/sources/00000000-0000-0000-0000-000000000001/pause", data={})
     assert r.status_code == 302
 
 

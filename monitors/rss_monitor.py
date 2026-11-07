@@ -226,6 +226,11 @@ def monitor_rss_feeds() -> list[dict]:
                 if not link:
                     continue
 
+                try:
+                    assert_public_http_url(link, resolve=False)
+                except UnsafeURLError:
+                    logger.warning("  Skipping unsafe RSS entry link")
+                    continue
                 link = canonicalize_url(link) or link
 
                 # Dedup check

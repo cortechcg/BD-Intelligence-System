@@ -72,10 +72,10 @@
           </a>
         </div>
         <div class="t-sub mono">
-          {{ m.host(item.source_url) }}
+          {{ m.host(item.source_link or item.source_url) }}
           ·
-          <a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">
-            {% if "drive.google.com" in (item.source_url or "") or "docs.google.com" in (item.source_url or "") %}Open TOR in Drive ↗{% else %}Source ↗{% endif %}
+          <a href="{{ item.source_link or item.source_url }}" target="_blank" rel="noopener noreferrer">
+            {% if "drive.google.com" in (item.source_link or item.source_url or "") or "docs.google.com" in (item.source_link or item.source_url or "") %}Open TOR in Drive ↗{% else %}Source ↗{% endif %}
           </a>
         </div>
       </td>

@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from loguru import logger
 
 from database.supabase_client import get_supabase
-from utils.urls import canonicalize_url
+from utils.urls import canonicalize_url, safe_url_log_label
 
 CRM_STATUSES = ("New", "Reviewing", "Bidding", "Won", "Lost", "No-bid")
 OPEN_CRM_STATUSES = ("New", "Reviewing", "Bidding")
@@ -108,11 +108,14 @@ def create_opportunity(opportunity_data: dict) -> str | None:
             .execute()
         )
         if not res.data:
-            logger.warning(f"create_opportunity found no processing row for {source_url[:80]}")
+            logger.warning(
+                "create_opportunity found no processing row for "
+                f"{safe_url_log_label(source_url)}"
+            )
             return None
         return source_url
     except Exception as e:
-        logger.error(f"Failed to save opportunity status: {e}")
+        logger.error(f"Failed to save opportunity status ({type(e).__name__})")
         return None
 
 

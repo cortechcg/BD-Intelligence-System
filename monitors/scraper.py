@@ -6,6 +6,7 @@ All results pass through the same three-gate filter as RSS entries.
 """
 
 import asyncio
+import uuid
 from urllib.parse import urljoin
 
 import httpx
@@ -13,6 +14,7 @@ from playwright.async_api import async_playwright, TimeoutError as PlaywrightTim
 from bs4 import BeautifulSoup
 from loguru import logger
 from database.supabase_client import check_opportunity_exists
+from database import procurement_sources as source_registry
 from monitors.rss_monitor import quick_relevance_check
 from utils.browser_security import launch_chromium, prepare_browser_page
 from config import MAX_DOCUMENT_BYTES, MAX_DOWNLOAD_REDIRECTS
@@ -40,6 +42,8 @@ _INTERSTITIAL_MARKERS = (
     "/cdn-cgi/challenge-platform",
     "enable javascript and cookies to continue",
 )
+
+_PENDING_BUILTIN_SOURCE_RUNS: list[dict] = []
 
 
 # ── SOURCE DEFINITIONS ────────────────────────────────────────────────────────
@@ -424,12 +428,11 @@ def parse_tenders_from_html(
             continue
 
         # Build absolute URL
-        if href.startswith("http"):
-            full_url = href
-        elif href.startswith("/"):
-            full_url = base_url.rstrip("/") + href
-        else:
-            full_url = base_url.rstrip("/") + "/" + href.lstrip("/")
+        full_url = urljoin(base_url.rstrip("/") + "/", href)
+        try:
+            assert_public_http_url(full_url, resolve=False)
+        except UnsafeURLError:
+            continue
 
         # Find the title — try item's title selector, then link text
         title = ""
@@ -724,12 +727,18 @@ async def fetch_somali_tenders(timeout_ms: int) -> str | None:
 async def scrape_one_source(browser, source: dict) -> list[dict]:
     """Fetch, parse, dedupe, and filter a single scrape source."""
     name = source.get("name", "unknown")
+    source["_health_outcome"] = {
+        "success": False,
+        "items": 0,
+        "error": "The source check did not complete.",
+    }
     logger.info(f"  Scraping: {name}")
     try:
         if source.get("listing_url"):
             html = await fetch_somali_tenders(source.get("timeout", DEFAULT_TIMEOUT_MS))
             if not html:
                 logger.warning(f"  No Somali Jobs rows returned for {name} — skipping")
+                source["_health_outcome"] = {"success": False, "items": 0, "error": "The listing endpoint returned no rows."}
                 return []
             raw_items = parse_tenders_from_html(html, source)
         elif source.get("page_urls"):
@@ -755,11 +764,13 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                     raw_items.append(item)
             if not raw_items:
                 logger.warning(f"  No rows returned for {name} — skipping")
+                source["_health_outcome"] = {"success": False, "items": 0, "error": "No listing rows could be extracted."}
                 return []
         elif source.get("search_url"):
             html = await fetch_ungm_notices(source.get("timeout", DEFAULT_TIMEOUT_MS))
             if not html:
                 logger.warning(f"  No UNGM rows returned for {name} — skipping")
+                source["_health_outcome"] = {"success": False, "items": 0, "error": "The public notice search returned no rows."}
                 return []
             raw_items = listings_from_ungm_html(html, source)
         elif source.get("json_url"):
@@ -767,8 +778,9 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                 source["json_url"],
                 source.get("timeout", DEFAULT_TIMEOUT_MS),
             )
-            if not payload:
+            if payload is None:
                 logger.warning(f"  No JSON returned for {name} — skipping")
+                source["_health_outcome"] = {"success": False, "items": 0, "error": "The public listing endpoint returned no JSON."}
                 return []
             raw_items = listings_from_json(payload, source)
         else:
@@ -783,6 +795,7 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
             )
             if not html:
                 logger.warning(f"  No HTML returned for {name} — skipping")
+                source["_health_outcome"] = {"success": False, "items": 0, "error": "The public listing page returned no usable HTML."}
                 return []
             raw_items = parse_tenders_from_html(html, source)
 
@@ -799,9 +812,12 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
             passed.append(item)
 
         logger.info(f"  {name}: {len(passed)} passed filter | {filtered} rejected")
+        source["_health_outcome"] = {"success": True, "items": len(passed), "error": ""}
         return passed
     except Exception as e:
-        logger.error(f"  Scraper failed for {name} (non-fatal): {e}")
+        safe_error = f"Scraper failed ({type(e).__name__})."
+        source["_health_outcome"] = {"success": False, "items": 0, "error": safe_error}
+        logger.error(f"  Scraper failed for {name} (non-fatal): {type(e).__name__}")
         return []
 
 
@@ -810,12 +826,87 @@ async def run_all_scrapers_async() -> list[dict]:
     Runs all scrapers concurrently inside a single browser session.
     Each source gets its own tab — parallel, efficient, one browser launch.
     """
+    global _PENDING_BUILTIN_SOURCE_RUNS
+    _PENDING_BUILTIN_SOURCE_RUNS = []
+    health_rows = source_registry.ensure_builtin_sources(SCRAPE_SOURCES)
+
     async with async_playwright() as p:
-        browser = await launch_chromium(p)
+        try:
+            browser = await launch_chromium(p)
+        except Exception as exc:
+            for source in SCRAPE_SOURCES:
+                source_key = source_registry.builtin_source_key(source.get("name", ""), source.get("url", ""))
+                source_row = health_rows.get(source_key) or {}
+                source_id = str(source_row.get("id") or "")
+                token = str(uuid.uuid4())
+                if not source_id:
+                    continue
+                try:
+                    claimed = source_registry.claim_source_run(
+                        source_id, token, allow_disabled=False,
+                        respect_backoff=False, lease_seconds=120,
+                    )
+                except source_registry.SourceRegistryUnavailable:
+                    continue
+                if claimed:
+                    _PENDING_BUILTIN_SOURCE_RUNS.append({
+                        "source_id": source_id,
+                        "token": token,
+                        "success": False,
+                        "error": f"Browser initialization failed ({type(exc).__name__}).",
+                        "capability": "adapter",
+                        "preview": [],
+                        "items": [],
+                    })
+            raise
+
+        async def run_with_health(source: dict) -> list[dict]:
+            source_key = source_registry.builtin_source_key(source.get("name", ""), source.get("url", ""))
+            source_row = health_rows.get(source_key) or {}
+            source_id = str(source_row.get("id") or "")
+            token = str(uuid.uuid4())
+            claimed = False
+            if source_id:
+                try:
+                    claimed = source_registry.claim_source_run(
+                        source_id, token, allow_disabled=False,
+                        respect_backoff=False, lease_seconds=120,
+                    )
+                except source_registry.SourceRegistryUnavailable:
+                    claimed = False
+            if source_id and not claimed:
+                # Another scheduler process already owns this adapter check.
+                try:
+                    state = source_registry.get_source(source_id)
+                    if state and state.get("lease_expires_at"):
+                        return []
+                except Exception:
+                    pass
+            result = await scrape_one_source(browser, source)
+            outcome = source.get("_health_outcome") or {}
+            if claimed:
+                for item in result:
+                    item["_source_id"] = source_id
+                _PENDING_BUILTIN_SOURCE_RUNS.append({
+                    "source_id": source_id,
+                    "token": token,
+                    "success": bool(outcome.get("success")),
+                    "error": str(outcome.get("error") or ""),
+                    "capability": "adapter",
+                    "preview": [
+                        {
+                            "title": str(item.get("title") or "")[:240],
+                            "url": str(item.get("source_url") or "")[:1200],
+                        }
+                        for item in result[:5]
+                    ],
+                    "items": result,
+                })
+            return result
 
         results = await asyncio.gather(
             *[
-                scrape_one_source(browser, source)
+                run_with_health(source)
                 for source in SCRAPE_SOURCES
             ],
             return_exceptions=True,
@@ -829,6 +920,14 @@ async def run_all_scrapers_async() -> list[dict]:
             continue
         all_passed.extend(batch)
     return all_passed
+
+
+def take_builtin_source_runs() -> list[dict]:
+    """Transfer health leases to main.py for post-dedup finalization."""
+    global _PENDING_BUILTIN_SOURCE_RUNS
+    result = _PENDING_BUILTIN_SOURCE_RUNS
+    _PENDING_BUILTIN_SOURCE_RUNS = []
+    return result
 
 
 # ── SYNC WRAPPER (called from main.py) ───────────────────────────────────────

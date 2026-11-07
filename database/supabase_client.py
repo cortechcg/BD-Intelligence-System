@@ -1448,7 +1448,14 @@ def find_opportunity_by_content_hash(digest: str) -> Optional[dict]:
         return None
 
 
-def record_discovered_opportunity(source_url: str, title: str = "") -> bool:
+def record_discovered_opportunity(
+    source_url: str,
+    title: str = "",
+    *,
+    source_metadata: dict | None = None,
+    return_created: bool = False,
+    require_source_metadata: bool = False,
+) -> bool:
     """Remember a tender for the queue. No embedding and no model call.
 
     An existing row keeps its stored text. A blank title does not wipe a
@@ -1468,22 +1475,75 @@ def record_discovered_opportunity(source_url: str, title: str = "") -> bool:
         )
         if existing.data:
             stored = (existing.data[0].get("title") or "").strip()
+            patch = {}
             if clean_title and not stored:
-                supabase.table("opportunities_cache").update(
-                    {"title": clean_title}
-                ).eq("source_url", store_url).execute()
-            return True
+                patch["title"] = clean_title
+            if isinstance(source_metadata, dict) and source_metadata:
+                patch["source_metadata"] = source_metadata
+            if patch:
+                try:
+                    supabase.table("opportunities_cache").update(
+                        patch
+                    ).eq("source_url", store_url).execute()
+                except Exception:
+                    # The metadata column is additive. An older deployment
+                    # still keeps the discovery row and title intact.
+                    if require_source_metadata:
+                        return False
+                    patch.pop("source_metadata", None)
+                    if patch:
+                        supabase.table("opportunities_cache").update(
+                            patch
+                        ).eq("source_url", store_url).execute()
+            # Existing discovery rows are accepted for legacy callers. A
+            # source-health counter can request the insert-only result so a
+            # repeat sighting does not inflate that source's discovered count.
+            return not return_created
         discovered_on = datetime.now().strftime("%Y-%m-%d")
-        supabase.table("opportunities_cache").insert({
+        payload = {
             "source_url": store_url,
             "title": clean_title,
             "raw_text": "",
             "discovered_at": discovered_on,
-        }).execute()
+        }
+        if isinstance(source_metadata, dict) and source_metadata:
+            payload["source_metadata"] = source_metadata
+        try:
+            supabase.table("opportunities_cache").insert(payload).execute()
+        except Exception as exc:
+            if require_source_metadata:
+                logger.warning(
+                    f"Could not store required discovery metadata ({type(exc).__name__})"
+                )
+                return False
+            payload.pop("source_metadata", None)
+            supabase.table("opportunities_cache").insert(payload).execute()
         return True
     except Exception as exc:
-        logger.warning(f"Could not remember discovered opportunity (non-fatal): {exc}")
+        logger.warning(
+            f"Could not remember discovered opportunity ({type(exc).__name__}; non-fatal)"
+        )
         return False
+
+
+def load_discovered_source_metadata(source_url: str) -> dict:
+    """Load optional source identifiers for a discovery identity URL."""
+    store_url = canonicalize_url(source_url) or source_url
+    try:
+        result = (
+            supabase.table("opportunities_cache")
+            .select("source_metadata")
+            .eq("source_url", store_url)
+            .limit(1)
+            .execute()
+        )
+        rows = getattr(result, "data", None) or []
+        metadata = rows[0].get("source_metadata") if rows and isinstance(rows[0], dict) else {}
+        return metadata if isinstance(metadata, dict) else {}
+    except Exception:
+        # This column is installed with the source registry migration. Older
+        # projects keep working and simply fetch the identity URL as before.
+        return {}
 
 
 def store_opportunity(

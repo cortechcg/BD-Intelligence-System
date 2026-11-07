@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Sources · Cortech BD{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="{{ static_base }}/sources.css?v={{ static_v }}">{% endblock %}
+{% block content %}
+<header class="src-head">
+  <div>
+    <p class="eyebrow">Discovery configuration</p>
+    <h1>Procurement sources</h1>
+    <p class="src-lead">Public tender feeds and listings checked by the scheduled discovery run.</p>
+  </div>
+</header>
+
+{% if flash %}
+<div class="band {% if flash_kind == 'stop' %}band--critical{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
+{% endif %}
+
+{% if not registry_available %}
+<section class="src-notice" role="status">
+  <strong>Durable source storage is unavailable.</strong>
+  <p>{{ registry_reason }} Built-in sources remain visible; custom sources cannot be saved until the migration is applied.</p>
+</section>
+{% endif %}
+
+<section class="src-add" aria-labelledby="src-add-title">
+  <div class="src-add__copy">
+    <p class="src-kicker">Add a source</p>
+    <h2 id="src-add-title">Connect a public procurement listing</h2>
+    <p>RSS/Atom feeds and reliably extractable public listing pages are supported. A check runs before activation. Login-only, CAPTCHA-blocked and adapter-required portals stay paused.</p>
+  </div>
+  <form class="src-form" method="post" action="/sources/add">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Source name <input name="name" maxlength="160" required placeholder="e.g. County procurement notices"></label>
+    <label>Feed or listing URL <input name="url" type="text" inputmode="url" maxlength="2048" required placeholder="https://example.org/procurement"></label>
+    <button class="btn" type="submit" {% if not registry_available %}disabled{% endif %}>Check and add</button>
+    <p class="src-form__hint">One public page per run. The monitor follows at most two checked redirects and does not sign in or bypass access controls.</p>
+  </form>
+</section>
+
+<section class="src-list" aria-labelledby="src-list-title">
+  <div class="src-list__head">
+    <div><p class="src-kicker">Source health</p><h2 id="src-list-title">Configured monitors</h2></div>
+    <span class="src-count">{{ sources | length }} sources</span>
+  </div>
+  {% if not sources %}
+  <div class="src-empty"><h3>No sources are registered</h3><p>Built-in adapters will appear here after their source registry row is created.</p></div>
+  {% else %}
+  <div class="src-cards">
+    {% for source in sources %}
+    {% set cap_label = {
+      "rss_atom": "RSS / Atom",
+      "public_listing": "Public listing",
+      "authentication_required": "Authentication required",
+      "access_restricted": "Access restricted",
+      "captcha_blocked": "CAPTCHA blocked",
+      "adapter_required": "Adapter required",
+      "unsupported": "Unsupported",
+      "network_error": "Could not verify",
+      "checking": "Check pending",
+      "adapter": "Built-in adapter",
+      "Built-in adapter": "Built-in adapter"
+    }.get(source.capability, source.capability or "Not checked") %}
+    <article class="src-card{% if not source.enabled %} is-paused{% endif %}">
+      <div class="src-card__main">
+        <div class="src-card__titleline">
+          <h3>{{ source.name }}</h3>
+          {% if source.source_type == "builtin" %}<span class="src-tag">Built in</span>{% else %}<span class="src-tag src-tag--custom">Custom</span>{% endif %}
+          <span class="src-state{% if source.enabled %} src-state--on{% endif %}">{{ "Enabled" if source.enabled else "Paused" }}</span>
+        </div>
+        <a class="src-url" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">{{ source.url }}</a>
+        <div class="src-cap"><span>Capability</span><strong>{{ cap_label }}</strong></div>
+        <dl class="src-health">
+          <div><dt>Last attempt</dt><dd>{{ source.last_attempt_at[:19].replace("T", " ") if source.last_attempt_at else "Never" }}</dd></div>
+          <div><dt>Last successful check</dt><dd>{{ source.last_success_at[:19].replace("T", " ") if source.last_success_at else "Never" }}</dd></div>
+          <div><dt>Discovered</dt><dd>{{ source.discovered_count or 0 }}</dd></div>
+        </dl>
+        {% if source.last_error %}<p class="src-error"><strong>Needs attention</strong> {{ source.last_error }}</p>{% endif %}
+        {% if source.last_preview %}
+        <details class="src-preview">
+          <summary>Last preview · {{ source.last_preview | length }} item(s)</summary>
+          <ul>{% for item in source.last_preview[:5] %}<li><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>{% if item.procurement_identifier %}<span>Ref {{ item.procurement_identifier }}</span>{% endif %}{% if item.lot_id %}<span>Lot {{ item.lot_id }}</span>{% endif %}{% if item.addendum_id %}<span>Addendum {{ item.addendum_id }}</span>{% endif %}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
+      </div>
+      {% if source.source_type == "custom" and registry_available %}
+      <div class="src-actions">
+        <form method="post" action="/sources/{{ source.id }}/test"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn--quiet" type="submit">Test source</button></form>
+        {% if source.enabled %}
+        <form method="post" action="/sources/{{ source.id }}/pause"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn btn--quiet" type="submit">Pause</button></form>
+        {% elif source.capability in ("rss_atom", "public_listing") %}
+        <form method="post" action="/sources/{{ source.id }}/enable"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="btn" type="submit">Validate and enable</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

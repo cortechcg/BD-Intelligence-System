@@ -211,6 +211,8 @@ def _ledger_row_to_item(row: dict) -> dict:
 
 def _cache_row_to_item(row: dict) -> dict:
     url = row.get("source_url") or ""
+    metadata = row.get("source_metadata") if isinstance(row.get("source_metadata"), dict) else {}
+    source_link = str(metadata.get("original_source_url") or url)
     title = (row.get("title") or "").strip()
     # Discovery writes the literal placeholder "Unknown" when it has no title.
     # That is an absence, not a title, and must not render as one.
@@ -219,6 +221,8 @@ def _cache_row_to_item(row: dict) -> dict:
     no_ledger = "no ledger row, never claimed for processing"
     return {
         "source_url": url,
+        "source_link": source_link,
+        "source_metadata": metadata,
         "canonical_url": _canon(url),
         "has_ledger": False,
         "title": cell(
@@ -289,16 +293,29 @@ def list_cache_without_ledger(limit: int = 50, scan: int = 2000) -> tuple[list[d
     """
     sb = get_supabase()
     known = _ledger_urls()
-    res = (
-        sb.table("opportunities_cache")
-        .select(
-            "source_url,title,donor,discovered_at,processed_at,airtable_opportunity_id",
-            count="exact",
+    selection = "source_url,title,donor,discovered_at,processed_at,airtable_opportunity_id,source_metadata"
+    try:
+        res = (
+            sb.table("opportunities_cache")
+            .select(selection, count="exact")
+            .order("discovered_at", desc=True, nullsfirst=False)
+            .limit(scan)
+            .execute()
         )
-        .order("discovered_at", desc=True, nullsfirst=False)
-        .limit(scan)
-        .execute()
-    )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "source_metadata" not in message or not any(mark in message for mark in ("pgrst204", "column", "schema cache")):
+            raise
+        res = (
+            sb.table("opportunities_cache")
+            .select(
+                "source_url,title,donor,discovered_at,processed_at,airtable_opportunity_id",
+                count="exact",
+            )
+            .order("discovered_at", desc=True, nullsfirst=False)
+            .limit(scan)
+            .execute()
+        )
     total = res.count if res.count is not None else len(res.data or [])
     waiting = [
         row for row in (res.data or [])
@@ -409,16 +426,32 @@ def _ledger_one(source_url: str) -> dict | None:
 def _cache_one(source_url: str) -> dict | None:
     sb = get_supabase()
     canonical = _canon(source_url)
-    res = (
-        sb.table("opportunities_cache")
-        .select(
-            "source_url,title,donor,thematic_areas,locations,discovered_at,"
-            "processed_at,content_hash,airtable_opportunity_id"
-        )
-        .eq("source_url", canonical)
-        .limit(1)
-        .execute()
+    selection = (
+        "source_url,title,donor,thematic_areas,locations,discovered_at,"
+        "processed_at,content_hash,airtable_opportunity_id,source_metadata"
     )
+    try:
+        res = (
+            sb.table("opportunities_cache")
+            .select(selection)
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        message = str(exc).lower()
+        if "source_metadata" not in message or not any(mark in message for mark in ("pgrst204", "column", "schema cache")):
+            raise
+        res = (
+            sb.table("opportunities_cache")
+            .select(
+                "source_url,title,donor,thematic_areas,locations,discovered_at,"
+                "processed_at,content_hash,airtable_opportunity_id"
+            )
+            .eq("source_url", canonical)
+            .limit(1)
+            .execute()
+        )
     rows = res.data or []
     return rows[0] if rows else None
 
@@ -598,7 +631,17 @@ def opportunity_detail(source_url: str) -> dict | None:
             rec_outline = None
 
     detail = dict(item)
+    cache_metadata = (cache or {}).get("source_metadata")
+    if not isinstance(cache_metadata, dict):
+        cache_metadata = {}
     detail.update({
+        "source_link": str(
+            cache_metadata.get("original_source_url")
+            or item.get("source_link")
+            or item.get("source_url")
+            or ""
+        ),
+        "source_metadata": cache_metadata,
         "scored": scored,
         "has_draft": bool(sections),
         "quality_gate": _quality_gate(analysis, sections),

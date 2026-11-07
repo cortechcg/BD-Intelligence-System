@@ -7,7 +7,9 @@
 {% set human_done = d.stage.value in ("reviewed", "outcome") %}
 {% set rec_name = (d.recommendation.value or "") %}
 {% set ready_for_outline = (d.stage.value in ("scored", "drafted", "reviewed", "outcome") or d.recommended_outline or d.accepted_outline) and rec_name != "NO-BID" %}
-{% set is_drive = "drive.google.com" in (d.source_url or "") or "docs.google.com" in (d.source_url or "") %}
+{% set source_link = d.source_link or d.source_url %}
+{% set source_metadata = d.get("source_metadata", {}) or {} %}
+{% set is_drive = "drive.google.com" in (source_link or "") or "docs.google.com" in (source_link or "") %}
 
 {% macro run_controls() %}
 <div class="score-band__rail">
@@ -146,8 +148,11 @@
       <div class="doc-chip__body">
         <div class="doc-chip__name">{{ d.title.value or "Terms of Reference" }}</div>
         <div class="doc-chip__meta">
-          {{ m.host(d.source_url) }} ·
-          <a href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">{% if is_drive %}Open TOR in Drive ↗{% else %}Open the source ↗{% endif %}</a>
+          {{ m.host(source_link) }} ·
+          <a href="{{ source_link }}" target="_blank" rel="noopener noreferrer">{% if is_drive %}Open TOR in Drive ↗{% else %}Open the source ↗{% endif %}</a>
+          {% if source_metadata.procurement_identifier %} · Ref {{ source_metadata.procurement_identifier }}{% endif %}
+          {% if source_metadata.lot_id %} · Lot {{ source_metadata.lot_id }}{% endif %}
+          {% if source_metadata.addendum_id %} · Addendum {{ source_metadata.addendum_id }}{% endif %}
         </div>
       </div>
     </div>
@@ -485,7 +490,7 @@
     </div>
     <div class="decision__actions">
       <a class="btn" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
-      {% if is_drive %}<a class="btn btn--quiet" href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">Open TOR in Drive ↗</a>{% endif %}
+      {% if is_drive %}<a class="btn btn--quiet" href="{{ source_link }}" target="_blank" rel="noopener noreferrer">Open TOR in Drive ↗</a>{% endif %}
       <div class="decision__marks">
         <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -736,12 +741,12 @@
     <a class="backlink" href="{{ url_queue }}#stage-2-opportunities">← Opportunities</a>
     <h1 class="doc">{{ m.doc_value(d.title, "Untitled tender") }}</h1>
     <ul class="view-head__meta">
-      <li>{{ m.host(d.source_url) }}</li>
+      <li>{{ m.host(source_link) }}</li>
       <li>Client {{ m.value_terse(d.client) }}</li>
       <li>Deadline {{ m.value_terse(d.deadline) }}</li>
       {% if d.budget_usd and d.budget_usd.value is not none %}<li class="mono">USD {{ "{:,.0f}".format(d.budget_usd.value) }}</li>{% endif %}
       {% if d.submission_type and d.submission_type.value %}<li>{{ d.submission_type.value | replace("_", " ") }}</li>{% endif %}
-      <li><a href="{{ d.source_url }}" target="_blank" rel="noopener noreferrer">{% if is_drive %}Open TOR in Drive ↗{% else %}Open source ↗{% endif %}</a></li>
+      <li><a href="{{ source_link }}" target="_blank" rel="noopener noreferrer">{% if is_drive %}Open TOR in Drive ↗{% else %}Open source ↗{% endif %}</a></li>
     </ul>
   </div>
   <div class="view-head__aside">
@@ -850,7 +855,7 @@
         <dt>Content hash</dt><dd class="mono">{{ m.value(d.content_hash) }}</dd>
         <dt>Discovered</dt><dd class="mono">{{ m.value(d.discovered_at) }}</dd>
         <dt>Updated</dt><dd class="mono">{{ m.value(d.updated_at) }}</dd>
-        <dt>Source URL</dt><dd class="mono"><a href="{{ d.source_url }}" rel="noopener noreferrer nofollow" target="_blank">{{ d.source_url }}</a></dd>
+        <dt>Source URL</dt><dd class="mono"><a href="{{ source_link }}" rel="noopener noreferrer nofollow" target="_blank">{{ source_link }}</a></dd>
       </dl>
     </div>
   </details>

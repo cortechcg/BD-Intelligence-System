@@ -70,3 +70,21 @@ def test_award_relationships_migration_requires_organizations_fk():
     for token in FORBIDDEN:
         assert token not in sql
     assert "AFTER" in sql or "organizations.sql" in sql
+
+
+def test_procurement_sources_migration_is_durable_private_and_lease_safe():
+    sql = _sql("supabase_migration_procurement_sources.sql")
+    lower = sql.lower()
+    assert "create table if not exists public.procurement_sources" in lower
+    assert "url text not null unique" in sql
+    assert "last_attempt_at timestamptz" in sql
+    assert "last_success_at timestamptz" in sql
+    assert "discovered_count bigint" in sql
+    assert "enable row level security" in lower
+    assert "claim_procurement_source_run" in sql
+    assert "run_token = p_token" in sql
+    assert "60 seconds" in sql
+    assert "5 minutes" in sql and "24 hours" in sql
+    assert "pg_advisory_xact_lock" in lower and "active_count >= 4" in lower
+    assert "source_metadata jsonb" in sql
+    assert "grant execute" in lower and "service_role" in lower

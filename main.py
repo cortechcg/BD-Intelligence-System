@@ -28,6 +28,7 @@ full proposal drafted. The human reviewer decides what to submit.
 
 import os
 import sys
+from urllib.parse import parse_qs, urlparse
 import schedule
 import time
 from contextvars import ContextVar
@@ -41,7 +42,11 @@ from rich.progress import track
 
 from config import CHECK_INTERVAL_HOURS, MAX_OPPORTUNITIES_PER_RUN, RSS_FEEDS, require_env
 from monitors.rss_monitor import monitor_rss_feeds
-from monitors.scraper import scrape_non_rss_sources
+from monitors.scraper import scrape_non_rss_sources, take_builtin_source_runs
+from monitors.configurable_sources import (
+    discover_configured_sources,
+    finalize_discovery_runs,
+)
 from monitors.assortis_email import check_assortis_newsletter
 from processors.downloader import fetch_and_extract
 from intelligence.analyzer import analyze_rfp
@@ -79,6 +84,7 @@ from database.supabase_client import (
     fail_opportunity_processing,
     find_opportunity_by_content_hash,
     load_processing_snapshot,
+    load_discovered_source_metadata,
     opportunity_ledger_available,
     persist_opportunity_stage,
     record_discovered_opportunity,
@@ -224,6 +230,25 @@ def process_opportunity(
     source_url = raw_opportunity.get("source_url", "")
     dedup_url = raw_opportunity.get("dedup_url") or source_url
     dedup_url = canonicalize_url(dedup_url) or dedup_url
+    source_metadata = raw_opportunity.get("source_metadata")
+    if not isinstance(source_metadata, dict):
+        source_metadata = {}
+    try:
+        has_variant = "__cortech_variant" in parse_qs(urlparse(dedup_url).query)
+    except ValueError:
+        has_variant = False
+    if not source_metadata or (has_variant and not source_metadata.get("original_source_url")):
+        source_metadata = load_discovered_source_metadata(dedup_url)
+    original_source_url = str(source_metadata.get("original_source_url") or "").strip()
+    if original_source_url or source_metadata:
+        raw_opportunity = {
+            **raw_opportunity,
+            "source_url": original_source_url or source_url,
+            "source_metadata": source_metadata,
+            "dedup_url": dedup_url,
+        }
+        if original_source_url:
+            source_url = original_source_url
 
     claim_token = claim_opportunity_processing(
         dedup_url, title, force=force, retry_dead_letter=retry_dead_letter,
@@ -387,8 +412,24 @@ def _process_opportunity_pipeline(
                 resume_available=bool(loaded.get("resume_available")),
             )
 
+    source_metadata = raw_opportunity.get("source_metadata")
+    is_custom_source = (
+        isinstance(source_metadata, dict)
+        and source_metadata.get("configured_source_type") == "custom"
+    )
+    if is_custom_source:
+        def fetch_custom_source(url, opportunity_id=None):
+            return fetch_and_extract(
+                url,
+                opportunity_id=opportunity_id,
+                allow_browser_fallback=False,
+            )
+        fetcher = fetch_custom_source
+    else:
+        fetcher = fetch_and_extract
+
     deps = StageDeps(
-        fetch_and_extract=fetch_and_extract,
+        fetch_and_extract=fetcher,
         analyze_rfp=analyze_rfp,
         apply_bid_intelligence=apply_bid_intelligence,
         find_opportunity_by_content_hash=find_opportunity_by_content_hash,
@@ -590,6 +631,8 @@ def _run_pipeline() -> None:
     log_stage("pipeline", "start", execution_id=eid)
 
     all_new: list[dict] = []
+    configurable_runs: list[dict] = []
+    builtin_runs: list[dict] = []
 
     # ── SOURCE 1: RSS FEEDS (unused — RSS_FEEDS is empty) ─────────────────
     if RSS_FEEDS:
@@ -613,6 +656,7 @@ def _run_pipeline() -> None:
     # ── SOURCE 2: PORTAL SCRAPERS ──────────────────────────────────────────
     # Somali Jobs, AfDB, UNGM, World Bank, and the other lists in SCRAPE_SOURCES.
     logger.info("Running web scrapers...")
+    take_builtin_source_runs()  # clear any unfinished in-process lease handoff
     try:
         scraped_results = scrape_non_rss_sources()
         all_new.extend(scraped_results)
@@ -628,6 +672,23 @@ def _run_pipeline() -> None:
             )
         except Exception:
             pass
+    finally:
+        builtin_runs = take_builtin_source_runs()
+
+    # ── SOURCE 2B: DASHBOARD-CONFIGURED PUBLIC SOURCES ─────────────────────
+    # These use the same relevance, exact-URL dedup, discovery ledger, and
+    # later extraction/scoring path as the built-in adapters above.
+    try:
+        configured_results, configurable_runs = discover_configured_sources()
+        all_new.extend(configured_results)
+        logger.info(
+            f"  Configured sources: {len(configured_results)} passed filter "
+            f"across {len(configurable_runs)} checked source(s)"
+        )
+    except Exception as e:
+        # The source registry is additive. Its absence or failure must not
+        # interrupt built-in portals or Assortis discovery.
+        logger.warning(f"Configured source monitor unavailable: {type(e).__name__}")
 
     # ── SOURCE 3: ASSORTIS / ICA DAILY NEWSLETTER (EMAIL) ──────────────────
     # Reads the newsletter without setting the Seen flag. Dedup is the
@@ -670,6 +731,7 @@ def _run_pipeline() -> None:
     # Discovery only remembers the tender. Analysis, embeddings, and the
     # draft run when someone clicks Draft this.
     if not all_new:
+        finalize_discovery_runs(configurable_runs + builtin_runs, {})
         console.print(
             "[yellow]No new opportunities this run. "
             "Sending status report.[/yellow]"
@@ -681,13 +743,39 @@ def _run_pipeline() -> None:
         return
 
     saved = 0
+    configurable_counts: dict[str, int] = {}
     for opp in all_new:
         url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url") or "") or (
             opp.get("dedup_url") or opp.get("source_url") or ""
         )
         title = opp.get("title") if isinstance(opp.get("title"), str) else ""
-        if record_discovered_opportunity(url, title):
+        source_id = str(opp.get("_source_id") or "")
+        source_metadata = {
+            key: str(opp.get(key) or "")[:200]
+            for key in ("procurement_identifier", "lot_id", "addendum_id", "published")
+            if opp.get(key)
+        }
+        if opp.get("_source_type") == "custom":
+            source_metadata["configured_source_type"] = "custom"
+        if opp.get("original_source_url"):
+            source_metadata["original_source_url"] = str(opp["original_source_url"])[:1200]
+        source_metadata["source_portal"] = str(opp.get("source_portal") or "")[:160]
+        if source_id:
+            recorded = record_discovered_opportunity(
+                url,
+                title,
+                source_metadata=source_metadata,
+                return_created=True,
+                require_source_metadata=opp.get("_source_type") == "custom",
+            )
+        else:
+            recorded = record_discovered_opportunity(url, title)
+        if recorded:
             saved += 1
+            if source_id:
+                configurable_counts[source_id] = configurable_counts.get(source_id, 0) + 1
+
+    finalize_discovery_runs(configurable_runs + builtin_runs, configurable_counts)
 
     console.print(Panel.fit(
         f"[bold green]Discovery saved[/bold green]\n"

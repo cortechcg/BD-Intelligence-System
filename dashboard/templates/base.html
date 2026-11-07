@@ -46,6 +46,10 @@
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
       <span>Library</span>
     </a>
+    <a href="{{ url_sources }}" {% if view == 'sources' %}aria-current="page"{% endif %}>
+      <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
+      <span>Sources</span>
+    </a>
     <a href="{{ url_track_record }}" {% if view == 'track' %}aria-current="page"{% endif %}>
       <span class="nav__icon nav__icon--portfolio" aria-hidden="true"></span>
       <span>Track record</span>
@@ -95,7 +99,7 @@
   <div class="masthead__in">
     <div class="masthead__context">
       <span class="masthead__context-label">Bid intelligence</span>
-      <span class="masthead__context-title">{% if view == 'portfolio' %}Portfolio overview{% elif view == 'track' %}Track record{% elif view == 'library' %}Knowledge Library{% elif has_d %}Opportunity workspace{% elif job is defined and job %}Run monitor{% else %}Opportunity pipeline{% endif %}</span>
+         <span class="masthead__context-title">{% if view == 'portfolio' %}Portfolio overview{% elif view == 'track' %}Track record{% elif view == 'library' %}Knowledge Library{% elif view == 'sources' %}Procurement sources{% elif has_d %}Opportunity workspace{% elif job is defined and job %}Run monitor{% else %}Opportunity pipeline{% endif %}</span>
     </div>
 
     {% if view in ('library', 'track') %}<span aria-hidden="true"></span>{% else %}
@@ -164,7 +168,7 @@
     </div>
   </div>
 </header>
-{% if view not in ('library', 'track') %}<ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
+{% if view not in ('library', 'track', 'sources') %}<ol class="stage-progress" aria-label="Stage {{ active_stage }} of 5">
   {% for s_num in range(1, 6) %}
   <li class="stage-progress__seg {% if s_num < active_stage %}is-done{% elif s_num == active_stage %}is-current{% endif %}"
       title="Stage {{ s_num }} of 5"></li>

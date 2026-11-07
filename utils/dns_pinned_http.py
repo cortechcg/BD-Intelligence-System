@@ -11,6 +11,7 @@ import http.client
 import ipaddress
 import socket
 import ssl
+import time
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -68,7 +69,8 @@ def pin_public_http_target(url: str, *, resolver=None) -> PinnedTarget:
     path = parsed.path or "/"
     if parsed.query:
         path = f"{path}?{parsed.query}"
-    host_header = hostname if parsed.port is None else f"{hostname}:{parsed.port}"
+    host_authority = f"[{hostname}]" if ":" in hostname else hostname
+    host_header = host_authority if parsed.port is None else f"{host_authority}:{parsed.port}"
     return PinnedTarget(
         url=raw,
         scheme=scheme,
@@ -113,8 +115,24 @@ def exchange(
     timeout: float = 60.0,
     max_bytes: int | None = None,
     resolver=None,
+    max_elapsed_seconds: float | None = None,
 ) -> PinnedResponse:
     """One GET against the pinned IP. Redirects are not followed."""
+    started = time.monotonic()
+    deadline = (
+        started + max(0.1, float(max_elapsed_seconds))
+        if max_elapsed_seconds is not None
+        else None
+    )
+
+    def remaining_timeout() -> float:
+        if deadline is None:
+            return max(0.1, float(timeout))
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("HTTP request exceeded its total time limit")
+        return min(max(0.1, float(timeout)), remaining)
+
     pin = pin_public_http_target(url, resolver=resolver)
     request_headers = dict(headers or {})
     request_headers.setdefault("Host", pin.host_header)
@@ -131,7 +149,16 @@ def exchange(
         raise UnsafeURLError(f"blocked scheme: {pin.scheme}")
 
     try:
+        # Connect ourselves so the socket can use the remaining wall-clock
+        # budget for both connect and each response read, not a fresh timeout
+        # for every trickled chunk.
+        conn.timeout = remaining_timeout()
+        conn.connect()
+        if conn.sock is not None:
+            conn.sock.settimeout(remaining_timeout())
         conn.request("GET", pin.request_path, headers=request_headers)
+        if conn.sock is not None:
+            conn.sock.settimeout(remaining_timeout())
         response = conn.getresponse()
         header_map = {k.lower(): v for k, v in response.getheaders()}
         declared = header_map.get("content-length")
@@ -148,6 +175,8 @@ def exchange(
         chunks: list[bytes] = []
         total = 0
         while True:
+            if conn.sock is not None:
+                conn.sock.settimeout(remaining_timeout())
             chunk = response.read(65536)
             if not chunk:
                 break

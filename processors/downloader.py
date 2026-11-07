@@ -24,7 +24,13 @@ from config import (
 from utils.dns_pinned_http import exchange as dns_pinned_exchange
 from utils.errors import ErrorType
 from utils.browser_security import launch_chromium, prepare_browser_page
-from utils.urls import UnsafeURLError, assert_public_http_url, assert_safe_redirect, safe_filename
+from utils.urls import (
+    UnsafeURLError,
+    assert_public_http_url,
+    assert_safe_redirect,
+    safe_filename,
+    safe_url_log_label,
+)
 
 HTTP_HEADERS = {
     "User-Agent": (
@@ -63,6 +69,7 @@ def _download_document_once(url: str) -> bytes:
                 headers=HTTP_HEADERS,
                 timeout=DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS,
                 max_bytes=MAX_DOCUMENT_BYTES,
+                max_elapsed_seconds=DOCUMENT_DOWNLOAD_TIMEOUT_SECONDS,
             )
         except TimeoutError as exc:
             raise httpx.TimeoutException(str(exc)) from exc
@@ -132,7 +139,7 @@ def download_document(url: str) -> bytes:
         except Exception as exc:
             if not _retryable_download_error(exc) or attempt >= DOCUMENT_DOWNLOAD_MAX_RETRIES:
                 logger.error(
-                    f"Download failed for {url}: {exc} "
+                    f"Download failed for {safe_url_log_label(url)}: {type(exc).__name__} "
                     f"error_type={ErrorType.INGESTION_ERROR}"
                 )
                 raise
@@ -141,7 +148,8 @@ def download_document(url: str) -> bytes:
             delay = 2 ** attempt
             logger.warning(
                 f"Transient download failure (attempt {attempt + 1}/"
-                f"{DOCUMENT_DOWNLOAD_MAX_RETRIES + 1}); retrying in {delay}s: {exc}"
+                f"{DOCUMENT_DOWNLOAD_MAX_RETRIES + 1}); retrying in {delay}s "
+                f"for {safe_url_log_label(url)} ({type(exc).__name__})"
             )
             time.sleep(delay)
 
@@ -280,14 +288,16 @@ async def _fetch_rendered_html(url: str) -> str | None:
                 await page.wait_for_timeout(5000)
                 return await page.content()
             except PlaywrightTimeout:
-                logger.warning(f"  Playwright timeout loading: {url}")
+                logger.warning(f"  Playwright timeout loading {safe_url_log_label(url)}")
                 return None
             finally:
                 await page.close()
                 await context.close()
                 await browser.close()
     except Exception as e:
-        logger.error(f"  Playwright fallback failed for {url}: {e}")
+        logger.error(
+            f"  Playwright fallback failed for {safe_url_log_label(url)}: {type(e).__name__}"
+        )
         return None
 
 
@@ -296,7 +306,9 @@ def _fetch_rendered_html_sync(url: str) -> str | None:
     try:
         return asyncio.run(_fetch_rendered_html(url))
     except Exception as e:
-        logger.error(f"  Browser fallback crashed for {url}: {e}")
+        logger.error(
+            f"  Browser fallback crashed for {safe_url_log_label(url)}: {type(e).__name__}"
+        )
         return None
 
 
@@ -409,7 +421,7 @@ def _download_gdrive_file(file_id: str) -> bytes:
                 return exported
         except Exception as e:
             logger.warning(
-                f"  Google Doc {fmt} export failed for {file_id[:12]}: {e}"
+                f"  Google Doc {fmt} export failed ({type(e).__name__})"
             )
 
     raise RuntimeError(
@@ -423,15 +435,15 @@ def _download_gdrive_file(file_id: str) -> bytes:
 _MAX_GDRIVE_FOLDER_DEPTH = 3
 
 
-def _drive_embed_html(folder_id: str) -> str:
+def _drive_embed_html(folder_id: str, *, allow_browser_fallback: bool = True) -> str:
     embed_url = f"https://drive.google.com/embeddedfolderview?id={folder_id}"
     html = ""
     try:
         html = download_document(embed_url).decode("utf-8", errors="ignore")
     except Exception as e:
-        logger.warning(f"  Drive folder embed fetch failed: {e}")
+        logger.warning(f"  Drive folder embed fetch failed ({type(e).__name__})")
 
-    if len(html) < 200:
+    if allow_browser_fallback and len(html) < 200:
         rendered = _fetch_rendered_html_sync(
             f"https://drive.google.com/drive/folders/{folder_id}"
         )
@@ -492,6 +504,7 @@ def _list_gdrive_folder_files(
     _depth: int = 0,
     _seen_folders: set[str] | None = None,
     _seen_files: set[str] | None = None,
+    allow_browser_fallback: bool = True,
 ) -> list[tuple[str, str]]:
     """
     List files in a public Drive folder via the embed view.
@@ -510,7 +523,9 @@ def _list_gdrive_folder_files(
         return []
     _seen_folders.add(folder_id)
 
-    files, child_folders = _entries_from_drive_html(_drive_embed_html(folder_id))
+    files, child_folders = _entries_from_drive_html(
+        _drive_embed_html(folder_id, allow_browser_fallback=allow_browser_fallback)
+    )
     kept: list[tuple[str, str]] = []
     for file_id, name in files:
         if file_id in _seen_files:
@@ -529,6 +544,7 @@ def _list_gdrive_folder_files(
                 _depth=_depth + 1,
                 _seen_folders=_seen_folders,
                 _seen_files=_seen_files,
+                allow_browser_fallback=allow_browser_fallback,
             )
         )
 
@@ -543,7 +559,7 @@ def _list_gdrive_folder_files(
     return kept[:MAX_GDRIVE_FILES]
 
 
-def fetch_gdrive_and_extract(url: str) -> str:
+def fetch_gdrive_and_extract(url: str, *, allow_browser_fallback: bool = True) -> str:
     """
     Download every file in a public Google Drive folder (or a single file)
     and concatenate extracted text. Each file is labelled so Claude can
@@ -551,13 +567,15 @@ def fetch_gdrive_and_extract(url: str) -> str:
     """
     kind, drive_id = _gdrive_id_from_url(url)
     if not drive_id:
-        logger.error(f"  Could not parse Google Drive id from: {url}")
+        logger.error(f"  Could not parse Google Drive id from {safe_url_log_label(url)}")
         return ""
 
     items: list[tuple[str, str]] = []
     if kind == "folder":
         logger.info(f"  Google Drive folder — listing files...")
-        items = _list_gdrive_folder_files(drive_id)
+        items = _list_gdrive_folder_files(
+            drive_id, allow_browser_fallback=allow_browser_fallback
+        )
         logger.info(f"  Found {len(items)} file(s) in Drive folder")
     else:
         items = [(drive_id, "drive_file")]
@@ -601,7 +619,12 @@ def fetch_gdrive_and_extract(url: str) -> str:
     return combined
 
 
-def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
+def fetch_and_extract(
+    url: str,
+    opportunity_id: str = None,
+    *,
+    allow_browser_fallback: bool = True,
+) -> str:
     """
     Main function: fetch URL, detect type, extract text.
     Falls back to a Playwright-rendered page when the plain httpx result
@@ -616,7 +639,7 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
         return ""
 
     if _is_gdrive_url(url):
-        text = fetch_gdrive_and_extract(url)
+        text = fetch_gdrive_and_extract(url, allow_browser_fallback=allow_browser_fallback)
         quality = assess_extraction(text, source=url)
         if text and not quality["ok"]:
             logger.error(
@@ -624,10 +647,11 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
             )
             return ""
         if text:
-            logger.success(f"Extracted {len(text)} chars from gdrive: {url[:60]}...")
+            logger.success(f"Extracted {len(text)} chars from gdrive: {safe_url_log_label(url)}")
         else:
             logger.warning(
-                f"No text extracted for {url[:60]}... error_type={ErrorType.DOCUMENT_ERROR}"
+                f"No text extracted for {safe_url_log_label(url)} "
+                f"error_type={ErrorType.DOCUMENT_ERROR}"
             )
         return text
 
@@ -649,15 +673,26 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
             file_type = "html"
     except Exception as e:
         if is_pdf_url:
-            logger.error(f"  PDF download failed for {url}: {e}")
+            logger.error(
+                f"  PDF download failed for {safe_url_log_label(url)}: {type(e).__name__}"
+            )
         else:
-            logger.warning(f"  httpx fetch/extract failed for {url}: {e} — will try Playwright")
+            logger.warning(
+                f"  httpx fetch/extract failed for {safe_url_log_label(url)} "
+                f"({type(e).__name__}) — will try Playwright"
+            )
 
     # ── PLAYWRIGHT FALLBACK (HTML pages only — never for direct PDF links) ─
     rendered_html: str | None = None
-    if file_type == "html" and not is_pdf_url and len(text) < MIN_USEFUL_CHARS:
+    if (
+        allow_browser_fallback
+        and file_type == "html"
+        and not is_pdf_url
+        and len(text) < MIN_USEFUL_CHARS
+    ):
         logger.info(
-            f"  httpx extraction thin ({len(text)} chars) — trying Playwright: {url[:60]}"
+            f"  httpx extraction thin ({len(text)} chars) — trying Playwright: "
+            f"{safe_url_log_label(url)}"
         )
         rendered_html = _fetch_rendered_html_sync(url)
         if rendered_html:
@@ -665,7 +700,8 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
             if len(browser_text) > len(text):
                 text = browser_text
                 logger.success(
-                    f"  Playwright fallback recovered {len(text)} chars: {url[:60]}"
+                    f"  Playwright fallback recovered {len(text)} chars: "
+                    f"{safe_url_log_label(url)}"
                 )
 
     # ── PDF LINK FOLLOW — WordPress posts often only link to the ToR PDF ───
@@ -679,11 +715,14 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
             except UnsafeURLError as e:
                 logger.warning(f"  Skipping PDF link ({ErrorType.SSRF_ERROR}): {e}")
                 continue
-            logger.info(f"  Following PDF link from page: {pdf_url[:70]}")
+            logger.info(f"  Following PDF link from page: {safe_url_log_label(pdf_url)}")
             try:
                 pdf_text, pdf_content = _extract_from_pdf_url(pdf_url)
             except Exception as e:
-                logger.warning(f"  PDF link fetch failed ({pdf_url[:60]}): {e}")
+                logger.warning(
+                    f"  PDF link fetch failed ({safe_url_log_label(pdf_url)}): "
+                    f"{type(e).__name__}"
+                )
                 continue
             if len(pdf_text) >= MIN_USEFUL_CHARS:
                 text = pdf_text
@@ -691,7 +730,8 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
                 file_type = "pdf"
                 url = pdf_url  # store under the PDF filename
                 logger.success(
-                    f"  Recovered {len(text)} chars from linked PDF: {pdf_url[:60]}"
+                    f"  Recovered {len(text)} chars from linked PDF: "
+                    f"{safe_url_log_label(pdf_url)}"
                 )
                 break
 
@@ -717,7 +757,9 @@ def fetch_and_extract(url: str, opportunity_id: str = None) -> str:
         return ""
 
     if text:
-        logger.success(f"Extracted {len(text)} chars from {file_type}: {url[:60]}...")
+        logger.success(
+            f"Extracted {len(text)} chars from {file_type}: {safe_url_log_label(url)}"
+        )
     else:
         logger.warning(
             f"No text extracted for {url[:60]}... error_type={ErrorType.DOCUMENT_ERROR}"

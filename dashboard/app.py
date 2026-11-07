@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from config import CLAUDE_MODEL
+from config import CLAUDE_MODEL, RSS_FEEDS
 from dashboard import auth, queries, settings, triggers
 from database.supabase_client import (
     save_accepted_outline,
@@ -39,6 +39,11 @@ from database.supabase_client import (
 from intelligence.draft_templates import catalog, resolve_outline
 from processors.downloader import extract_uploaded_files
 from utils.urls import canonicalize_url
+from database import procurement_sources as source_registry
+from monitors.configurable_sources import (
+    test_saved_source,
+)
+from monitors.scraper import SCRAPE_SOURCES
 
 HERE = Path(__file__).resolve().parent
 
@@ -80,6 +85,7 @@ def _static_version() -> str:
         HERE / "static" / "motion.js",
         HERE / "static" / "library.css",
         HERE / "static" / "library.js",
+        HERE / "static" / "sources.css",
         HERE / "static" / "pending.css",
         HERE / "static" / "pending.js",
     ]
@@ -182,6 +188,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_queue": "/",
         "url_portfolio": "/portfolio",
         "url_library": "/library",
+        "url_sources": "/sources",
         "url_track_record": "/track-record",
         "url_detail": "/opportunity",
         "url_job": "/job",
@@ -445,6 +452,170 @@ def track_record_page(request: Request, q: str = "", client: str = "", year: str
     return templates.TemplateResponse(request, "track_record.html", ctx)
 
 
+def _builtin_source_definitions() -> list[dict]:
+    definitions = []
+    for item in [*RSS_FEEDS, *SCRAPE_SOURCES]:
+        if isinstance(item, dict) and item.get("name") and item.get("url"):
+            definitions.append(item)
+    return definitions
+
+
+@app.get("/sources", response_class=HTMLResponse)
+def sources_page(request: Request):
+    definitions = _builtin_source_definitions()
+    source_registry.ensure_builtin_sources(definitions)
+    available = True
+    reason = ""
+    try:
+        stored = source_registry.list_sources()
+    except source_registry.SourceRegistryUnavailable as exc:
+        stored = []
+        available = False
+        reason = str(exc)
+
+    by_key = {row.get("source_key"): row for row in stored}
+    rows = []
+    for item in definitions:
+        name = str(item.get("name") or "Built-in source")
+        url = source_registry.normalize_source_url(str(item.get("url") or ""))
+        key = source_registry.builtin_source_key(name, url)
+        row = by_key.get(key) or {}
+        rows.append({
+            "id": row.get("id", ""),
+            "name": name,
+            "url": url,
+            "source_type": "builtin",
+            "capability": "Built-in adapter",
+            "enabled": True,
+            "last_attempt_at": row.get("last_attempt_at"),
+            "last_success_at": row.get("last_success_at"),
+            "discovered_count": int(row.get("discovered_count") or 0),
+            "last_error": row.get("last_error") or "",
+            "last_preview": [],
+        })
+    rows.extend(row for row in stored if row.get("source_type") == "custom")
+    rows.sort(key=lambda row: (row.get("source_type") != "custom", str(row.get("name") or "").lower()))
+
+    ctx = _base_context(request, "sources")
+    ctx.update({
+        "sources": rows,
+        "registry_available": available,
+        "registry_reason": reason,
+        "flash_preview": request.query_params.get("source_preview", ""),
+        "poll_ms": 0,
+    })
+    return templates.TemplateResponse(request, "sources.html", ctx)
+
+
+@app.post("/sources/add")
+def sources_add(
+    request: Request,
+    name: str = Form(...),
+    url: str = Form(...),
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    _check_csrf(session, csrf_token)
+    clean_name = " ".join(str(name or "").split())
+    if not clean_name or len(clean_name) > 160:
+        return _flash("/sources", "Enter a source name under 160 characters.", "stop")
+    try:
+        canonical = source_registry.normalize_source_url(url)
+    except ValueError as exc:
+        return _flash("/sources", str(exc)[:240], "stop")
+
+    try:
+        row = source_registry.create_pending_custom_source(
+            name=clean_name,
+            url=canonical,
+            created_by=str(session.get("email") or ""),
+        )
+    except source_registry.DuplicateSource as exc:
+        return _flash("/sources", str(exc), "stop")
+    except (source_registry.SourceRegistryUnavailable, ValueError) as exc:
+        return _flash("/sources", str(exc)[:240], "stop")
+
+    result = _safe_source_test(str(row.get("id") or ""))
+    if result.get("busy"):
+        return _flash(
+            "/sources",
+            "Added inactive. Source-check capacity is busy; use Test source when a check slot becomes free.",
+            "stop",
+        )
+    if result.get("ok"):
+        label = "RSS/Atom" if result["capability"] == "rss_atom" else "public listing"
+        count = len(result.get("preview") or [])
+        message = f"Added and validated as a {label}; paused until you enable it. Preview: {count} item(s)."
+    else:
+        message = f"Added inactive: {str(result.get('error') or 'The source is not supported.')[:180]}"
+    return _flash("/sources", message)
+
+
+@app.post("/sources/{source_id}/test")
+def sources_test(
+    source_id: str,
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    _check_csrf(session, csrf_token)
+    result = _safe_source_test(source_id)
+    if result.get("busy"):
+        return _flash("/sources", str(result.get("error") or "A check is already running."), "stop")
+    if result.get("ok"):
+        count = len(result.get("preview") or [])
+        return _flash("/sources", f"Source check succeeded. Preview contains {count} item(s).")
+    return _flash("/sources", str(result.get("error") or "Source check failed."), "stop")
+
+
+@app.post("/sources/{source_id}/enable")
+def sources_enable(
+    source_id: str,
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    _check_csrf(session, csrf_token)
+    try:
+        source = source_registry.get_source(source_id)
+    except source_registry.SourceRegistryUnavailable as exc:
+        return _flash("/sources", str(exc), "stop")
+    if not source or source.get("source_type") != "custom":
+        return _flash("/sources", "Custom source not found.", "stop")
+    if (
+        source.get("capability") not in source_registry.SUPPORTED_CAPABILITIES
+        or not source.get("last_success_at")
+    ):
+        result = _safe_source_test(source_id)
+        if not result.get("ok"):
+            return _flash("/sources", str(result.get("error") or "The source did not pass validation."), "stop")
+    try:
+        enabled = source_registry.set_custom_source_enabled(source_id, True)
+    except source_registry.SourceRegistryUnavailable as exc:
+        return _flash("/sources", str(exc), "stop")
+    if not enabled:
+        return _flash("/sources", "This source is not eligible for activation. Run a successful supported-source check first.", "stop")
+    return _flash("/sources", "Source enabled. It will be included in the next scheduled discovery run.")
+
+
+@app.post("/sources/{source_id}/pause")
+def sources_pause(
+    source_id: str,
+    csrf_token: str = Form(""),
+    session: dict = Depends(require_session),
+):
+    _check_csrf(session, csrf_token)
+    try:
+        source = source_registry.get_source(source_id)
+    except source_registry.SourceRegistryUnavailable as exc:
+        return _flash("/sources", str(exc), "stop")
+    if not source or source.get("source_type") != "custom":
+        return _flash("/sources", "Custom source not found.", "stop")
+    try:
+        paused = source_registry.set_custom_source_enabled(source_id, False)
+    except source_registry.SourceRegistryUnavailable as exc:
+        return _flash("/sources", str(exc), "stop")
+    return _flash("/sources", "Source paused." if paused else "Could not pause this source.", "" if paused else "stop")
+
+
 def _spend_by_day(runs: list[dict]) -> dict:
     """Group dashboard runs by the day they were requested (UTC).
 
@@ -564,6 +735,20 @@ def _flash(path: str, msg: str, kind: str = "") -> RedirectResponse:
 def _check_csrf(session: dict, token: str) -> None:
     if not auth.csrf_ok(session, token):
         raise HTTPException(status_code=403, detail="stale form: reload and retry")
+
+
+def _safe_source_test(source_id: str) -> dict:
+    try:
+        return test_saved_source(source_id)
+    except source_registry.SourceRegistryUnavailable as exc:
+        return {"ok": False, "error": str(exc)[:240], "preview": []}
+    except Exception as exc:
+        logger.warning(f"Configured source check could not start ({type(exc).__name__})")
+        return {
+            "ok": False,
+            "error": "The source check could not start. Retry or check source storage health.",
+            "preview": [],
+        }
 
 
 def _enqueue_one(url: str, kind: str, session: dict, back: str = "/") -> RedirectResponse:

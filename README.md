@@ -13,6 +13,7 @@
 - [Setup — Fresh Machine, Repo Already Cloned](#setup--fresh-machine-repo-already-cloned)
 - [Environment Variables Reference](#environment-variables-reference)
 - [Running the Agent](#running-the-agent)
+- [Configurable Procurement Sources](#configurable-procurement-sources)
 - [Automatic Scheduling (systemd)](#automatic-scheduling-systemd)
 - [Data Stores at a Glance](#data-stores-at-a-glance)
 - [Known Issues & Hard-Won Lessons](#known-issues--hard-won-lessons)
@@ -53,7 +54,8 @@ cortech-bd-agent/
 │   ├── supabase_client.py       # pgvector storage, semantic search, dedup, embeddings
 │   ├── organizations.py         # Fail-open org index (Phase 2)
 │   ├── market_store.py          # Fail-open observed-opportunity loaders (Phase 3)
-│   └── intelligence_facts.py    # Fail-open award/relationship citations (Phase 5)
+│   ├── intelligence_facts.py    # Fail-open award/relationship citations (Phase 5)
+│   └── procurement_sources.py  # Durable dashboard source config + health leases
 ├── intelligence/
 │   ├── analyzer.py               # LLM extraction (advisory scores only)
 │   ├── bid_scorer.py             # Deterministic FIT/WIN/RISK + versioned weights
@@ -74,6 +76,7 @@ cortech-bd-agent/
 ├── monitors/
 │   ├── rss_monitor.py            # RSS feeds + the 3-gate free filter + semantic dedup
 │   ├── scraper.py                # Playwright scrapers for JS-rendered portals
+│   ├── configurable_sources.py   # Bounded RSS/Atom + public listing discovery
 │   └── assortis_email.py        # IMAP parsing of the ICA Daily Newsletter's Assortis section
 ├── processors/downloader.py     # Document fetch + text extraction (PDF/DOCX/HTML)
 ├── processors/document_quality.py
@@ -148,6 +151,11 @@ logs, and opportunity status live in Supabase. Apply
 migration) so Assortis award-firm citations and Cortech-submission relationship
 edges can persist; until then those stores fail-open. Do not invent
 organization, competitor, or partner fields on a second CRM.
+Apply `supabase_migration_procurement_sources.sql` when deploying the Sources
+screen; it adds durable source configuration, atomic check leases, and optional
+source identifiers on discovery rows. See
+[`docs/PROCUREMENT_SOURCES.md`](docs/PROCUREMENT_SOURCES.md). It is not applied
+automatically.
 
 ```bash
 python main.py --once
@@ -196,6 +204,18 @@ python main.py --run-market-digest        # Observed-data market digest (trailin
 python main.py --extract-relationships    # Cited JV/consortium edges from data/proposals/
 python -m pytest tests/ -q                # Unit tests (no live APIs)
 ```
+
+### Configurable Procurement Sources
+
+Authorized dashboard users can manage public procurement feeds and listing
+pages at `/sources`. Custom sources are stored in Supabase, checked before
+activation, and included in the next scheduled discovery run. Only RSS/Atom
+and public listing pages with reliable extraction are supported; authentication
+and CAPTCHA barriers are not bypassed. See
+[`docs/PROCUREMENT_SOURCES.md`](docs/PROCUREMENT_SOURCES.md) for the source
+limits, migration instructions, supported-source behavior, and verification
+checklist. Apply `supabase_migration_procurement_sources.sql` before enabling
+custom sources; this migration is not applied automatically.
 
 `--submit-url` bypasses the free discovery filters (a human explicitly chose this URL) but still respects exact-URL dedup — resubmitting the same URL warns rather than silently reprocessing, and proceeds anyway since it was a deliberate choice.
 
