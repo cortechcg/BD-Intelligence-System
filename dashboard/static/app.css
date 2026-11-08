@@ -1594,7 +1594,7 @@ nav.tabs + .panel { margin-bottom: var(--sp6); }
   .sidenav { flex-wrap: wrap; gap: var(--sp1) var(--sp3); padding: var(--sp3) var(--sp4) 0; }
   .sidenav .masthead__brand { padding-right: var(--sp3); }
   .sidenav .brand-logo { width: 96px; }
-    .sidenav .nav { flex: 1 0 100%; order: 3; gap: 0; margin: 0 calc(var(--sp1) * -1); overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; }
+  .sidenav .nav { flex: 1 0 100%; order: 3; gap: 0; margin: 0 calc(var(--sp1) * -1); overflow: visible; flex-wrap: wrap; }
   .sidenav .nav a { flex: none; min-height: 40px; padding: 0 var(--sp3); font-size: var(--t13); }
   .masthead__in { grid-template-columns: 1fr; gap: 0; padding: 0 var(--sp4); }
   .masthead__right { order: -1; justify-content: space-between; padding: var(--sp2) 0 0; }

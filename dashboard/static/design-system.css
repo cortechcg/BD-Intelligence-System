@@ -46,7 +46,7 @@ a:hover { color:#a0ebc3; }
 .skip-link { color:var(--ink); background:var(--surface); }
 .app-shell { display:grid; grid-template-columns:var(--sidebar-w) minmax(0,1fr); min-height:100vh; height:auto; background:transparent; }
 .sidenav { position:sticky; top:0; height:100vh; padding:22px 14px 16px; gap:22px; overflow:auto; background:var(--sidebar-bg); border-right:1px solid var(--line); }
-.brand-logo { max-width:160px; height:auto; filter:brightness(0) invert(.94); }
+.brand-logo { max-width:160px; height:auto; }
 .brand-lockup { display:grid; gap:7px; }
 .brand-lockup__product { color:var(--ink-2); font-size:12px; letter-spacing:.04em; }
 .sidenav__caption,.sidenav__head .label { padding:0 10px; color:var(--ink-2); font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; }
