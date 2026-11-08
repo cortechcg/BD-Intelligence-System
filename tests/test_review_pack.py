@@ -73,3 +73,43 @@ def test_draft_fingerprint_changes_when_evidence_or_text_changes():
     base = review_pack.draft_fingerprint({"title": "Tender"}, {"method": "Plan A"}, {}, "evidence-1")
     assert review_pack.draft_fingerprint({"title": "Tender"}, {"method": "Plan A"}, {}, "evidence-2") != base
     assert review_pack.draft_fingerprint({"title": "Tender"}, {"method": "Plan B"}, {}, "evidence-1") != base
+
+
+def test_internal_rubric_uses_tender_weights_and_team_evidence_gaps():
+    analysis = {
+        "evaluation_criteria": [
+            {"criterion": "Methodology and analysis", "description": "Sampling design and analytic framework", "weight_percent": 60},
+            {"criterion": "Team qualifications", "description": "Qualified team leader", "weight_percent": 40},
+        ],
+        "team_requirements": [{"role": "Team leader"}],
+    }
+    sections = {
+        "methodology": (
+            "Our methodology and analysis use a stratified sampling design, validated survey tools, "
+            "a prespecified analytic framework, field supervision, data quality checks, triangulation, "
+            "and a transparent limitations review before findings are finalized for the client."
+        ),
+        "team": "The team will coordinate fieldwork and submit the report.",
+    }
+    pack = review_pack.build_review_pack(analysis, sections, {})
+    assessment = pack["committee_assessment"]
+    assert "not an official procurement committee score" in assessment["label"].lower()
+    assert assessment["source"] == "tender_rubric"
+    assert assessment["weighted_total"]["maximum"] == 100
+    team_row = next(row for row in assessment["criteria"] if row["criterion"].startswith("Team qualifications"))
+    assert team_row["maximum_score"] == 40
+    assert team_row["awarded_score"] == 0
+    assert team_row["gaps"]
+
+
+def test_missing_tender_weights_are_not_given_invented_maxima():
+    pack = review_pack.build_review_pack(
+        {"evaluation_criteria": [{"criterion": "Approach", "weight_percent": None}]},
+        {"approach": "The approach describes the methodology and implementation plan."},
+    )
+    assessment = pack["committee_assessment"]
+    assert assessment["source"] == "tender_rubric"
+    assert assessment["weighted_total"] is None
+    assert assessment["criteria"][0]["maximum_score"] is None
+    assert assessment["criteria"][0]["awarded_score"] is None
+    assert assessment["missing_weights"] == ["Approach"]

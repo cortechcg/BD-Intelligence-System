@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from urllib.parse import quote
@@ -297,7 +298,11 @@ def healthz():
     """Liveness only. Deliberately does not touch Supabase: a health check
     that fails on a transient PostgREST blip makes the platform restart a
     perfectly good web process."""
-    return PlainTextResponse("ok")
+    response = PlainTextResponse("ok")
+    commit = str(os.environ.get("RENDER_GIT_COMMIT") or "").strip()
+    if commit:
+        response.headers["X-Cortech-Git-Commit"] = commit[:40]
+    return response
 
 
 # ── views ───────────────────────────────────────────────────────────────────
@@ -391,14 +396,67 @@ def job_page(request: Request, trigger_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="no such job")
     ledger = queries.opportunity_detail(job["source_url"])
+    pending_view = _job_pending_view(job)
     ctx = _base_context(request, "queue")
     ctx.update({
         "job": job,
         "d": ledger,
+        "pending_view": pending_view,
         "poll_ms": 5000 if job["status"] in ("queued", "running") else settings.POLL_MS,
         "notify": job["status"] in ("queued", "running"),
     })
     return templates.TemplateResponse(request, "job.html", ctx)
+
+
+def _parse_job_timestamp(value):
+    try:
+        stamp = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    return stamp.replace(tzinfo=timezone.utc) if stamp.tzinfo is None else stamp
+
+
+def _job_pending_view(job: dict, *, now: datetime | None = None) -> dict | None:
+    """Describe a queued or heartbeat-confirmed job without implying progress."""
+    status = str(job.get("status") or "")
+    if status == "queued":
+        return {
+            "state": "queued",
+            "label": "Queued and waiting for a worker",
+            "detail": "The worker has not claimed this run yet.",
+        }
+    if status != "running":
+        return None
+
+    now = now or datetime.now(timezone.utc)
+    freshness_seconds = max(30.0, settings.HEARTBEAT_SECONDS * 3)
+    heartbeat = _parse_job_timestamp(job.get("last_heartbeat_at"))
+    if heartbeat is not None:
+        age = (now - heartbeat).total_seconds()
+        if 0 <= age <= freshness_seconds:
+            return {
+                "state": "processing",
+                "label": "Reading and scoring the tender",
+                "detail": "A recent worker heartbeat confirms this run is active.",
+            }
+        return {
+            "state": "stale",
+            "label": "No recent worker heartbeat",
+            "detail": "The run is still marked running, but current worker activity is not confirmed.",
+        }
+
+    started = _parse_job_timestamp(job.get("started_at"))
+    if started is not None and 0 <= (now - started).total_seconds() <= freshness_seconds:
+        return {
+            "state": "waiting",
+            "label": "Worker claimed this run; awaiting its first heartbeat",
+            "detail": "The run is marked active, but worker activity is not confirmed yet.",
+        }
+    return {
+        "state": "stale",
+        "label": "No worker heartbeat is recorded",
+        "detail": "The run is still marked running, but current worker activity is not confirmed.",
+    }
 
 
 @app.get("/portfolio", response_class=HTMLResponse)
@@ -488,21 +546,47 @@ def sources_page(request: Request):
             "url": url,
             "source_type": "builtin",
             "capability": "Built-in adapter",
-            "enabled": True,
+            "enabled": bool(row.get("enabled", True)),
             "last_attempt_at": row.get("last_attempt_at"),
             "last_success_at": row.get("last_success_at"),
-            "discovered_count": int(row.get("discovered_count") or 0),
+            "last_discovered_count": row.get("last_discovered_count"),
+            "last_duplicate_count": row.get("last_duplicate_count"),
+            "last_filtered_count": row.get("last_filtered_count"),
+            "last_stored_count": row.get("last_stored_count"),
+            "next_attempt_at": row.get("next_attempt_at"),
             "last_error": row.get("last_error") or "",
             "last_preview": [],
         })
-    rows.extend(row for row in stored if row.get("source_type") == "custom")
+    rows.extend({
+        **row,
+        "last_discovered_count": row.get("last_discovered_count"),
+        "last_duplicate_count": row.get("last_duplicate_count"),
+        "last_filtered_count": row.get("last_filtered_count"),
+        "last_stored_count": row.get("last_stored_count"),
+    } for row in stored if row.get("source_type") == "custom")
     rows.sort(key=lambda row: (row.get("source_type") != "custom", str(row.get("name") or "").lower()))
+
+    schedule_available = False
+    schedule_status = {}
+    schedule_reason = ""
+    try:
+        from database import discovery_schedule
+
+        schedule_status = discovery_schedule.status()
+        schedule_available = bool(schedule_status)
+        if not schedule_available:
+            schedule_reason = "The durable scheduler state has not been initialized."
+    except Exception:
+        schedule_reason = "Apply supabase_migration_discovery_schedule.sql to activate scheduled discovery."
 
     ctx = _base_context(request, "sources")
     ctx.update({
         "sources": rows,
         "registry_available": available,
         "registry_reason": reason,
+        "schedule_available": schedule_available,
+        "schedule_status": schedule_status,
+        "schedule_reason": schedule_reason,
         "flash_preview": request.query_params.get("source_preview", ""),
         "poll_ms": 0,
     })

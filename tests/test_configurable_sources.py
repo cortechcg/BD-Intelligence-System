@@ -272,12 +272,15 @@ def test_scheduled_source_results_are_deduplicated_and_health_is_finalized(monke
     configured.finalize_discovery_runs(runs, {SOURCE_ID: 1})
     assert finished[-1][1]["success"] is True
     assert finished[-1][1]["discovered_delta"] == 1
+    assert finished[-1][1]["stored_delta"] == 1
 
     opportunities, runs = configured.discover_configured_sources()
     assert opportunities == []
     configured.finalize_discovery_runs(runs, {})
     assert finished[-1][1]["success"] is True
-    assert finished[-1][1]["discovered_delta"] == 0
+    assert finished[-1][1]["discovered_delta"] == 1
+    assert finished[-1][1]["duplicate_delta"] == 1
+    assert finished[-1][1]["stored_delta"] == 0
 
 
 def test_scheduled_feed_runs_through_main_discovery_and_persists_metadata(monkeypatch):
@@ -356,7 +359,9 @@ def test_scheduled_feed_runs_through_main_discovery_and_persists_metadata(monkey
     main._run_pipeline()
     assert len(inserted) == 1
     assert completed[-1]["success"] is True
-    assert completed[-1]["discovered_delta"] == 0
+    assert completed[-1]["discovered_delta"] == 1
+    assert completed[-1]["duplicate_delta"] == 1
+    assert completed[-1]["stored_delta"] == 0
 
 
 def test_dashboard_add_enable_then_scheduled_discovery_ingests_once(monkeypatch):
@@ -398,12 +403,20 @@ def test_dashboard_add_enable_then_scheduled_discovery_ingests_once(monkeypatch)
                 row["last_attempt_at"] = "fixture-attempt"
                 row["status"] = "checking"
                 return _RPCResult(True)
-            if name == "finish_procurement_source_run":
+            if name == "finish_procurement_source_run_with_counts":
                 if row.get("run_token") != args["p_token"]:
                     return _RPCResult(False)
                 if args["p_outcome"] == "success":
                     row["last_success_at"] = "fixture-success"
-                    row["discovered_count"] += args["p_discovered_delta"]
+                    row["last_discovered_count"] = args["p_discovered_delta"]
+                    row["last_duplicate_count"] = args["p_duplicate_delta"]
+                    row["last_filtered_count"] = args["p_filtered_delta"]
+                    row["last_stored_count"] = args["p_stored_delta"]
+                    row["discovered_count"] += args["p_stored_delta"]
+                    row["candidate_count_total"] += args["p_discovered_delta"]
+                    row["duplicate_count_total"] += args["p_duplicate_delta"]
+                    row["filtered_count_total"] += args["p_filtered_delta"]
+                    row["stored_count_total"] += args["p_stored_delta"]
                     row["last_preview"] = args["p_preview"]
                     row["last_error"] = ""
                     if args.get("p_capability"):
@@ -450,6 +463,10 @@ def test_dashboard_add_enable_then_scheduled_discovery_ingests_once(monkeypatch)
                     "last_attempt_at": None,
                     "last_success_at": None,
                     "discovered_count": 0,
+                    "candidate_count_total": 0,
+                    "duplicate_count_total": 0,
+                    "filtered_count_total": 0,
+                    "stored_count_total": 0,
                     "last_error": "",
                     "last_preview": [],
                     "run_token": None,

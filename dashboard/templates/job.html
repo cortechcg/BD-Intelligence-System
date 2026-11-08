@@ -21,7 +21,7 @@
       {% elif draft_blocked %}
         The draft is BLOCKED by the quality gate
       {% elif running %}
-        Reading and scoring the tender…
+        {% if pending_view and pending_view.state == "queued" %}Queued for a worker{% elif pending_view and pending_view.state == "processing" %}Reading and scoring the tender{% else %}Run status needs checking{% endif %}
       {% else %}
         This run <span class="mono">{{ (job.id|string)[:8] }}</span>
       {% endif %}
@@ -35,9 +35,13 @@
   </div>
 </div>
 
-<section class="panel panel--hero job-sheet">
+<section class="panel panel--hero job-sheet"{% if pending_view and pending_view.state == "processing" %} aria-busy="true"{% endif %}>
 {% if flash %}
 <div class="band {% if flash_kind == 'stop' %}band--critical{% elif flash_kind == 'cap' %}band--warn{% else %}band--info{% endif %} band--wide" role="status">{{ flash }}</div>
+{% endif %}
+
+{% if pending_view %}
+{{ m.pending_state(pending_view.state, pending_view.label, pending_view.detail, false, static_base ~ "/brand/cortech-logo.png") }}
 {% endif %}
 
 {% if awaiting_outline and opp_url %}

@@ -56,24 +56,7 @@ cortech-bd-worker ──┘  (Docker: Chromium + PDF toolchain)
 * **Worker** — a separate Render Background Worker. Claims one `dashboard_triggers` row at a time (`FOR UPDATE SKIP LOCKED`), runs it, finalises it. Lease + token discipline mirrors `claim_opportunity_processing`. A crashed worker's job is reclaimed after `DASHBOARD_WORKER_LEASE_SECONDS`.
 * **Queue** — a Supabase table plus RPCs (`supabase_migration_dashboard_triggers.sql`, `supabase_migration_dashboard_controls.sql`). No broker. A partial unique index refuses a second in-flight request for the same URL at the database, not merely in the UI.
 * **Realtime vs polling** — polling. Verified on 2026-09-21: the project's `supabase_realtime` publication exists but contains **zero tables** (`select * from pg_publication_tables` returns only `realtime.messages_*`), so a `postgres_changes` subscription acks `SUBSCRIBED` and never delivers a row. Polling through the authenticated backend also keeps the service-role key off the browser entirely. If Realtime is wanted later: `alter publication supabase_realtime add table opportunity_processing, dashboard_triggers;` — and note the anon key would then need RLS policies it does not have today.
-* **Scheduler — verified state on 2026-09-21, and a decision for you.**
-  The README says discovery runs on this machine via `systemd --user` timers.
-  **It does not.** `systemctl --user list-timers --all` shows no `cortech-*`
-  unit; none exist system-wide; there is no crontab entry; `cron.log` was last
-  written **2026-08-27**. The unit files lived outside the repo and are gone.
-  Since late August the pipeline has run only when someone typed
-  `main.py --once` — or when a misconfigured deploy booted bare `main.py`
-  (the 2026-09-21 incident, §"Incident" below). The dashboard **does not**
-  replace scheduled discovery; its worker consumes `dashboard_triggers` only
-  and has no schedule. What to do about scheduled discovery is therefore an
-  open decision with three honest options: (i) reinstall the systemd timers
-  on this machine (`deploy/systemd/` has the market-digest templates; the
-  other four need recreating); (ii) a Render Cron Job running
-  `python main.py --once` (commented block at the end of `render.yaml`; that
-  makes the Render bill and Anthropic spend grow with it, which is the
-  Railway history); (iii) leave discovery manual. **Never** run bare
-  `python main.py` anywhere for this — it now refuses to start outside an
-  interactive terminal (§"Incident").
+* **Scheduler.** Exactly one recurring runner lives in the existing `cortech-bd-worker` Render service; no new service or Render Cron is required. It is enabled only for the exact production worker identity and production queue scope. A Supabase singleton lease prevents overlapping runs across worker replicas; an expired lease makes a crashed run eligible for recovery. Successful/partial runs schedule the next check two hours after completion; whole-run failures use bounded retry backoff. Per-source leases and backoff isolate portal failures. This pass only fetches built-in and supported custom public sources and writes opportunities into the shared ledger. It omits the mailbox, status emails, model calls and proposal drafting. The first run becomes due when `supabase_migration_discovery_schedule.sql` is applied. Do not add an additional systemd discovery timer or Render Cron service.
 
 ### Spend caps — two of them
 
@@ -113,9 +96,11 @@ What changed so it cannot recur:
    2, clear message). `--once`, `--submit-url` and `--run-*` are untouched.
    Override for a deliberate local loop only: `CORTECH_ALLOW_SCHEDULER=1`.
 3. **Every long-lived process logs an `IDENTITY:` line** in its first
-   seconds (`cortech-bd-web` / `cortech-bd-worker`) stating what it is and
-   that it never runs discovery. If a Render log's first lines do not show
-   one, the wrong command is running.
+   seconds (`cortech-bd-web` / `cortech-bd-worker`). The web never runs
+   discovery. The exact production worker owns the single durable,
+   discovery-only two-hour schedule as well as the manual-job queue. If a
+   Render log's first lines do not show the correct identity, the wrong
+   command is running.
 4. **Second misconfiguration, same day:** the worker command was then deployed
    under `type: web`. A web service must bind `$PORT`; the worker never does,
    so Render port-scanned forever and no dashboard existed. `render.yaml` now
@@ -450,8 +435,10 @@ the last three mirror the worker's values for display and must stay identical.
 `DASHBOARD_WORKER_LEASE_SECONDS` (3600).
 
 **On neither service:** `IMAP_*`, `CHECK_INTERVAL_HOURS`,
-`MAX_OPPORTUNITIES_PER_RUN`, `HEALTHCHECK_URL` — discovery-scheduler settings;
-neither Render service runs discovery.
+`MAX_OPPORTUNITIES_PER_RUN` — full-pipeline tuning; the recurring discovery
+runner uses its bounded source adapter limits and does not analyze/draft.
+`HEALTHCHECK_URL` remains for the legacy full discovery command and is not
+pinged by the recurring worker pass.
 
 ---
 

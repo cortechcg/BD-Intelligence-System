@@ -21,6 +21,22 @@
 </section>
 {% endif %}
 
+<section class="panel src-schedule" aria-labelledby="src-schedule-title">
+  <div class="panel__head">
+    <div><p class="src-kicker">Automatic discovery</p><h2 id="src-schedule-title">Production schedule</h2></div>
+    {% if schedule_available %}<span class="src-state{% if schedule_status.last_outcome in ('success', 'partial') %} src-state--on{% endif %}">{{ (schedule_status.last_outcome or "never") | replace("_", " ") | title }}</span>{% else %}<span class="src-state">Unavailable</span>{% endif %}
+  </div>
+  {% if schedule_available %}
+  <dl class="src-health">
+    <div><dt>Next check</dt><dd>{{ schedule_status.next_run_at[:19].replace("T", " ") if schedule_status.next_run_at else "Not scheduled" }} UTC</dd></div>
+    <div><dt>Last attempt</dt><dd>{{ schedule_status.last_attempt_at[:19].replace("T", " ") if schedule_status.last_attempt_at else "Never" }}{% if schedule_status.last_attempt_at %} UTC{% endif %}</dd></div>
+    <div><dt>Last successful run</dt><dd>{{ schedule_status.last_success_at[:19].replace("T", " ") if schedule_status.last_success_at else "Never" }}{% if schedule_status.last_success_at %} UTC{% endif %}</dd></div>
+  </dl>
+  <p class="field__hint">One recurring runner in the existing production worker, every two hours. It discovers and stores opportunities only; it does not draft or send email.</p>
+  {% if schedule_status.last_error %}<p class="src-error"><strong>Last run:</strong> {{ schedule_status.last_error }}</p>{% endif %}
+  {% elif schedule_reason %}<p class="src-error"><strong>Scheduler unavailable.</strong> {{ schedule_reason }}</p>{% endif %}
+</section>
+
 <section class="src-add" aria-labelledby="src-add-title">
   <div class="src-add__copy">
     <p class="src-kicker">Add a source</p>
@@ -71,7 +87,11 @@
         <dl class="src-health">
           <div><dt>Last attempt</dt><dd>{{ source.last_attempt_at[:19].replace("T", " ") if source.last_attempt_at else "Never" }}</dd></div>
           <div><dt>Last successful check</dt><dd>{{ source.last_success_at[:19].replace("T", " ") if source.last_success_at else "Never" }}</dd></div>
-          <div><dt>Discovered</dt><dd>{{ source.discovered_count or 0 }}</dd></div>
+          <div><dt>Last successful check: discovered</dt><dd>{{ source.last_discovered_count if source.last_discovered_count is not none else "Not recorded" }}</dd></div>
+          <div><dt>Duplicates</dt><dd>{{ source.last_duplicate_count if source.last_duplicate_count is not none else "Not recorded" }}</dd></div>
+          <div><dt>Filtered</dt><dd>{{ source.last_filtered_count if source.last_filtered_count is not none else "Not recorded" }}</dd></div>
+          <div><dt>Stored in opportunity queue</dt><dd>{{ source.last_stored_count if source.last_stored_count is not none else "Not recorded" }}</dd></div>
+          {% if source.next_attempt_at %}<div><dt>Retry eligible</dt><dd>{{ source.next_attempt_at[:19].replace("T", " ") }} UTC</dd></div>{% endif %}
         </dl>
         {% if source.last_error %}<p class="src-error"><strong>Needs attention</strong> {{ source.last_error }}</p>{% endif %}
         {% if source.last_preview %}

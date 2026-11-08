@@ -14,7 +14,7 @@
 - [Environment Variables Reference](#environment-variables-reference)
 - [Running the Agent](#running-the-agent)
 - [Configurable Procurement Sources](#configurable-procurement-sources)
-- [Automatic Scheduling (systemd)](#automatic-scheduling-systemd)
+- [Automatic Scheduling](#automatic-scheduling)
 - [Data Stores at a Glance](#data-stores-at-a-glance)
 - [Known Issues & Hard-Won Lessons](#known-issues--hard-won-lessons)
 - [Disaster Recovery — Rebuilding From Zero](#disaster-recovery--rebuilding-from-zero)
@@ -26,7 +26,7 @@
 
 Cortech competes for consulting work advertised across dozens of tender portals, procurement sites, and daily email newsletters — new postings appear constantly, mixed in with staff vacancies and work outside Cortech's East Africa / Horn of Africa focus. This agent watches those sources continuously, filters out what doesn't fit, and for genuine opportunities, produces a real first draft — either a full technical proposal or a short Expression of Interest, matched to what's actually being requested — grounded in Cortech's own real past submissions rather than a generic template.
 
-**This system runs locally, not on a cloud host.** It was previously deployed on Railway; that deployment was intentionally removed after an incident where it ran unattended for two days and drained both the Railway account balance and Anthropic API credits without anyone noticing. It now runs only on this machine, only while the machine is on — see [Automatic Scheduling](#automatic-scheduling-systemd) for how it still runs without needing to be triggered by hand every time.
+**The dashboard and background worker run on the existing Render services.** Production discovery runs from the worker on a durable two-hour schedule. The web process never discovers tenders. The scheduled pass checks public feeds/adapters and stores opportunities; it does not read email, send status mail, call a model, or draft proposals. The legacy in-process `main.py` scheduler still refuses headless/PaaS execution because of the earlier Railway/Render incidents.
 
 ---
 
@@ -221,31 +221,13 @@ custom sources; this migration is not applied automatically.
 
 ---
 
-## Automatic Scheduling (systemd)
+## Automatic Scheduling
 
-> **Status check 2026-09-21:** no `cortech-*` timers are installed on this machine (`systemctl --user list-timers --all`), and `cron.log` was last written 2026-08-27. The description below is how it is *meant* to run; it is not currently running. See `docs/DASHBOARD.md` §Scheduler for the open decision.
+The existing `cortech-bd-worker` service is the only production recurring runner. It checks a durable Supabase schedule row every 30 seconds and claims an atomic lease when due. Successful or partially successful passes schedule the next run two hours later; whole-run failures use bounded retry backoff. The schedule lease recovers after a worker crash, and each source retains its own lease and failure backoff. Do not add a Render Cron service or a second systemd discovery timer.
 
-Since this runs locally rather than on an always-on host, scheduling uses `systemd --user` timers rather than the old in-process scheduler loop. The key property: **`Persistent=true`** means a missed run (because the machine was off or asleep) fires automatically the next time the machine is up, rather than silently never happening.
+The worker uses the existing built-in and configured public-source adapters and sends stored opportunities to the shared deduplication ledger. Per-source telemetry records candidates, duplicates, relevance-filtered items, and newly stored opportunities. The first check is due immediately after applying `supabase_migration_discovery_schedule.sql`; future checks are scheduled from completion. Apply this migration before deploying the worker code.
 
-Four timers plus a fifth for the observed-data market digest, each invoking one of the CLI flags above:
-
-| Timer | Fires | Runs |
-|---|---|---|
-| `cortech-discovery.timer` | Every `CHECK_INTERVAL_HOURS` | `main.py --once` |
-| `cortech-assortis.timer` | Daily, ~11:45 | `main.py --run-assortis` |
-| `cortech-deadline.timer` | Daily, ~08:00 | `main.py --run-deadline-check` |
-| `cortech-winloss.timer` | Daily, ~08:15 | `main.py --run-winloss` |
-| `cortech-market.timer` | Weekly, Monday ~08:30 | `main.py --run-market-digest` |
-
-Unit files live in `~/.config/systemd/user/` — **outside this repository**, so they are not recoverable from git and need to be recreated separately if lost (see Disaster Recovery). Templates for the market digest units are also kept in-repo at `deploy/systemd/cortech-market.service` and `deploy/systemd/cortech-market.timer`. Check status any time with:
-
-```bash
-systemctl --user list-timers --all
-```
-
-Playwright: the host must have Google Chrome at `/usr/bin/google-chrome` (or `google-chrome-stable`). **Do not set `PLAYWRIGHT_BROWSERS_PATH` to an empty cache** in the unit `Environment=` — Cursor sandboxes do that and bundled Chromium then fails. `launch_chromium` unsets a broken path and falls back to system Chrome so systemd and Cursor both work.
-
-The pipeline does not call Airtable. A failed Supabase log insert is ignored so it cannot stop a run.
+`python main.py --once` remains available for a deliberate manual full discovery pass; it includes the existing mailbox/status-report behavior. Bare `python main.py` remains a separate interactive-only legacy scheduler and must not be used on Render. A failed Supabase logging insert does not stop discovery.
 
 ---
 
@@ -353,9 +335,9 @@ This checks that `consultants`, `rate_cards`, `agent_logs`, and `opportunity_pro
 
 If Step 4 confirms you're connected to the real, existing Supabase project, **do not replay its historical migrations**. Apply `supabase_migration_opportunity_state.sql` once if its `opportunity_processing` table is absent; apply `supabase_migration_opportunity_stages.sql` once if `pipeline_stage` / `checkpoint` are absent; apply `supabase_migration_content_hash.sql` once if `opportunities_cache.content_hash` is absent; apply `supabase_migration_organizations.sql` once if the `organizations` table is absent; apply `supabase_migration_opportunity_facts.sql` once if cache fact columns (`thematic_areas`, `locations`, `donor`, `discovered_at`) are absent; apply `supabase_migration_award_relationships.sql` once (after organizations) if `award_observations` / `relationship_edges` are absent. The older semantic-dedup and win/loss migrations are only for a genuinely new project (i.e., the old one is truly gone, not just temporarily unreachable).
 
-### Step 6 — Recreate the systemd timers
+### Step 6 — Verify automatic discovery
 
-These live outside this repository (`~/.config/systemd/user/`) and do not come back from `git clone`. Recreate the four service/timer pairs described in [Automatic Scheduling](#automatic-scheduling-systemd), plus `cortech-market.service` / `cortech-market.timer` from `deploy/systemd/` (Phase 3 observed-data digest).
+Production discovery is scheduled by the existing `cortech-bd-worker`; do not install a second systemd discovery timer or Render Cron service. Apply `supabase_migration_discovery_schedule.sql`, deploy the worker, then verify the Sources page's next check, last attempt, last success and per-source counts. The worker's persisted lease recovers after restarts.
 
 ```bash
 systemctl --user daemon-reload

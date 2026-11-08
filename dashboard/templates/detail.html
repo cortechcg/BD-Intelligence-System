@@ -430,19 +430,20 @@
   <section class="panel" aria-labelledby="h-final-grade">
     <div class="panel__head">
       <div>
-        <h2 class="panel__title" id="h-final-grade">Grade the final version</h2>
-        <p class="panel__desc">Upload the Word or PDF the team edited. The senior technical and procurement committee grades it against {{ (d.grading_criteria or []) | length }} criteria. {{ d.grading_criteria_note or "" }} Nothing here is sent to the client.</p>
+        <h2 class="panel__title" id="h-final-grade">Simulated internal rubric review</h2>
+        <p class="panel__desc">Upload the Word or PDF the team edited. An internal reviewer assesses it against {{ (d.grading_criteria or []) | length }} stored criteria. This is not an official procurement committee score or win probability. {{ d.grading_criteria_note or "" }} Nothing here is sent to the client.</p>
       </div>
     </div>
     {% set pending = d.get("final_grade_pending") or {} %}
     {% if pending %}
-    <div class="band band--info" role="status" data-final-grade-progress>
-      {% if pending.claimed_at %}
-      <strong>Step 2 of 2 · The committee is reading {{ pending.filename or "the file" }}</strong> against {{ pending.criteria_count }} criteria (started {{ pending.claimed_at[11:19] }} UTC). This usually takes under a minute.
+    <div data-final-grade-progress{% if pending.pending_state == "processing" %} aria-busy="true"{% endif %}>
+      {% if pending.pending_state == "processing" %}
+        {{ m.pending_state("processing", "Internal reviewer is reading " ~ (pending.filename or "the file"), "Checking against " ~ pending.criteria_count ~ " stored criteria. This review stays internal.", true, static_base ~ "/brand/cortech-logo.png") }}
+      {% elif pending.pending_state == "stale" %}
+        {{ m.pending_state("stale", "The reviewer claim has expired", "The queued review remains visible and can be claimed again. This page updates automatically.", true, static_base ~ "/brand/cortech-logo.png") }}
       {% else %}
-      <strong>Step 1 of 2 · Queued</strong> {{ pending.filename or "the file" }} (uploaded {{ (pending.uploaded_at or "")[11:19] }} UTC). Waiting for the worker to start the reading.
+        {{ m.pending_state("queued", "Waiting for the internal reviewer", (pending.filename or "The file") ~ " is queued against " ~ pending.criteria_count ~ " stored criteria.", true, static_base ~ "/brand/cortech-logo.png") }}
       {% endif %}
-      This page updates by itself. Nothing is sent.
     </div>
     {% endif %}
     {% if d.get("final_grade_error") %}
@@ -531,11 +532,36 @@
       {% set team_coverage = rp.get("team_coverage") or {} %}
       <span class="panel__note">Team coverage: {{ team_coverage.get("qualified_role_coverage") or 0 }} / {{ team_coverage.get("required_headcount") or 0 }} roles</span>
     </div>
+    {% set assessment = rp.get("committee_assessment") or {} %}
+    {% if assessment.criteria %}
+    <section class="review-list review-list--edit" aria-labelledby="h-rubric">
+      <h3 id="h-rubric">Committee-style internal rubric simulation</h3>
+      <p>{{ assessment.label }} {{ assessment.method }}</p>
+      {% if assessment.weighted_total %}
+      <p><strong>Weighted coverage arithmetic:</strong> {{ assessment.weighted_total.awarded }} / {{ assessment.weighted_total.maximum }} = {{ assessment.weighted_total.percent }}%.</p>
+      {% else %}
+      <p><strong>Provisional coverage:</strong> {{ assessment.provisional_coverage_percent if assessment.provisional_coverage_percent is not none else "not scored" }} / 100. {{ assessment.provisional_note }} Tender maxima and weighted total are withheld because the rubric is incomplete or unweighted.</p>
+      {% endif %}
+      {% if assessment.missing_weights %}<p><strong>Unweighted criteria:</strong> {{ assessment.missing_weights | join(", ") }}.</p>{% endif %}
+      <div class="table-wrap table-wrap--flush"><table class="table">
+        <thead><tr><th>Actual tender criterion</th><th>Maximum</th><th>Simulated coverage score</th><th>Rationale and evidence</th><th>Gaps · confidence</th></tr></thead>
+        <tbody>{% for row in assessment.criteria %}
+          <tr>
+            <td data-label="Criterion"><strong>{{ row.criterion }}</strong></td>
+            <td class="mono" data-label="Maximum">{{ row.maximum_score if row.maximum_score is not none else "Weight not stated" }}</td>
+            <td class="mono" data-label="Simulated score">{% if row.awarded_score is not none %}{{ row.awarded_score }} / {{ row.maximum_score }}{% else %}Not scored{% endif %}<br><span class="small muted">{{ (row.coverage_fraction * 100) | round(0) }}% coverage</span></td>
+            <td data-label="Rationale">{{ row.rationale }}{% if row.supporting_evidence.draft_quote %}<blockquote>{{ row.supporting_evidence.draft_quote }}</blockquote>{% endif %}{% if row.supporting_evidence.tender_source.page %}<span class="small muted">Tender page {{ row.supporting_evidence.tender_source.page }}</span>{% endif %}</td>
+            <td data-label="Gaps and confidence">{% if row.gaps %}{{ row.gaps | join("; ") }}{% else %}No coverage gap detected; substantive quality still needs human assessment.{% endif %}<br><span class="small muted">Confidence: {{ row.confidence }}</span></td>
+          </tr>
+        {% endfor %}</tbody>
+      </table></div>
+    </section>
+    {% endif %}
     {% if rp.hard_compliance_failures %}
       <div class="review-list review-list--hard"><h3>Hard compliance failures</h3><ul>{% for item in rp.hard_compliance_failures[:30] %}<li><strong>{{ item.kind | replace("_", " ") }}.</strong> {{ item.message }}{% if item.section %} <span class="mono">({{ item.section }})</span>{% endif %}</li>{% endfor %}</ul></div>
     {% endif %}
     {% if rp.evidence_gaps %}
-      <div class="review-list review-list--gap"><h3>Evidence gaps and human checks</h3><ul>{% for item in rp.evidence_gaps[:30] %}<li><strong>{{ item.kind | replace("_", " ") }}.</strong> {{ item.message or item.requirement or "Needs review" }}{% if item.items %}: {{ item.items | join(", ") }}{% endif %}</li>{% endfor %}</ul></div>
+      <div class="review-list review-list--gap"><h3>Evidence gaps and human checks</h3><ul>{% for item in rp.evidence_gaps[:30] %}<li><strong>{{ item.kind | replace("_", " ") }}.</strong> {{ item.message or item.requirement or "Needs review" }}{% if item.get("items") %}: {{ item.get("items") | join(", ") }}{% endif %}</li>{% endfor %}</ul></div>
     {% endif %}
     {% if rp.editorial_suggestions %}
       <div class="review-list review-list--edit"><h3>Editorial suggestions</h3><ul>{% for item in rp.editorial_suggestions[:20] %}<li>{{ item.message }}{% if item.section %} <span class="mono">({{ item.section }})</span>{% endif %}</li>{% endfor %}</ul></div>
@@ -677,7 +703,7 @@
   <section class="panel" aria-labelledby="h-committee">
     <div class="panel__head">
       <div>
-        <h3 class="panel__title" id="h-committee">Committee reading</h3>
+        <h3 class="panel__title" id="h-committee">Simulated internal reading of uploaded final</h3>
         <p class="panel__desc">{{ committee.warning }} The pass mark is {{ committee.bar_percent }}% of the weighted criteria.</p>
       </div>
       <span class="panel__note">{% if committee.score_percent is not none %}{{ committee.score_percent }}%{% if committee.points_short %} · {{ committee.points_short }} points short{% endif %}{% else %}Not scored{% endif %}</span>

@@ -10,7 +10,8 @@ This is a design and screenshot aid, not shipped UI.
     python dashboard/design/ui_harness.py shoot output/ui-v3/after
 
 ``shoot`` starts the server itself, logs in with a locally minted cookie and
-writes one PNG per page and width (1440, 1024, 390).
+writes one PNG per page and width (1440, 1024, 390). An alternate loopback port
+can be supplied to avoid colliding with a developer server.
 """
 from __future__ import annotations
 
@@ -173,6 +174,7 @@ CHECKPOINTS = {
     URL_SCORED: {"analysis": ANALYSIS, "matched_team_result": TEAM, "client_intelligence": CLIENT_INTEL},
     URL_DRAFTED: {"analysis": {**ANALYSIS, "opportunity": {**ANALYSIS["opportunity"], "title": LEDGER[1]["title"], "client": "GIZ", "donor": "BMZ"}},
                   "proposal_sections": SECTIONS, "matched_team_result": TEAM, "client_intelligence": CLIENT_INTEL,
+                  "proposal_versions": [{"number": 1, "created_at": _ts(days=1), "reason": "Fixture prior draft"}],
                   "budget": {"lines": [{"role": "Team leader", "days": 40, "daily_rate_usd": None, "subtotal_usd": None},
                                        {"role": "Field coordinator", "days": 60, "daily_rate_usd": 310, "subtotal_usd": 18600}]},
                   "final_grade": {"rows": [{"criterion": "Technical approach", "weight": 40, "mark": 31, "reason": "Clear.", "quote": "A stratified household design."}],
@@ -184,7 +186,7 @@ JOBS = [
     {"id": "9d3c1a7e-0001-4a8b-9c1d-111111111111", "source_url": URL_FLIGHT, "trigger_kind": "submit_url", "status": "running",
      "requested_by": "staff@cortechconsultinggroup.com", "requested_at": _ts(hours=1), "started_at": _ts(hours=1),
      "finished_at": None, "attempt_count": 1, "error_kind": None, "error_message": None, "execution_id": "ex-1",
-     "result_summary": None, "cancel_requested_at": None, "cancelled_by": None, "last_heartbeat_at": _ts(hours=0.01),
+     "result_summary": None, "cancel_requested_at": None, "cancelled_by": None, "last_heartbeat_at": _ts(hours=0.001),
      "spend_usd": 0.4120, "spend_limit_usd": 2.0, "provider_calls": 7, "spend_known": True},
     {"id": "5b2e0c44-0002-4a8b-9c1d-222222222222", "source_url": URL_DRAFTED, "trigger_kind": "draft_existing", "status": "succeeded",
      "requested_by": "staff@cortechconsultinggroup.com", "requested_at": _ts(days=1), "started_at": _ts(days=1),
@@ -205,6 +207,11 @@ JOBS = [
      "requested_by": "staff@cortechconsultinggroup.com", "requested_at": _ts(hours=0.05), "started_at": None,
      "finished_at": None, "attempt_count": 0, "error_kind": None, "error_message": None, "execution_id": None,
      "result_summary": None, "cancel_requested_at": None, "cancelled_by": None, "last_heartbeat_at": None,
+     "spend_usd": None, "spend_limit_usd": 2.0, "provider_calls": None, "spend_known": None},
+    {"id": "2f8b7c44-0006-4a8b-9c1d-666666666666", "source_url": URL_CACHE_1, "trigger_kind": "submit_url", "status": "running",
+     "requested_by": "staff@cortechconsultinggroup.com", "requested_at": _ts(hours=1), "started_at": _ts(hours=1),
+     "finished_at": None, "attempt_count": 1, "error_kind": None, "error_message": None, "execution_id": "ex-stale",
+     "result_summary": None, "cancel_requested_at": None, "cancelled_by": None, "last_heartbeat_at": _ts(hours=0.03),
      "spend_usd": None, "spend_limit_usd": 2.0, "provider_calls": None, "spend_known": None},
 ]
 
@@ -255,6 +262,14 @@ def install_fixtures():
     from dashboard import app as app_module
     from dashboard import library as library_mod
     from dashboard import queries, triggers
+    from database import discovery_schedule, procurement_sources
+
+    real_base_context = app_module._base_context
+    def fixture_base_context(request, view):
+        context = real_base_context(request, view)
+        context["fixture_mode"] = True
+        return context
+    app_module._base_context = fixture_base_context
 
     queries.list_ledger_items = lambda limit=200: [queries._ledger_row_to_item(r) for r in LEDGER]
     queries.list_cache_without_ledger = lambda limit=50, scan=2000: (
@@ -286,7 +301,12 @@ def install_fixtures():
     from dashboard import settings
 
     def decorate(row):
-        return triggers._decorate(row)
+        item = dict(row)
+        if item.get("id") == JOBS[0]["id"]:
+            # Synthetic recent heartbeat is refreshed per fixture request so a
+            # three-viewport screenshot run does not age into the stale case.
+            item["last_heartbeat_at"] = datetime.now(timezone.utc).isoformat()
+        return triggers._decorate(item)
 
     triggers.recent = lambda limit=15: [decorate(j) for j in JOBS][:limit]
     triggers.in_flight_by_url = lambda: {JOBS[0]["source_url"]: decorate(JOBS[0])}
@@ -314,6 +334,40 @@ def install_fixtures():
 
     library_mod.list_documents = _list_documents
     library_mod.census_rows = lambda sb: list(LIBRARY_ROWS) + list(LIBRARY_CVS)
+
+    # Explicitly synthetic source and schedule rows for layout review only.
+    # These are never written to Supabase or presented as production telemetry.
+    builtin_definitions = app_module._builtin_source_definitions()
+    builtin_rows = [{
+        "id": f"fixture-builtin-{i}",
+        "source_key": procurement_sources.builtin_source_key(item["name"], item["url"]),
+        "name": item["name"], "url": item["url"], "source_type": "builtin",
+        "enabled": True, "last_attempt_at": "2026-11-08T10:00:00+00:00",
+        "last_success_at": "2026-11-08T10:00:00+00:00",
+        "last_discovered_count": 6, "last_duplicate_count": 2,
+        "last_filtered_count": 3, "last_stored_count": 1,
+        "last_error": "", "last_preview": [],
+    } for i, item in enumerate(builtin_definitions)]
+    custom_rows = [{
+        "id": "fixture-custom-1", "source_key": "fixture-custom-1",
+        "name": "County procurement feed", "url": "https://county.example.org/notices.xml",
+        "source_type": "custom", "capability": "rss_atom", "enabled": True,
+        "last_attempt_at": "2026-11-08T10:00:00+00:00",
+        "last_success_at": "2026-11-08T10:00:00+00:00",
+        "last_discovered_count": 3, "last_duplicate_count": 1,
+        "last_filtered_count": 1, "last_stored_count": 1,
+        "next_attempt_at": None, "last_error": "", "last_preview": [
+            {"title": "Sample public evaluation tender", "url": "https://county.example.org/n/17", "procurement_identifier": "IFTB-2026-17", "lot_id": "1"},
+        ],
+    }]
+    procurement_sources.ensure_builtin_sources = lambda _defs: {}
+    procurement_sources.list_sources = lambda: builtin_rows + custom_rows
+    discovery_schedule.status = lambda: {
+        "next_run_at": "2026-11-08T12:00:00+00:00",
+        "last_attempt_at": "2026-11-08T10:00:00+00:00",
+        "last_success_at": "2026-11-08T10:00:00+00:00",
+        "last_outcome": "success", "last_error": "",
+    }
     return app_module
 
 
@@ -344,10 +398,14 @@ PAGES = [
     ("queue", "/"),
     ("detail-scored", "/opportunity?url=" + URL_SCORED),
     ("detail-drafted", "/opportunity?url=" + URL_DRAFTED),
+    ("review-pack", "/opportunity?url=" + URL_DRAFTED + "#stage-5-review"),
     ("detail-halted", "/opportunity?url=" + URL_DEAD),
     ("job-running", "/job/" + JOBS[0]["id"]),
+    ("job-queued", "/job/" + JOBS[4]["id"]),
+    ("job-stale", "/job/" + JOBS[5]["id"]),
     ("job-failed", "/job/" + JOBS[3]["id"]),
     ("portfolio", "/portfolio"),
+    ("sources", "/sources"),
     ("library", "/library"),
     ("library-cvs", "/library?tab=cvs"),
     ("library-empty", "/library-empty"),
@@ -360,10 +418,10 @@ PAGES = [
     ("track-record-theme", "/track-record?theme=livelihoods"),
     ("login", "/auth/login"),
     ("denied", "/auth/denied-preview"),
-    # Pending state, forced visible. The orbit is paused at 0, 200 and 400 ms of the 800 ms loop.
-    ("pending-orbit-0", "/"),
-    ("pending-orbit-200", "/"),
-    ("pending-orbit-400", "/"),
+    # Pending overlay frames use synthetic fixtures and paused animation phases.
+    ("pending-pulse-0", "/"),
+    ("pending-pulse-100", "/"),
+    ("pending-pulse-340", "/"),
     ("pending-panel", "/library"),
     ("search-bar", "/"),
 ]
@@ -431,9 +489,9 @@ def _step_library_error(page):
     page.wait_for_timeout(300)
 
 
-def _pause_orbit(page, ms):
+def _pause_pending_animation(page, ms):
     page.evaluate("""(ms) => document.getAnimations().forEach(a => {
-        if (a.animationName === 'pend-arm' || a.animationName === 'pend-counter') { a.pause(); a.currentTime = ms; } })""", ms)
+        if (a.animationName === 'pend-beat' || a.animationName === 'pend-halo') { a.pause(); a.currentTime = ms; } })""", ms)
 
 
 def _step_pending(ms):
@@ -441,17 +499,17 @@ def _step_pending(ms):
         page.evaluate("CortechPending.show({now: true})")
         page.wait_for_selector(".pend.is-on")
         page.wait_for_timeout(400)
-        _pause_orbit(page, ms)
+        _pause_pending_animation(page, ms)
         page.wait_for_timeout(60)
     return step
 
 
 def _step_pending_panel(page):
     _step_library_open(page)
-    page.evaluate("CortechPending.show({now: true, scope: document.querySelector('.lib-panel')})")
+    page.evaluate("CortechPending.show({now: true, scope: document.querySelector('.lib-panel'), label: 'Uploading files to the library'})")
     page.wait_for_selector(".pend--panel.is-on")
     page.wait_for_timeout(400)
-    _pause_orbit(page, 200)
+    _pause_pending_animation(page, 100)
     page.evaluate("document.querySelector('.pend--panel').scrollIntoView({block: 'center', behavior: 'instant'})")
     page.wait_for_timeout(60)
 
@@ -462,11 +520,12 @@ def _step_search_bar(page):
 
 
 STEPS = {"library-open": _step_library_open, "library-error": _step_library_error,
-         "pending-orbit-0": _step_pending(0), "pending-orbit-200": _step_pending(200),
-         "pending-orbit-400": _step_pending(400), "pending-panel": _step_pending_panel,
+         "pending-pulse-0": _step_pending(0), "pending-pulse-100": _step_pending(100),
+         "pending-pulse-340": _step_pending(340), "pending-panel": _step_pending_panel,
          "search-bar": _step_search_bar}
-VIEWPORT_ONLY = {"pending-orbit-0", "pending-orbit-200", "pending-orbit-400", "pending-panel"}
-CLIP = {"search-bar": "#work-queue .workq__head"}  # the head holds the heading and the search field
+VIEWPORT_ONLY = {"pending-pulse-0", "pending-pulse-100", "pending-pulse-340", "pending-panel"}
+CLIP = {"search-bar": "#work-queue .workq__head", "job-running": ".job-sheet",
+        "job-queued": ".job-sheet", "job-stale": ".job-sheet", "review-pack": "#stage-5-review"}
 
 
 def _settle(page):
@@ -561,6 +620,10 @@ if __name__ == "__main__":
     if cmd == "serve":
         serve(int(sys.argv[2]) if len(sys.argv) > 2 else 8765)
     elif cmd == "shoot":
-        shoot(sys.argv[2], only=sys.argv[3].split(",") if len(sys.argv) > 3 else None)
+        shoot(
+            sys.argv[2],
+            port=int(sys.argv[4]) if len(sys.argv) > 4 else 8765,
+            only=sys.argv[3].split(",") if len(sys.argv) > 3 else None,
+        )
     else:
         raise SystemExit(__doc__)

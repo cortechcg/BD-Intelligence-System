@@ -94,6 +94,89 @@ def test_worker_passes_its_scope_to_claim_and_staging_skips_final_grades(monkeyp
     assert seen == ["staging"]
 
 
+def test_discovery_schedule_is_gated_to_the_existing_production_worker():
+    assert worker.production_discovery_enabled(
+        {**RENDER, "RENDER_SERVICE_NAME": "cortech-bd-worker"}, "production"
+    )
+    assert not worker.production_discovery_enabled(
+        {**RENDER, "RENDER_SERVICE_NAME": "BD-Intelligence-System"}, "production"
+    )
+    assert not worker.production_discovery_enabled(
+        {**RENDER, "RENDER_SERVICE_NAME": "cortech-bd-worker"}, "staging"
+    )
+    assert not worker.production_discovery_enabled(
+        {"DASHBOARD_WORKER_SCOPE": "production", "DASHBOARD_WORKER_ALLOW_LOCAL_PRODUCTION": "1"},
+        "production",
+    )
+
+
+def test_due_schedule_uses_one_persisted_lease_and_records_partial_results():
+    events = []
+
+    class ScheduleStore:
+        def claim_due(self, **kwargs):
+            events.append(("claim", kwargs))
+            return "lease-token", True
+
+        def finish(self, token, **kwargs):
+            events.append(("finish", token, kwargs))
+            return True
+
+    env = {**RENDER, "RENDER_SERVICE_NAME": "cortech-bd-worker"}
+    did_run = worker.run_scheduled_discovery_if_due(
+        "production",
+        env=env,
+        schedule_store=ScheduleStore(),
+        runner=lambda: {
+            "sources_checked": 3, "source_failures": 1,
+            "candidates": 4, "duplicates": 1, "filtered": 1, "stored": 2,
+        },
+    )
+    assert did_run is True
+    assert events[0][0] == "claim"
+    assert events[0][1]["lease_seconds"] == worker.DISCOVERY_LEASE_SECONDS
+    assert events[1][0] == "finish"
+    assert events[1][2]["outcome"] == "partial"
+    assert events[1][2]["summary"]["stored"] == 2
+    assert events[1][2]["interval_seconds"] == 7200
+
+
+def test_not_due_or_non_owner_does_not_run_discovery():
+    class ScheduleStore:
+        def claim_due(self, **_kwargs):
+            return "unused", False
+
+    env = {**RENDER, "RENDER_SERVICE_NAME": "cortech-bd-worker"}
+    assert worker.run_scheduled_discovery_if_due(
+        "production", env=env, schedule_store=ScheduleStore(),
+        runner=lambda: pytest.fail("a non-due schedule must not run"),
+    ) is False
+    assert worker.run_scheduled_discovery_if_due(
+        "production", env={**RENDER, "RENDER_SERVICE_NAME": "other"},
+        schedule_store=ScheduleStore(), runner=lambda: pytest.fail("wrong service"),
+    ) is False
+
+
+def test_schedule_failure_is_recorded_and_lease_finished():
+    events = []
+
+    class ScheduleStore:
+        def claim_due(self, **_kwargs):
+            return "lease-token", True
+
+        def finish(self, token, **kwargs):
+            events.append((token, kwargs))
+            return True
+
+    env = {**RENDER, "RENDER_SERVICE_NAME": "cortech-bd-worker"}
+    assert worker.run_scheduled_discovery_if_due(
+        "production", env=env, schedule_store=ScheduleStore(),
+        runner=lambda: (_ for _ in ()).throw(RuntimeError("fixture failure")),
+    ) is True
+    assert events[0][1]["outcome"] == "failure"
+    assert "RuntimeError" in events[0][1]["error"]
+
+
 def test_ui_reads_only_production_rows():
     import inspect
 

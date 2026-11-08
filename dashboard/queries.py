@@ -18,7 +18,7 @@ from typing import Any
 
 from loguru import logger
 
-from database.supabase_client import get_supabase
+from database.supabase_client import _grade_claim_is_fresh, get_supabase
 from utils.urls import canonicalize_url
 
 # Agent-owned stages, in order. `reviewed` / `outcome` are human/Airtable
@@ -784,11 +784,17 @@ def _final_grade_pending(checkpoint: dict) -> dict:
     request = checkpoint.get("final_grade_request")
     if not isinstance(request, dict) or not str(request.get("text") or "").strip():
         return {}
+    claimed_at = str(request.get("claimed_at") or "")
+    pending_state = (
+        "processing" if _grade_claim_is_fresh(claimed_at)
+        else "stale" if claimed_at else "queued"
+    )
     return {
         "filename": str(request.get("filename") or ""),
         "uploaded_by": str(request.get("uploaded_by") or ""),
         "uploaded_at": str(request.get("uploaded_at") or ""),
-        "claimed_at": str(request.get("claimed_at") or ""),
+        "claimed_at": claimed_at,
+        "pending_state": pending_state,
         "criteria_count": len(request.get("criteria") or []),
     }
 
