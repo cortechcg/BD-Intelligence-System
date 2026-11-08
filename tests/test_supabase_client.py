@@ -323,8 +323,10 @@ def test_record_discovered_opportunity_does_not_embed(monkeypatch):
     row = calls["insert"][0]
     assert row["title"] == "Water supply evaluation"
     assert "embedding" not in row
-    assert row["discovered_at"] == row["discovered_at"][:10]
-    assert len(row["discovered_at"]) == 10
+    from datetime import datetime, timezone
+    stamp = datetime.fromisoformat(row["discovered_at"])
+    assert stamp.tzinfo == timezone.utc
+    assert stamp.microsecond >= 0
 
 
 def test_custom_source_metadata_is_required_for_a_new_discovery_row(monkeypatch):

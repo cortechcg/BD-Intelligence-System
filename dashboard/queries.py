@@ -14,7 +14,9 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Iterable
+from datetime import date, datetime, time as datetime_time, timezone
 from typing import Any
+from urllib.parse import urlsplit
 
 from loguru import logger
 
@@ -323,6 +325,120 @@ def list_cache_without_ledger(limit: int = 50, scan: int = 2000) -> tuple[list[d
     ]
     waiting.sort(key=_cache_title_rank, reverse=True)
     return [_cache_row_to_item(row) for row in waiting[:limit]], int(total)
+
+
+def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
+    """Read a bounded persisted feed using the stored discovery value as cursor.
+
+    New inserts store an actual UTC timestamp in the existing discovered_at
+    column. Legacy date-only values remain date-precision records. Inclusive
+    timestamp overlap plus canonical-URL dedup handles equal cursor values.
+    """
+    limit = max(1, min(int(limit), 200))
+    since_cursor = ""
+    if since:
+        # Accept legacy date cursors and precise timezone-aware cursors only.
+        raw_cursor = str(since)
+        if len(raw_cursor) == 10:
+            since_cursor = date.fromisoformat(raw_cursor).isoformat()
+        else:
+            parsed_cursor = datetime.fromisoformat(raw_cursor.replace("Z", "+00:00"))
+            if parsed_cursor.tzinfo is None:
+                raise ValueError("Cursor timestamp must include a timezone.")
+            since_cursor = parsed_cursor.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+    sb = get_supabase()
+    selection = "source_url,title,donor,discovered_at,source_metadata"
+    query = sb.table("opportunities_cache").select(selection)
+    if since_cursor:
+        query = query.gte("discovered_at", since_cursor)
+    res = query.order("discovered_at", desc=True).order("source_url", desc=True).limit(limit).execute()
+    rows = [row for row in (res.data or []) if isinstance(row, dict) and row.get("source_url")]
+
+    urls = list(dict.fromkeys(str(row["source_url"]) for row in rows))
+    deadlines: dict[str, str] = {}
+    if urls:
+        try:
+            ledger = (
+                sb.table("opportunity_processing")
+                .select("source_url,cp_deadline:checkpoint->analysis->opportunity->>submission_deadline")
+                .in_("source_url", urls[:limit])
+                .limit(limit)
+                .execute()
+            )
+            deadlines = {
+                str(row.get("source_url")): str(row.get("cp_deadline") or "")
+                for row in (ledger.data or []) if isinstance(row, dict)
+            }
+        except Exception as exc:
+            # Listing remains useful when older deployments lack the optional
+            # extracted deadline expression.
+            logger.debug(f"live tender deadline lookup unavailable ({type(exc).__name__})")
+
+    output = []
+    seen = set()
+    for row in rows:
+        raw_url = str(row.get("source_url") or "")
+        canonical = _canon(raw_url)
+        if not canonical or canonical in seen:
+            continue
+        parsed = urlsplit(canonical)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            continue
+        seen.add(canonical)
+        metadata = row.get("source_metadata") if isinstance(row.get("source_metadata"), dict) else {}
+        source_url = str(metadata.get("original_source_url") or raw_url)
+        source_parsed = urlsplit(source_url)
+        if source_parsed.scheme not in ("http", "https") or not source_parsed.netloc:
+            source_url = canonical
+            source_parsed = parsed
+        source_name = str(metadata.get("source_portal") or metadata.get("source_name") or source_parsed.hostname or "")[:160]
+        title = str(row.get("title") or "").strip()
+        if title.lower() == "unknown":
+            title = ""
+        first_seen = str(row.get("discovered_at") or "")
+        first_seen_precision = "date"
+        first_seen_display = first_seen[:10] if first_seen else ""
+        try:
+            if "T" in first_seen:
+                stamp = datetime.fromisoformat(first_seen.replace("Z", "+00:00"))
+                if stamp.tzinfo is not None and stamp.timetz().replace(tzinfo=None).isoformat() != "00:00:00":
+                    first_seen_precision = "time"
+                    first_seen_display = stamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        except ValueError:
+            pass
+        output.append({
+            "key": canonical,
+            "url": canonical,
+            "title": title,
+            "source": source_name,
+            "source_url": source_url,
+            "deadline": deadlines.get(raw_url, ""),
+            "first_seen": first_seen,
+            "first_seen_display": first_seen_display,
+            "first_seen_precision": first_seen_precision,
+        })
+    # Normalize actual instants before sorting; legacy date-only records are
+    # ordered at midnight UTC and shown only at date precision.
+    def order_key(item):
+        raw = item["first_seen"]
+        try:
+            if len(raw) == 10:
+                stamp = datetime.combine(date.fromisoformat(raw), datetime_time.min, tzinfo=timezone.utc)
+            else:
+                stamp = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                if stamp.tzinfo is None:
+                    stamp = stamp.replace(tzinfo=timezone.utc)
+                stamp = stamp.astimezone(timezone.utc)
+        except ValueError:
+            stamp = datetime.min.replace(tzinfo=timezone.utc)
+        return (stamp, item["key"])
+    output.sort(key=order_key)
+    last = output[-1] if output else None
+    return {
+        "items": output,
+        "cursor": {"at": last["first_seen"], "key": last["key"]} if last else None,
+    }
 
 
 HALTED_STATES = ("failed", "dead_letter", "spend_cap", "cancelled")
