@@ -63,6 +63,9 @@ _DOCX_SKIP_KEYS = {
     "claim_sheet",
     "draft_editor",
     "quality_gate",
+    "review_pack",
+    "proposal_versions",
+    "release_approval",
 }
 
 
@@ -348,6 +351,13 @@ def build_proposal_docx(
         else "Technical Proposal"
     )
     subtitle.add_run(doc_type).italic = True
+
+    draft_status = doc.add_paragraph()
+    draft_status.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    status_run = draft_status.add_run("DRAFT — INTERNAL REVIEW ONLY — NOT RELEASE APPROVED")
+    status_run.bold = True
+    status_run.font.size = Pt(9)
+    status_run.font.color.rgb = RGBColor(0x85, 0x52, 0x17)
 
     doc.add_paragraph()
 

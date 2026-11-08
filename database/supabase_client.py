@@ -997,6 +997,27 @@ def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
     if not isinstance(checkpoint.get("analysis"), dict) or not checkpoint.get("analysis"):
         return False, "score this opportunity before choosing an outline"
     checkpoint = dict(checkpoint)
+    previous = checkpoint.get("proposal_sections")
+    if isinstance(previous, dict) and any(
+        isinstance(value, str) and value.strip() for value in previous.values()
+    ):
+        from intelligence.review_pack import draft_fingerprint
+        versions = checkpoint.get("proposal_versions") if isinstance(checkpoint.get("proposal_versions"), list) else []
+        version_fp = draft_fingerprint(
+            checkpoint.get("analysis") or {}, previous,
+            checkpoint.get("matched_team_result") or {},
+            str(checkpoint.get("source_content_hash") or ""),
+        )
+        if not versions or versions[-1].get("fingerprint") != version_fp:
+            versions.append({
+                "number": len(versions) + 1,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "Draft preserved before outline regeneration",
+                "fingerprint": version_fp,
+                "sections": previous,
+            })
+        checkpoint["proposal_versions"] = versions[-10:]
+    checkpoint.pop("proposal_release_approval", None)
     checkpoint["accepted_outline"] = outline
     for key in _DRAFT_CHECKPOINT_KEYS:
         checkpoint.pop(key, None)
@@ -1024,6 +1045,129 @@ def save_accepted_outline(source_url: str, outline: dict) -> tuple[bool, str]:
     if not updated.data:
         return False, "could not save the outline"
     return True, "saved"
+
+
+def save_proposal_section_edit(
+    source_url: str, section_key: str, content: str, edited_by: str = "",
+) -> tuple[bool, str]:
+    """Save a human section edit, preserve the prior draft and invalidate checks."""
+    canonical = canonicalize_url(source_url) or source_url
+    if not canonical or not section_key or len(content or "") > 50000:
+        return False, "invalid section edit"
+    try:
+        table = get_supabase().table("opportunity_processing")
+        result = table.select("source_url,state,updated_at,checkpoint").eq(
+            "source_url", canonical
+        ).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return False, "no stored opportunity row"
+        row = rows[0]
+        if row.get("state") == "processing":
+            return False, "a run is in progress; wait before editing"
+        checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+        sections = checkpoint.get("proposal_sections") if isinstance(checkpoint.get("proposal_sections"), dict) else {}
+        if section_key not in sections or not isinstance(sections.get(section_key), str):
+            return False, "draft section not found"
+        versions = checkpoint.get("proposal_versions") if isinstance(checkpoint.get("proposal_versions"), list) else []
+        from intelligence.review_pack import draft_fingerprint
+        old_fp = draft_fingerprint(
+            checkpoint.get("analysis") or {}, sections,
+            checkpoint.get("matched_team_result") or {},
+            str(checkpoint.get("source_content_hash") or ""),
+        )
+        if not versions or versions[-1].get("fingerprint") != old_fp:
+            versions.append({
+                "number": len(versions) + 1,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "Human edit saved",
+                "fingerprint": old_fp,
+                "sections": sections,
+            })
+        updated_sections = dict(sections)
+        updated_sections[section_key] = str(content)
+        updated_sections.pop("quality_gate", None)
+        updated_sections.pop("requirement_alignment", None)
+        updated_sections.pop("format_compliance", None)
+        updated_sections["claim_grounding"] = {
+            "claims": [],
+            "error": "Human-edited content requires factual claim re-grounding before release.",
+        }
+        checkpoint = dict(checkpoint)
+        checkpoint["proposal_versions"] = versions[-10:]
+        checkpoint["proposal_sections"] = updated_sections
+        checkpoint.pop("proposal_release_approval", None)
+        checkpoint["draft_editor"] = {
+            "last_edit_by": (edited_by or "")[:254],
+            "last_edit_at": datetime.now(timezone.utc).isoformat(),
+            "last_edited_section": section_key[:100],
+        }
+        update = table.update({
+            "checkpoint": checkpoint,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("source_url", canonical).eq("updated_at", row.get("updated_at")).neq("state", "processing").execute()
+        return (True, "draft edit saved") if (update.data or []) else (False, "the draft changed during save; reload and try again")
+    except Exception as exc:
+        logger.warning(f"Could not save proposal edit: {exc}")
+        return False, "could not save this draft edit"
+
+
+def save_proposal_release_approval(
+    source_url: str, *, fingerprint: str, reviewer: str,
+    acknowledgements: dict, evidence_hash: str = "",
+) -> tuple[bool, str]:
+    """Persist human release approval only for the exact current draft state."""
+    canonical = canonicalize_url(source_url) or source_url
+    try:
+        table = get_supabase().table("opportunity_processing")
+        result = table.select("source_url,state,updated_at,checkpoint").eq(
+            "source_url", canonical
+        ).limit(1).execute()
+        rows = result.data or []
+        if not rows:
+            return False, "no stored opportunity row"
+        row = rows[0]
+        if row.get("state") == "processing":
+            return False, "a run is in progress; wait before approving"
+        checkpoint = row.get("checkpoint") if isinstance(row.get("checkpoint"), dict) else {}
+        sections = checkpoint.get("proposal_sections") if isinstance(checkpoint.get("proposal_sections"), dict) else {}
+        try:
+            cache_result = get_supabase().table("opportunities_cache").select(
+                "content_hash"
+            ).eq("source_url", canonical).limit(1).execute()
+            cache_rows = cache_result.data or []
+            current_content_hash = str(cache_rows[0].get("content_hash") or "") if cache_rows else ""
+        except Exception:
+            return False, "could not verify the tender evidence version; approval was not recorded"
+        from intelligence.review_pack import draft_fingerprint, evidence_fingerprint
+        current_evidence_hash = evidence_fingerprint(current_content_hash, str(checkpoint.get("full_text") or ""))
+        if current_evidence_hash != evidence_hash:
+            return False, "the tender evidence changed during approval; reload the review pack"
+        current = draft_fingerprint(
+            checkpoint.get("analysis") or {}, sections,
+            checkpoint.get("matched_team_result") or {}, current_evidence_hash,
+        )
+        if current != fingerprint:
+            return False, "the tender, team or draft changed during approval; reload the review pack"
+        checkpoint = dict(checkpoint)
+        checkpoint["proposal_release_approval"] = {
+            "status": "approved",
+            "fingerprint": current,
+            "approved_by": (reviewer or "")[:254],
+            "approved_at": datetime.now(timezone.utc).isoformat(),
+            "acknowledgements": {
+                key: bool(acknowledgements.get(key))
+                for key in ("attachments_verified", "final_document_checked", "submission_checked")
+            },
+        }
+        update = table.update({
+            "checkpoint": checkpoint,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }).eq("source_url", canonical).eq("updated_at", row.get("updated_at")).neq("state", "processing").execute()
+        return (True, "approval recorded") if (update.data or []) else (False, "the draft changed during approval; reload and try again")
+    except Exception as exc:
+        logger.warning(f"Could not record proposal release approval: {exc}")
+        return False, "could not record release approval"
 
 
 def save_final_grade(source_url: str, record: dict, *, uploaded_by: str = "") -> tuple[bool, str]:

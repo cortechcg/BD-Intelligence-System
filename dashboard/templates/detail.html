@@ -18,6 +18,7 @@
     {{ m.state_chip(d.ui_state, live=(active_job and active_job.status == "running")) }}
     {% if d.has_draft %}
       <a class="btn btn--sm btn--quiet" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      <a class="btn btn--sm btn--quiet" href="/draft/docx?url={{ d.source_url | urlencode }}">Download Word draft (.docx)</a>
     {% endif %}
     {% if active_job %}
       <a class="btn btn--sm btn--quiet" href="{{ url_job }}/{{ active_job.id }}">Job {{ active_job.id[:8] }}: {{ active_job.status }}</a>
@@ -490,6 +491,7 @@
     </div>
     <div class="decision__actions">
       <a class="btn" href="{{ url_draft }}?url={{ d.source_url | urlencode }}">Download draft (.md)</a>
+      <a class="btn btn--quiet" href="/draft/docx?url={{ d.source_url | urlencode }}">Download Word draft (.docx)</a>
       {% if is_drive %}<a class="btn btn--quiet" href="{{ source_link }}" target="_blank" rel="noopener noreferrer">Open TOR in Drive ↗</a>{% endif %}
       <div class="decision__marks">
         <form method="post" action="{{ url_mark_reviewed or '/opportunity/reviewed' }}">
@@ -511,6 +513,57 @@
         </form>
       </div>
     </div>
+  </section>
+
+  {% set rp = d.get("review_pack") or {} %}
+  <section class="panel release-review" aria-labelledby="h-release-review">
+    {% if rp.release_ready %}
+      <div class="band band--info" role="status"><strong>RELEASE-READY — HUMAN APPROVED</strong> · {{ rp.approved_by }}{% if rp.approved_at %} · {{ rp.approved_at[:10] }}{% endif %}</div>
+    {% elif rp.approval_status == "stale" %}
+      <div class="band band--critical" role="status"><strong>PRIOR APPROVAL EXPIRED</strong> · The tender, team, evidence or draft changed. Review and approve this version again.</div>
+    {% elif rp.release_eligible %}
+      <div class="band band--warn" role="status"><strong>AWAITING HUMAN APPROVAL</strong> · All machine checks pass; complete the reviewer attestations below.</div>
+    {% else %}
+      <div class="band band--critical" role="status"><strong>NOT RELEASE-READY</strong> · Resolve hard failures and review the evidence gaps below.</div>
+    {% endif %}
+    <div class="panel__head">
+      <div><h2 id="h-release-review">Release review</h2><p class="panel__desc">Quality score: {{ rp.diagnostic_score if rp.diagnostic_score is not none else "not available" }} / 100 · diagnostic only, not a win probability or proof of compliance. Draft exports remain marked internal until this exact version is approved.</p></div>
+      {% set team_coverage = rp.get("team_coverage") or {} %}
+      <span class="panel__note">Team coverage: {{ team_coverage.get("qualified_role_coverage") or 0 }} / {{ team_coverage.get("required_headcount") or 0 }} roles</span>
+    </div>
+    {% if rp.hard_compliance_failures %}
+      <div class="review-list review-list--hard"><h3>Hard compliance failures</h3><ul>{% for item in rp.hard_compliance_failures[:30] %}<li><strong>{{ item.kind | replace("_", " ") }}.</strong> {{ item.message }}{% if item.section %} <span class="mono">({{ item.section }})</span>{% endif %}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if rp.evidence_gaps %}
+      <div class="review-list review-list--gap"><h3>Evidence gaps and human checks</h3><ul>{% for item in rp.evidence_gaps[:30] %}<li><strong>{{ item.kind | replace("_", " ") }}.</strong> {{ item.message or item.requirement or "Needs review" }}{% if item.items %}: {{ item.items | join(", ") }}{% endif %}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if rp.editorial_suggestions %}
+      <div class="review-list review-list--edit"><h3>Editorial suggestions</h3><ul>{% for item in rp.editorial_suggestions[:20] %}<li>{{ item.message }}{% if item.section %} <span class="mono">({{ item.section }})</span>{% endif %}</li>{% endfor %}</ul></div>
+    {% endif %}
+    {% if rp.requirement_matrix %}
+      <h3 class="review-subhead">Requirement-to-section matrix</h3>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Requirement</th><th>Status</th><th>Draft section</th><th>Tender source passage</th><th>Draft evidence</th></tr></thead>
+        <tbody>{% for row in rp.requirement_matrix %}{% set source = row.source_evidence or {} %}<tr>
+          <td><strong>{{ row.label }}</strong></td><td><span class="badge-pill {% if row.status == 'addressed' %}badge-pill--good{% elif row.status == 'partially_addressed' %}badge-pill--warn{% else %}badge-pill--danger{% endif %}">{{ row.status }}</span></td>
+          <td class="mono">{{ row.section or "—" }}</td>
+          <td class="evidence">{% if source.status == "VERIFIED" %}{{ source.source_file or "Tender" }}{% if source.page %}, page {{ source.page }}{% endif %}{% if source.passage %}<details><summary>View passage</summary><blockquote>{{ source.passage }}</blockquote></details>{% endif %}{% else %}<span class="v-missing">Source passage not located</span>{% endif %}</td>
+          <td class="evidence">{{ row.quote or row.evidence or "Not traced" }}</td>
+        </tr>{% endfor %}</tbody>
+      </table></div>
+    {% endif %}
+    {% if not rp.release_ready %}
+    <form method="post" action="/opportunity/release-approval" class="release-approval-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="source_url" value="{{ d.source_url }}">
+      <h3>Human sign-off</h3>
+      <label class="check-row"><input type="checkbox" name="submission_checked" required> I checked eligibility, deadlines, submission instructions and requirements marked unknown against the original tender.</label>
+      {% if rp.needs_attachment_ack %}<label class="check-row"><input type="checkbox" name="attachments_verified" required> I verified these items in the final submission package: {{ rp.external_items | join(", ") }}.</label>{% endif %}
+      <label class="check-row"><input type="checkbox" name="final_document_checked" required> I inspected the final rendered Word/PDF for pagination, page limits, names, dates, numbers and signatures.</label>
+      {% if rp.hard_compliance_failures %}<p class="field__hint">Approval stays blocked until every hard failure is resolved.</p>{% endif %}
+      <button class="btn" type="submit" {% if rp.hard_compliance_failures %}disabled{% endif %}>Approve this version as release-ready</button>
+    </form>
+    {% endif %}
+    {% if d.proposal_versions %}<details class="prior-versions"><summary>Preserved prior drafts · {{ d.proposal_versions | length }} version(s)</summary><ul>{% for version in d.proposal_versions %}<li>Version {{ version.number }}{% if version.created_at %} · {{ version.created_at[:10] }}{% endif %} · {{ version.reason }} <a href="/draft?url={{ d.source_url | urlencode }}&amp;version={{ version.number }}">Download Markdown</a> · <a href="/draft/docx?url={{ d.source_url | urlencode }}&amp;version={{ version.number }}">Download Word</a></li>{% endfor %}</ul></details>{% endif %}
   </section>
 
   <details class="disclosure">
@@ -570,6 +623,24 @@
     </div>
     {% endif %}
   </section>
+  {% endif %}
+
+  {% if d.has_draft and d.client_draft_texts %}
+  <details class="panel proposal-editor" id="proposal-editor">
+    <summary>Edit proposal text <span class="small muted">Saving preserves this version and invalidates grounding, checks and approval.</span></summary>
+    <div class="proposal-editor__body">
+      {% for section in d.client_draft_texts %}
+      <details class="proposal-editor__section"><summary>{{ section.heading }}</summary>
+        <form method="post" action="/opportunity/draft/edit" class="stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="source_url" value="{{ d.source_url }}"><input type="hidden" name="section_key" value="{{ section.key }}">
+          <label class="sr-only" for="draft-section-{{ loop.index }}">Edit {{ section.heading }}</label>
+          <textarea id="draft-section-{{ loop.index }}" name="content" rows="14" maxlength="50000" required>{{ section.content }}</textarea>
+          <button class="btn btn--quiet" type="submit">Save {{ section.heading }}</button>
+        </form>
+      </details>
+      {% endfor %}
+    </div>
+  </details>
   {% endif %}
 
   {% if d.requirement_alignment and d.requirement_alignment.headline %}

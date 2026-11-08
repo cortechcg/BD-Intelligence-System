@@ -602,12 +602,44 @@ def opportunity_detail(source_url: str) -> dict | None:
     claim_grounding = sections.get("claim_grounding") if isinstance(sections.get("claim_grounding"), dict) else {}
     win_strategy_raw = sections.get("win_strategy") or bid_analysis.get("win_themes") or ""
 
+    from intelligence.review_pack import build_review_pack, draft_fingerprint, evidence_fingerprint
+    approval = cp.get("proposal_release_approval") if isinstance(cp.get("proposal_release_approval"), dict) else {}
+    acknowledgements = approval.get("acknowledgements") if isinstance(approval.get("acknowledgements"), dict) else {}
+    review_pack = build_review_pack(analysis, sections, matched_team_res, acknowledgements=acknowledgements)
+    evidence_hash = evidence_fingerprint(str((cache or {}).get("content_hash") or ""), str(cp.get("full_text") or ""))
+    current_fingerprint = draft_fingerprint(analysis, sections, matched_team_res, evidence_hash)
+    approval_current = (
+        approval.get("status") == "approved"
+        and approval.get("fingerprint") == current_fingerprint
+        and review_pack.get("release_ready") is True
+    )
+    review_pack["release_ready"] = approval_current
+    review_pack["approval_status"] = (
+        "approved" if approval_current else
+        "stale" if approval.get("status") == "approved" else
+        "awaiting_approval" if review_pack.get("release_eligible") else "blocked"
+    )
+    review_pack["approved_by"] = str(approval.get("approved_by") or "") if approval_current else ""
+    review_pack["approved_at"] = str(approval.get("approved_at") or "") if approval_current else ""
+
+    from reporting.docx_builder import iter_client_sections
+    client_draft_texts = [
+        {"key": key, "heading": heading, "content": content}
+        for key, heading, content in iter_client_sections(sections)
+    ]
+    proposal_versions = [
+        {"number": int(item.get("number") or i + 1), "created_at": item.get("created_at"),
+         "reason": item.get("reason") or "Prior version"}
+        for i, item in enumerate(cp.get("proposal_versions") or [])
+        if isinstance(item, dict)
+    ]
+
     _skip_meta = {
         "lightweight", "lightweight_reason", "submission_type", "quality_score",
         "claim_grounding", "tender_brief", "win_strategy", "document_lock",
         "section_order", "omitted_financial", "submission_outline", "requirement_alignment",
         "quality_gate", "committee_grade", "claim_sheet", "draft_editor", "format_compliance",
-        "required_attachments", "required_forms",
+        "required_attachments", "required_forms", "proposal_versions", "review_pack",
     }
     client_draft_list = []
     for k, v in sections.items():
@@ -645,6 +677,9 @@ def opportunity_detail(source_url: str) -> dict | None:
         "scored": scored,
         "has_draft": bool(sections),
         "quality_gate": _quality_gate(analysis, sections),
+        "review_pack": review_pack,
+        "client_draft_texts": client_draft_texts,
+        "proposal_versions": proposal_versions,
         **_grading_criteria(analysis, sections),
         "evaluation_criteria": eval_criteria,
         "deliverables": deliverables,

@@ -57,7 +57,7 @@ def test_app_does_not_import_the_client_facing_senders():
         assert name not in src, f"dashboard/app.py references {name}"
 
 
-def test_post_routes_are_limited_to_queueing():
+def test_post_routes_are_limited_to_queueing_and_human_review_controls():
     posts = sorted(
         r.path
         for r in app_module.app.routes
@@ -71,14 +71,17 @@ def test_post_routes_are_limited_to_queueing():
         "/library/{document_id}/reprocess",
         "/library/{document_id}/restore",
         "/library/{document_id}/update",
+        "/opportunity/draft/edit",
         "/opportunity/final-grade",
-        "/opportunity/outcome", "/opportunity/outline", "/opportunity/reviewed",
+        "/opportunity/outcome", "/opportunity/outline", "/opportunity/release-approval",
+        "/opportunity/reviewed",
         "/sources/add", "/sources/{source_id}/enable", "/sources/{source_id}/pause",
         "/sources/{source_id}/test",
         "/trigger/bulk", "/trigger/cancel", "/trigger/existing",
         "/trigger/rerun", "/trigger/retry", "/trigger/url",
     ]
-    # Queue posts enqueue or cancel. Review posts record a person's decision.
+    # Queue posts enqueue or cancel. Review posts record a person's decision,
+    # edit one draft section or approve one content-bound draft version.
     # The outline post stores chapters for a later draft. The final-grade post
     # queues a file for the worker. Library posts store a document or a
     # consultant and may enqueue library_ingest. Source posts only change

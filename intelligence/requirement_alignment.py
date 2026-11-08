@@ -243,16 +243,16 @@ def collect_requirements(analysis: dict | None, outline: dict | None = None) -> 
     ]
     if outline.get("prescribed") and outline_sections:
         prescribed_rows = [
-            (item.get("heading"), "submission_outline.sections")
-            for item in outline_sections
+            (item.get("heading"), f"submission_outline.sections[{index}]")
+            for index, item in enumerate(outline_sections)
         ]
     else:
         raw_prescribed = submission.get("prescribed_proposal_sections")
         if not isinstance(raw_prescribed, list):
             raw_prescribed = []
         prescribed_rows = [
-            (heading, "submission_requirements.prescribed_proposal_sections")
-            for heading in raw_prescribed
+            (heading, f"submission_requirements.prescribed_proposal_sections[{index}]")
+            for index, heading in enumerate(raw_prescribed)
         ]
     for index, (heading, source) in enumerate(prescribed_rows):
         title = _clean(heading)
@@ -283,7 +283,7 @@ def collect_requirements(analysis: dict | None, outline: dict | None = None) -> 
             "kind": "required_annex",
             "label": title,
             "text": title,
-            "source": "submission_requirements.required_annexes",
+            "source": f"submission_requirements.required_annexes[{index}]",
         })
 
     conditions = submission.get("disqualifying_conditions")
@@ -297,7 +297,7 @@ def collect_requirements(analysis: dict | None, outline: dict | None = None) -> 
                 "kind": "disqualifying_condition",
                 "label": text,
                 "text": text,
-                "source": "submission_requirements.disqualifying_conditions",
+                "source": f"submission_requirements.disqualifying_conditions[{index}]",
             })
 
     deadline = _clean(opportunity.get("submission_deadline"))

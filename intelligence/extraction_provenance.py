@@ -276,8 +276,8 @@ def attach_extraction_provenance(
 
     requirements = analysis.get("requirements") if isinstance(analysis.get("requirements"), dict) else {}
     for key in (
-        "thematic_areas", "geographic_experience",
-        "language_requirements", "certifications",
+        "technical", "thematic_areas", "geographic_experience",
+        "language_requirements", "certifications", "methodology_requirements",
     ):
         items = requirements.get(key) or []
         if not isinstance(items, list) or not items:
@@ -285,6 +285,35 @@ def attach_extraction_provenance(
             continue
         for index, item in enumerate(items):
             add(f"requirements.{key}[{index}]", item)
+
+    # Submission requirements are the fields reviewers must be able to trace
+    # to the tender. Keep absent/ambiguous values UNKNOWN/INSUFFICIENT rather
+    # than filling them from a house template.
+    submission = analysis.get("submission_requirements") if isinstance(analysis.get("submission_requirements"), dict) else {}
+    for key in (
+        "technical_proposal_page_limit", "cvs_required", "past_work_samples_required",
+        "references_required", "financial_proposal_required",
+    ):
+        add(f"submission_requirements.{key}", submission.get(key))
+    for key in (
+        "prescribed_proposal_sections", "required_annexes", "disqualifying_conditions",
+    ):
+        values = submission.get(key) or []
+        if not isinstance(values, list):
+            values = [values]
+        if not values:
+            add(f"submission_requirements.{key}", None)
+        for index, item in enumerate(values):
+            add(f"submission_requirements.{key}[{index}]", item)
+
+    deliverables = analysis.get("deliverables") or []
+    if isinstance(deliverables, list):
+        for index, row in enumerate(deliverables):
+            if isinstance(row, dict):
+                add(f"deliverables[{index}].name", row.get("name") or row.get("title"))
+                add(f"deliverables[{index}].timeline", row.get("timeline"))
+            elif isinstance(row, str):
+                add(f"deliverables[{index}]", row)
 
     team = analysis.get("team_requirements") or []
     if isinstance(team, list):
@@ -303,6 +332,7 @@ def attach_extraction_provenance(
             if not isinstance(row, dict):
                 continue
             add(f"evaluation_criteria[{index}].criterion", row.get("criterion"))
+            add(f"evaluation_criteria[{index}].description", row.get("description"))
             add(
                 f"evaluation_criteria[{index}].weight_percent",
                 row.get("weight_percent"),

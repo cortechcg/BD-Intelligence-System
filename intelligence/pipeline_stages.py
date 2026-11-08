@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -136,6 +137,7 @@ class OpportunityContext:
     })
     budget: dict = field(default_factory=dict)
     proposal_sections: dict = field(default_factory=dict)
+    proposal_versions: list[dict] = field(default_factory=list)
     matrix: list = field(default_factory=list)
     submission_type: str = "FULL_PROPOSAL"
     recommended_outline: dict = field(default_factory=dict)
@@ -156,6 +158,7 @@ class OpportunityContext:
             "matched_team_result": self.matched_team_result,
             "budget": self.budget,
             "proposal_sections": self.proposal_sections,
+            "proposal_versions": self.proposal_versions[-10:],
             "client_intelligence": self.client_intelligence,
             "intelligence": self.intelligence,
             "matrix": self.matrix,
@@ -193,6 +196,8 @@ class OpportunityContext:
             self.budget = data["budget"]
         if isinstance(data.get("proposal_sections"), dict):
             self.proposal_sections = data["proposal_sections"]
+        if isinstance(data.get("proposal_versions"), list):
+            self.proposal_versions = [v for v in data["proposal_versions"] if isinstance(v, dict)][-10:]
         if isinstance(data.get("client_intelligence"), dict):
             self.client_intelligence = data["client_intelligence"]
         if isinstance(data.get("intelligence"), dict):
@@ -525,6 +530,26 @@ def run_score_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityCont
 
 def run_draft_stage(ctx: OpportunityContext, deps: StageDeps) -> OpportunityContext:
     """CV match, budget (fail-open), and BID/WATCH drafting. Empty drafts fail."""
+    # Preserve the previous (possibly human-edited) draft in the durable
+    # checkpoint before replacing it with a regeneration.
+    if isinstance(ctx.proposal_sections, dict) and any(
+        isinstance(value, str) and value.strip() for value in ctx.proposal_sections.values()
+    ):
+        from intelligence.review_pack import draft_fingerprint
+        version_fp = draft_fingerprint(
+            ctx.analysis, ctx.proposal_sections, ctx.matched_team_result,
+            str(ctx.raw.get("content_hash") or ""),
+        )
+        if not ctx.proposal_versions or ctx.proposal_versions[-1].get("fingerprint") != version_fp:
+            ctx.proposal_versions.append({
+                "number": len(ctx.proposal_versions) + 1,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "Draft preserved before regeneration",
+                "fingerprint": version_fp,
+                "sections": ctx.proposal_sections,
+            })
+        ctx.proposal_versions = ctx.proposal_versions[-10:]
+        ctx.proposal_sections = {}
     logger.info("  Step 3: Matching team from CV database...")
     team_requirements = ctx.analysis.get("team_requirements", [])
     if team_requirements:
