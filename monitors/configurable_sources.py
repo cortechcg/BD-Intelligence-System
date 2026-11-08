@@ -473,10 +473,14 @@ def discover_configured_sources() -> tuple[list[dict], list[dict]]:
                 })
                 continue
             passed: list[dict] = []
+            duplicate_count = 0
+            filtered_count = 0
             for item in result["items"]:
                 if check_opportunity_exists(item.get("dedup_url") or item["source_url"]):
+                    duplicate_count += 1
                     continue
                 if not quick_relevance_check(item["title"], item["summary"]):
+                    filtered_count += 1
                     continue
                 passed.append(item)
             opportunities.extend(passed)
@@ -487,6 +491,10 @@ def discover_configured_sources() -> tuple[list[dict], list[dict]]:
                 "capability": result["capability"],
                 "preview": result["preview"],
                 "items": passed,
+                "discovered": len(result["items"]),
+                "duplicates": duplicate_count,
+                "filtered": filtered_count,
+                "stored": 0,
                 "error": "",
             })
         except Exception as exc:
@@ -504,8 +512,12 @@ def discover_configured_sources() -> tuple[list[dict], list[dict]]:
     return opportunities, runs
 
 
-def finalize_discovery_runs(runs: list[dict], discovered_counts: dict[str, int]) -> None:
-    """Persist health after main.py has passed results through its shared dedup ledger."""
+def finalize_discovery_runs(runs: list[dict], counts_by_source: dict[str, int | dict]) -> None:
+    """Persist measured counters after results pass through the shared ledger.
+
+    Integer values are accepted for compatibility with older callers/tests;
+    new runners pass separate discovered/duplicate/filtered/stored counts.
+    """
     for run in runs or []:
         if run.get("cancelled"):
             registry.finish_source_run(
@@ -514,9 +526,25 @@ def finalize_discovery_runs(runs: list[dict], discovered_counts: dict[str, int])
                 cancelled=True,
             )
             continue
+        supplied = counts_by_source.get(run["source_id"], {})
+        if isinstance(supplied, dict):
+            counts = {
+                "discovered_delta": max(0, int(supplied.get("discovered", run.get("discovered", 0)) or 0)),
+                "duplicate_delta": max(0, int(supplied.get("duplicates", run.get("duplicates", 0)) or 0)),
+                "filtered_delta": max(0, int(supplied.get("filtered", run.get("filtered", 0)) or 0)),
+                "stored_delta": max(0, int(supplied.get("stored", 0) or 0)),
+            }
+        else:
+            legacy_stored = max(0, int(supplied or 0))
+            counts = {
+                "discovered_delta": int(run.get("discovered", legacy_stored) or 0),
+                "duplicate_delta": int(run.get("duplicates", 0) or 0),
+                "filtered_delta": int(run.get("filtered", 0) or 0),
+                "stored_delta": legacy_stored,
+            }
         registry.finish_source_run(
             run["source_id"], run["token"], success=bool(run.get("success")),
             error=str(run.get("error") or ""),
-            discovered_delta=int(discovered_counts.get(run["source_id"], 0)),
+            **counts,
             preview=run.get("preview") or [], capability=run.get("capability"),
         )

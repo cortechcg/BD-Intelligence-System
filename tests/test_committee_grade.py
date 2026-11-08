@@ -24,7 +24,7 @@ def test_a_missing_criterion_scores_zero_and_names_the_pass_mark():
     })
     assert reading["bar_percent"] == EVALUATION_ALIGNMENT_BAR
     assert reading["at_bar"] is False
-    assert "not a score awarded by the buyer" in reading["warning"]
+    assert "not an official procurement committee score" in reading["warning"]
     missing = reading["rows"][0]
     assert missing["mark"] == 0
     assert missing["weight"] == 40

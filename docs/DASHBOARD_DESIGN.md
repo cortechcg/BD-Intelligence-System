@@ -830,25 +830,25 @@ Watch it after deploy and swap in an SVG or a larger file when one is available
 `tests/test_live_dashboard_queue.py` reads the live database and races the live
 worker, so it can fail intermittently when run with the full suite; it passes alone.
 
-## 17. Pending state: white plate, orbiting logo (2026-10-25)
+## 17. Pending state: Cortech double-beat (2026-11-08)
 
-Every wait that follows a user action now looks the same: a full-viewport white (#ffffff)
-plate with the unaltered Cortech logo (132px wide, never above 150px) circling a 22px orbit.
-One component: `static/pending.css` and `static/pending.js`, loaded by base, login and denied.
+The shared pending presentation uses the official `static/brand/cortech-logo.png` on a charcoal
+panel with a restrained emerald halo. The logo retains its proportions. The logo and halo make two
+small scale/opacity beats over 1.7 seconds; reduced-motion users see a static logo and status.
+The full-screen transition waits 150ms, then uses a dark translucent backdrop. The Library upload
+uses the same component inside its panel, without changing panel layout.
 
-- Motion: transform only. An arm turns once per 0.5s, linear, and the logo counter-turns by the
-  same angle so it travels in a circle and never rotates. No spinner ring. The phase follows the
-  wall clock so the orbit carries on across a page change.
-- Timing: shows after 150ms so quick actions never flash. On the destination page the plate is
-  re-mounted at once (sessionStorage flag, 6s fresh) and fades out over 250ms after first paint.
-- Fail-safes: hidden on `pageshow` from the back-forward cache, on a script `error`, on Escape,
-  and after 30s at the latest.
-- Reduced motion: no orbit, logo still, the fade is near instant.
-- Screen readers: the plate is `role="status"` `aria-live="polite"` with a visually hidden "Loading".
-- Wired to: internal link clicks (not hash-only, not downloads, not modified clicks), form submits
-  (library upload, Won/Lost/Pending control, archive, reprocess, detail page actions, bulk, outline,
-  intake), and programmatic redirects through `CortechPending.go()`. The Library upload XHR uses
-  `CortechPending.show({scope: panel})`, a white plate over the panel only.
+- Labels describe the actual action: links say “Opening page”, ordinary forms say “Submitting
+  request”, and the Library XHR says “Uploading files to the library”.
+- Job status components are separate from navigation overlays. Queued is static. Processing pulses
+  only while the stored worker heartbeat is fresh. A missing/stale heartbeat is called out without
+  claiming the worker is active. A recently claimed final review can pulse; expired claims are
+  marked stale. Failed and completed runs use their existing terminal states and have no pending
+  animation.
+- Scoped and page-level `aria-busy` values are restored on hide. Status text is polite and atomic;
+  the decorative logo is hidden from assistive technology. Search fields remain silent.
+- Navigation handoff uses a short fade; page-cache return, script errors, Escape and the 30-second
+  failsafe clear the overlay. Retry, cancel, authentication and job polling behavior are unchanged.
 
 ### 17.1 Audit: what each busy state became
 
@@ -871,8 +871,9 @@ region) and in-place filtering on the Track record page do not show the plate.
 Search inputs (work queue search, Library and Track record filters) never show a plate, spinner,
 text or dimming. `pending.js` has no input or key listeners and skips forms that hold a search field.
 
-Checked by `tests/test_dashboard_pending.py` and `dashboard/design/motion_check.py` (delay, orbit
-radius and period at 0, 200 and 400 ms, handoff fade, Escape, reduced motion, quiet search bar).
+Checked by `tests/test_dashboard_pending.py` and `dashboard/design/motion_check.py` (delay, both
+beat peaks, authentic image loading, queued/running/stale/failed states, cleanup, handoff, Escape,
+reduced motion, and quiet search bar). The browser harness uses clearly marked synthetic fixtures.
 
 ## 18. Type and header hierarchy (2026-10-25)
 

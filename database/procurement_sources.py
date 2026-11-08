@@ -295,16 +295,26 @@ def source_is_enabled(source_id: str) -> bool:
 
 def finish_source_run(
     source_id: str, token: str, *, success: bool, error: str = "",
-    discovered_delta: int = 0, preview: list[dict] | None = None,
+    discovered_delta: int = 0, duplicate_delta: int = 0,
+    filtered_delta: int = 0, stored_delta: int | None = None,
+    preview: list[dict] | None = None,
     capability: str | None = None, cancelled: bool = False,
 ) -> bool:
+    # ``discovered_delta`` was historically the number inserted into the
+    # opportunity ledger. Preserve that meaning for older callers while the
+    # new scheduled runner supplies all four separately measured counters.
+    if stored_delta is None:
+        stored_delta = discovered_delta
     try:
-        result = get_supabase().rpc("finish_procurement_source_run", {
+        result = get_supabase().rpc("finish_procurement_source_run_with_counts", {
             "p_source_id": source_id,
             "p_token": token,
             "p_outcome": "cancelled" if cancelled else ("success" if success else "failure"),
             "p_error": (error or "")[:500],
             "p_discovered_delta": max(0, min(int(discovered_delta), 1000)),
+            "p_duplicate_delta": max(0, min(int(duplicate_delta), 1000)),
+            "p_filtered_delta": max(0, min(int(filtered_delta), 1000)),
+            "p_stored_delta": max(0, min(int(stored_delta), 1000)),
             "p_preview": (preview or [])[:5],
             "p_capability": capability,
         }).execute()

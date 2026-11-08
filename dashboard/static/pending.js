@@ -1,12 +1,9 @@
-/* Pending state. Shows one white plate with the circling Cortech logo while a
-   user action is waiting, then hands over to the next page. Progressive: with no
-   script the browser's own loading is used. Never touches search inputs.
-
-   Rules: shows only after 150 ms so quick actions never flash; hides itself on
-   bfcache return, on a script error, on Escape, and after 30 s at the latest. */
+/* Shared Cortech pending state. This only describes the requested page action
+   or the explicitly supplied panel operation; it never polls or guesses job
+   health. */
 (function () {
   "use strict";
-  var DELAY = 150, LOOP = 500, FAILSAFE = 30000, KEY = "cortech.pending";
+  var DELAY = 150, FAILSAFE = 30000, KEY = "cortech.pending";
   var d = document, root = d.documentElement;
   var me = d.currentScript;
   var base = me && me.src ? me.src.replace(/pending\.js(\?.*)?$/, "") : "/static/";
@@ -19,27 +16,38 @@
     try { if (set) sessionStorage.setItem(KEY, String(Date.now())); else sessionStorage.removeItem(KEY); } catch (e) {}
   }
 
-  function build(panel) {
+  function build(panel, label) {
     var o = d.createElement("div");
     o.className = "pend" + (panel ? " pend--panel" : "");
     o.setAttribute("role", "status");
     o.setAttribute("aria-live", "polite");
-    o.style.setProperty("--pend-phase", "-" + (Date.now() % LOOP) + "ms");
-    var sr = d.createElement("span"); sr.className = "pend__sr";
-    var arm = d.createElement("span"); arm.className = "pend__arm"; arm.setAttribute("aria-hidden", "true");
+    o.setAttribute("aria-atomic", "true");
+    var card = d.createElement("div"); card.className = "pend__card";
+    var mark = d.createElement("span"); mark.className = "pend__mark"; mark.setAttribute("aria-hidden", "true");
+    var halo = d.createElement("span"); halo.className = "pend__halo";
     var img = d.createElement("img"); img.className = "pend__logo"; img.src = LOGO; img.alt = "";
     img.width = 132; img.height = 49; img.decoding = "async";
-    arm.appendChild(img); o.appendChild(sr); o.appendChild(arm);
-    setTimeout(function () { sr.textContent = "Loading"; }, 60);
+    mark.appendChild(halo); mark.appendChild(img);
+    var text = d.createElement("span"); text.className = "pend__label";
+    text.textContent = label || "Opening page";
+    card.appendChild(mark); card.appendChild(text); o.appendChild(card);
     return o;
   }
 
-  function mount(panel, handoff) {
+  function mount(panel, handoff, label) {
     if (el) return;
-    el = build(panel);
-    if (panel) { panel.classList.add("pend-host"); panel.setAttribute("aria-busy", "true"); }
+    el = build(panel, label);
+    if (panel) {
+      el._panel = panel;
+      el._busyTarget = panel;
+      el._previousBusy = panel.getAttribute("aria-busy");
+      panel.classList.add("pend-host"); panel.setAttribute("aria-busy", "true");
+    } else if (d.body) {
+      el._busyTarget = d.body;
+      el._previousBusy = d.body.getAttribute("aria-busy");
+      d.body.setAttribute("aria-busy", "true");
+    }
     (panel || d.body || root).appendChild(el);
-    el._panel = panel || null;
     if (handoff) { el.classList.add("pend--instant", "is-on"); return; }
     void el.offsetWidth;
     el.classList.add("is-on");
@@ -48,7 +56,11 @@
 
   function unmount(node) {
     if (node.parentNode) node.parentNode.removeChild(node);
-    if (node._panel) { node._panel.classList.remove("pend-host"); node._panel.removeAttribute("aria-busy"); }
+    if (node._busyTarget) {
+      if (node._previousBusy === null) node._busyTarget.removeAttribute("aria-busy");
+      else node._busyTarget.setAttribute("aria-busy", node._previousBusy);
+    }
+    if (node._panel) node._panel.classList.remove("pend-host");
   }
 
   function hide(instant) {
@@ -60,27 +72,27 @@
     if (instant) { unmount(node); return; }
     node.classList.remove("pend--instant");
     node.classList.add("is-off"); node.classList.remove("is-on");
-    setTimeout(function () { unmount(node); }, 280);
+    setTimeout(function () { unmount(node); }, 240);
   }
 
-  function show(o) {
-    o = o || {};
+  function show(options) {
+    var o = options || {};
     if (timer || el) return;
     clearTimeout(failTimer);
     failTimer = setTimeout(function () { hide(true); }, FAILSAFE);
-    if (o.now) mount(o.scope || null, false);
-    else timer = setTimeout(function () { timer = null; mount(o.scope || null, false); }, DELAY);
+    if (o.now) mount(o.scope || null, false, o.label);
+    else timer = setTimeout(function () { timer = null; mount(o.scope || null, false, o.label); }, DELAY);
   }
 
-  function go(url) { show({ now: true }); window.location.assign(url); }
+  function go(url, label) { show({ now: true, label: label || "Opening page" }); window.location.assign(url); }
 
-  // Arrival: if the page we left was showing the plate, keep it up until this page
-  // has painted, then fade it out so the user lands where they clicked.
+  // Navigation handoff is only a visual bridge. It does not claim that a job
+  // has started or that a worker is healthy.
   function arrive() {
     var t = 0;
     try { t = +sessionStorage.getItem(KEY) || 0; sessionStorage.removeItem(KEY); } catch (e) {}
     if (!t || Date.now() - t > FAILSAFE) return;
-    mount(null, true);
+    mount(null, true, "Opening page");
     var node = el, done = false;
     function out() {
       if (done) return; done = true;
@@ -102,16 +114,16 @@
     if (u.origin !== location.origin) return;
     if (u.pathname === location.pathname && u.search === location.search && u.hash) return;
     if (FILE.test(u.pathname)) return;
-    // Page handlers (tabs, in-place filters) may cancel the click after this runs.
-    setTimeout(function () { if (!e.defaultPrevented) show(); }, 0);
+    setTimeout(function () { if (!e.defaultPrevented) show({ label: "Opening page" }); }, 0);
   }, false);
 
   d.addEventListener("submit", function (e) {
     var f = e.target;
     if (!f || f.tagName !== "FORM" || f.hasAttribute("data-no-pending") || (f.method || "").toLowerCase() === "dialog") return;
     if (f.target && f.target !== "_self") return;
-    if (f.getAttribute("role") === "search" || f.querySelector('input[type="search"]')) return; // filters stay silent
-    setTimeout(function () { if (!e.defaultPrevented) show(); }, 0);
+    if (f.getAttribute("role") === "search" || f.querySelector('input[type="search"]')) return;
+    var label = f.getAttribute("data-pending-label") || "Submitting request";
+    setTimeout(function () { if (!e.defaultPrevented) show({ label: label }); }, 0);
   }, false);
 
   window.addEventListener("pageshow", function (e) { if (e.persisted) hide(true); });

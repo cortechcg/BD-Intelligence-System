@@ -23,6 +23,39 @@ def test_parse_tenders_empty_html_does_not_crash():
     assert items == []
 
 
+def test_public_listing_explicit_no_results_is_successful_zero(monkeypatch):
+    from monitors import scraper
+
+    async def empty_listing(*_args, **_kwargs):
+        return "<html><body><p>No tenders found.</p></body></html>"
+
+    monkeypatch.setattr(scraper, "fetch_page_content", empty_listing)
+    source = {
+        "name": "fixture empty listing", "page_urls": ["https://public.example.org/tenders"],
+        "selector": ".listing", "title_selector": ".title", "base_url": "https://public.example.org",
+    }
+    assert asyncio.run(scrape_one_source(None, source)) == []
+    assert source["_health_outcome"]["success"] is True
+    assert source["_health_outcome"]["discovered"] == 0
+    assert source["_health_outcome"]["error"] == ""
+
+
+def test_unmatched_listing_markup_is_an_adapter_failure_not_zero_success(monkeypatch):
+    from monitors import scraper
+
+    async def changed_markup(*_args, **_kwargs):
+        return "<html><body><p>Updated content</p></body></html>"
+
+    monkeypatch.setattr(scraper, "fetch_page_content", changed_markup)
+    source = {
+        "name": "fixture changed listing", "page_urls": ["https://public.example.org/tenders"],
+        "selector": ".listing", "title_selector": ".title", "base_url": "https://public.example.org",
+    }
+    assert asyncio.run(scrape_one_source(None, source)) == []
+    assert source["_health_outcome"]["success"] is False
+    assert "Review the source adapter" in source["_health_outcome"]["error"]
+
+
 def test_parse_tenders_extracts_somalijobs_links():
     html = """
     <html><body>

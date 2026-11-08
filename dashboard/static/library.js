@@ -105,7 +105,7 @@
     var host = f.closest(".lib-panel") || f;
     var P = window.CortechPending;
     function done() { btn.disabled = false; if (P) P.hide(true); }
-    if (P) P.show({ scope: host });
+    if (P) P.show({ scope: host, label: "Uploading files to the library" });
     var results = $("[data-lib-results]"); if (results) results.innerHTML = "";
     var box = $("[data-lib-status]"); if (box) box.hidden = true;  // no stale message from the last try
     var data = new FormData(f);

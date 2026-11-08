@@ -9,8 +9,9 @@ from __future__ import annotations
 from intelligence.requirement_alignment import EVALUATION_ALIGNMENT_BAR
 
 WARNING = (
-    "This is the agent's traced reading of the draft against the stored "
-    "criteria. It is not a score awarded by the buyer."
+    "This is a simulated internal, traced coverage reading against stored "
+    "criteria. It is not an official procurement committee score, a buyer "
+    "award, or a win probability."
 )
 
 _FRACTION = {

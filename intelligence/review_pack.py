@@ -108,6 +108,90 @@ def _team_review(analysis: dict, matched: dict) -> tuple[list[dict], dict]:
     }
 
 
+def _committee_assessment(qg: dict, alignment: dict, team_failures: list[dict]) -> dict:
+    """Build an explicit internal rubric simulation without inventing weights.
+
+    Awarded points are a deterministic coverage estimate from the separate
+    compliance pass, not a model's prose-quality grade or an official score.
+    """
+    source = str(qg.get("criteria_source") or "unknown")
+    tender_based = source in {quality_gate.SOURCE_TOR, quality_gate.SOURCE_TOR_UNWEIGHTED}
+    alignment_rows = {
+        re.sub(r"[^a-z0-9]+", " ", str(row.get("label") or row.get("text") or "").lower()).strip(): row
+        for row in (alignment.get("rows") or [])
+        if row.get("kind") == "evaluation_criterion"
+    }
+    evidence_blockers = [
+        item for item in (qg.get("blockers") or [])
+        if item.get("kind") in {"unsupported_claim", "unverified_claim"}
+    ]
+    assessed = []
+    weighted = source == quality_gate.SOURCE_TOR and bool(qg.get("rows")) and all(
+        isinstance(row.get("weight"), (int, float)) and row.get("weight") > 0
+        for row in qg.get("rows") or []
+    )
+    awarded_total = 0.0
+    maximum_total = 0.0
+    for item in qg.get("rows") or []:
+        criterion = str(item.get("criterion") or "")
+        key = re.sub(r"[^a-z0-9]+", " ", criterion.lower()).strip()
+        match = alignment_rows.get(key) or {}
+        fraction = float(item.get("earned") or 0.0)
+        lower = criterion.lower()
+        critical_team = any(word in lower for word in ("team", "staff", "expert", "qualification", "personnel"))
+        critical_experience = any(word in lower for word in ("experience", "track record", "past performance", "references"))
+        if critical_team and team_failures:
+            fraction = 0.0
+        if critical_experience and evidence_blockers:
+            fraction = 0.0
+        fraction = max(0.0, min(1.0, fraction))
+        maximum = float(item["weight"]) if weighted else None
+        awarded = round(maximum * fraction, 2) if maximum is not None else None
+        if maximum is not None and awarded is not None:
+            maximum_total += maximum
+            awarded_total += awarded
+        status = str(match.get("status") or item.get("status") or "unknown")
+        gaps = []
+        if status != "addressed":
+            gaps.append(str(match.get("evidence") or item.get("reason") or "Requirement coverage is not verified."))
+        if critical_team and team_failures:
+            gaps.extend(str(failure.get("message") or "Team evidence gap") for failure in team_failures)
+        if critical_experience and evidence_blockers:
+            gaps.extend(str(blocker.get("text") or blocker.get("kind")) for blocker in evidence_blockers)
+        rationale = str(item.get("reason") or "Deterministic requirement-coverage check; content quality remains for human review.")
+        assessed.append({
+            "criterion": criterion,
+            "maximum_score": maximum,
+            "awarded_score": awarded,
+            "coverage_fraction": fraction,
+            "rationale": rationale,
+            "supporting_evidence": {
+                "draft_quote": match.get("quote") or "",
+                "section": match.get("section") or item.get("section") or "",
+                "tender_source": match.get("source_evidence") or {},
+            },
+            "gaps": list(dict.fromkeys(gaps)),
+            "confidence": "medium" if status == "addressed" and not gaps else "low",
+            "coverage_status": status,
+        })
+    return {
+        "label": "Simulated internal assessment — not an official procurement committee score or win probability.",
+        "method": "Deterministic tender-criterion coverage proxy; a person must assess substantive quality.",
+        "source": "tender_rubric" if tender_based else "provisional_fallback",
+        "criteria_source": source,
+        "weights_complete": weighted,
+        "missing_weights": [row["criterion"] for row in assessed if row["maximum_score"] is None],
+        "criteria": assessed,
+        "weighted_total": {
+            "awarded": round(awarded_total, 2),
+            "maximum": round(maximum_total, 2),
+            "percent": round(100 * awarded_total / maximum_total, 1) if maximum_total else None,
+        } if weighted else None,
+        "provisional_coverage_percent": qg.get("score") if not weighted else None,
+        "provisional_note": quality_gate.SOURCE_NOTES.get(source, "Scoring basis not verified."),
+    }
+
+
 def build_review_pack(
     analysis: dict | None,
     sections: dict | None,
@@ -181,6 +265,7 @@ def build_review_pack(
 
     team_failures, team_coverage = _team_review(analysis, matched_team_result or {})
     hard.extend(team_failures)
+    committee_assessment = _committee_assessment(qg, alignment, team_failures)
 
     paragraphs = []
     for section, content in _drafted(sections).items():
@@ -238,6 +323,7 @@ def build_review_pack(
         "editorial_suggestions": suggestions,
         "requirement_matrix": alignment.get("rows") or [],
         "team_coverage": team_coverage,
+        "committee_assessment": committee_assessment,
         "format_review": format_report,
         "external_items": sorted(set(map(str, external_items))) if needs_attachment_ack else [],
         "needs_attachment_ack": needs_attachment_ack,

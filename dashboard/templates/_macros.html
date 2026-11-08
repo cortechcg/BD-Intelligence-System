@@ -7,6 +7,22 @@
   render as anything else. See docs/DASHBOARD_DESIGN.md §5.
 #}
 
+{% macro pending_state(state, label, detail="", compact=false, logo_src="/static/brand/cortech-logo.png") -%}
+  {%- set state_label = {"queued": "Queued", "waiting": "Waiting for confirmation", "processing": "Processing", "stale": "Stale"}.get(state, "Pending") -%}
+  <div class="pending-state pending-state--{{ state }}{% if compact %} pending-state--compact{% endif %}"
+       role="status" aria-live="polite" aria-atomic="true" data-pending-state="{{ state }}">
+    <span class="pending-state__mark pend__mark" aria-hidden="true">
+      <span class="pend__halo"></span>
+      <img class="pend__logo" src="{{ logo_src }}" alt="" width="132" height="49" decoding="async">
+    </span>
+    <span class="pending-state__copy">
+      <span class="pending-state__tag">{{ state_label }}</span>
+      <span class="pending-state__label">{{ label }}</span>
+      {% if detail %}<span class="pending-state__detail">{{ detail }}</span>{% endif %}
+    </span>
+  </div>
+{%- endmacro %}
+
 {% macro value(c, missing="n/a") -%}
   {%- if c is mapping -%}
     {%- if c.value is none -%}

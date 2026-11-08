@@ -176,6 +176,7 @@
   {% endfor %}
 </ol>{% endif %}
 <main id="main-content" class="page{% if view == 'portfolio' %} page--portfolio{% elif view == 'track' %} page--track{% endif %}">
+  {% if fixture_mode %}<div class="ui-fixture-banner" role="note"><strong>FIXTURE PREVIEW</strong> Synthetic records and telemetry for layout testing only.</div>{% endif %}
   {% block content %}{% endblock %}
 
   {% if generated_at %}<p class="foot">Updated {{ generated_at }}.</p>{% endif %}

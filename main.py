@@ -615,7 +615,7 @@ def submit_single_url(
 # PIPELINE RUNNER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _run_pipeline() -> None:
+def _run_pipeline(*, include_newsletter: bool = True, send_status: bool = True) -> dict:
     """
     Main pipeline execution — called by scheduler and --once flag.
 
@@ -691,28 +691,40 @@ def _run_pipeline() -> None:
         logger.warning(f"Configured source monitor unavailable: {type(e).__name__}")
 
     # ── SOURCE 3: ASSORTIS / ICA DAILY NEWSLETTER (EMAIL) ──────────────────
-    # Reads the newsletter without setting the Seen flag. Dedup is the
-    # opportunities ledger, so a second run the same day does not draft again.
-    logger.info("Checking Assortis/ICA newsletter...")
-    try:
-        assortis_results = check_assortis_newsletter()
-        all_new.extend(assortis_results)
-        logger.info(f"  Assortis total: {len(assortis_results)} passed filter")
-    except Exception as e:
-        logger.error(f"Assortis newsletter check failed: {e}")
+    # Hosted recurring discovery omits mailbox access and outbound status email.
+    if include_newsletter:
+        logger.info("Checking Assortis/ICA newsletter...")
         try:
-            log_agent_action(
-                action_type="Error",
-                description=f"Assortis newsletter check failed: {e}",
-                status="Error",
-                error_message=str(e),
-            )
-        except Exception:
-            pass
+            assortis_results = check_assortis_newsletter()
+            all_new.extend(assortis_results)
+            logger.info(f"  Assortis total: {len(assortis_results)} passed filter")
+        except Exception as e:
+            logger.error(f"Assortis newsletter check failed: {e}")
+            try:
+                log_agent_action(
+                    action_type="Error",
+                    description=f"Assortis/ICA newsletter check failed: {e}",
+                    status="Error",
+                    error_message=str(e),
+                )
+            except Exception:
+                pass
 
     # ── DEDUP: REMOVE ANYTHING ALREADY IN THIS RUN ─────────────────────────
     seen_urls: set[str] = set()
     unique_new: list[dict] = []
+    source_runs = configurable_runs + builtin_runs
+    source_metrics: dict[str, dict[str, int]] = {}
+    for run in source_runs:
+        source_id = str(run.get("source_id") or "")
+        if not source_id:
+            continue
+        metrics = source_metrics.setdefault(source_id, {
+            "discovered": 0, "duplicates": 0, "filtered": 0, "stored": 0,
+        })
+        metrics["discovered"] += int(run.get("discovered") or 0)
+        metrics["duplicates"] += int(run.get("duplicates") or 0)
+        metrics["filtered"] += int(run.get("filtered") or 0)
     for opp in all_new:
         url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url", "")) or (
             opp.get("dedup_url") or opp.get("source_url", "")
@@ -720,6 +732,12 @@ def _run_pipeline() -> None:
         if url and url not in seen_urls:
             seen_urls.add(url)
             unique_new.append(opp)
+        else:
+            source_id = str(opp.get("_source_id") or "")
+            if source_id:
+                source_metrics.setdefault(source_id, {
+                    "discovered": 0, "duplicates": 0, "filtered": 0, "stored": 0,
+                })["duplicates"] += 1
     all_new = unique_new
 
     total = len(all_new)
@@ -731,19 +749,23 @@ def _run_pipeline() -> None:
     # Discovery only remembers the tender. Analysis, embeddings, and the
     # draft run when someone clicks Draft this.
     if not all_new:
-        finalize_discovery_runs(configurable_runs + builtin_runs, {})
-        console.print(
-            "[yellow]No new opportunities this run. "
-            "Sending status report.[/yellow]"
-        )
-        try:
-            send_report(new_opportunities=[])
-        except Exception as e:
-            logger.error(f"Status report email failed: {e}")
-        return
+        finalize_discovery_runs(source_runs, source_metrics)
+        if send_status:
+            console.print("[yellow]No new opportunities this run. Sending status report.[/yellow]")
+            try:
+                send_report(new_opportunities=[])
+            except Exception as e:
+                logger.error(f"Status report email failed: {e}")
+        return {
+            "candidates": sum(x["discovered"] for x in source_metrics.values()),
+            "duplicates": sum(x["duplicates"] for x in source_metrics.values()),
+            "filtered": sum(x["filtered"] for x in source_metrics.values()),
+            "stored": 0,
+            "sources_checked": sum(1 for r in source_runs if r.get("success")),
+            "source_failures": sum(1 for r in source_runs if not r.get("success") and not r.get("cancelled")),
+        }
 
     saved = 0
-    configurable_counts: dict[str, int] = {}
     for opp in all_new:
         url = canonicalize_url(opp.get("dedup_url") or opp.get("source_url") or "") or (
             opp.get("dedup_url") or opp.get("source_url") or ""
@@ -760,22 +782,37 @@ def _run_pipeline() -> None:
         if opp.get("original_source_url"):
             source_metadata["original_source_url"] = str(opp["original_source_url"])[:1200]
         source_metadata["source_portal"] = str(opp.get("source_portal") or "")[:160]
-        if source_id:
-            recorded = record_discovered_opportunity(
-                url,
-                title,
-                source_metadata=source_metadata,
-                return_created=True,
-                require_source_metadata=opp.get("_source_type") == "custom",
-            )
-        else:
-            recorded = record_discovered_opportunity(url, title)
+        try:
+            if source_id:
+                recorded = record_discovered_opportunity(
+                    url,
+                    title,
+                    source_metadata=source_metadata,
+                    return_created=True,
+                    require_source_metadata=opp.get("_source_type") == "custom",
+                )
+            else:
+                recorded = record_discovered_opportunity(url, title)
+        except Exception as exc:
+            logger.warning(f"Could not store one discovery result ({type(exc).__name__}).")
+            if source_id:
+                for run in source_runs:
+                    if str(run.get("source_id") or "") == source_id:
+                        run["success"] = False
+                        run["error"] = "Could not store discovered opportunities in the shared ledger."
+            continue
         if recorded:
             saved += 1
             if source_id:
-                configurable_counts[source_id] = configurable_counts.get(source_id, 0) + 1
+                source_metrics.setdefault(source_id, {
+                    "discovered": 0, "duplicates": 0, "filtered": 0, "stored": 0,
+                })["stored"] += 1
+        elif source_id:
+            source_metrics.setdefault(source_id, {
+                "discovered": 0, "duplicates": 0, "filtered": 0, "stored": 0,
+            })["duplicates"] += 1
 
-    finalize_discovery_runs(configurable_runs + builtin_runs, configurable_counts)
+    finalize_discovery_runs(source_runs, source_metrics)
 
     console.print(Panel.fit(
         f"[bold green]Discovery saved[/bold green]\n"
@@ -798,10 +835,33 @@ def _run_pipeline() -> None:
     except Exception:
         pass
 
+    return {
+        "candidates": sum(x["discovered"] for x in source_metrics.values()),
+        "duplicates": sum(x["duplicates"] for x in source_metrics.values()),
+        "filtered": sum(x["filtered"] for x in source_metrics.values()),
+        "stored": saved,
+        "sources_checked": sum(1 for r in source_runs if r.get("success")),
+        "source_failures": sum(1 for r in source_runs if not r.get("success") and not r.get("cancelled")),
+    }
+
 
 def run_pipeline() -> None:
     """Public, monitored full-discovery command."""
     return _run_monitored("pipeline", _run_pipeline, heartbeat=True)
+
+
+def run_scheduled_discovery() -> dict:
+    """Run source acquisition and opportunity admission only.
+
+    Uses the existing public feed, built-in adapter and custom-source paths;
+    skips mailbox access and outbound status mail. No analysis, scoring,
+    embedding, drafting or proposal submission occurs in this runner.
+    """
+    return _run_monitored(
+        "scheduled_discovery",
+        lambda: _run_pipeline(include_newsletter=False, send_status=False),
+        heartbeat=True,
+    )
 
 
 def _run_assortis_check() -> None:

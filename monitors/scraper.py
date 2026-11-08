@@ -42,6 +42,11 @@ _INTERSTITIAL_MARKERS = (
     "/cdn-cgi/challenge-platform",
     "enable javascript and cookies to continue",
 )
+_EMPTY_LISTING_MARKERS = (
+    "no tenders found", "no notices found", "no results found",
+    "no procurement opportunities", "there are currently no active tenders",
+    "no opportunities are available",
+)
 
 _PENDING_BUILTIN_SOURCE_RUNS: list[dict] = []
 
@@ -461,6 +466,11 @@ def parse_tenders_from_html(
     return found
 
 
+def _explicit_empty_listing(html: str | None) -> bool:
+    text = (html or "").lower()
+    return any(marker in text for marker in _EMPTY_LISTING_MARKERS)
+
+
 def listings_from_json(payload: dict, source: dict) -> list[dict]:
     """Turn a portal JSON list into the same dicts the HTML parser returns.
 
@@ -730,8 +740,12 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
     source["_health_outcome"] = {
         "success": False,
         "items": 0,
+        "discovered": 0,
+        "duplicates": 0,
+        "filtered": 0,
         "error": "The source check did not complete.",
     }
+    empty_listing_valid = False
     logger.info(f"  Scraping: {name}")
     try:
         if source.get("listing_url"):
@@ -741,9 +755,13 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                 source["_health_outcome"] = {"success": False, "items": 0, "error": "The listing endpoint returned no rows."}
                 return []
             raw_items = parse_tenders_from_html(html, source)
+            empty_listing_valid = _explicit_empty_listing(html)
         elif source.get("page_urls"):
             raw_items = []
             seen_urls: set[str] = set()
+            pages_fetched = 0
+            empty_pages = 0
+            page_fetch_failed = False
             for page_url in source["page_urls"]:
                 html = await fetch_page_content(
                     browser,
@@ -755,16 +773,28 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                     scroll_selector=source.get("scroll_selector"),
                 )
                 if not html:
+                    page_fetch_failed = True
                     logger.warning(f"  No HTML returned for {name} — skipping that page")
                     continue
+                pages_fetched += 1
+                if _explicit_empty_listing(html):
+                    empty_pages += 1
                 for item in parse_tenders_from_html(html, source):
                     if item["source_url"] in seen_urls:
                         continue
                     seen_urls.add(item["source_url"])
                     raw_items.append(item)
-            if not raw_items:
+            empty_listing_valid = (
+                not page_fetch_failed
+                and pages_fetched == len(source["page_urls"])
+                and empty_pages == pages_fetched
+            )
+            if not raw_items and not empty_listing_valid:
                 logger.warning(f"  No rows returned for {name} — skipping")
-                source["_health_outcome"] = {"success": False, "items": 0, "error": "No listing rows could be extracted."}
+                source["_health_outcome"] = {
+                    "success": False, "items": 0, "discovered": 0,
+                    "error": "The pages responded, but no listing rows matched this adapter. Review the source adapter.",
+                }
                 return []
         elif source.get("search_url"):
             html = await fetch_ungm_notices(source.get("timeout", DEFAULT_TIMEOUT_MS))
@@ -773,6 +803,7 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                 source["_health_outcome"] = {"success": False, "items": 0, "error": "The public notice search returned no rows."}
                 return []
             raw_items = listings_from_ungm_html(html, source)
+            empty_listing_valid = _explicit_empty_listing(html)
         elif source.get("json_url"):
             payload = await fetch_json(
                 source["json_url"],
@@ -782,7 +813,17 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                 logger.warning(f"  No JSON returned for {name} — skipping")
                 source["_health_outcome"] = {"success": False, "items": 0, "error": "The public listing endpoint returned no JSON."}
                 return []
+            payload_key = {"worldbank": "procnotices", "rfxnow": "advertisementList"}.get(source.get("json_kind"))
+            if not isinstance(payload, dict) or not payload_key or not isinstance(payload.get(payload_key), list):
+                source["_health_outcome"] = {
+                    "success": False, "items": 0, "discovered": 0,
+                    "error": "The public endpoint returned an unexpected data shape; review the source adapter.",
+                }
+                return []
             raw_items = listings_from_json(payload, source)
+            # The built-in JSON adapters receive a structured payload; an
+            # empty result set is a successful zero-result check.
+            empty_listing_valid = True
         else:
             html = await fetch_page_content(
                 browser,
@@ -798,13 +839,23 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
                 source["_health_outcome"] = {"success": False, "items": 0, "error": "The public listing page returned no usable HTML."}
                 return []
             raw_items = parse_tenders_from_html(html, source)
+            empty_listing_valid = _explicit_empty_listing(html)
 
         logger.debug(f"  {len(raw_items)} raw items extracted from {name}")
 
+        if not raw_items and not empty_listing_valid:
+            source["_health_outcome"] = {
+                "success": False, "items": 0, "discovered": 0,
+                "error": "The page responded, but no rows matched this adapter. Review the source adapter.",
+            }
+            return []
+
         passed: list[dict] = []
         filtered = 0
+        duplicates = 0
         for item in raw_items:
             if check_opportunity_exists(item["source_url"]):
+                duplicates += 1
                 continue
             if not quick_relevance_check(item["title"], item["summary"]):
                 filtered += 1
@@ -812,7 +863,14 @@ async def scrape_one_source(browser, source: dict) -> list[dict]:
             passed.append(item)
 
         logger.info(f"  {name}: {len(passed)} passed filter | {filtered} rejected")
-        source["_health_outcome"] = {"success": True, "items": len(passed), "error": ""}
+        source["_health_outcome"] = {
+            "success": True,
+            "items": len(passed),
+            "discovered": len(raw_items),
+            "duplicates": duplicates,
+            "filtered": filtered,
+            "error": "",
+        }
         return passed
     except Exception as e:
         safe_error = f"Scraper failed ({type(e).__name__})."
@@ -844,7 +902,7 @@ async def run_all_scrapers_async() -> list[dict]:
                 try:
                     claimed = source_registry.claim_source_run(
                         source_id, token, allow_disabled=False,
-                        respect_backoff=False, lease_seconds=120,
+                        respect_backoff=True, lease_seconds=120,
                     )
                 except source_registry.SourceRegistryUnavailable:
                     continue
@@ -866,22 +924,27 @@ async def run_all_scrapers_async() -> list[dict]:
             source_id = str(source_row.get("id") or "")
             token = str(uuid.uuid4())
             claimed = False
+            registry_unavailable = False
             if source_id:
                 try:
+                    registered = source_registry.get_source(source_id)
+                    if registered and not registered.get("enabled", True):
+                        logger.info(f"  Skipping paused built-in source: {source.get('name', source_id)}")
+                        return []
                     claimed = source_registry.claim_source_run(
                         source_id, token, allow_disabled=False,
-                        respect_backoff=False, lease_seconds=120,
+                        respect_backoff=True, lease_seconds=120,
                     )
                 except source_registry.SourceRegistryUnavailable:
-                    claimed = False
+                    registry_unavailable = True
             if source_id and not claimed:
-                # Another scheduler process already owns this adapter check.
-                try:
-                    state = source_registry.get_source(source_id)
-                    if state and state.get("lease_expires_at"):
-                        return []
-                except Exception:
-                    pass
+                if not registry_unavailable:
+                    # A false lease claim means another process owns the
+                    # source, it is paused, or its persisted backoff is active.
+                    return []
+                # Preserve built-in discovery if the optional health registry
+                # has not been installed; no check ran when claim returned False.
+                logger.warning("Source registry unavailable; built-in adapter will run without health recording.")
             result = await scrape_one_source(browser, source)
             outcome = source.get("_health_outcome") or {}
             if claimed:
@@ -893,6 +956,10 @@ async def run_all_scrapers_async() -> list[dict]:
                     "success": bool(outcome.get("success")),
                     "error": str(outcome.get("error") or ""),
                     "capability": "adapter",
+                    "discovered": int(outcome.get("discovered") or 0),
+                    "duplicates": int(outcome.get("duplicates") or 0),
+                    "filtered": int(outcome.get("filtered") or 0),
+                    "stored": 0,
                     "preview": [
                         {
                             "title": str(item.get("title") or "")[:240],

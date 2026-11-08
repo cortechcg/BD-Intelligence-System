@@ -56,8 +56,8 @@
 # │ shows every worker process and the scope it consumes.                     │
 # └───────────────────────────────────────────────────────────────────────────┘
 #
-# Nothing here replaces the existing discovery schedule (systemd timers). See
-# docs/DASHBOARD.md §"Scheduler" and the opt-in Render Cron block at the end.
+# Automatic discovery runs inside the exact production worker using a durable
+# Supabase singleton lease. Do not add a Render Cron service or systemd timer.
 #
 # Plan names are the current spec names (Render renamed plans in Aug 2026):
 #   0.5c-512mb = legacy "starter" ($7/mo)     1c-2g = legacy "standard" ($25/mo)
@@ -249,21 +249,5 @@ services:
       #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / PUBLIC_BASE_URL /
       #   DASHBOARD_SESSION_SECRET — login belongs to the web service only.
       #   IMAP_* / CHECK_INTERVAL_HOURS / MAX_OPPORTUNITIES_PER_RUN /
-      #   HEALTHCHECK_URL — discovery-scheduler settings; this worker never
-      #   runs discovery (it only calls main.submit_single_url per job).
-
-# ── Not enabled: Render Cron alternative to the systemd timers ───────────────
-# The recommendation (docs/DASHBOARD.md) is to leave scheduled discovery where
-# it is. If Cortech later decides to move it onto Render, this is the shape —
-# uncomment, and decommission the systemd timers so discovery does not run
-# twice and double-spend against the cap.
-#
-#  - type: cron
-#    name: cortech-discovery
-#    runtime: docker
-#    region: frankfurt
-#    plan: 1c-2g
-#    schedule: "0 */6 * * *"          # CHECK_INTERVAL_HOURS=6
-#    dockerfilePath: ./Dockerfile
-#    dockerCommand: python main.py --once
-#    envVars: (same block as cortech-bd-worker, plus IMAP_* for the newsletter source)
+      #   HEALTHCHECK_URL — the scheduled pass uses public-source adapter
+      #   bounds only; it does not access mail, call a model, or send status mail.

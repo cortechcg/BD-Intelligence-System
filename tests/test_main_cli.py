@@ -93,3 +93,18 @@ def test_guard_does_not_touch_the_flagged_modes():
     assert "start_scheduler" in branch
     for mode in ("submit", "once", "assortis", "deadline", "winloss", "market", "relationships"):
         assert f'mode == "{mode}"' in tail
+
+
+def test_scheduled_discovery_uses_existing_pipeline_without_mail_side_effects(monkeypatch):
+    import main
+
+    seen = {}
+    monkeypatch.setattr(main, "_run_monitored", lambda _name, callback, **_kw: callback())
+    monkeypatch.setattr(
+        main,
+        "_run_pipeline",
+        lambda **kwargs: seen.update(kwargs) or {"stored": 0},
+    )
+    result = main.run_scheduled_discovery()
+    assert result == {"stored": 0}
+    assert seen == {"include_newsletter": False, "send_status": False}

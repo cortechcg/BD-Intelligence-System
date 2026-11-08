@@ -88,3 +88,21 @@ def test_procurement_sources_migration_is_durable_private_and_lease_safe():
     assert "pg_advisory_xact_lock" in lower and "active_count >= 4" in lower
     assert "source_metadata jsonb" in sql
     assert "grant execute" in lower and "service_role" in lower
+
+
+def test_discovery_scheduler_migration_has_singleton_crash_recovery_and_truthful_counts():
+    sql = _sql("supabase_migration_discovery_schedule.sql")
+    lower = sql.lower()
+    assert "create table if not exists public.discovery_schedule_state" in lower
+    assert "schedule_key = 'production'" in lower
+    assert "claim_discovery_schedule" in lower
+    assert "next_run_at <= now()" in lower
+    assert "lease_expires_at is null or lease_expires_at <= now()" in lower
+    assert "finish_discovery_schedule" in lower
+    assert "interval '5 minutes'" in lower and "interval '24 hours'" in lower
+    for metric in ("last_discovered_count", "last_duplicate_count", "last_filtered_count", "last_stored_count"):
+        assert metric in lower
+    assert "finish_procurement_source_run_with_counts" in lower
+    assert "candidate_count_total" in lower and "stored_count_total" in lower
+    assert "enable row level security" in lower
+    assert "grant execute" in lower and "service_role" in lower

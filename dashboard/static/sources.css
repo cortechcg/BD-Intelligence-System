@@ -5,6 +5,10 @@
 .src-kicker { margin:0 0 var(--sp2); color:var(--ink-2); font-size:var(--t12); font-weight:500; text-transform:uppercase; letter-spacing:var(--track-label); }
 .src-notice { padding:var(--sp4) var(--sp5); border:1px solid var(--color-warn-border); border-left:3px solid var(--color-copper); background:var(--color-warn-bg); color:var(--color-warn-text); margin-bottom:var(--sp5); }
 .src-notice p { margin-top:var(--sp2); font-size:var(--t14); }
+.src-schedule { margin-bottom:var(--sp5); padding:var(--sp5); }
+.src-schedule .panel__head { margin-bottom:var(--sp3); }
+.src-schedule h2 { font-family:var(--doc); font-size:var(--t22); font-weight:400; }
+.src-schedule .field__hint { margin-top:var(--sp3); }
 .src-add { display:grid; grid-template-columns:minmax(220px,.8fr) minmax(300px,1.2fr); gap:var(--sp6); padding:var(--sp6); border:1px solid var(--line); border-top:2px solid var(--fill); background:var(--surface); }
 .src-add__copy h2,.src-list__head h2 { font-family:var(--doc); font-size:var(--t24); font-weight:400; line-height:1.15; }
 .src-add__copy > p:last-child { margin-top:var(--sp3); color:var(--ink-2); font-size:var(--t14); line-height:1.55; max-width:52ch; }

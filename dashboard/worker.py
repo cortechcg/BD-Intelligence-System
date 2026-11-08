@@ -1,25 +1,26 @@
-"""Background worker for dashboard-triggered runs.
+"""Background worker for dashboard-triggered runs and recurring discovery.
 
 Runs as a separate Render service. LLM calls take minutes, so a trigger cannot
 be executed inside an HTTP request.
 
-The only thing this module does to a pipeline is *call it*:
+Manual jobs call the same single-URL pipeline function as the CLI:
 
     main.submit_single_url(url, force=..., retry_dead_letter=...)
 
 That is the same function ``python main.py --submit-url`` calls. There is no
-parallel orchestration here — no second stage runner, no second ledger, no
-re-implemented retry policy. Spend cap, dead-letter, resume and the consultancy
-gate all behave exactly as they do under cron, because they are the same code.
+parallel job-pipeline implementation — the recurring discovery path also calls
+the existing source adapters and opportunity ledger, without analysis/drafting.
+Spend cap, dead-letter, resume and the consultancy gate remain in the job path.
 
 Two controls live here and nowhere else, because they are about *requests*,
 not about the pipeline:
 
 * the **aggregate cap** (DASHBOARD_AGGREGATE_CAP_USD) — checked before a
-  claimed job is started, against spend recorded on trigger rows; and
+  claimed job is started, against spend recorded on trigger rows;
 * **cancel** — the heartbeat sees ``cancel_requested_at`` and calls
-  ``utils.observability.request_run_halt()``, which makes the pipeline's own
-  spend-cap check raise before the next model call.
+  ``utils.observability.request_run_halt()`` before the next model call; and
+* one **two-hour discovery schedule**, enabled only for the exact production
+  worker identity and protected by a durable Supabase lease.
 
     python -m dashboard.worker
 """
@@ -56,6 +57,10 @@ SCOPE_ENV = "DASHBOARD_WORKER_SCOPE"
 #: production queue from a laptop on purpose (for example during an outage).
 LOCAL_PRODUCTION_OVERRIDE_ENV = "DASHBOARD_WORKER_ALLOW_LOCAL_PRODUCTION"
 REGISTRY_INTERVAL_SECONDS = 60.0
+DISCOVERY_INTERVAL_SECONDS = 2 * 60 * 60
+DISCOVERY_LEASE_SECONDS = 900
+DISCOVERY_POLL_SECONDS = 30.0
+_last_schedule_unavailable_log = 0.0
 
 
 def worker_identity(env: dict | None = None) -> dict:
@@ -103,6 +108,84 @@ def resolve_worker_scope(env: dict | None = None) -> tuple[str | None, str]:
             f"production from a local process needs {LOCAL_PRODUCTION_OVERRIDE_ENV}=1"
         )
     return raw, f"local process set to {raw}"
+
+
+def production_discovery_enabled(env: dict | None = None, scope: str | None = None) -> bool:
+    """Only the existing, exact-name Render worker may schedule production discovery."""
+    env = os.environ if env is None else env
+    identity = worker_identity(env)
+    return bool(
+        identity["on_render"]
+        and identity["service_name"] == PRODUCTION_WORKER_SERVICE
+        and (scope or resolve_worker_scope(env)[0]) == triggers.PRODUCTION
+    )
+
+
+def run_scheduled_discovery_if_due(
+    scope: str,
+    *,
+    env: dict | None = None,
+    runner=None,
+    schedule_store=None,
+) -> bool:
+    """Claim the durable schedule lease and run one source-only pass if due."""
+    global _last_schedule_unavailable_log
+    if not production_discovery_enabled(env, scope):
+        return False
+
+    if schedule_store is None:
+        from database import discovery_schedule as schedule_store
+    try:
+        token, claimed = schedule_store.claim_due(lease_seconds=DISCOVERY_LEASE_SECONDS)
+    except Exception as exc:
+        now = time.monotonic()
+        if now - _last_schedule_unavailable_log >= 300:
+            logger.error(
+                "automatic discovery is unavailable; apply "
+                "supabase_migration_discovery_schedule.sql before enabling it "
+                f"({type(exc).__name__})"
+            )
+            _last_schedule_unavailable_log = now
+        return False
+    if not claimed:
+        return False
+
+    logger.info("scheduled discovery lease acquired; interval=2h; mode=discovery-only")
+    try:
+        if runner is None:
+            import main as pipeline
+            runner = pipeline.run_scheduled_discovery
+        summary = runner() or {}
+        failures = int(summary.get("source_failures") or 0)
+        checked = int(summary.get("sources_checked") or 0)
+        outcome = "partial" if failures else "success"
+        error = f"{failures} source check(s) failed; source-level backoff will retry them." if failures else ""
+        finished = schedule_store.finish(
+            token,
+            outcome=outcome,
+            error=error,
+            summary=summary,
+            interval_seconds=DISCOVERY_INTERVAL_SECONDS,
+        )
+        logger.info(
+            f"scheduled discovery finished outcome={outcome} sources_ok={checked} "
+            f"sources_failed={failures} discovered={summary.get('candidates', 0)} "
+            f"duplicates={summary.get('duplicates', 0)} filtered={summary.get('filtered', 0)} "
+            f"stored={summary.get('stored', 0)} lease_released={finished}"
+        )
+    except Exception as exc:
+        logger.exception(f"scheduled discovery failed ({type(exc).__name__})")
+        try:
+            schedule_store.finish(
+                token,
+                outcome="failure",
+                error=f"Scheduled discovery failed ({type(exc).__name__}).",
+                summary={},
+                interval_seconds=DISCOVERY_INTERVAL_SECONDS,
+            )
+        except Exception:
+            logger.exception("could not release failed discovery schedule lease")
+    return True
 
 
 def _handle_signal(signum, _frame):
@@ -507,8 +590,9 @@ def main_loop() -> int:
 
     logger.info(
         "IDENTITY: cortech-bd-worker — dashboard background worker. Consumes "
-        "dashboard_triggers only; it has NO schedule of its own and never runs "
-        "discovery. Each job calls main.submit_single_url() for one URL."
+        "dashboard_triggers and owns the single durable two-hour discovery "
+        "schedule only when this exact Render production service is active. "
+        "Scheduled runs discover and store opportunities only; they do not draft."
     )
     worker_token = f"{os.getenv('RENDER_INSTANCE_ID') or 'local'}-{uuid.uuid4()}"
     identity = worker_identity()
@@ -521,6 +605,11 @@ def main_loop() -> int:
         f"QUEUE SCOPE: {scope or 'NONE (idle)'} — {why} "
         f"[service={identity['service_name'] or '-'} id={identity['service_id'] or '-'}]"
     )
+    if production_discovery_enabled(scope=scope):
+        logger.info(
+            "SCHEDULE: this worker is the only production recurring runner; "
+            "interval=2h; lease=900s; source leases/backoff are enabled"
+        )
 
     if scope is None:
         # Stay up and consume nothing. Exiting would make the platform restart
@@ -548,11 +637,18 @@ def main_loop() -> int:
 
     idle = settings.WORKER_POLL_SECONDS
     last_registered = 0.0
+    last_discovery_poll = 0.0
     while not _stop.is_set():
         now = time.monotonic()
         if now - last_registered >= REGISTRY_INTERVAL_SECONDS:
             triggers.register_worker(worker_token, scope, identity, note=why)
             last_registered = now
+        if (
+            production_discovery_enabled(scope=scope)
+            and now - last_discovery_poll >= DISCOVERY_POLL_SECONDS
+        ):
+            run_scheduled_discovery_if_due(scope)
+            last_discovery_poll = time.monotonic()
         try:
             did_work = run_once(worker_token, scope)
         except triggers.QueueUnavailable as exc:

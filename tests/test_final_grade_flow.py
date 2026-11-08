@@ -8,6 +8,7 @@ could not be graded". Tenders with no ToR criteria were refused outright.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from urllib.parse import unquote
 
@@ -131,10 +132,13 @@ def test_route_queues_a_tender_with_no_tor_criteria(client, monkeypatch):  # noq
 def test_pending_state_separates_queued_from_reading():
     queued = queries._final_grade_pending({"final_grade_queued": "true", "final_grade_request": {
         "text": "x", "filename": "f.docx", "uploaded_at": "2026-10-28T15:00:00+00:00", "criteria": CRITERIA}})
-    assert queued["claimed_at"] == "" and queued["criteria_count"] == 2
+    assert queued["claimed_at"] == "" and queued["criteria_count"] == 2 and queued["pending_state"] == "queued"
     reading = queries._final_grade_pending({"final_grade_queued": "true", "final_grade_request": {
+        "text": "x", "filename": "f.docx", "claimed_at": datetime.now(timezone.utc).isoformat(), "criteria": CRITERIA}})
+    assert reading["claimed_at"] and reading["pending_state"] == "processing"
+    stale = queries._final_grade_pending({"final_grade_queued": "true", "final_grade_request": {
         "text": "x", "filename": "f.docx", "claimed_at": "2026-10-28T15:00:05+00:00", "criteria": CRITERIA}})
-    assert reading["claimed_at"].startswith("2026-10-28T15:00:05")
+    assert stale["pending_state"] == "stale"
 
 
 def _render(detail):
@@ -149,7 +153,7 @@ def _render(detail):
     tmpl = templates.env.from_string(
         '{% import "_macros.html" as m %}' + source[start:end] + "{{ review_pack() }}"
     )
-    return tmpl.render(d=detail, csrf_token="t", url_final_grade="/opportunity/final-grade", url_draft="/draft")
+    return tmpl.render(d=detail, csrf_token="t", url_final_grade="/opportunity/final-grade", url_draft="/draft", static_base="/static")
 
 
 def test_the_panel_shows_each_step_and_a_failure():
@@ -161,9 +165,11 @@ def test_the_panel_shows_each_step_and_a_failure():
         "submission_type": field, "client_draft_sections": [], "committee_grade": {}, "quality_gate": {},
         "requirement_alignment": {}, "matched_team_result": {},
     }
-    step1 = str(_render({**base, "final_grade_pending": {"filename": "f.docx", "uploaded_at": "2026-10-28T15:00:00", "claimed_at": "", "criteria_count": 2}}))
-    assert "Step 1 of 2" in step1 and "Queued" in step1
-    step2 = str(_render({**base, "final_grade_pending": {"filename": "f.docx", "claimed_at": "2026-10-28T15:00:05", "criteria_count": 2}}))
-    assert "Step 2 of 2" in step2 and "committee is reading f.docx" in step2
+    step1 = str(_render({**base, "final_grade_pending": {"filename": "f.docx", "pending_state": "queued", "claimed_at": "", "criteria_count": 2}}))
+    assert "Waiting for the internal reviewer" in step1 and "Queued" in step1
+    step2 = str(_render({**base, "final_grade_pending": {"filename": "f.docx", "pending_state": "processing", "claimed_at": "2026-11-08T15:00:05", "criteria_count": 2}}))
+    assert "Internal reviewer is reading f.docx" in step2 and "Processing" in step2
+    stale = str(_render({**base, "final_grade_pending": {"filename": "f.docx", "pending_state": "stale", "claimed_at": "2026-10-28T15:00:05", "criteria_count": 2}}))
+    assert "reviewer claim has expired" in stale and "Stale" in stale
     failed = str(_render({**base, "final_grade_error": "The file could not be graded: the committee reply was cut off."}))
     assert "Grading failed." in failed and "cut off" in failed

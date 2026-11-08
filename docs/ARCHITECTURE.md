@@ -5,7 +5,7 @@ This is the system after the P0/P1 pass. It is still a **single Python process**
 ## Runtime
 
 ```
-systemd timers (or python main.py --once)
+the durable two-hour scheduler in the existing production worker (or manual python main.py --once)
         │
         ▼
    main.run_pipeline()          execution_id set here

@@ -179,6 +179,7 @@ def test_source_writes_require_an_authorized_session_and_all_mutations_check_csr
 
 def test_sources_screen_lists_builtin_and_custom_health_rows(monkeypatch):
     from starlette.requests import Request
+    from database import discovery_schedule
 
     monkeypatch.setattr(
         app_module, "_builtin_source_definitions",
@@ -193,6 +194,12 @@ def test_sources_screen_lists_builtin_and_custom_health_rows(monkeypatch):
         "last_success_at": "2026-11-06T12:00:00+00:00",
         "discovered_count": 4, "last_error": "", "last_preview": [],
     }])
+    monkeypatch.setattr(discovery_schedule, "status", lambda: {
+        "next_run_at": "2026-11-08T14:00:00+00:00",
+        "last_attempt_at": "2026-11-08T12:00:00+00:00",
+        "last_success_at": "2026-11-08T12:00:00+00:00",
+        "last_outcome": "success",
+    })
     captured = {}
     monkeypatch.setattr(
         app_module.templates,
@@ -210,3 +217,5 @@ def test_sources_screen_lists_builtin_and_custom_health_rows(monkeypatch):
     assert set(rows) == {"Built-in notices", "County feed"}
     assert rows["County feed"]["last_attempt_at"] == "2026-11-06T12:00:00+00:00"
     assert rows["County feed"]["discovered_count"] == 4
+    assert captured["schedule_available"] is True
+    assert captured["schedule_status"]["last_outcome"] == "success"
