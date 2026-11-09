@@ -384,7 +384,10 @@ def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
     """Read bounded pages with a ``(discovered_at, id)`` keyset cursor.
 
     ``id`` breaks timestamp ties only; it is not an insertion-order signal.
-    Late rows with older date-only timestamps cannot appear after this cursor.
+    The initial slice is newest-first. A ``since`` cursor is a forward polling
+    boundary; those rows are read oldest-first so a bounded poll can advance
+    without skipping newer rows. Late rows with older date-only timestamps
+    cannot appear after this cursor.
     """
     limit = max(1, min(int(limit), 200))
     cursor = _decode_live_tender_cursor(since) if since else None
@@ -399,7 +402,8 @@ def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
             f"discovered_at.gt.{cursor_ts},and(discovered_at.eq.{cursor_ts},id.gt.{cursor_id})"
         ).order("discovered_at", desc=False).order("id", desc=False)
     else:
-        # Initial view is the newest bounded slice; subsequent pages move forward.
+        # Initial view is the newest bounded slice. Polls advance from its
+        # newest row and reverse the presentation order after fetching.
         query = query.order("discovered_at", desc=True).order("id", desc=True)
     res = query.limit(limit).execute()
     rows = [row for row in (res.data or []) if isinstance(row, dict) and row.get("source_url")]
@@ -442,6 +446,14 @@ def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
             source_url = canonical
             source_parsed = parsed
         source_name = str(metadata.get("source_portal") or metadata.get("source_name") or source_parsed.hostname or "")[:160]
+        source_host = (source_parsed.hostname or "").lower().rstrip(".")
+        manual_marker = any(
+            metadata.get(key) is True
+            or str(metadata.get(key) or "").strip().lower() in ("manual", "manually added", "manual submission", "true", "1")
+            or str(metadata.get(key) or "").strip().lower().startswith(("manual_", "manual ", "manually_", "manually "))
+            for key in ("manual", "is_manual", "manual_entry", "manually_added", "entry_type", "source_type", "source_portal", "source_name")
+        )
+        is_manual = manual_marker or source_host in ("drive.google.com", "docs.google.com")
         title = str(row.get("title") or "").strip()
         if title.lower() == "unknown":
             title = ""
@@ -463,12 +475,16 @@ def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
             "title": title,
             "source": source_name,
             "source_url": source_url,
+            "manual": is_manual,
             "deadline": deadlines.get(raw_url, ""),
             "first_seen": first_seen,
             "first_seen_display": first_seen_display,
             "first_seen_precision": first_seen_precision,
         })
-    output.sort(key=lambda item: (_live_cursor_timestamp(item["first_seen"]), item["_row_id"]))
+    output.sort(
+        key=lambda item: (_live_cursor_timestamp(item["first_seen"]), item["_row_id"]),
+        reverse=not bool(cursor),
+    )
     cursor_row = (rows[-1] if cursor else rows[0]) if rows else None
     next_cursor = None
     if cursor_row and cursor_row.get("discovered_at") and cursor_row.get("id"):
