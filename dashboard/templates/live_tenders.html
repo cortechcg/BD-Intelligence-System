@@ -6,9 +6,9 @@
   <div>
     <p class="live-eyebrow">Opportunity intake</p>
     <h1>Live tenders</h1>
-    <p class="live-lead">Recently stored public tender listings from your configured procurement sources.</p>
+    <p class="live-lead">Recently stored public tender listings from your configured procurement sources and manually added links.</p>
   </div>
-  <span class="live-refresh-pill"><span class="live-refresh-dot" aria-hidden="true"></span>Refreshes every 5 seconds</span>
+  <span class="live-refresh-pill" id="live-refresh-pill"><span class="live-refresh-dot" aria-hidden="true"></span><span id="live-refresh-state">Live</span><span>· Refreshes every 5 seconds</span></span>
 </header>
 
 <aside class="live-cadence" role="note">
@@ -19,7 +19,7 @@
 <section class="live-feed panel" aria-labelledby="live-feed-title">
   <div class="live-feed__head">
     <div><p class="live-eyebrow">Stored opportunities</p><h2 id="live-feed-title">Recent listings</h2></div>
-    <div class="live-feed__meta"><span id="live-count">{{ feed_items|length }} listings</span><span id="live-last-refresh">{% if feed_checked_at %}Last refresh {{ feed_checked_at[:19].replace("T", " ") }} UTC{% else %}Not refreshed yet{% endif %}</span></div>
+    <div class="live-feed__meta"><span id="live-count">{{ feed_items|length }} listings</span><time id="live-last-refresh" datetime="{{ feed_checked_at or '' }}">{% if feed_checked_at %}Last refresh {{ feed_checked_at[:19].replace("T", " ") }} UTC{% else %}Not refreshed yet{% endif %}</time></div>
   </div>
   <p id="live-status" class="live-status{% if feed_error %} is-error{% endif %}" role="status" aria-live="polite">{% if feed_error %}{{ feed_error }}{% elif not feed_items %}No stored listings yet. The feed will check again shortly.{% else %}Showing recent stored listings.{% endif %}</p>
   <button id="live-retry" class="btn btn--quiet live-retry" type="button" hidden>Retry now</button>
@@ -27,7 +27,7 @@
     {% for item in feed_items %}
     <li class="live-card" data-key="{{ item.key }}">
       <div class="live-card__main">
-        <h3><a href="/opportunity?url={{ item.url|urlencode }}">{{ item.title or "Untitled tender" }}</a></h3>
+        <h3><a href="/opportunity?url={{ item.url|urlencode }}">{{ item.title or "Untitled tender" }}</a>{% if item.manual %} <span class="live-manual-badge">Manually added</span>{% endif %}</h3>
         <div class="live-card__source">Source: <a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">{{ item.source }}</a></div>
       </div>
       <dl class="live-card__facts">

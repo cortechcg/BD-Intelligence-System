@@ -93,17 +93,18 @@ def test_live_tenders_are_bounded_deduplicated_and_tie_sorted(monkeypatch):
     monkeypatch.setattr(queries, "get_supabase", lambda: db)
     result = queries.list_live_tenders(limit=900)
     assert [item["url"] for item in result["items"]] == [
-        "https://jobs.example.org/tender/a", "https://jobs.example.org/tender/z"
+        "https://jobs.example.org/tender/z", "https://jobs.example.org/tender/a"
     ]
     ts, row_id = queries._decode_live_tender_cursor(result["next_cursor"])
     assert ts == _stamp("2026-11-08T16:20:30+00:00") and row_id == str(UUID(int=3))
+    assert db.queries[0].orders == [("discovered_at", True), ("id", True)]
     assert result["has_more"] is False
-    assert result["items"][1]["deadline"] == "2026-12-01"
-    assert result["items"][1]["source"] == "UN portal"
-    assert result["items"][1]["first_seen_display"] == "2026-11-08 16:20 UTC"
-    assert result["items"][1]["first_seen_precision"] == "time"
-    assert result["items"][0]["first_seen_precision"] == "date"
-    assert result["items"][1]["title"] == "<script>bad</script>"
+    assert result["items"][0]["deadline"] == "2026-12-01"
+    assert result["items"][0]["source"] == "UN portal"
+    assert result["items"][0]["first_seen_display"] == "2026-11-08 16:20 UTC"
+    assert result["items"][0]["first_seen_precision"] == "time"
+    assert result["items"][1]["first_seen_precision"] == "date"
+    assert result["items"][0]["title"] == "<script>bad</script>"
     assert max(db.limits) == 200
 
 
@@ -126,8 +127,32 @@ def test_live_tender_250_equal_timestamp_rows_page_without_misses_or_duplicates(
     keys = [item["key"] for item in all_items]
     assert page_sizes == [200, 50]
     assert len(keys) == 250 and len(set(keys)) == 250
+    assert keys == [f"https://jobs.example.org/tender/{n:03d}" for n in range(1, 251)]
     filters = [call[1] for q in db.queries for call in q.calls if call[0] == "or"]
     assert filters and all("discovered_at.gt." in value and "id.gt." in value for value in filters)
+    assert all(q.orders == [("discovered_at", False), ("id", False)] for q in db.queries if q.cursor_pair)
+
+
+def test_initial_slice_is_newest_first_and_poll_cursor_returns_newer_rows(monkeypatch):
+    rows = [
+        _row(1, "2026-11-09T12:00:00+00:00"),
+        _row(2, "2026-11-09T12:00:00+00:00"),
+        _row(3, "2026-11-09T12:01:00+00:00"),
+    ]
+    db = _Supabase({"opportunities_cache": rows, "opportunity_processing": []})
+    monkeypatch.setattr(queries, "get_supabase", lambda: db)
+
+    initial = queries.list_live_tenders(limit=2)
+    assert [item["key"] for item in initial["items"]] == [rows[2]["source_url"], rows[1]["source_url"]]
+    since = initial["next_cursor"]
+    ts, row_id = queries._decode_live_tender_cursor(since)
+    assert ts == _stamp(rows[2]["discovered_at"]) and row_id == rows[2]["id"]
+
+    db.rows["opportunities_cache"].append(_row(4, "2026-11-09T12:02:00+00:00"))
+    polled = queries.list_live_tenders(limit=10, since=since)
+    assert [item["key"] for item in polled["items"]] == ["https://jobs.example.org/tender/004"]
+    assert polled["next_cursor"]
+    assert db.queries[-2].orders == [("discovered_at", False), ("id", False)]
 
 
 def test_postgrest_or_filter_builds_a_valid_encoded_composite_cursor():
@@ -155,6 +180,21 @@ def test_mixed_timestamps_and_ids_are_ordered_and_legacy_cursor_is_accepted(monk
     page = queries.list_live_tenders(limit=10, since="2026-11-08T00:00:00Z")
     assert [item["key"] for item in page["items"]] == [rows[2]["source_url"], rows[1]["source_url"], rows[0]["source_url"]]
     assert page["has_more"] is False
+
+
+def test_manual_urls_and_source_metadata_are_flagged(monkeypatch):
+    rows = [
+        _row(1, "2026-11-09T12:00:00+00:00", "https://drive.google.com/file/d/one/view"),
+        _row(2, "2026-11-09T12:01:00+00:00", "https://tenders.example.org/notice/two",
+             metadata={"source_portal": "Manual submission"}),
+        _row(3, "2026-11-09T12:02:00+00:00", "https://tenders.example.org/notice/three",
+             metadata={"configured_source_type": "custom"}),
+        _row(4, "2026-11-09T12:03:00+00:00", "https://tenders.example.org/notice/four",
+             metadata={"entry_type": "manual_entry"}),
+    ]
+    monkeypatch.setattr(queries, "get_supabase", lambda: _Supabase({"opportunities_cache": rows, "opportunity_processing": []}))
+    items = queries.list_live_tenders()["items"]
+    assert [item["manual"] for item in items] == [True, False, True, True]
 
 
 def test_late_older_date_row_is_not_visible_after_forward_cursor(monkeypatch):
@@ -194,12 +234,29 @@ def test_live_tender_page_and_api_keep_auth_and_incremental_empty_error_states(m
     client.cookies.set(settings.SESSION_COOKIE_NAME, token)
     empty_feed = {"items": [], "next_cursor": None, "has_more": False}
     monkeypatch.setattr(queries, "list_live_tenders", lambda **kw: empty_feed)
-    assert client.get("/live-tenders").status_code == 200
+    page = client.get("/live-tenders")
+    assert page.status_code == 200
+    assert "manually added links" in page.text
+    assert 'id="live-last-refresh"' in page.text
+
+    manual_feed = {"items": [{
+        "key": "https://drive.google.com/file/d/manual/view",
+        "url": "https://drive.google.com/file/d/manual/view",
+        "title": "Manually submitted ToR", "source": "drive.google.com",
+        "source_url": "https://drive.google.com/file/d/manual/view", "manual": True,
+        "deadline": "", "first_seen": "2026-11-09T12:00:00+00:00",
+        "first_seen_display": "2026-11-09 12:00 UTC", "first_seen_precision": "time",
+    }], "next_cursor": None, "has_more": False}
+    monkeypatch.setattr(queries, "list_live_tenders", lambda **kw: manual_feed)
+    manual_page = client.get("/live-tenders")
+    assert "Manually added" in manual_page.text
+    assert "Manually submitted ToR" in manual_page.text
 
     calls = []
     monkeypatch.setattr(queries, "list_live_tenders", lambda **kw: (calls.append(kw) or empty_feed.copy()))
     empty = client.get("/api/live-tenders?since=2026-11-08")
     assert empty.status_code == 200 and empty.json()["items"] == []
+    assert datetime.fromisoformat(empty.json()["checked_at"].replace("Z", "+00:00")).tzinfo is not None
     assert calls[-1] == {"limit": 200, "since": "2026-11-08"}
 
     monkeypatch.setattr(queries, "list_live_tenders", lambda **kw: (_ for _ in ()).throw(RuntimeError("offline")))
@@ -214,3 +271,19 @@ def test_live_tender_shell_and_polling_contract():
     assert 'setTimeout(refresh, delay)' in js and 'document.visibilityState' in js
     assert 'new Set(' in js and 'credentials: "same-origin"' in js
     assert "MAX_PAGES_PER_TICK" in js and "data.has_more" in js
+
+
+def test_live_tender_poll_prepends_and_preserves_scrolled_content():
+    js = open("dashboard/static/live-tenders.js", encoding="utf-8").read()
+    assert "list.prepend(li)" in js
+    assert "anchor.getBoundingClientRect().top - anchorTop" in js
+    assert js.index("} finally {") < js.index("var shift = anchor.getBoundingClientRect().top - anchorTop")
+
+
+def test_live_tender_refresh_label_updates_on_success_with_zero_new_rows():
+    js = open("dashboard/static/live-tenders.js", encoding="utf-8").read()
+    assert "date.toLocaleString(undefined" in js
+    checked_at = js.index("checkedAt = data.checked_at || checkedAt")
+    rendered_time = js.index("if (checkedAt) updateRefreshTime(checkedAt)")
+    added_branch = js.index("if (added) status.textContent")
+    assert checked_at < rendered_time < added_branch

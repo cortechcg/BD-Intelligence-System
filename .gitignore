@@ -19,6 +19,7 @@ output/
 # failed_saves/: database/airtable_client.py dumps a JSON per opportunity
 #                whose Airtable save failed, for later replay.
 failed_saves/
+artifacts/screenshots/
 # scraper_diagnosis.txt: empty 0-byte diagnostic capture, no code writes it.
 scraper_diagnosis.txt
 
