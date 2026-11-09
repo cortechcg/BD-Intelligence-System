@@ -1643,7 +1643,10 @@ def record_discovered_opportunity(
             # source-health counter can request the insert-only result so a
             # repeat sighting does not inflate that source's discovered count.
             return not return_created
-        discovered_on = datetime.now().strftime("%Y-%m-%d")
+        # ``discovered_at`` is a timestamp in the live opportunity cache. Keep
+        # the true insertion instant so incremental readers can order new rows
+        # reliably; older date-only values continue to render at date precision.
+        discovered_on = datetime.now(timezone.utc).isoformat(timespec="microseconds")
         payload = {
             "source_url": store_url,
             "title": clean_title,

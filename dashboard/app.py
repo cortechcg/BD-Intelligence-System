@@ -91,6 +91,8 @@ def _static_version() -> str:
         HERE / "static" / "pending.css",
         HERE / "static" / "pending.js",
         HERE / "static" / "design-system.css",
+        HERE / "static" / "light-theme.css",
+        HERE / "static" / "live-tenders.js",
     ]
     try:
         return format(int(max(asset.stat().st_mtime for asset in assets)), "x")
@@ -192,6 +194,7 @@ def _base_context(request: Request, view: str) -> dict:
         "url_portfolio": "/portfolio",
         "url_library": "/library",
         "url_sources": "/sources",
+        "url_live_tenders": "/live-tenders",
         "url_track_record": "/track-record",
         "url_detail": "/opportunity",
         "url_job": "/job",
@@ -359,6 +362,21 @@ def queue_page(request: Request):
         **_spend_context(),
     })
     return templates.TemplateResponse(request, "queue.html", ctx)
+
+
+@app.get("/live-tenders", response_class=HTMLResponse)
+def live_tenders_page(request: Request):
+    ctx = _base_context(request, "live")
+    ctx["poll_ms"] = 0
+    try:
+        feed = queries.list_live_tenders(limit=60)
+        ctx.update({"feed_items": feed["items"], "feed_cursor": feed.get("next_cursor"), "feed_error": ""})
+        ctx["feed_checked_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    except Exception as exc:
+        logger.warning(f"live tenders initial query unavailable ({type(exc).__name__})")
+        ctx.update({"feed_items": [], "feed_cursor": None, "feed_error": "Live listings could not be loaded. Try again."})
+        ctx["feed_checked_at"] = ""
+    return templates.TemplateResponse(request, "live_tenders.html", ctx)
 
 
 @app.get("/opportunity", response_class=HTMLResponse)
@@ -1340,6 +1358,20 @@ def mark_outcome(
 def api_queue(session: dict = Depends(require_session)):
     return {"queue": queries.queue_view(limit=40), "triggers": triggers.recent(12),
             **_spend_context()}
+
+
+@app.get("/api/live-tenders")
+def api_live_tenders(since: str = "", session: dict = Depends(require_session)):
+    """Bounded incremental read of persisted tender rows; it does not scrape."""
+    try:
+        feed = queries.list_live_tenders(limit=200, since=since)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid cursor.")
+    except Exception as exc:
+        logger.warning(f"live tenders refresh unavailable ({type(exc).__name__})")
+        raise HTTPException(status_code=503, detail="Live listings are temporarily unavailable.")
+    feed["checked_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return feed
 
 
 @app.get("/api/opportunity")

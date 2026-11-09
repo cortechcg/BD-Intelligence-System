@@ -274,6 +274,22 @@ def install_fixtures():
     queries.list_ledger_items = lambda limit=200: [queries._ledger_row_to_item(r) for r in LEDGER]
     queries.list_cache_without_ledger = lambda limit=50, scan=2000: (
         [queries._cache_row_to_item(r) for r in CACHE], 1210)
+    def fixture_live_tenders(limit=60, since=""):
+        day = date.today().isoformat()
+        rows = [
+            {"key": URL_CACHE_1, "url": URL_CACHE_1, "title": "Education sector support programme, technical assistance",
+             "source": "EU procurement portal", "source_url": URL_CACHE_1, "deadline": "2026-12-03", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+            {"key": URL_CACHE_2, "url": URL_CACHE_2, "title": "Energy access mission — feasibility study",
+             "source": "African Development Bank", "source_url": URL_CACHE_2, "deadline": "", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+            {"key": URL_SCORED, "url": URL_SCORED, "title": "Water, sanitation and hygiene assessment, Turkana County",
+             "source": "UNICEF procurement", "source_url": URL_SCORED, "deadline": "2026-11-20", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+        ]
+        if since:
+            rows = [row for row in rows if row["first_seen"] >= since]
+        rows.sort(key=lambda row: (row["first_seen"], row["key"]))
+        rows = rows[-min(max(int(limit), 1), 200):]
+        return {"items": rows, "cursor": {"at": day, "key": rows[-1]["key"]} if rows else None}
+    queries.list_live_tenders = fixture_live_tenders
     queries._ledger_one = lambda url: next(
         (queries._ledger_row_to_item(r) for r in LEDGER if r["source_url"] == url), None)
     queries._cache_one = lambda url: next((r for r in CACHE if r["source_url"] == url), None)
@@ -396,6 +412,7 @@ SAMPLE_TRACK_ROWS = [
 
 PAGES = [
     ("queue", "/"),
+    ("live-tenders", "/live-tenders"),
     ("detail-scored", "/opportunity?url=" + URL_SCORED),
     ("detail-drafted", "/opportunity?url=" + URL_DRAFTED),
     ("review-pack", "/opportunity?url=" + URL_DRAFTED + "#stage-5-review"),
@@ -519,7 +536,25 @@ def _step_search_bar(page):
     page.wait_for_timeout(500)
 
 
+def _step_live_update(page):
+    day = date.today().isoformat()
+    def mocked(route):
+        route.fulfill(status=200, content_type="application/json", body=json.dumps({
+            "items": [
+                {"key": URL_CACHE_1, "url": URL_CACHE_1, "title": "Existing fixture row", "source": "EU procurement portal", "source_url": URL_CACHE_1, "deadline": "", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+                {"key": U + "fixture-new-b", "url": U + "fixture-new-b", "title": "SAMPLE UPDATE: rural livelihoods evaluation", "source": "Fixture feed", "source_url": U + "fixture-new-b", "deadline": "", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+                {"key": U + "fixture-new-a", "url": U + "fixture-new-a", "title": "SAMPLE UPDATE: county water services review", "source": "Fixture feed", "source_url": U + "fixture-new-a", "deadline": "2026-12-15", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+            ], "cursor": {"at": day, "key": U + "fixture-new-b"},
+            "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }))
+    page.route("**/api/live-tenders*", mocked)
+    page.wait_for_selector('[data-key="' + U + 'fixture-new-a"]', timeout=9000)
+    assert page.locator('[data-key="' + URL_CACHE_1 + '"]').count() == 1
+    assert "2 new tenders added" in page.locator("#live-status").inner_text()
+
+
 STEPS = {"library-open": _step_library_open, "library-error": _step_library_error,
+         "live-tenders": _step_live_update,
          "pending-pulse-0": _step_pending(0), "pending-pulse-100": _step_pending(100),
          "pending-pulse-340": _step_pending(340), "pending-panel": _step_pending_panel,
          "search-bar": _step_search_bar}

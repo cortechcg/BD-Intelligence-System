@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Live tenders · Cortech BD{% endblock %}
+{% block head_extra %}<script src="{{ static_base }}/live-tenders.js?v={{ static_v }}" defer></script>{% endblock %}
+{% block content %}
+<header class="live-head">
+  <div>
+    <p class="live-eyebrow">Opportunity intake</p>
+    <h1>Live tenders</h1>
+    <p class="live-lead">Recently stored public tender listings from your configured procurement sources.</p>
+  </div>
+  <span class="live-refresh-pill"><span class="live-refresh-dot" aria-hidden="true"></span>Refreshes every 5 seconds</span>
+</header>
+
+<aside class="live-cadence" role="note">
+  <strong>Feed refresh is not source discovery.</strong>
+  <span>This page checks for newly stored listings every five seconds. Source discovery currently runs every two hours.</span>
+</aside>
+
+<section class="live-feed panel" aria-labelledby="live-feed-title">
+  <div class="live-feed__head">
+    <div><p class="live-eyebrow">Stored opportunities</p><h2 id="live-feed-title">Recent listings</h2></div>
+    <div class="live-feed__meta"><span id="live-count">{{ feed_items|length }} listings</span><span id="live-last-refresh">{% if feed_checked_at %}Last refresh {{ feed_checked_at[:19].replace("T", " ") }} UTC{% else %}Not refreshed yet{% endif %}</span></div>
+  </div>
+  <p id="live-status" class="live-status{% if feed_error %} is-error{% endif %}" role="status" aria-live="polite">{% if feed_error %}{{ feed_error }}{% elif not feed_items %}No stored listings yet. The feed will check again shortly.{% else %}Showing recent stored listings.{% endif %}</p>
+  <button id="live-retry" class="btn btn--quiet live-retry" type="button" hidden>Retry now</button>
+  <ol id="live-list" class="live-list" data-cursor="{{ feed_cursor or '' }}" aria-busy="false">
+    {% for item in feed_items %}
+    <li class="live-card" data-key="{{ item.key }}">
+      <div class="live-card__main">
+        <h3><a href="/opportunity?url={{ item.url|urlencode }}">{{ item.title or "Untitled tender" }}</a></h3>
+        <div class="live-card__source">Source: <a href="{{ item.source_url }}" target="_blank" rel="noopener noreferrer">{{ item.source }}</a></div>
+      </div>
+      <dl class="live-card__facts">
+        <div><dt>Deadline</dt><dd>{{ item.deadline or "Not recorded" }}</dd></div>
+        <div><dt>First seen</dt><dd>{% if item.first_seen %}<time datetime="{{ item.first_seen }}">{{ item.first_seen_display }}</time>{% if item.first_seen_precision == 'date' %} <span class="live-date-precision">(date)</span>{% endif %}{% else %}Not recorded{% endif %}</dd></div>
+      </dl>
+    </li>
+    {% endfor %}
+  </ol>
+  <div id="live-empty" class="live-empty" {% if feed_items %}hidden{% endif %}><strong>No stored tenders to show</strong><span>New listings appear here after a source discovery run stores them.</span></div>
+</section>
+{% endblock %}

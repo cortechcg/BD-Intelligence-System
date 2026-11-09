@@ -121,14 +121,14 @@ def client(monkeypatch):
 
 
 def test_pages_redirect_anonymous_users_to_login(client):
-    for path in ("/", "/portfolio", "/library", "/sources", "/opportunity?url=x", "/draft?url=x"):
+    for path in ("/", "/portfolio", "/library", "/sources", "/live-tenders", "/opportunity?url=x", "/draft?url=x"):
         r = client.get(path)
         assert r.status_code == 302, path
         assert r.headers["location"] == "/auth/login"
 
 
 def test_api_returns_401_for_anonymous_users(client):
-    for path in ("/api/queue", "/api/portfolio", "/api/library", "/api/consultants", "/api/opportunity?url=x"):
+    for path in ("/api/queue", "/api/portfolio", "/api/library", "/api/consultants", "/api/opportunity?url=x", "/api/live-tenders"):
         r = client.get(path)
         assert r.status_code == 401, path
 

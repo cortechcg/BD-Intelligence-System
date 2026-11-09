@@ -11,10 +11,16 @@ This module never writes. Triggering lives in ``dashboard/triggers.py``.
 """
 from __future__ import annotations
 
+import base64
+import binascii
+import json
 import math
 import time
 from collections.abc import Iterable
+from datetime import date, datetime, time as datetime_time, timezone
 from typing import Any
+from urllib.parse import urlsplit
+from uuid import UUID
 
 from loguru import logger
 
@@ -323,6 +329,157 @@ def list_cache_without_ledger(limit: int = 50, scan: int = 2000) -> tuple[list[d
     ]
     waiting.sort(key=_cache_title_rank, reverse=True)
     return [_cache_row_to_item(row) for row in waiting[:limit]], int(total)
+
+
+_LIVE_CURSOR_MIN_ID = "00000000-0000-0000-0000-000000000000"
+
+
+def _live_cursor_timestamp(value: str) -> str:
+    """Normalize a date or timezone-aware timestamp to UTC."""
+    raw = str(value)
+    if len(raw) == 10:
+        parsed = datetime.combine(date.fromisoformat(raw), datetime_time.min, tzinfo=timezone.utc)
+    else:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("Cursor timestamp must include a timezone.")
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.isoformat(timespec="microseconds")
+
+
+def _encode_live_tender_cursor(timestamp: str, row_id: str) -> str:
+    payload = json.dumps(
+        {"ts": _live_cursor_timestamp(timestamp), "id": str(UUID(str(row_id)))},
+        separators=(",", ":"), sort_keys=True,
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+
+
+def _decode_live_tender_cursor(value: str) -> tuple[str, str]:
+    """Decode a composite token or accept a legacy timestamp cursor.
+
+    Rows inserted later with a timestamp older than this forward cursor cannot
+    appear until a fresh initial read.
+    """
+    raw = str(value or "")
+    if not raw or len(raw) > 2048:
+        raise ValueError("Invalid live tender cursor.")
+    try:
+        try:
+            return _live_cursor_timestamp(raw), _LIVE_CURSOR_MIN_ID
+        except (ValueError, OverflowError):
+            pass
+        encoded = raw.encode("ascii")
+        encoded += b"=" * (-len(encoded) % 4)
+        payload = base64.b64decode(encoded, altchars=b"-_", validate=True)
+        data = json.loads(payload.decode("utf-8"))
+        if not isinstance(data, dict) or set(data) != {"ts", "id"}:
+            raise ValueError("Invalid live tender cursor payload.")
+        return _live_cursor_timestamp(data["ts"]), str(UUID(str(data["id"])))
+    except (binascii.Error, UnicodeDecodeError, TypeError, KeyError, ValueError, OverflowError) as exc:
+        raise ValueError("Invalid live tender cursor.") from exc
+
+
+def list_live_tenders(*, limit: int = 60, since: str = "") -> dict:
+    """Read bounded pages with a ``(discovered_at, id)`` keyset cursor.
+
+    ``id`` breaks timestamp ties only; it is not an insertion-order signal.
+    Late rows with older date-only timestamps cannot appear after this cursor.
+    """
+    limit = max(1, min(int(limit), 200))
+    cursor = _decode_live_tender_cursor(since) if since else None
+
+    sb = get_supabase()
+    selection = "id,source_url,title,donor,discovered_at,source_metadata"
+    query = sb.table("opportunities_cache").select(selection)
+    if cursor:
+        cursor_ts, cursor_id = cursor
+        # PostgREST accepts this standard OR/AND filter and URL-encodes values.
+        query = query.or_(
+            f"discovered_at.gt.{cursor_ts},and(discovered_at.eq.{cursor_ts},id.gt.{cursor_id})"
+        ).order("discovered_at", desc=False).order("id", desc=False)
+    else:
+        # Initial view is the newest bounded slice; subsequent pages move forward.
+        query = query.order("discovered_at", desc=True).order("id", desc=True)
+    res = query.limit(limit).execute()
+    rows = [row for row in (res.data or []) if isinstance(row, dict) and row.get("source_url")]
+
+    urls = list(dict.fromkeys(str(row["source_url"]) for row in rows))
+    deadlines: dict[str, str] = {}
+    if urls:
+        try:
+            ledger = (
+                sb.table("opportunity_processing")
+                .select("source_url,cp_deadline:checkpoint->analysis->opportunity->>submission_deadline")
+                .in_("source_url", urls[:limit])
+                .limit(limit)
+                .execute()
+            )
+            deadlines = {
+                str(row.get("source_url")): str(row.get("cp_deadline") or "")
+                for row in (ledger.data or []) if isinstance(row, dict)
+            }
+        except Exception as exc:
+            # Listing remains useful when older deployments lack the optional
+            # extracted deadline expression.
+            logger.debug(f"live tender deadline lookup unavailable ({type(exc).__name__})")
+
+    output = []
+    seen = set()
+    for row in rows:
+        raw_url = str(row.get("source_url") or "")
+        canonical = _canon(raw_url)
+        if not canonical or canonical in seen:
+            continue
+        parsed = urlsplit(canonical)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            continue
+        seen.add(canonical)
+        metadata = row.get("source_metadata") if isinstance(row.get("source_metadata"), dict) else {}
+        source_url = str(metadata.get("original_source_url") or raw_url)
+        source_parsed = urlsplit(source_url)
+        if source_parsed.scheme not in ("http", "https") or not source_parsed.netloc:
+            source_url = canonical
+            source_parsed = parsed
+        source_name = str(metadata.get("source_portal") or metadata.get("source_name") or source_parsed.hostname or "")[:160]
+        title = str(row.get("title") or "").strip()
+        if title.lower() == "unknown":
+            title = ""
+        first_seen = str(row.get("discovered_at") or "")
+        first_seen_precision = "date"
+        first_seen_display = first_seen[:10] if first_seen else ""
+        try:
+            if "T" in first_seen:
+                stamp = datetime.fromisoformat(first_seen.replace("Z", "+00:00"))
+                if stamp.tzinfo is not None and stamp.timetz().replace(tzinfo=None).isoformat() != "00:00:00":
+                    first_seen_precision = "time"
+                    first_seen_display = stamp.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        except ValueError:
+            pass
+        output.append({
+            "key": canonical,
+            "_row_id": str(row.get("id") or ""),
+            "url": canonical,
+            "title": title,
+            "source": source_name,
+            "source_url": source_url,
+            "deadline": deadlines.get(raw_url, ""),
+            "first_seen": first_seen,
+            "first_seen_display": first_seen_display,
+            "first_seen_precision": first_seen_precision,
+        })
+    output.sort(key=lambda item: (_live_cursor_timestamp(item["first_seen"]), item["_row_id"]))
+    cursor_row = (rows[-1] if cursor else rows[0]) if rows else None
+    next_cursor = None
+    if cursor_row and cursor_row.get("discovered_at") and cursor_row.get("id"):
+        next_cursor = _encode_live_tender_cursor(cursor_row["discovered_at"], cursor_row["id"])
+    for item in output:
+        item.pop("_row_id", None)
+    return {
+        "items": output,
+        "has_more": bool(cursor and len(rows) == limit),
+        "next_cursor": next_cursor,
+    }
 
 
 HALTED_STATES = ("failed", "dead_letter", "spend_cap", "cancelled")
