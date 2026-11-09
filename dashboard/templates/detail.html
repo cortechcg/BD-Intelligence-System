@@ -478,7 +478,7 @@
       <input type="hidden" name="source_url" value="{{ d.source_url }}">
       <div class="row">
         <input type="file" name="final_file" accept=".pdf,.docx,.txt,.md" required aria-label="Final version, PDF, Word, or text">
-        <button class="btn" type="submit">Grade this version</button>
+        <button class="btn" type="submit">{% if fg.get("rows") %}Grade the final version{% else %}Grade this version{% endif %}</button>
       </div>
       <p class="field__hint">PDF, Word, or text. The agent draft is left as it is. Nothing is sent to the client.</p>
     </form>

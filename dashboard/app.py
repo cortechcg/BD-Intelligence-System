@@ -370,7 +370,7 @@ def live_tenders_page(request: Request):
     ctx["poll_ms"] = 0
     try:
         feed = queries.list_live_tenders(limit=60)
-        ctx.update({"feed_items": feed["items"], "feed_cursor": feed["cursor"], "feed_error": ""})
+        ctx.update({"feed_items": feed["items"], "feed_cursor": feed.get("next_cursor"), "feed_error": ""})
         ctx["feed_checked_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     except Exception as exc:
         logger.warning(f"live tenders initial query unavailable ({type(exc).__name__})")
@@ -1366,7 +1366,7 @@ def api_live_tenders(since: str = "", session: dict = Depends(require_session)):
     try:
         feed = queries.list_live_tenders(limit=200, since=since)
     except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid cursor date.")
+        raise HTTPException(status_code=400, detail="Invalid cursor.")
     except Exception as exc:
         logger.warning(f"live tenders refresh unavailable ({type(exc).__name__})")
         raise HTTPException(status_code=503, detail="Live listings are temporarily unavailable.")

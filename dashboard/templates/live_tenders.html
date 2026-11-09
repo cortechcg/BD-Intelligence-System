@@ -23,7 +23,7 @@
   </div>
   <p id="live-status" class="live-status{% if feed_error %} is-error{% endif %}" role="status" aria-live="polite">{% if feed_error %}{{ feed_error }}{% elif not feed_items %}No stored listings yet. The feed will check again shortly.{% else %}Showing recent stored listings.{% endif %}</p>
   <button id="live-retry" class="btn btn--quiet live-retry" type="button" hidden>Retry now</button>
-  <ol id="live-list" class="live-list" data-cursor-at="{{ feed_cursor.at if feed_cursor else '' }}" data-cursor-key="{{ feed_cursor.key if feed_cursor else '' }}" aria-busy="false">
+  <ol id="live-list" class="live-list" data-cursor="{{ feed_cursor or '' }}" aria-busy="false">
     {% for item in feed_items %}
     <li class="live-card" data-key="{{ item.key }}">
       <div class="live-card__main">
