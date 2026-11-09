@@ -91,7 +91,7 @@ def _static_version() -> str:
         HERE / "static" / "pending.css",
         HERE / "static" / "pending.js",
         HERE / "static" / "design-system.css",
-        HERE / "static" / "light-theme.css",
+        HERE / "static" / "theme.css",
         HERE / "static" / "live-tenders.js",
     ]
     try:
