@@ -277,18 +277,22 @@ def install_fixtures():
     def fixture_live_tenders(limit=60, since=""):
         day = date.today().isoformat()
         rows = [
+            {"key": "https://docs.google.com/document/d/sample-manual-notice", "url": "https://docs.google.com/document/d/sample-manual-notice",
+             "title": "SAMPLE: County water services brief", "source": "Google Docs link",
+             "source_url": "https://docs.google.com/document/d/sample-manual-notice", "manual": True,
+             "deadline": "2026-12-15", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
             {"key": URL_CACHE_1, "url": URL_CACHE_1, "title": "Education sector support programme, technical assistance",
-             "source": "EU procurement portal", "source_url": URL_CACHE_1, "deadline": "2026-12-03", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+             "source": "EU procurement portal", "source_url": URL_CACHE_1, "deadline": "2026-12-03", "first_seen": (date.today() - timedelta(days=1)).isoformat(), "first_seen_display": (date.today() - timedelta(days=1)).isoformat(), "first_seen_precision": "date"},
             {"key": URL_CACHE_2, "url": URL_CACHE_2, "title": "Energy access mission — feasibility study",
-             "source": "African Development Bank", "source_url": URL_CACHE_2, "deadline": "", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+             "source": "African Development Bank", "source_url": URL_CACHE_2, "deadline": "", "first_seen": (date.today() - timedelta(days=2)).isoformat(), "first_seen_display": (date.today() - timedelta(days=2)).isoformat(), "first_seen_precision": "date"},
             {"key": URL_SCORED, "url": URL_SCORED, "title": "Water, sanitation and hygiene assessment, Turkana County",
-             "source": "UNICEF procurement", "source_url": URL_SCORED, "deadline": "2026-11-20", "first_seen": day, "first_seen_display": day, "first_seen_precision": "date"},
+             "source": "UNICEF procurement", "source_url": URL_SCORED, "deadline": "2026-11-20", "first_seen": (date.today() - timedelta(days=3)).isoformat(), "first_seen_display": (date.today() - timedelta(days=3)).isoformat(), "first_seen_precision": "date"},
         ]
         if since:
             rows = [row for row in rows if row["first_seen"] >= since]
-        rows.sort(key=lambda row: (row["first_seen"], row["key"]))
-        rows = rows[-min(max(int(limit), 1), 200):]
-        return {"items": rows, "cursor": {"at": day, "key": rows[-1]["key"]} if rows else None}
+        rows.sort(key=lambda row: (row["first_seen"], row["key"]), reverse=True)
+        rows = rows[:min(max(int(limit), 1), 200)]
+        return {"items": rows, "cursor": {"at": rows[0]["first_seen"], "key": rows[0]["key"]} if rows else None}
     queries.list_live_tenders = fixture_live_tenders
     queries._ledger_one = lambda url: next(
         (queries._ledger_row_to_item(r) for r in LEDGER if r["source_url"] == url), None)
